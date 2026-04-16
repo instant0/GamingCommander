@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\GamingCommander.Core\GamingCommander.Core.csproj" />
+    <ProjectReference Include="..\GamingCommander.Detection\GamingCommander.Detection.csproj" />
+    <ProjectReference Include="..\GamingCommander.Migration\GamingCommander.Migration.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

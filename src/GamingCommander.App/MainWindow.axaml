@@ -1,0 +1,125 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:GamingCommander.UI.ViewModels"
+        x:Class="GamingCommander.App.MainWindow"
+        x:DataType="vm:ShellViewModel"
+        mc:Ignorable="d"
+        Title="GamingCommander"
+        Width="1280"
+        Height="820"
+        MinWidth="900"
+        MinHeight="600"
+        CanResize="True"
+        d:DesignWidth="1280"
+        d:DesignHeight="820">
+  <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="12">
+    <Border Grid.Row="0" Classes="pane" Padding="12" Margin="0,0,0,10">
+      <StackPanel Spacing="4">
+        <TextBlock Text="GamingCommander" FontWeight="Bold" FontSize="20" Foreground="#8CD8FF" />
+        <TextBlock Text="{Binding InteractionHint}" TextWrapping="Wrap" Foreground="#7FB7A5" />
+      </StackPanel>
+    </Border>
+
+    <Grid Grid.Row="1" ColumnDefinitions="*,6,*">
+      <Border Grid.Column="0" Classes="pane">
+        <Grid RowDefinitions="Auto,*">
+          <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,4">
+            <TextBlock Grid.Column="0" Classes="pane-header" Text="{Binding LeftPaneTitle}" />
+            <TextBlock Grid.Column="1" Text="{Binding ItemCount, StringFormat='({0} items)'}"
+                       Foreground="#3BA7FF" FontSize="11" VerticalAlignment="Center" Margin="12,0,0,0" />
+          </Grid>
+          <ListBox Grid.Row="1"
+                   x:Name="LeftListBox"
+                   ItemsSource="{Binding Items}"
+                   SelectedIndex="{Binding SelectedIndex}"
+                   Margin="0,2,0,0">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:ShellPaneItemViewModel">
+                <Border BorderBrush="#243340" BorderThickness="0,0,0,1" Padding="4,6">
+                  <Grid ColumnDefinitions="2*,Auto" RowDefinitions="Auto,Auto">
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Title}" FontWeight="Bold"
+                               FontSize="14" />
+                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SourceLabel}"
+                               Foreground="#8CD8FF" Margin="12,0,0,0" VerticalAlignment="Center" />
+                    <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding PathSummary}"
+                               TextWrapping="Wrap" Foreground="#6A7E8E" FontSize="11" />
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Grid>
+      </Border>
+
+      <GridSplitter Grid.Column="1"
+                    Width="6"
+                    HorizontalAlignment="Stretch"
+                    Background="#3BA7FF"
+                    ResizeDirection="Columns" />
+
+      <Border Grid.Column="2" Classes="pane">
+        <Grid RowDefinitions="Auto,*,Auto">
+          <TextBlock Grid.Row="0" Classes="pane-header" Text="{Binding RightPaneTitle}" />
+
+          <StackPanel Grid.Row="1" Spacing="4" Margin="0,4,0,0">
+            <TextBlock Text="Name" Foreground="#6A7E8E" FontSize="11" />
+            <TextBlock Text="{Binding DetailsName}" FontWeight="Bold" FontSize="16" TextWrapping="Wrap"
+                       Foreground="#D7E2F0" />
+
+            <TextBlock Text="Path" Foreground="#6A7E8E" FontSize="11" Margin="0,12,0,0" />
+            <TextBlock Text="{Binding DetailsPath}" TextWrapping="Wrap" FontSize="11"
+                       Foreground="#A0B4C4" />
+
+            <TextBlock Text="Type" Foreground="#6A7E8E" FontSize="11" Margin="0,12,0,0" />
+            <TextBlock Text="{Binding DetailsType}" Foreground="#8CD8FF" FontSize="12" />
+
+            <TextBlock Text="Resolved Type" Foreground="#6A7E8E" FontSize="11" Margin="0,12,0,0" />
+            <TextBlock Text="{Binding DetailsResolvedType}" Foreground="#7FB7A5" FontSize="12" />
+
+            <TextBlock Text="Last Modified" Foreground="#6A7E8E" FontSize="11" Margin="0,12,0,0" />
+            <TextBlock Text="{Binding DetailsLastModified}" Foreground="#A0B4C4" FontSize="12" />
+
+            <TextBlock Text="Executable" Foreground="#6A7E8E" FontSize="11" Margin="0,12,0,0" />
+            <TextBlock Text="{Binding DetailsExecutable}" Foreground="#7FB7A5" TextWrapping="Wrap" FontSize="11" />
+
+            <TextBlock Text="Press T to tag this folder with a different type."
+                       Foreground="#3BA7FF" FontSize="11" Margin="0,16,0,0"
+                       TextWrapping="Wrap"
+                       IsVisible="{Binding IsFolderSelected}" />
+            <TextBlock Text="No item selected — use arrow keys to navigate."
+                       Foreground="#3A4A5A" FontStyle="Italic" FontSize="12" Margin="0,16,0,0"
+                       IsVisible="{Binding !HasSelection}" />
+          </StackPanel>
+
+          <StackPanel Grid.Row="2" Spacing="4" Margin="0,12,0,0">
+            <TextBlock Text="{Binding ConfiguredRootsCount}" Foreground="#3BA7FF" FontSize="11" />
+          </StackPanel>
+        </Grid>
+      </Border>
+    </Grid>
+
+    <Border Grid.Row="2" Classes="pane" Padding="10" Margin="0,10,0,10">
+      <TextBlock Classes="status-line" Text="{Binding StatusText}" TextWrapping="Wrap" />
+    </Border>
+
+    <ItemsControl Grid.Row="3" ItemsSource="{Binding Commands}">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <WrapPanel Orientation="Horizontal" ItemWidth="120" />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:ShellCommandViewModel">
+          <Border BorderBrush="#305A74" BorderThickness="1" Background="#14202A" Padding="6" Margin="0,0,8,8">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Text="{Binding Hotkey}" Foreground="#F8E38C" FontWeight="Bold" />
+              <TextBlock Text="{Binding Label}" />
+            </StackPanel>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+  </Grid>
+</Window>

@@ -1,0 +1,31 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GamingCommander.App.ViewModels"
+        x:Class="GamingCommander.App.LibrarySetupWindow"
+        x:DataType="vm:LibrarySetupViewModel"
+        Title="Library Root Setup"
+        Width="650"
+        Height="480"
+        CanResize="False"
+        WindowStartupLocation="CenterScreen">
+  <Grid RowDefinitions="Auto,*,Auto" Margin="20">
+    <StackPanel Grid.Row="0" Spacing="4" Margin="0,0,0,16">
+      <TextBlock Text="Library Root Setup" FontWeight="Bold" FontSize="18" Foreground="#8CD8FF" />
+      <TextBlock Text="Add, remove, or rescan library roots. Changes apply immediately."
+                 Foreground="#6A7E8E" FontSize="12" />
+    </StackPanel>
+
+    <Border Grid.Row="1" BorderBrush="#3BA7FF" BorderThickness="1" Background="#0F141A" Padding="12">
+      <ScrollViewer>
+        <StackPanel x:Name="RootsPanel" Spacing="0" />
+      </ScrollViewer>
+    </Border>
+
+    <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right" Margin="0,16,0,0">
+      <Button x:Name="AddRootButton" Content="+ Add Root" Background="#1A3A4A" Foreground="#8CD8FF"
+              Padding="16,8" />
+      <Button x:Name="CloseButton" Content="Close" Background="#1A2A3A" Foreground="#8CD8FF"
+              Padding="20,8" />
+    </StackPanel>
+  </Grid>
+</Window>

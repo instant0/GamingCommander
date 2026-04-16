@@ -1,0 +1,27 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="GamingCommander.App.App"
+             RequestedThemeVariant="Dark">
+  <Application.Styles>
+    <FluentTheme />
+    <Style Selector="Window">
+      <Setter Property="Background" Value="#10161C" />
+      <Setter Property="Foreground" Value="#D7E2F0" />
+      <Setter Property="FontFamily" Value="Cascadia Mono,Consolas,Monospace" />
+    </Style>
+    <Style Selector="Border.pane">
+      <Setter Property="BorderBrush" Value="#3BA7FF" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="8" />
+      <Setter Property="Background" Value="#0F141A" />
+    </Style>
+    <Style Selector="TextBlock.pane-header">
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Foreground" Value="#8CD8FF" />
+      <Setter Property="Margin" Value="0,0,0,8" />
+    </Style>
+    <Style Selector="TextBlock.status-line">
+      <Setter Property="Foreground" Value="#F8E38C" />
+    </Style>
+  </Application.Styles>
+</Application>

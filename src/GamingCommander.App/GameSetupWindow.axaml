@@ -1,0 +1,19 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="GamingCommander.App.GameSetupWindow"
+        Title="Configure Game"
+        Width="520"
+        Height="460"
+        CanResize="False"
+        WindowStartupLocation="CenterScreen">
+  <StackPanel Margin="20" Spacing="12">
+    <StackPanel Spacing="4">
+      <TextBlock x:Name="TitleText" Text="Configure Game" FontWeight="Bold" FontSize="18" Foreground="#8CD8FF" />
+      <TextBlock x:Name="SubtitleText" Text="" Foreground="#6A7E8E" FontSize="11" TextWrapping="Wrap" />
+    </StackPanel>
+
+    <ScrollViewer>
+      <StackPanel x:Name="FieldsPanel" Spacing="10" />
+    </ScrollViewer>
+  </StackPanel>
+</Window>

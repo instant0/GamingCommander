@@ -1,0 +1,73 @@
+# Build outputs — depth-safe, case-variant-safe patterns
+bin/
+obj/
+[Bb]in/
+[Oo]bj/
+**/bin/
+**/obj/
+artifacts/
+out/
+
+# IDE / editor
+.vs/
+.idea/
+.vscode/
+
+# Git
+.git/
+
+# Planning / local automation artifacts
+.sisyphus/
+
+# OS noise
+Thumbs.db
+Desktop.ini
+
+# Secrets / environment
+.env
+.env.*
+*.secret
+*.secrets.json
+
+# Local data and caches
+coverage/
+TestResults/
+logs/
+tmp/
+temp/
+
+# Game / launcher local state
+data/cache/
+data/scans/
+data/imports/
+data/private/
+*.acf.bak
+*.item.bak
+*.manifest.bak
+
+# Packages / generated assets
+packages/
+node_modules/
+
+# Explicit binaries to ignore (edge-case)
+**/*.dll
+**/*.DLL
+**/*.exe
+**/*.EXE
+**/*.pdb
+**/*.PDB
+**/Release/
+**/Debug/
+
+# .NET build artifacts
+*.dll
+*.pdb
+*.exe
+*.runtimeconfig.json
+*.deps.json
+*.AssemblyInfo.cs
+*.GlobalUsings.g.cs
+*.assets.cache
+*.nuget.*
+project.assets.json
+project.nuget.cache

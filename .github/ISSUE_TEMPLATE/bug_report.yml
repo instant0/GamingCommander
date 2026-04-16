@@ -1,0 +1,50 @@
+name: Bug Report
+description: Report a defect or regression
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What broke?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Provide a clear reproduction path.
+      placeholder: |
+        1. Open ...
+        2. Select ...
+        3. Press ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, .NET version, app version
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots / extra context

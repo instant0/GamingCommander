@@ -1,0 +1,69 @@
+# Build outputs — depth-safe, case-variant-safe patterns
+[Bb]in/
+[Oo]bj/
+**/[Bb]in/
+**/[Oo]bj/
+artifacts/
+out/
+
+# Test / coverage
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+# User-specific IDE files
+*.user
+*.rsuser
+*.suo
+*.userprefs
+
+# IDE directories
+.vs/
+.idea/
+.vscode/
+
+# NuGet
+*.nupkg
+packages/
+
+# .NET build artifacts
+*.dll
+*.pdb
+*.exe
+*.runtimeconfig.json
+*.deps.json
+*.AssemblyInfo.cs
+*.GlobalUsings.g.cs
+
+# Logs / temp
+logs/
+tmp/
+temp/
+*.log
+
+# OS noise
+Thumbs.db
+Desktop.ini
+
+# Secrets / local config
+.env
+.env.*
+appsettings.Local.json
+appsettings.Development.local.json
+*.secrets.json
+
+# Local application data
+data/cache/
+data/scans/
+data/private/
+
+# Explicit binaries (edge-case)
+**/*.dll
+**/*.DLL
+**/*.exe
+**/*.EXE
+**/*.pdb
+**/*.PDB
+**/Release/
+**/Debug/
