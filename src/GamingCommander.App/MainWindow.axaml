@@ -34,6 +34,7 @@
                    x:Name="LeftListBox"
                    ItemsSource="{Binding Items}"
                    SelectedIndex="{Binding SelectedIndex}"
+                   DoubleTapped="LeftListBox_DoubleTapped"
                    Margin="0,2,0,0">
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="vm:ShellPaneItemViewModel">
@@ -112,10 +113,11 @@
       </ItemsControl.ItemsPanel>
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="vm:ShellCommandViewModel">
-          <Border BorderBrush="#305A74" BorderThickness="1" Background="#14202A" Padding="6" Margin="0,0,8,8">
+          <Border Background="#14202A" Padding="6" Margin="0,0,8,8"
+                  Tag="{Binding Hotkey}" PointerPressed="CommandButtonPressed">
             <StackPanel Orientation="Horizontal" Spacing="6">
               <TextBlock Text="{Binding Hotkey}" Foreground="#F8E38C" FontWeight="Bold" />
-              <TextBlock Text="{Binding Label}" />
+              <TextBlock Text="{Binding Label}" Foreground="#6A7E8E" />
             </StackPanel>
           </Border>
         </DataTemplate>

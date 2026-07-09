@@ -86,7 +86,7 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
         var newRoots = config.LibraryRoots
             .Where(r => !r.Path.Equals(entry.Path, StringComparison.OrdinalIgnoreCase))
             .ToList();
-        _configService.Save(new AppConfig(newRoots, config.FolderOverrides, config.IsFirstRun));
+        _configService.Save(new AppConfig(newRoots, config.FolderOverrides, config.HiddenFolders, config.IsFirstRun));
     }
 
     public void Close()

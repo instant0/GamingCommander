@@ -22,12 +22,12 @@ public partial class WizardWindow : Window
         _entriesPanel = this.FindControl<StackPanel>("EntriesPanel")!;
         _progressText = this.FindControl<TextBlock>("ScanProgressText")!;
 
-        this.FindControl<Button>("AddFolderButton").Click += async (_, _) =>
+        this.FindControl<Button>("AddFolderButton")!.Click += async (_, _) =>
         {
             await _vm.AddEntryAsync();
         };
-        this.FindControl<Button>("SkipButton").Click += (_, _) => _vm.Cancel();
-        this.FindControl<Button>("FinishButton").Click += (_, _) => _vm.Finish();
+        this.FindControl<Button>("SkipButton")!.Click += (_, _) => _vm.Cancel();
+        this.FindControl<Button>("FinishButton")!.Click += (_, _) => _vm.Finish();
 
         _vm.Entries.CollectionChanged += (_, _) => RenderEntries();
         _vm.PropertyChanged += (_, e) =>
@@ -55,6 +55,25 @@ public partial class WizardWindow : Window
                 MinWidth = 30,
             };
             removeBtn.Click += (_, _) => _vm.RemoveEntry(captured);
+            Grid.SetColumn(removeBtn, 4);
+
+            var scanBtn = new Button
+            {
+                Content = entry.IsScanned ? "Rescan" : "Scan",
+                Background = new SolidColorBrush(Color.Parse("#1A3A4A")),
+                Foreground = new SolidColorBrush(Color.Parse("#8CD8FF")),
+                Padding = new Thickness(8, 4),
+                MinWidth = 60,
+                IsEnabled = !entry.IsScanning,
+            };
+            scanBtn.Click += async (_, _) =>
+            {
+                scanBtn.IsEnabled = false;
+                scanBtn.Content = "...";
+                await _vm.ScanEntryAsync(captured);
+                RenderEntries();
+            };
+            Grid.SetColumn(scanBtn, 3);
 
             var combo = new ComboBox
             {
@@ -64,10 +83,12 @@ public partial class WizardWindow : Window
                 Margin = new Thickness(8, 0),
             };
             combo.SelectionChanged += (_, _) => entry.SelectedType = combo.SelectedItem?.ToString() ?? "Standalone";
+            Grid.SetColumn(combo, 1);
 
             var scanBadge = new TextBlock
             {
-                Text = entry.GameCount > 0 ? $"{entry.GameCount} games"
+                Text = entry.IsScanning ? "scanning..."
+                    : entry.GameCount > 0 ? $"{entry.GameCount} games"
                     : entry.IsScanned ? "0 games"
                     : "not scanned",
                 Foreground = new SolidColorBrush(Color.Parse("#7FB7A5")),
@@ -75,6 +96,7 @@ public partial class WizardWindow : Window
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(8, 0, 0, 0),
             };
+            Grid.SetColumn(scanBadge, 2);
 
             var border = new Border
             {
@@ -88,6 +110,7 @@ public partial class WizardWindow : Window
                         new ColumnDefinition(1, GridUnitType.Star),
                         new ColumnDefinition(110, GridUnitType.Pixel),
                         new ColumnDefinition(90, GridUnitType.Pixel),
+                        new ColumnDefinition(70, GridUnitType.Pixel),
                         new ColumnDefinition(40, GridUnitType.Pixel),
                     ],
                     Children =
@@ -95,6 +118,7 @@ public partial class WizardWindow : Window
                         new TextBlock { Text = entry.Path, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center, FontSize = 12 },
                         combo,
                         scanBadge,
+                        scanBtn,
                         removeBtn,
                     },
                 },

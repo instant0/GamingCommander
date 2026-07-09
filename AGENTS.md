@@ -4,166 +4,240 @@ Repository guidance for human contributors and coding agents.
 
 ---
 
-## CRITICAL OPERATING RULES
+## Repository Rules
 
-These rules must always be followed, regardless of context state.
+Read this file before making repository changes.
 
-### No Plannotator
-- Use direct bash/edit/write tool calls only. No LLM-based planning tools.
+The purpose of this file is to define stable operating rules. Project progress, current tasks, and changing decisions belong in `planning/`.
 
-### Compact Output Only
-- After a successful build + test cycle: state "Build clean, continuing with X" — no full summaries, no dumps, no essays.
+---
 
-### Post-Compact Output
-After any context compact, output only:
-1. **Current state** — brief summary of what was just completed
-2. **Operating rules** — key constraints (no Plannotator, privacy, build→compact status)
-3. **Next step** — what the plan says to do next
-4. **Confirmation prompt** — "Continue with [next step]?"
-- Do **not** dump full plan documents, file listings, or detailed status reports.
+## Critical Operating Rules
 
-### Privacy
-- Python helper scripts (`tools/`) and real library data are dev-only.
-- Never disclose concrete library paths, game names, or Python script outputs back to the Agent.
+### Direct Implementation
+
+* Use direct repository tools for implementation.
+* Do not use external planning systems or hidden task trackers.
+* Keep changes visible and reviewable.
+
+### Compact Output
+
+Keep responses concise.
+
+After a successful build and test cycle:
+
+`Build clean, continuing with <next task>`
+
+Do not provide large summaries unless explicitly requested.
+
+### After Context Compaction
+
+After any context reset or compaction, provide only:
+
+1. Current state
+2. Operating constraints
+3. Next step
+4. Confirmation prompt
+
+Do not dump entire plans, file trees, or repository summaries.
+
+---
+
+## Privacy and Repository Boundaries
+
+Only access files inside:
+
+`/home/malware/projects/gamingCommander`
+
+Do not inspect external paths unless explicitly authorized.
+
+Do not disclose:
+
+* local machine paths,
+* game library locations,
+* generated launcher data,
+* private test data.
 
 ---
 
 ## Project Intent
 
-GamingCommander is a C# Windows-native game management and launcher application with a retro Norton Commander-inspired interface. It is intended to:
+GamingCommander is a C# Windows-native game management and launcher application.
 
-- discover games from supported launchers and stand-alone folders,
-- display useful technical metadata for each game,
-- launch games safely through their owning platform or executable,
-- support safe game migration between folders,
-- eventually sync metadata from a GitHub-hosted source.
+Goals:
 
-## Current Status
+* discover installed games,
+* collect technical metadata,
+* launch games safely,
+* support migration between locations,
+* support multiple game platforms.
 
-This repository is in early planning/bootstrap stage.
+Primary targets:
 
-Until implementation exists, prefer creating foundational structure over premature feature code.
+* Standalone games
+* Steam
+* Future support:
+
+  * GOG Galaxy
+  * Epic Games Store
+  * EA App
+  * Ubisoft Connect
+
+---
 
 ## Technical Direction
 
-- Language: C#
-- Platform target: Windows
-- Source control: Git + GitHub
-- UI direction: retro text-mode / terminal-inspired UX with Windows-native packaging and behavior
-- UI must be resizable and adaptive to window width/height; emulate the Norton Commander style, not a fixed 80-column DOS constraint
-- Initial functional scope: stand-alone games + Steam first
-- Follow-up launchers: GOG Galaxy, Epic Games Store, EA App, Ubisoft Connect
+Language:
+
+* C#
+
+Platform:
+
+* Windows
+
+UI:
+
+* Retro Norton Commander-inspired interface.
+* Resizable and adaptive.
+* Do not assume fixed terminal dimensions.
+
+Source control:
+
+* Git + GitHub
+
+---
 
 ## Architecture Principles
 
-1. Keep store integrations isolated behind explicit interfaces.
-2. Separate UI, domain logic, detection, and migration logic into distinct projects.
-3. Prefer read-only detection logic; mutation paths must be explicit and heavily validated.
-4. Treat migration as a safety-critical feature:
-   - preflight validation,
-   - dry-run support,
-   - rollback metadata/logging where feasible,
-   - no destructive deletes without a validated replacement path.
-5. Avoid launcher-specific assumptions leaking into the core domain model.
+1. Keep launcher integrations isolated behind interfaces.
+2. Separate:
 
-## Suggested Solution Layout
+   * UI
+   * domain logic
+   * detection
+   * migration
+   * platform integrations
+3. Prefer read-only detection.
+4. Treat migration as safety-critical.
+5. Avoid launcher-specific assumptions leaking into core models.
+6. Prefer explicit dependencies over hidden global state.
+7. Prefer immutable data models where practical.
 
-When the solution is created, prefer something close to:
+---
 
-```text
-src/
-  GamingCommander.App/
-  GamingCommander.Core/
-  GamingCommander.UI/
-  GamingCommander.Detection/
-  GamingCommander.Launchers.Steam/
-  GamingCommander.Launchers.Gog/
-  GamingCommander.Launchers.Epic/
-  GamingCommander.Launchers.EA/
-  GamingCommander.Launchers.Ubisoft/
-  GamingCommander.Migration/
-tests/
-  GamingCommander.Core.Tests/
-  GamingCommander.Detection.Tests/
-  GamingCommander.Migration.Tests/
-tools/
-docs/
-data/
-```
+## Coding Standards
 
-## Coding Rules
+* Target modern .NET unless a compatibility reason exists.
+* Enable nullable reference types.
+* Use descriptive names.
+* Keep methods small and focused.
+* Avoid unsafe shortcuts.
+* Avoid duplicated logic.
+* Prefer simple, testable components.
+* Perform a sanity check after every change:
 
-- Target modern .NET unless a concrete compatibility constraint requires otherwise.
-- Enable nullable reference types.
-- Enable implicit usings only if used consistently across the solution.
-- Prefer explicit, descriptive names over abbreviations.
-- Keep methods small and side effects obvious.
-- Do not suppress type or compiler errors with unsafe shortcuts.
-- Avoid hidden global state.
-- Prefer immutable records/value objects for metadata where practical.
+  * What could break?
+  * Are prerequisites validated?
+  * Are side effects explicit?
 
-## Workflow — Change Discipline
+---
 
-After every code change set, follow this sequence:
+## Change Workflow
 
-1. **Log intent** — briefly describe what changed and why.
-2. **Do code changes** — implement.
-3. **Update plan documentation** — reflect changes in `.sisyphus/plans/`.
-4. **Refactoring pass** — after every plan update, review the affected files:
-   - No file should exceed ~300 lines. Extract logical groups into helper classes or static utility classes.
-   - No inline block should be duplicated in the same file. Extract shared logic into a method.
-   - No method should do more than one thing. Split when the cognitive load is high.
-   - Prefer small, single-responsibility files that an Agent can read and reason about in one shot.
-5. **Build + test** — verify clean compile and all tests pass before considering the change done.
+For each implementation task:
 
-## Safety Rules for Game Operations
+1. Read:
 
-- Never modify store manifests without:
-  - backing up the original file,
-  - validating the target path,
-  - logging the operation.
-- Never create symlinks or junctions silently.
-- Always distinguish between:
-  - move only,
-  - move + symlink/junction,
-  - manifest-only repair.
-- File operations must be resumable or recoverable where possible.
+   * `planning/CURRENT.md`
+   * `planning/ARCHITECTURE.md`
+   * relevant phase document
+   * relevant research documents
+
+2. Implement the requested change.
+
+3. Update:
+
+   * `planning/CURRENT.md`
+   * relevant planning documents if milestones changed.
+
+4. Refactor:
+
+   * keep files focused,
+   * avoid duplicated logic,
+   * extract complex responsibilities.
+
+5. Build and test.
+
+---
+
+## Safety Rules
+
+Never modify game platform data without:
+
+* validating paths,
+* preserving originals where required,
+* logging operations,
+* ensuring recovery is possible.
+
+Always distinguish:
+
+* move only,
+* move with link/junction,
+* metadata repair.
+
+---
 
 ## Testing Expectations
 
-- Unit test parsing logic for manifests, registry readers, and metadata normalization.
-- Integration test migration flows with temp directories and fake manifests.
-- Add fixture-based tests for Steam and future launcher metadata.
-- Prefer deterministic tests without network access unless explicitly marked.
+Prefer tests for:
 
-## Logging & Diagnostics
+* launcher detection,
+* manifest parsing,
+* metadata normalization,
+* migration flows.
 
-- All launcher detection failures should be non-fatal and diagnosable.
-- Log enough context to debug filesystem/registry issues without leaking sensitive data.
-- Migration operations should emit step-by-step logs.
+Use:
 
-## Documentation Expectations
+* deterministic tests,
+* fixtures,
+* temporary directories.
 
-When adding major features, update or add docs for:
+Avoid unnecessary network-dependent tests.
 
-- store detection behavior,
-- migration behavior and warnings,
-- config format,
-- user-visible hotkeys and workflows.
+---
 
-## AI/Automation Guidance
+## Documentation
 
-- Read this file before making repo changes.
-- Prefer minimal, reviewable diffs.
-- Match existing patterns once code exists.
-- If the repository is still mostly empty, establish clean defaults instead of speculative abstractions.
-- Do not commit secrets, local machine paths, or generated launcher data caches.
+Update documentation when adding:
 
-## Files Likely To Stay Untracked
+* launcher support,
+* migration behavior,
+* configuration formats,
+* user workflows,
+* architectural decisions.
 
-- `bin/`, `obj/`
-- `.vs/`, `.idea/`, `.vscode/`
-- local game scan outputs
-- temp migration logs
-- machine-specific launcher path snapshots
-- AI scratch notes and private transcripts
+---
+
+## Planning and Project Memory
+
+Before making changes, read documents in this order:
+
+1. `planning/CURRENT.md`
+   - Current milestone
+   - Active task
+   - Session handoff
+
+2. `planning/ARCHITECTURE.md`
+   - Stable design decisions
+   - Constraints
+   - Established patterns
+
+3. Relevant `planning/phase-*.md`
+   - Current roadmap item
+   - Acceptance criteria
+
+4. Relevant research documents
+   - External platform details
+   - Technical references
+
+Do not read every planning document unless the current task requires it.

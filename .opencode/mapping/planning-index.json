@@ -1,0 +1,44 @@
+{
+  "version": "1.0",
+
+  "rules": {
+    "source_of_truth": "/Planning/",
+    "priority_order": [
+      "architecture",
+      "core_systems",
+      "features",
+      "refactors",
+      "bugs"
+    ],
+
+    "mapping_behavior": "planning_driven_execution"
+  },
+
+  "documents": [
+    {
+      "pattern": "architecture*.md",
+      "targets": ["Core/", "Infrastructure/"],
+      "type": "system_design"
+    },
+    {
+      "pattern": "game-detection*.md",
+      "targets": ["Core/Detection/"],
+      "type": "feature"
+    },
+    {
+      "pattern": "launcher*.md",
+      "targets": ["Core/Launcher/"],
+      "type": "feature"
+    },
+    {
+      "pattern": "ui*.md",
+      "targets": ["UI/"],
+      "type": "feature"
+    },
+    {
+      "pattern": "refactor*.md",
+      "targets": ["Core/", "Services/"],
+      "type": "refactor"
+    }
+  ]
+}

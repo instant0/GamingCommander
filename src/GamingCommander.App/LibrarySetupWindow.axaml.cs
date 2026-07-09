@@ -25,12 +25,12 @@ public partial class LibrarySetupWindow : Window
         _vm = new LibrarySetupViewModel(configService, dbService, libraryManager, scanner, this);
         DataContext = _vm;
 
-        this.FindControl<Button>("AddRootButton").Click += async (_, _) =>
+        this.FindControl<Button>("AddRootButton")!.Click += async (_, _) =>
         {
             await _vm.AddRootAsync();
             RenderRoots();
         };
-        this.FindControl<Button>("CloseButton").Click += (_, _) => _vm.Close();
+        this.FindControl<Button>("CloseButton")!.Click += (_, _) => _vm.Close();
 
         Loaded += (_, _) => RenderRoots();
     }

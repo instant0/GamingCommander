@@ -47,8 +47,8 @@ public partial class GameSetupWindow : Window
         CmdlineArgs = game.CmdlineArgs;
         ManifestPath = game.ManifestPath;
 
-        this.FindControl<TextBlock>("TitleText").Text = $"Configure: {game.DisplayName}";
-        this.FindControl<TextBlock>("SubtitleText").Text = game.ExecutablePath;
+        this.FindControl<TextBlock>("TitleText")!.Text = $"Configure: {game.DisplayName}";
+        this.FindControl<TextBlock>("SubtitleText")!.Text = game.ExecutablePath;
 
         Loaded += (_, _) => RenderFields();
     }

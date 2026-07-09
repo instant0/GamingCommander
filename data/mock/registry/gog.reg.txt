@@ -1,0 +1,9 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_CURRENT_USER\Software\GOG.com]
+"GameInstalls"=str(2):"/home/malware/projects/gamingCommander/data/mock/gog\\Games"
+
+[HKEY_CURRENT_USER\Software\GOG.com\Galaxy]
+"InstallationPath"=str(2):"/home/malware/projects/gamingCommander/data/mock/gog\\GOG Galaxy"
+"LibraryPath"=str(2):"/home/malware/projects/gamingCommander/data/mock/gog\\Games"
+"ClientArgs"=str(2):""

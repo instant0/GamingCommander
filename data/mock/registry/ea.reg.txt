@@ -1,0 +1,8 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_CURRENT_USER\Software\Electronic Arts\EA Core]
+"InstallFolder"=str(2):"/home/malware/projects/gamingCommander/data/mock/ea"
+"GameInstallFolder"=str(2):"/home/malware/projects/gamingCommander/data/mock/ea\\Games"
+
+[HKEY_CURRENT_USER\Software\Electronic Arts\EA Desktop]
+"AppManifestDirectory"=str(2):"/home/malware/projects/gamingCommander/data/mock/ea\\EA Desktop\\Manifests"

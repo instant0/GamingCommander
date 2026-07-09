@@ -11,7 +11,10 @@ public sealed class ShellViewModel : ReactiveObject
 
     private string _currentRootPath = string.Empty;
     private int _selectedIndex;
+    private int _previousRootIndex;
     private string _statusText = string.Empty;
+
+    public event Action? NavigationChanged;
 
     public ShellViewModel(ILibraryManager libraryManager, IConfigService configService)
     {
@@ -102,7 +105,7 @@ public sealed class ShellViewModel : ReactiveObject
     {
         _currentRootPath = string.Empty;
         IsAtRootLevel = true;
-        _selectedIndex = 0;
+        _selectedIndex = _previousRootIndex;
         OnPropertyChanged(nameof(CurrentRootPath));
         OnPropertyChanged(nameof(LeftPaneTitle));
         OnPropertyChanged(nameof(SelectedIndex));
@@ -125,13 +128,29 @@ public sealed class ShellViewModel : ReactiveObject
             });
         }
 
+        // Clamp in case a root was removed while we were drilled in
+        if (_selectedIndex >= Items.Count)
+            _selectedIndex = Math.Max(0, Items.Count - 1);
+        OnPropertyChanged(nameof(SelectedIndex));
+
         UpdateDetailsForSelection();
+        NavigationChanged?.Invoke();
     }
 
     public void NavigateInto()
     {
         ShellPaneItemViewModel? item = SelectedItem;
         if (item is null || !item.IsBrowsable) return;
+
+        // Handle ".." parent-directory entry — go up one level
+        if (item.Kind == FileSystemEntryKind.ParentDirectory)
+        {
+            NavigateUp();
+            return;
+        }
+
+        // Save the root list index so we can restore it when navigating back up
+        _previousRootIndex = SelectedIndex;
 
         _currentRootPath = item.PathSummary;
         IsAtRootLevel = false;
@@ -175,6 +194,20 @@ public sealed class ShellViewModel : ReactiveObject
         Items.Clear();
         IReadOnlyList<GameEntry> games = _libraryManager.GetGamesForRoot(rootPath);
 
+        // Add ".." parent-directory entry at the top
+        Items.Add(new ShellPaneItemViewModel
+        {
+            Title = "..",
+            SourceLabel = string.Empty,
+            PathSummary = "Parent directory",
+            LaunchTarget = string.Empty,
+            Kind = FileSystemEntryKind.ParentDirectory,
+            LastModified = default,
+            ResolvedType = string.Empty,
+            GameId = null,
+            GameCount = 0,
+        });
+
         foreach (GameEntry game in games)
         {
             Items.Add(new ShellPaneItemViewModel
@@ -183,7 +216,7 @@ public sealed class ShellViewModel : ReactiveObject
                 SourceLabel = game.GameSource.ToString(),
                 PathSummary = game.ExecutablePath,
                 LaunchTarget = game.ExecutablePath,
-                Kind = FileSystemEntryKind.Directory,
+                Kind = FileSystemEntryKind.File,
                 LastModified = game.LastModified,
                 ResolvedType = game.Override ? $"{game.GameSource} (override)" : game.GameSource.ToString(),
                 GameId = game.Id,
@@ -192,6 +225,7 @@ public sealed class ShellViewModel : ReactiveObject
         }
 
         OnPropertyChanged(nameof(ItemCount));
+        NavigationChanged?.Invoke();
     }
 
     private void UpdateDetailsForSelection()

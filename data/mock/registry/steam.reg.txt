@@ -1,0 +1,14 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_CURRENT_USER\Software\Valve\Steam]
+"SteamPath"=str(2):"/home/malware/projects/gamingCommander/data/mock/steam"
+"SteamExe"=str(2):"/home/malware/projects/gamingCommander/data/mock/steam\\steam.exe"
+"LastConfigStore_HKLM_Saved_SteamPath"=str(2):"C:\\Program Files (x86)\\Steam"
+
+[HKEY_CURRENT_USER\Software\Valve\Steam\Apps\12345]
+"Installed"=dword:00000001
+"AppType"=dword:00000000
+
+[HKEY_CURRENT_USER\Software\Valve\Steam\Apps\67890]
+"Installed"=dword:00000001
+"AppType"=dword:00000000

@@ -1,0 +1,47 @@
+"AppState"
+{
+	"appid"		"1085660"
+	"universe"		"1"
+	"LauncherPath"		"P:\\Program Files (x86)\\Steam\\steam.exe"
+	"name"		"Destiny 2"
+	"StateFlags"		"4"
+	"installdir"		"Destiny 2"
+	"LastUpdated"		"1778149421"
+	"LastPlayed"		"1779729063"
+	"SizeOnDisk"		"154402438425"
+	"StagingSize"		"0"
+	"buildid"		"23010487"
+	"LastOwner"		"76561197982816406"
+	"DownloadType"		"1"
+	"UpdateResult"		"0"
+	"BytesToDownload"		"123888768"
+	"BytesDownloaded"		"123888768"
+	"BytesToStage"		"151124728"
+	"BytesStaged"		"151124728"
+	"TargetBuildID"		"23010487"
+	"AutoUpdateBehavior"		"0"
+	"AllowOtherDownloadsWhileRunning"		"0"
+	"ScheduledAutoUpdate"		"0"
+	"StagingFolder"		"2"
+	"InstalledDepots"
+	{
+		"1085661"
+		{
+			"manifest"		"5355247561554979018"
+			"size"		"152936353049"
+		}
+		"1085662"
+		{
+			"manifest"		"2276446744238086866"
+			"size"		"1477245254"
+		}
+	}
+	"UserConfig"
+	{
+		"language"		"english"
+	}
+	"MountedConfig"
+	{
+		"language"		"english"
+	}
+}

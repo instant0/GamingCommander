@@ -1,0 +1,16 @@
+"libraryfolders"
+{
+	"0"
+	{
+		"path"          "/home/malware/projects/gamingCommander/data/mock/steam"
+		"label"         "MockSteam"
+		"apps"
+		{
+			"12345"	"5000000000"
+		}
+		"apps"
+		{
+			"67890"	"3000000000"
+		}
+	}
+}

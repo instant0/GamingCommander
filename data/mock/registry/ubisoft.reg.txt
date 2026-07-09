@@ -1,0 +1,10 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Ubisoft\Launcher]
+"InstallPath"=str(2):"/home/malware/projects/gamingCommander/data/mock/ubi\\Ubisoft Game Launcher"
+"GameInstallPath"=str(2):"/home/malware/projects/gamingCommander/data/mock/ubi\\Games"
+"CachePath"=str(2):"/home/malware/projects/gamingCommander/data/mock/ubi\\Ubisoft Game Launcher\\cache"
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Ubisoft\Launcher]
+"InstallPath"=str(2):"/home/malware/projects/gamingCommander/data/mock/ubi\\Ubisoft Game Launcher"
+"GameInstallPath"=str(2):"/home/malware/projects/gamingCommander/data/mock/ubi\\Games"

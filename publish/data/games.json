@@ -1,0 +1,80 @@
+{
+  "Roots": [
+    {
+      "RootPath": "Y:\\Games\\",
+      "DefaultType": 1,
+      "Games": [
+        {
+          "Id": "37607f97770cd515",
+          "FolderName": "ACValhalla",
+          "DisplayName": "ACValhalla",
+          "GameSource": 1,
+          "Override": false,
+          "ExecutablePath": "Y:\\Games\\ACValhalla\\ACValhalla.exe",
+          "LauncherPath": "",
+          "CmdlineArgs": "",
+          "ManifestPath": "",
+          "LastScanned": "2026-04-16T23:49:53.3742307+00:00",
+          "LastModified": "2026-01-07T15:36:15.8937397+01:00",
+          "Extra": {}
+        },
+        {
+          "Id": "21ebe1814b282ae9",
+          "FolderName": "AW2",
+          "DisplayName": "AW2",
+          "GameSource": 1,
+          "Override": false,
+          "ExecutablePath": "Y:\\Games\\AW2\\AlanWake2.exe",
+          "LauncherPath": "",
+          "CmdlineArgs": "",
+          "ManifestPath": "",
+          "LastScanned": "2026-04-16T23:49:53.3756861+00:00",
+          "LastModified": "2026-01-07T15:42:06.713284+01:00",
+          "Extra": {}
+        },
+        {
+          "Id": "5d6d65d2db9f0dc2",
+          "FolderName": "DyingLight2StayHuman",
+          "DisplayName": "DyingLight2StayHuman",
+          "GameSource": 1,
+          "Override": false,
+          "ExecutablePath": "",
+          "LauncherPath": "",
+          "CmdlineArgs": "",
+          "ManifestPath": "",
+          "LastScanned": "2026-04-16T23:49:53.403002+00:00",
+          "LastModified": "2026-01-07T15:36:18.9544012+01:00",
+          "Extra": {}
+        },
+        {
+          "Id": "b8294815c76c81a0",
+          "FolderName": "SPACEMAR2",
+          "DisplayName": "SPACEMAR2",
+          "GameSource": 1,
+          "Override": false,
+          "ExecutablePath": "Y:\\Games\\SPACEMAR2\\start_protected_game.exe",
+          "LauncherPath": "",
+          "CmdlineArgs": "",
+          "ManifestPath": "",
+          "LastScanned": "2026-04-16T23:49:53.4055681+00:00",
+          "LastModified": "2026-01-07T15:47:32.1874569+01:00",
+          "Extra": {}
+        },
+        {
+          "Id": "b63c6025ce6425c7",
+          "FolderName": "Starfield",
+          "DisplayName": "Starfield",
+          "GameSource": 2,
+          "Override": true,
+          "ExecutablePath": "Y:\\Games\\Starfield\\Starfield.exe",
+          "LauncherPath": "",
+          "CmdlineArgs": "",
+          "ManifestPath": "",
+          "LastScanned": "2026-04-16T23:49:53.4308884+00:00",
+          "LastModified": "2026-04-11T23:01:20.8911304+02:00",
+          "Extra": {}
+        }
+      ]
+    }
+  ]
+}

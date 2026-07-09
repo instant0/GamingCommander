@@ -21,9 +21,8 @@ public sealed class WizardViewModel : GamingCommander.UI.ViewModels.ReactiveObje
     {
         _configService = configService;
         _dbService = dbService;
-        _scanner = new FolderScanner();
+        _scanner = new FolderScanner(configService.Load().HiddenFolders);
         _window = window;
-        AddRecommendedPaths();
     }
 
     public ObservableCollection<WizardLibraryEntry> Entries { get; } = [];
@@ -57,13 +56,12 @@ public sealed class WizardViewModel : GamingCommander.UI.ViewModels.ReactiveObje
         GameSourceKind defaultType = InferType(path);
         var entry = new WizardLibraryEntry(path, defaultType.ToString());
         Entries.Add(entry);
-
-        await ScanEntryAsync(entry);
     }
 
-    private async Task ScanEntryAsync(WizardLibraryEntry entry)
+    public async Task ScanEntryAsync(WizardLibraryEntry entry)
     {
-        entry.IsScanned = false;
+        if (entry.IsScanning) return;
+        entry.IsScanning = true;
         ScanStatus = $"Scanning {entry.Path}...";
         OnPropertyChanged(nameof(ScanStatus));
 
@@ -77,6 +75,7 @@ public sealed class WizardViewModel : GamingCommander.UI.ViewModels.ReactiveObje
             {
                 entry.GameCount = games.Count;
                 entry.IsScanned = true;
+                entry.IsScanning = false;
                 ScanStatus = $"Scanned {games.Count} games in {entry.Path}";
                 OnPropertyChanged(nameof(ScanStatus));
             });
@@ -94,7 +93,8 @@ public sealed class WizardViewModel : GamingCommander.UI.ViewModels.ReactiveObje
             .Select(e => new LibraryRoot(e.Path, ParseType(e.SelectedType)))
             .ToList();
 
-        AppConfig config = new AppConfig(roots, [], IsFirstRun: false);
+        AppConfig current = _configService.Load();
+        AppConfig config = new AppConfig(roots, [], current.HiddenFolders, IsFirstRun: false);
         _configService.Save(config);
 
         _window.Close(true);
@@ -107,7 +107,8 @@ public sealed class WizardViewModel : GamingCommander.UI.ViewModels.ReactiveObje
             .Select(e => new LibraryRoot(e.Path, ParseType(e.SelectedType)))
             .ToList();
 
-        AppConfig config = new AppConfig(roots, [], IsFirstRun: false);
+        AppConfig current = _configService.Load();
+        AppConfig config = new AppConfig(roots, [], current.HiddenFolders, IsFirstRun: false);
         _configService.Save(config);
 
         _window.Close(false);
@@ -128,7 +129,9 @@ public sealed class WizardViewModel : GamingCommander.UI.ViewModels.ReactiveObje
             if (Directory.Exists(path) &&
                 !Entries.Any(e => e.Path.Equals(path, StringComparison.OrdinalIgnoreCase)))
             {
-                Entries.Add(new WizardLibraryEntry(path, InferType(path).ToString()));
+                var entry = new WizardLibraryEntry(path, InferType(path).ToString());
+                Entries.Add(entry);
+                _ = ScanEntryAsync(entry);
             }
         }
     }
@@ -186,4 +189,11 @@ public sealed class WizardViewModel : GamingCommander.UI.ViewModels.ReactiveObje
         set => SetProperty(ref _isScanned, value);
     }
     private bool _isScanned;
+
+    public bool IsScanning
+    {
+        get => _isScanning;
+        set => SetProperty(ref _isScanning, value);
+    }
+    private bool _isScanning;
 }

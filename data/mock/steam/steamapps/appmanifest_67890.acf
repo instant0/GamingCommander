@@ -1,0 +1,21 @@
+"AppState"
+{
+    "appid"         "67890"
+    "universe"      "1"
+    "LauncherPath"  "C:\\Program Files (x86)\\Steam\\steam.exe"
+    "name"          "Mock Game Beta"
+    "StateFlags"    "4"
+    "installdir"    "MockGameBeta"
+    "LastUpdated"   "1700000000"
+    "LastPlayed"    "1700000000"
+    "SizeOnDisk"    "5000000000"
+    "buildid"       "12345678"
+    "InstalledDepots"
+    {
+        "678901"
+        {
+            "manifest"  "12345678901234567890"
+            "size"      "5000000000"
+        }
+    }
+}

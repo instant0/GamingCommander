@@ -22,14 +22,14 @@ public sealed class JsonConfigService : IConfigService
     {
         if (!File.Exists(_configPath))
         {
-            return new AppConfig(LibraryRoots: [], FolderOverrides: [], IsFirstRun: true);
+            return new AppConfig(LibraryRoots: [], FolderOverrides: [], HiddenFolders: [], IsFirstRun: true);
         }
 
         string json = File.ReadAllText(_configPath);
         var loaded = JsonSerializer.Deserialize<ConfigDto>(json, JsonOptions);
         if (loaded is null)
         {
-            return new AppConfig(LibraryRoots: [], FolderOverrides: [], IsFirstRun: true);
+            return new AppConfig(LibraryRoots: [], FolderOverrides: [], HiddenFolders: [], IsFirstRun: true);
         }
 
         var roots = new List<LibraryRoot>();
@@ -56,7 +56,8 @@ public sealed class JsonConfigService : IConfigService
             }
         }
 
-        return new AppConfig(LibraryRoots: roots, FolderOverrides: overrides, IsFirstRun: loaded.IsFirstRun);
+        IReadOnlyList<string> hiddenFolders = loaded.HiddenFolders ?? [];
+        return new AppConfig(LibraryRoots: roots, FolderOverrides: overrides, HiddenFolders: hiddenFolders, IsFirstRun: loaded.IsFirstRun);
     }
 
     public void Save(AppConfig config)
@@ -73,6 +74,7 @@ public sealed class JsonConfigService : IConfigService
                 FolderPath = o.FolderPath,
                 Type = o.Type,
             }).ToList(),
+            HiddenFolders = config.HiddenFolders.ToList(),
             IsFirstRun = config.IsFirstRun,
         };
 
@@ -89,6 +91,7 @@ public sealed class JsonConfigService : IConfigService
     {
         public List<ConfigLibraryRootDto>? LibraryRoots { get; set; }
         public List<ConfigFolderOverrideDto>? FolderOverrides { get; set; }
+        public List<string>? HiddenFolders { get; set; }
         public bool IsFirstRun { get; set; }
     }
 

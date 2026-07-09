@@ -34,14 +34,20 @@ A C# Windows native UI application that replicates the look and feel of a Norton
 - T Configure Game: edit display name, type, executable, launcher, args, manifest path.
 - Enhanced details panel with executable path and resolved type.
 - Navigation polish: selection highlight, auto-scroll, status feedback.
-- **Status: COMPLETE**
+- **Status: PARTIAL** ✅ (core features implemented, but 9 critical bugs prevent basic usability — see Phase 1.1a)
+
+### Phase 1.1a: Setup & GUI Stabilization ✅ COMPLETE
+- Full plan: [phase-1.1-stabilization.md](./phase-1.1-stabilization.md)
+- Fixed: folder scanner exclusions, exe detection heuristics, game entries terminal
+- Fixed: ".." entry, Backspace navigation, keyboard focus after navigation
+- Fixed: command button clicks, double-click drill-in
+- Wired: F3, F5, F8, F10, S key handlers
+- Added: `NavigationChanged` event, `_previousRootIndex` persistence
+- **Status: COMPLETE** — all navigation, mouse, and keyboard fixes implemented
 
 ### Phase 1.2: Research & Data Collection
-- Explore and document data formats from Steam ACF files, Epic manifests, and standalone directories using Python helper scripts.
-- Scripts are dev-only — never disclose output or findings to the Agent.
-- Validate parsing approach against one representative sample per format.
-- Produce schema docs in `docs/research/` for Phase 2 implementation.
-- **Status: NOT STARTED**
+- **Objective**: Validate parsing approaches for game store data formats (Steam ACF, Epic manifests, standalone directories) using Python helper scripts. The objective is to extract *just enough* information to identify games, generate configuration files, and support migration. Scripts are **development-environment only** and MUST NOT disclose specific game names, paths, or registry keys back to the Agent. Confirm parsing logic against one representative sample per format and document the required structural schemas generically.
+- **Status: IN PROGRESS** — Steam tasks 1-3b + Task 4 complete (ACF parsing, common/ cross-ref, library discovery, cross-library validation). 2 actionable cross-library mismatches found. Epic/other tasks remaining.
 
 ### Phase 2: Steam & Stand-alone Games (Baseline)
 - Implement Steam integration (parsing library folders/manifests).
@@ -55,6 +61,7 @@ A C# Windows native UI application that replicates the look and feel of a Norton
 - Epic JSON manifest backup and update.
 - Directory junction creation at original location.
 - Migration log and backup manifests.
+- Cross-library repair: detect game folders with ACF in wrong library (e.g. folder in lib X, ACF in lib Y) and offer to move/copy the ACF to the correct library.
 - **Status: NOT STARTED**
 
 ### Phase 2.2: Game Metadata Lookup
@@ -72,7 +79,16 @@ A C# Windows native UI application that replicates the look and feel of a Norton
 - Add Epic Games Store support (with manifest patching).
 - Add EA App and Ubisoft Connect support.
 
+### Phase 3.5: KODI-Style Category Browsing & Quick Search
+- Full plan: [phase-category-browse.md](./phase-category-browse.md)
+- Default view: Library Roots (configured paths → games). F8 toggles to Browse by Category.
+- Drill-down: Category → Value → Filtered game list (across all roots).
+- Categories: Genre, Publisher, Launcher, Year of Release, Gamerankings Rating.
+- Launcher category works immediately (from `GameSourceKind`). Others need Phase 2.2 metadata.
+- **S key**: Quick-search overlay from any view — matches name, genre, developer, publisher, path (union).
+- Wildcards (`*`, `?`), multi-term AND, real-time results, match reason badges.
+- **Status: PLANNED**
+
 ### Phase 4: Advanced Features & Polish
 - Implement PCGamingWiki integration.
-- Implement metadata repository sync.
-- Improve UX (themes, animations, batch operations).
+- Implement metadata repository sync. UX (themes, animations, batch operations).
