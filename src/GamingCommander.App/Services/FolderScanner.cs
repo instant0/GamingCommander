@@ -7,15 +7,65 @@ namespace GamingCommander.App.Services;
 public sealed class FolderScanner
 {
     private readonly IReadOnlySet<string> _hiddenFolderNames;
+    private readonly IReadOnlyList<string> _noiseExePatterns;
+    private readonly IReadOnlySet<string> _noiseDirectoryPatterns;
+    private readonly IReadOnlyList<string> _launcherPatterns;
+
+    /// <summary>
+    /// Default hardcoded patterns for backward compatibility (tests, etc.).
+    /// Production code should use the constructor that accepts BlacklistData.
+    /// </summary>
+    public static readonly IReadOnlyList<string> DefaultNoiseExePatterns =
+    [
+        // Launcher / platform helper executables
+        "launcher", "launch", "updater", "bootstrap", "redlaunch",
+        "epicgameslauncher", "goggalaxy", "ea app", "eaapp", "ubisoft",
+        // Anti-cheat / DRM
+        "anticheat", "easyanticheat", "eac", "battleye", "punkbuster",
+        // Installers / redistributables
+        "installer", "setup", "redist", "commonredist", "vcredist",
+        "dxsetup", "oalinst", "dotnetruntime", "directx", "xna",
+        // Uninstallers
+        "unins", "uninstall",
+    ];
+
+    private static readonly IReadOnlyList<string> DefaultLauncherPatterns =
+    [
+        "launcher", "launch", "updater", "bootstrap", "redlaunch",
+        "epicgameslauncher", "goggalaxy", "ea app", "ubisoft",
+    ];
 
     public FolderScanner()
-        : this([])
+        : this([], DefaultNoiseExePatterns, [], DefaultLauncherPatterns)
     {
     }
 
     public FolderScanner(IEnumerable<string> hiddenFolderNames)
+        : this(hiddenFolderNames, DefaultNoiseExePatterns, [], DefaultLauncherPatterns)
+    {
+    }
+
+    public FolderScanner(
+        IEnumerable<string> hiddenFolderNames,
+        BlacklistData blacklist)
+        : this(
+            hiddenFolderNames,
+            blacklist.ExeNamePatterns.Count > 0 ? blacklist.ExeNamePatterns : DefaultNoiseExePatterns,
+            blacklist.DirectoryPatterns,
+            DefaultLauncherPatterns)
+    {
+    }
+
+    private FolderScanner(
+        IEnumerable<string> hiddenFolderNames,
+        IReadOnlyList<string> noiseExePatterns,
+        IReadOnlyList<string> noiseDirectoryPatterns,
+        IReadOnlyList<string> launcherPatterns)
     {
         _hiddenFolderNames = new HashSet<string>(hiddenFolderNames, StringComparer.OrdinalIgnoreCase);
+        _noiseExePatterns = noiseExePatterns;
+        _noiseDirectoryPatterns = new HashSet<string>(noiseDirectoryPatterns, StringComparer.OrdinalIgnoreCase);
+        _launcherPatterns = launcherPatterns;
     }
 
     public IReadOnlyList<GameEntry> Scan(string rootPath, GameSourceKind defaultType)
@@ -29,6 +79,10 @@ public sealed class FolderScanner
         {
             // Skip user-configured hidden folders
             if (_hiddenFolderNames.Count > 0 && _hiddenFolderNames.Contains(subDir.Name))
+                continue;
+
+            // Skip known noise/redist directories from blacklist
+            if (IsNoiseDirectory(subDir.Name))
                 continue;
 
             // Skip folders that are clearly not game directories:
@@ -64,6 +118,15 @@ public sealed class FolderScanner
         return entries;
     }
 
+    private bool IsNoiseDirectory(string dirName)
+    {
+        if (_noiseDirectoryPatterns.Count == 0)
+            return false;
+
+        string lower = dirName.ToLowerInvariant();
+        return _noiseDirectoryPatterns.Any(p => lower.Contains(p));
+    }
+
     private static GameSourceKind DetectType(DirectoryInfo subDir, GameSourceKind rootDefault)
     {
         string[] markerFiles = Directory.GetFiles(subDir.FullName, "*", SearchOption.AllDirectories);
@@ -92,7 +155,7 @@ public sealed class FolderScanner
         return rootDefault;
     }
 
-    private static string? FindPrimaryExecutable(DirectoryInfo dir, string[] exeFiles)
+    private string? FindPrimaryExecutable(DirectoryInfo dir, string[] exeFiles)
     {
         if (exeFiles.Length == 0) return null;
         if (exeFiles.Length == 1) return exeFiles[0];
@@ -123,51 +186,30 @@ public sealed class FolderScanner
         return candidates.OrderByDescending(f => new FileInfo(f).Length).First();
     }
 
-    private static string? FindLauncherExecutable(DirectoryInfo dir, string? primaryExe)
+    private string? FindLauncherExecutable(DirectoryInfo dir, string? primaryExe)
     {
         string[] exeFiles = GetFilesSafe(dir, "*.exe");
         if (exeFiles.Length <= 1) return null;
         return FindLauncherExecutableFromList(exeFiles, primaryExe);
     }
 
-    private static string? FindLauncherExecutableFromList(string[] exeFiles, string? excludePath)
+    private string? FindLauncherExecutableFromList(string[] exeFiles, string? excludePath)
     {
-        string[] launcherNames =
-        [
-            "launcher", "launch", "updater", "bootstrap", "redlaunch",
-            "epicgameslauncher", "goggalaxy", "ea app", "ubisoft",
-        ];
-
         foreach (string exe in exeFiles)
         {
             if (exe == excludePath) continue;
             string name = Path.GetFileNameWithoutExtension(exe).ToLowerInvariant();
-            if (launcherNames.Any(ln => name.Contains(ln)))
+            if (_launcherPatterns.Any(ln => name.Contains(ln)))
                 return exe;
         }
 
         return null;
     }
 
-    private static bool IsNonGameExe(string exePath)
+    private bool IsNonGameExe(string exePath)
     {
         string name = Path.GetFileNameWithoutExtension(exePath).ToLowerInvariant();
-
-        string[] nonGamePatterns =
-        [
-            // Launcher / platform helper executables
-            "launcher", "launch", "updater", "bootstrap", "redlaunch",
-            "epicgameslauncher", "goggalaxy", "ea app", "eaapp", "ubisoft",
-            // Anti-cheat / DRY
-            "anticheat", "easyanticheat", "eac", "battleye", "punkbuster",
-            // Installers / redistributables
-            "installer", "setup", "redist", "commonredist", "vcredist",
-            "dxsetup", "oalinst", "dotnetruntime", "directx", "xna",
-            // Uninstallers
-            "unins", "uninstall"
-        ];
-
-        return nonGamePatterns.Any(p => name.Contains(p));
+        return _noiseExePatterns.Any(p => name.Contains(p));
     }
 
     private static bool ExeNameMatchesFolderName(string exePath, string folderName)

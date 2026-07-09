@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using GamingCommander.App.Services;
 using GamingCommander.App.ViewModels;
 using GamingCommander.Core;
 
@@ -17,7 +18,8 @@ public partial class WizardWindow : Window
     {
         InitializeComponent();
 
-        _vm = new WizardViewModel(configService, dbService, this);
+        var blacklist = new BlacklistLoader(AppDomain.CurrentDomain.BaseDirectory).Load();
+        _vm = new WizardViewModel(configService, dbService, this, blacklist);
         DataContext = _vm;
         _entriesPanel = this.FindControl<StackPanel>("EntriesPanel")!;
         _progressText = this.FindControl<TextBlock>("ScanProgressText")!;

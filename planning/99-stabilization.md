@@ -133,7 +133,7 @@ Steps across 5 layers, each step changing at most 1-2 files with <50 lines. Ever
 - [x] Step 17 complete
 
 ### 18. Research Epic .item format with Python ⏭️ SKIPPED
-- **Status:** Not needed. `tools/decode_manifest.py` (369 lines) already handles Epic `.manifest` binary parsing AND `.item` generation end-to-end. `docs/EGS_ITEM_FORMAT.md` already documents the format. Created `parse_epic_item.py` then deleted it as redundant.
+- **Status:** Not needed. `tools/decode_manifest.py` (369 lines) already handles Epic `.manifest` binary parsing AND `.item` generation end-to-end. `docs/research/epic_item_format.md` already documents the format. Created `parse_epic_item.py` then deleted it as redundant.
 
 ### 19. Test registry parsing in Python ✅
 - **Files:** `tools/parse_registry.py` (new)

@@ -10,7 +10,7 @@ Implement the baseline game management features.
 2. [ ] **Stand-alone Detection**
     - Implement generic scanning for `.exe` files in user-supplied folders.
 3. [ ] **Migration (Steam)**
-    - Implement move + symlink logic.
+    - Implement manifest repair for relocated game folders.
     - Implement Steam manifest patching (updating install path).
 4. [ ] **Launcher Logic**
     - Implement game launching via URI schemes/process execution.

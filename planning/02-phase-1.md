@@ -52,7 +52,7 @@ Deliver the functional Norton Commander-style dual-pane interface with a details
     ]
   }
   ```
-- Games database: `data/games.json` (see phase-1.1.md for schema).
+- Games database: `data/games.json` (see 03-phase-1-ui-polish.md for schema).
 
 ### F-Key Summary
 

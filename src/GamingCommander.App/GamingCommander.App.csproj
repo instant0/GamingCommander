@@ -19,6 +19,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="..\..\data\blacklist.json" Link="data\blacklist.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\GamingCommander.Core\GamingCommander.Core.csproj" />
     <ProjectReference Include="..\GamingCommander.UI\GamingCommander.UI.csproj" />
     <ProjectReference Include="..\GamingCommander.Detection\GamingCommander.Detection.csproj" />

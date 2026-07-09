@@ -1,0 +1,35 @@
+{
+  "$schema": "https://opencode.ai/agent.schema.json",
+  "name": "researcher",
+  "description": "Investigates external platforms. Creates research documentation.",
+  "trigger": "New platform support needed, format unknown",
+  
+  "reads": [
+    "AGENTS.md",
+    "META/SESSION/CURRENT.md",
+    "META/SESSION/NEXT.md",
+    "existing DOCS/RESEARCH/*.md"
+  ],
+  
+  "writes": [
+    "DOCS/RESEARCH/*.md",
+    "tools/ (research scripts only)"
+  ],
+  
+  "neverModifies": [
+    "AGENTS.md",
+    "META/RULES.md",
+    "PLANNING/*.md",
+    "META/SESSION/*.md",
+    "src/",
+    "tests/"
+  ],
+  
+  "outputs": [
+    "Research document with format specification",
+    "Optional Python research scripts",
+    "Summary of findings"
+  ],
+  
+  "handoff": "Planner — when research is complete"
+}

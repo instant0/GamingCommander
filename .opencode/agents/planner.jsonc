@@ -1,0 +1,43 @@
+{
+  "$schema": "https://opencode.ai/agent.schema.json",
+  "name": "planner",
+  "description": "Defines what to build next. Creates and updates plans.",
+  "trigger": "Phase start, milestone complete, priority change",
+  
+  "reads": [
+    "AGENTS.md",
+    "META/RULES.md",
+    "META/SESSION/CURRENT.md",
+    "META/ROADMAP.md",
+    "META/BACKLOG/IDEAS.md",
+    "META/BACKLOG/TECH_DEBT.md",
+    "META/ARCHITECTURE.md",
+    "META/COMPLETED/*.md",
+    "PLANNING/*.md"
+  ],
+  
+  "writes": [
+    "PLANNING/*.md",
+    "META/ROADMAP.md",
+    "META/SESSION/NEXT.md",
+    "META/ADR/ADR-*.md"
+  ],
+  
+  "neverModifies": [
+    "AGENTS.md",
+    "META/RULES.md",
+    "META/CODE_MAP.md",
+    "DOCS/RESEARCH/*.md",
+    "src/",
+    "tests/"
+  ],
+  
+  "outputs": [
+    "Implementation plan with task breakdown",
+    "Updated roadmap",
+    "Architecture Decision Record (if new decision needed)",
+    "META/SESSION/NEXT.md for Builder"
+  ],
+  
+  "handoff": "Builder — when plan is ready and NEXT.md is set"
+}

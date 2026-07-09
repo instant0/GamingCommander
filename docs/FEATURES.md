@@ -282,7 +282,7 @@ Y:\
 
 ### Setup & GUI Stabilization (Phase 1.1a) ⬅️ CURRENT PRIORITY
 
-All items below must be fixed before any new features. Plan: `.sisyphus/plans/phase-1.1-stabilization.md`
+All items below must be fixed before any new features. Plan: `planning/99-stabilization.md`
 
 | Bug | Priority | Area | Fix Summary |
 |-----|----------|------|-------------|
@@ -442,7 +442,7 @@ Default view on launch is **Library Roots** — configured paths as "drives". Pr
 | **Escape to Dismiss** | 📋 Planned | Returns to previous browse state, restores item list |
 | **Global Scope — No Context** | 📋 Planned | Search ALWAYS queries the entire virtual file system, ignoring current root/category/view — pressing S from anywhere searches everything |
 
-Full plan: `.sisyphus/plans/phase-category-browse.md`
+Full plan: `planning/05-phase-3-category-browse.md`
 
 ---
 
@@ -452,7 +452,7 @@ Full plan: `.sisyphus/plans/phase-category-browse.md`
 
 | Feature | Status | Description |
 |---------|--------|-------------|
-| **Migration Modes** | ✅ Complete | MoveOnly, MoveAndLink, ManifestRepairOnly modes defined |
+| **Migration Modes** | ⚠️ Needs Update | MoveOnly, MoveAndLink, ManifestRepairOnly modes defined — MoveAndLink is deprecated; replaced by Fix Registration mode |
 | **Dry-Run Planning** | ✅ Complete | IMigrationPlanner.BuildDryRunPlan() simulates operations |
 | **Manifest Backup Detection** | ✅ Complete | Detects Steam/Epic games requiring manifest backup |
 

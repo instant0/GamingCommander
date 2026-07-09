@@ -3,7 +3,6 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using GamingCommander.App.Services;
 using GamingCommander.Core.Models;
-using GamingCommander.Detection;
 using GamingCommander.Migration;
 using GamingCommander.UI.ViewModels;
 
@@ -68,26 +67,32 @@ public partial class App : Application
         {
             try
             {
+                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+
                 Log("Creating GamesDatabaseService...");
                 var dbService = new GamesDatabaseService(GetGamesDbPath());
                 Log($"  GamesDbPath: {GetGamesDbPath()}");
-
-                Log("Creating DesignTimeGameDiscoveryService...");
-                var discoveryService = new DesignTimeGameDiscoveryService();
-
-                Log("Creating DesignTimeLibraryManager...");
-                var libraryManager = new DesignTimeLibraryManager(discoveryService, dbService);
 
                 Log("Creating JsonConfigService...");
                 var configService = new JsonConfigService(GetConfigPath());
                 Log($"  ConfigPath: {GetConfigPath()}");
 
-                Log("Creating DesignTimeMigrationPlanner...");
-                var migrationPlanner = new DesignTimeMigrationPlanner();
-
                 Log("Loading config...");
                 AppConfig config = configService.Load();
                 Log($"  Config loaded: IsFirstRun={config.IsFirstRun}, Roots={config.LibraryRoots.Count}");
+
+                Log("Loading blacklist...");
+                var blacklist = new BlacklistLoader(baseDir).Load();
+                Log($"  Blacklist loaded: {blacklist.ExeNamePatterns.Count} exe patterns, {blacklist.DirectoryPatterns.Count} dir patterns");
+
+                Log("Creating FolderScanner with blacklist...");
+                var scanner = new FolderScanner(config.HiddenFolders, blacklist);
+
+                Log("Creating LibraryManager...");
+                var libraryManager = new LibraryManager(configService, dbService, scanner);
+
+                Log("Creating DesignTimeMigrationPlanner...");
+                var migrationPlanner = new DesignTimeMigrationPlanner();
 
                 bool needsWizard = config.IsFirstRun || config.LibraryRoots.Count == 0;
                 Log($"  needsWizard: {needsWizard}");

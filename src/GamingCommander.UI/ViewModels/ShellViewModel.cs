@@ -15,6 +15,7 @@ public sealed class ShellViewModel : ReactiveObject
     private string _statusText = string.Empty;
 
     public event Action? NavigationChanged;
+    public event Action<ShellPaneItemViewModel>? RequestLaunch;
 
     public ShellViewModel(ILibraryManager libraryManager, IConfigService configService)
     {
@@ -30,13 +31,7 @@ public sealed class ShellViewModel : ReactiveObject
             return;
         }
 
-        foreach (LibraryRoot root in config.LibraryRoots)
-        {
-            _libraryManager.AddRoot(root.Path, root.DefaultType, []);
-        }
-        _libraryManager.Refresh();
-
-        InteractionHint = "Arrows: navigate  |  Enter: drill in  |  Backspace: go up  |  F9: jump to library roots  |  F2: Settings  |  T: retag";
+            InteractionHint = "Arrows: navigate  |  Enter: launch/drill in  |  Esc/Backspace: go up  |  F4: edit tags  |  F5: launch  |  F9: roots";
         JumpToLibraryRoots();
     }
 
@@ -91,8 +86,12 @@ public sealed class ShellViewModel : ReactiveObject
     [
         new ShellCommandViewModel { Hotkey = "F1", Label = "Help" },
         new ShellCommandViewModel { Hotkey = "F2", Label = "Setup" },
-        new ShellCommandViewModel { Hotkey = "F3", Label = "View" },
+        new ShellCommandViewModel { Hotkey = "F3", Label = "Info" },
+        new ShellCommandViewModel { Hotkey = "F4", Label = "Edit" },
         new ShellCommandViewModel { Hotkey = "F5", Label = "Launch" },
+        new ShellCommandViewModel { Hotkey = "F6", Label = "Rescan" },
+        new ShellCommandViewModel { Hotkey = "F7", Label = "Add" },
+        new ShellCommandViewModel { Hotkey = "F8", Label = "Filter" },
         new ShellCommandViewModel { Hotkey = "F9", Label = "Drives" },
         new ShellCommandViewModel { Hotkey = "F10", Label = "Quit" },
     ];
@@ -140,7 +139,7 @@ public sealed class ShellViewModel : ReactiveObject
     public void NavigateInto()
     {
         ShellPaneItemViewModel? item = SelectedItem;
-        if (item is null || !item.IsBrowsable) return;
+        if (item is null) return;
 
         // Handle ".." parent-directory entry — go up one level
         if (item.Kind == FileSystemEntryKind.ParentDirectory)
@@ -149,6 +148,14 @@ public sealed class ShellViewModel : ReactiveObject
             return;
         }
 
+        // Handle game file — launch it
+        if (item.Kind == FileSystemEntryKind.File)
+        {
+            RequestLaunch?.Invoke(item);
+            return;
+        }
+
+        // Handle directory — drill in (only remaining kind: Directory)
         // Save the root list index so we can restore it when navigating back up
         _previousRootIndex = SelectedIndex;
 
@@ -179,6 +186,18 @@ public sealed class ShellViewModel : ReactiveObject
         _libraryManager.RetagGame(_currentRootPath, SelectedItem.GameId, newType);
         LoadGamesForRoot(_currentRootPath);
         StatusText = $"Retagged [{newType}]: {SelectedItem.Title}";
+    }
+
+    /// <summary>
+    /// Replaces the current root's game entries with freshly scanned data.
+    /// Called from MainWindow after F6 rescans the folder.
+    /// </summary>
+    public void ApplyRescannedGames(IReadOnlyList<GameEntry> games)
+    {
+        if (IsAtRootLevel) return;
+        _libraryManager.RescanRoot(_currentRootPath, games);
+        LoadGamesForRoot(_currentRootPath);
+        StatusText = "Rescan complete";
     }
 
     public void Reload()

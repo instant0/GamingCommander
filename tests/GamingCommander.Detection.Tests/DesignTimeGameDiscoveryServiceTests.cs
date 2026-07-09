@@ -1,19 +1,3 @@
-using GamingCommander.Core.Models;
-using GamingCommander.Detection;
-
-namespace GamingCommander.Detection.Tests;
-
-public sealed class DesignTimeGameDiscoveryServiceTests
-{
-    [Fact]
-    public void DiscoverInstalledGamesReturnsSteamAndStandaloneSamples()
-    {
-        DesignTimeGameDiscoveryService service = new();
-
-        var games = service.DiscoverInstalledGames();
-
-        Assert.NotEmpty(games);
-        Assert.Contains(games, game => game.Source == GameSourceKind.Steam);
-        Assert.Contains(games, game => game.Source == GameSourceKind.Standalone);
-    }
-}
+// DEPRECATED — Game discovery is now handled by LibraryManager + FolderScanner.
+// This file kept to avoid removing the project reference from dependent test projects.
+// Will be removed in a future cleanup pass.

@@ -85,7 +85,7 @@
             <TextBlock Text="Executable" Foreground="#6A7E8E" FontSize="11" Margin="0,12,0,0" />
             <TextBlock Text="{Binding DetailsExecutable}" Foreground="#7FB7A5" TextWrapping="Wrap" FontSize="11" />
 
-            <TextBlock Text="Press T to tag this folder with a different type."
+            <TextBlock Text="Press F4 to edit this entry's type/tags."
                        Foreground="#3BA7FF" FontSize="11" Margin="0,16,0,0"
                        TextWrapping="Wrap"
                        IsVisible="{Binding IsFolderSelected}" />

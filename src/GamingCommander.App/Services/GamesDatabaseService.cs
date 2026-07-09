@@ -7,6 +7,7 @@ namespace GamingCommander.App.Services;
 public sealed class GamesDatabaseService : IGamesDatabaseService
 {
     private readonly string _dbPath;
+    private GamesDatabase? _cachedDb;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -20,16 +21,26 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
 
     public GamesDatabase Load()
     {
+        if (_cachedDb is not null)
+            return _cachedDb;
+
         if (!File.Exists(_dbPath))
-            return new GamesDatabase(Roots: []);
+        {
+            _cachedDb = new GamesDatabase(Roots: []);
+            return _cachedDb;
+        }
 
         try
         {
             string json = File.ReadAllText(_dbPath);
             var dto = JsonSerializer.Deserialize<GamesDatabaseDto>(json, JsonOptions);
-            if (dto is null) return new GamesDatabase(Roots: []);
+            if (dto is null)
+            {
+                _cachedDb = new GamesDatabase(Roots: []);
+                return _cachedDb;
+            }
 
-            return new GamesDatabase(
+            _cachedDb = new GamesDatabase(
                 dto.Roots?
                     .Select(r => new GameRoot(
                         r.RootPath,
@@ -50,15 +61,20 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
                                 g.Extra ?? []))
                             .ToList() ?? []))
                     .ToList() ?? []);
+            return _cachedDb;
         }
         catch
         {
-            return new GamesDatabase(Roots: []);
+            _cachedDb = new GamesDatabase(Roots: []);
+            return _cachedDb;
         }
     }
 
     public void Save(GamesDatabase db)
     {
+        // Update cache first, then persist to disk
+        _cachedDb = db;
+
         var dto = new GamesDatabaseDto
         {
             Roots = db.Roots.Select(r => new GameRootDto

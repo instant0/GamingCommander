@@ -1,101 +1,13 @@
-# GamingCommander Architecture
+# Architecture — Redirect
 
-Core Concept
+**This file has moved to `META/ARCHITECTURE.md`.**
 
-GamingCommander presents a virtual filesystem.
+Project architecture documentation is now centralized in `META/ARCHITECTURE.md` with detailed Architecture Decision Records in `META/ADR/`.
 
-The user navigates game records.
+See also:
+- `META/CODE_MAP.md` — codebase structure reference
+- `META/ROADMAP.md` — project roadmap and phases
 
-The user does not browse raw folders.
+---
 
-Navigation Flow
-
-F9
-↓
-Library Roots
-↓
-Games from games.json
-↓
-Game Details
-
-Filesystem Access
-
-Allowed:
-
-* Setup
-* Rescan
-
-Forbidden:
-
-* Browse()
-* Navigation
-* Details panel
-
-Browse()
-
-Browse() reads only from:
-
-data/games.json
-
-Virtual Item Types
-
-LibraryRoot
-Game
-Category (future)
-CategoryValue (future)
-
-A Game is not a Directory.
-
-Selecting a game updates details.
-
-Selecting a game does not navigate.
-
-Executable Detection Pipeline
-
-1. Enumerate candidates
-2. Apply exclusion scoring
-3. Apply positive scoring
-4. Rank candidates
-5. Return highest score
-6. Return confidence score
-
-Provider Detection Pipeline
-
-Steam
-Epic
-GOG
-EA
-Ubisoft
-Battle.net
-Xbox
-
-Each detector must be isolated.
-
-Future Metadata Pipeline
-
-PCGamingWiki
-↓
-SteamDB
-↓
-Steam Store
-↓
-IGDB
-↓
-games_db.json
-
-Future Migration Pipeline
-
-Game
-↓
-SyncMove
-↓
-Backup Manifest
-↓
-Move Files
-↓
-Update Manifest
-↓
-Create Junction
-↓
-Validate
-
+> Historical note: Content has been merged into META/ARCHITECTURE.md including the virtual filesystem model, executable detection pipeline, provider detection pipeline, metadata pipeline, and migration pipeline descriptions.

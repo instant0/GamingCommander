@@ -17,11 +17,13 @@ public sealed class WizardViewModel : GamingCommander.UI.ViewModels.ReactiveObje
     public WizardViewModel(
         IConfigService configService,
         IGamesDatabaseService dbService,
-        Window window)
+        Window window,
+        BlacklistData? blacklist = null)
     {
         _configService = configService;
         _dbService = dbService;
-        _scanner = new FolderScanner(configService.Load().HiddenFolders);
+        blacklist ??= BlacklistData.Empty;
+        _scanner = new FolderScanner(configService.Load().HiddenFolders, blacklist);
         _window = window;
     }
 

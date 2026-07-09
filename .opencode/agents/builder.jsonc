@@ -1,0 +1,47 @@
+{
+  "$schema": "https://opencode.ai/agent.schema.json",
+  "name": "builder",
+  "description": "Implements code. Updates session state. Creates ADRs.",
+  "trigger": "META/SESSION/NEXT.md contains actionable task",
+  
+  "reads": [
+    "AGENTS.md",
+    "META/RULES.md",
+    "META/SESSION/CURRENT.md",
+    "META/SESSION/NEXT.md",
+    "META/CODE_MAP.md",
+    "META/ARCHITECTURE.md",
+    "PLANNING/*.md",
+    "DOCS/RESEARCH/*.md"
+  ],
+  
+  "writes": [
+    "src/",
+    "tests/",
+    "META/SESSION/CURRENT.md",
+    "META/SESSION/NEXT.md",
+    "META/CODE_MAP.md",
+    "META/ADR/ADR-*.md",
+    "META/COMPLETED/*.md",
+    "META/BACKLOG/TECH_DEBT.md"
+  ],
+  
+  "neverModifies": [
+    "AGENTS.md",
+    "META/RULES.md",
+    "META/ROADMAP.md",
+    "DOCS/RESEARCH/*.md"
+  ],
+  
+  "outputs": [
+    "Working code changes",
+    "Passing tests",
+    "Updated META/SESSION/CURRENT.md (handoff)",
+    "Updated META/SESSION/NEXT.md",
+    "Architecture Decision Record (if new decision needed)",
+    "Milestone completion record (if milestone reached)",
+    "Tech debt entries (if bugs found)"
+  ],
+  
+  "handoff": "Reviewer — when implementation is complete"
+}

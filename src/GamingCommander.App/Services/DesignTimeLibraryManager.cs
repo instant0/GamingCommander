@@ -1,26 +1,20 @@
 using GamingCommander.Core;
 using GamingCommander.Core.Models;
-using GamingCommander.Detection;
 
 namespace GamingCommander.App.Services;
 
 public sealed class DesignTimeLibraryManager : ILibraryManager
 {
-    private readonly IGameDiscoveryService _discoveryService;
     private readonly IGamesDatabaseService _db;
     private readonly List<LibraryRoot> _roots = [];
 
     public DesignTimeLibraryManager(
-        IGameDiscoveryService discoveryService,
         IGamesDatabaseService db)
     {
-        _discoveryService = discoveryService;
         _db = db;
     }
 
     public IReadOnlyList<LibraryRoot> LibraryRoots => _roots;
-
-    public IReadOnlyList<IGame> Games { get; private set; } = [];
 
     public IReadOnlyList<GameEntry> GetGamesForRoot(string rootPath)
     {
@@ -42,7 +36,7 @@ public sealed class DesignTimeLibraryManager : ILibraryManager
 
     public void Refresh()
     {
-        Games = _discoveryService.DiscoverInstalledGames();
+        // No-op in design-time stub; LibraryManager handles real refresh.
     }
 
     public void RescanRoot(string rootPath, IReadOnlyList<GameEntry> games)

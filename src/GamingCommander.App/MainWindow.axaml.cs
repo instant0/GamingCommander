@@ -1,10 +1,12 @@
+using System.Diagnostics;
+using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using GamingCommander.App.Services;
 using GamingCommander.Core;
 using GamingCommander.Core.Models;
-using GamingCommander.Detection;
 using GamingCommander.UI.ViewModels;
 
 namespace GamingCommander.App;
@@ -13,19 +15,13 @@ public partial class MainWindow : Window
 {
     private ShellViewModel? _viewModel;
     private IGamesDatabaseService? _dbService;
+    private IConfigService? _configService;
+    private FolderScanner? _scanner;
 
     public MainWindow()
     {
         InitializeComponent();
-        string dbPath = GetGamesDbPath();
-        string configPath = GetConfigPath();
-        _dbService = new GamesDatabaseService(dbPath);
-        var libraryManager = new DesignTimeLibraryManager(
-            new DesignTimeGameDiscoveryService(),
-            _dbService);
-        var configService = new JsonConfigService(configPath);
-        _viewModel = new ShellViewModel(libraryManager, configService);
-        DataContext = _viewModel;
+        InitializeServices();
     }
 
     public MainWindow(ShellViewModel shellViewModel, IGamesDatabaseService dbService)
@@ -41,9 +37,16 @@ public partial class MainWindow : Window
                 $"[MainWindow ctor] InitializeComponent FAILED: {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}\n");
             throw;
         }
-        
+
         _viewModel = shellViewModel;
         _dbService = dbService;
+
+        // Ensure _scanner and _configService are initialized so OpenLibrarySetupAsync
+        // always has a blacklist-enabled scanner (not the null-fallback path).
+        _configService = new JsonConfigService(GetConfigPath());
+        var blacklist = new BlacklistLoader(AppDomain.CurrentDomain.BaseDirectory).Load();
+        _scanner = new FolderScanner(_configService.Load().HiddenFolders, blacklist);
+
         DataContext = _viewModel;
 
         if (_viewModel != null)
@@ -67,16 +70,43 @@ public partial class MainWindow : Window
                         listBox?.ScrollIntoView(_viewModel.SelectedIndex);
                 });
             };
+
+            _viewModel.RequestLaunch += item => _ = LaunchSelectedGameAsync();
         }
+    }
+
+    private void InitializeServices()
+    {
+        string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+        string dataDir = Path.Combine(baseDir, "data");
+        Directory.CreateDirectory(dataDir);
+
+        string configPath = Path.Combine(dataDir, "settings.json");
+        string dbPath = Path.Combine(dataDir, "games.json");
+
+        _configService = new JsonConfigService(configPath);
+        _dbService = new GamesDatabaseService(dbPath);
+
+        // Load blacklist patterns from data/blacklist.json
+        var blacklist = new BlacklistLoader(baseDir).Load();
+        _scanner = new FolderScanner(_configService.Load().HiddenFolders, blacklist);
+
+        var libraryManager = new LibraryManager(_configService, _dbService, _scanner);
+        _viewModel = new ShellViewModel(libraryManager, _configService);
+        DataContext = _viewModel;
     }
 
     private static ShellViewModel CreateDefaultViewModel()
     {
-        var dbService = new GamesDatabaseService(GetGamesDbPath());
-        var libraryManager = new DesignTimeLibraryManager(
-            new DesignTimeGameDiscoveryService(),
-            dbService);
-        var configService = new JsonConfigService(GetConfigPath());
+        string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+        string dataDir = Path.Combine(baseDir, "data");
+        Directory.CreateDirectory(dataDir);
+
+        var dbService = new GamesDatabaseService(Path.Combine(dataDir, "games.json"));
+        var configService = new JsonConfigService(Path.Combine(dataDir, "settings.json"));
+        var blacklist = new BlacklistLoader(baseDir).Load();
+        var scanner = new FolderScanner(configService.Load().HiddenFolders, blacklist);
+        var libraryManager = new LibraryManager(configService, dbService, scanner);
         return new ShellViewModel(libraryManager, configService);
     }
 
@@ -101,6 +131,11 @@ public partial class MainWindow : Window
     private IGamesDatabaseService GetDbService()
     {
         return _dbService ?? new GamesDatabaseService(GetGamesDbPath());
+    }
+
+    private IConfigService GetConfigService()
+    {
+        return _configService ?? new JsonConfigService(GetConfigPath());
     }
 
     protected override async void OnKeyDown(KeyEventArgs e)
@@ -135,6 +170,11 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 break;
 
+            case Key.Escape:
+                _viewModel.NavigateUp();
+                e.Handled = true;
+                break;
+
             case Key.F9:
                 _viewModel.JumpToLibraryRoots();
                 e.Handled = true;
@@ -145,8 +185,23 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 break;
 
+            case Key.F4:
+                await OpenGameSetupAsync();
+                e.Handled = true;
+                break;
+
             case Key.F5:
-                _viewModel.StatusText = "Launch not yet implemented";
+                await LaunchSelectedGameAsync();
+                e.Handled = true;
+                break;
+
+            case Key.F6:
+                await RefreshCurrentRootAsync();
+                e.Handled = true;
+                break;
+
+            case Key.F7:
+                await AddRootAsync();
                 e.Handled = true;
                 break;
 
@@ -173,6 +228,7 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 break;
 
+            // Legacy shortcut — F4 is now the primary retag key
             case Key.T:
                 if (!e.KeyModifiers.HasFlag(KeyModifiers.Shift) && !e.KeyModifiers.HasFlag(KeyModifiers.Control))
                     await OpenGameSetupAsync();
@@ -186,20 +242,83 @@ public partial class MainWindow : Window
         }
     }
 
+    private Task LaunchSelectedGameAsync()
+    {
+        if (_viewModel is null) return Task.CompletedTask;
+
+        // Must have a game selected (not at root level)
+        if (_viewModel.IsAtRootLevel)
+        {
+            _viewModel.StatusText = "Navigate into a library root first, then select a game to launch.";
+            return Task.CompletedTask;
+        }
+
+        var item = _viewModel.SelectedItem;
+        if (item?.LaunchTarget is null || item.LaunchTarget.Length == 0)
+        {
+            _viewModel.StatusText = "No executable path for this entry.";
+            return Task.CompletedTask;
+        }
+
+        string target = item.LaunchTarget;
+
+        // If it's a directory entry (not a file), don't launch
+        if (item.Kind == FileSystemEntryKind.Directory)
+        {
+            _viewModel.NavigateInto();
+            return Task.CompletedTask;
+        }
+
+        try
+        {
+            _viewModel.StatusText = $"Launching: {target}";
+
+            if (target.StartsWith("steam://", StringComparison.OrdinalIgnoreCase))
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = target,
+                    UseShellExecute = true,
+                });
+            }
+            else
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = target,
+                    UseShellExecute = true,
+                    WorkingDirectory = Path.GetDirectoryName(target),
+                });
+            }
+
+            _viewModel.StatusText = $"Launched: {item.Title}";
+        }
+        catch (Exception ex)
+        {
+            _viewModel.StatusText = $"Launch failed: {ex.Message}";
+        }
+
+        return Task.CompletedTask;
+    }
+
     private async Task OpenLibrarySetupAsync()
     {
         var dbService = GetDbService();
-        var configService = new JsonConfigService(GetConfigPath());
-        var libraryManager = new DesignTimeLibraryManager(
-            new DesignTimeGameDiscoveryService(),
-            dbService);
+        var configService = GetConfigService();
+
+        // _scanner is always set by both constructors and includes blacklist.
+        // Defensive fallback loads blacklist so it's never null.
+        if (_scanner is null)
+        {
+            var blacklist = new BlacklistLoader(AppDomain.CurrentDomain.BaseDirectory).Load();
+            _scanner = new FolderScanner(configService.Load().HiddenFolders, blacklist);
+        }
 
         AppConfig config = configService.Load();
-        foreach (var root in config.LibraryRoots)
-            libraryManager.AddRoot(root.Path, root.DefaultType, []);
+        var libraryManager = new LibraryManager(configService, dbService, _scanner);
 
         var window = new LibrarySetupWindow(
-            configService, dbService, libraryManager, new FolderScanner(config.HiddenFolders));
+            configService, dbService, libraryManager, _scanner);
         await ShowDialog(window);
 
         _viewModel?.Reload();
@@ -214,7 +333,7 @@ public partial class MainWindow : Window
         if (item?.GameId is null) return;
 
         var dbService = GetDbService();
-        var configService = new JsonConfigService(GetConfigPath());
+        var configService = GetConfigService();
         var games = dbService.GetGamesForRoot(_viewModel.GetCurrentRootPath()!);
         var game = games.FirstOrDefault(g => g.Id == item.GameId);
         if (game is null) return;
@@ -225,10 +344,58 @@ public partial class MainWindow : Window
         _viewModel.Reload();
     }
 
+    private Task RefreshCurrentRootAsync()
+    {
+        if (_viewModel is null || _viewModel.IsAtRootLevel) return Task.CompletedTask;
+
+        string rootPath = _viewModel.CurrentRootPath;
+        var config = GetConfigService().Load();
+        var root = config.LibraryRoots.FirstOrDefault(r =>
+            r.Path.Equals(rootPath, StringComparison.OrdinalIgnoreCase));
+        if (root is null) return Task.CompletedTask;
+
+        var games = _scanner!.Scan(rootPath, root.DefaultType);
+        _viewModel.ApplyRescannedGames(games);
+        return Task.CompletedTask;
+    }
+
+    private async Task AddRootAsync()
+    {
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel is null) return;
+
+        var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(
+            new FolderPickerOpenOptions
+            {
+                Title = "Select game library folder",
+                AllowMultiple = false,
+            });
+
+        if (folders.Count == 0) return;
+        string result = folders[0].Path.LocalPath;
+
+        var configService = GetConfigService();
+        var dbService = GetDbService();
+        var libraryManager = new LibraryManager(configService, dbService, _scanner!);
+
+        var games = _scanner!.Scan(result, GameSourceKind.Standalone);
+        libraryManager.AddRoot(result, GameSourceKind.Standalone, games);
+
+        _viewModel?.Reload();
+        _viewModel!.StatusText = $"Added root: {result}";
+    }
+
     private void LeftListBox_DoubleTapped(object? sender, Avalonia.Input.TappedEventArgs e)
     {
-        if (_viewModel?.SelectedItem?.IsBrowsable == true)
-            _viewModel.NavigateInto();
+        var item = _viewModel?.SelectedItem;
+        if (item is null) return;
+
+        if (item.Kind == FileSystemEntryKind.ParentDirectory)
+            _viewModel!.NavigateUp();
+        else if (item.Kind == FileSystemEntryKind.File)
+            _ = LaunchSelectedGameAsync();
+        else if (item.Kind == FileSystemEntryKind.Directory)
+            _viewModel!.NavigateInto();
     }
 
     private void CommandButtonPressed(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -242,10 +409,19 @@ public partial class MainWindow : Window
                 _ = OpenLibrarySetupAsync();
                 break;
             case "F3":
-                _viewModel.StatusText = "Not yet implemented";
+                _viewModel.StatusText = "View metadata — not yet implemented";
+                break;
+            case "F4":
+                _ = OpenGameSetupAsync();
                 break;
             case "F5":
-                _viewModel.StatusText = "Launch not yet implemented";
+                _ = LaunchSelectedGameAsync();
+                break;
+            case "F6":
+                _ = RefreshCurrentRootAsync();
+                break;
+            case "F7":
+                _ = AddRootAsync();
                 break;
             case "F8":
                 _viewModel.StatusText = "Category view not yet implemented";

@@ -1,0 +1,34 @@
+{
+  "$schema": "https://opencode.ai/agent.schema.json",
+  "name": "librarian",
+  "description": "Audits documentation. Fixes drift. Maintains CODE_MAP.",
+  "trigger": "Periodic (every N sessions), drift detected, structural change",
+  
+  "reads": [
+    "Full audit of META/",
+    "PLANNING/",
+    "DOCS/",
+    "AGENTS.md"
+  ],
+  
+  "writes": [
+    "META/CODE_MAP.md",
+    "PLANNING/README.md",
+    "META/BACKLOG/TECH_DEBT.md (housekeeping)"
+  ],
+  
+  "neverModifies": [
+    "META/SESSION/CURRENT.md",
+    "META/SESSION/NEXT.md",
+    "src/",
+    "tests/"
+  ],
+  
+  "outputs": [
+    "Updated META/CODE_MAP.md (if out of sync with source)",
+    "Updated PLANNING/README.md (if plans changed)",
+    "Documentation drift report"
+  ],
+  
+  "handoff": "Planner — if roadmap needs updating"
+}

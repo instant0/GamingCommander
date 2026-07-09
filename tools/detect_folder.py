@@ -125,6 +125,7 @@ SIGNAL_CHECKS = [
 
 
 NOISE_EXE_PARTS = (
+    # Tier 1 — Universal noise
     "cleanup",
     "touchup",
     "crash",
@@ -135,12 +136,143 @@ NOISE_EXE_PARTS = (
     "redist",
     "vcredist",
     "dxsetup",
+    "oalinst",
+    "dotnet",
+    "directx",
+    "physx",
+    "eos",
+    "msi",
+    "msiexec",
+    "xna",
+    "ndp",
+    "dotnetfx",
+    # Tier 2 — Launcher stubs
+    "launcher",
+    "updater",
+    "patcher",
+    "startup",
+    "bootstrapper",
+    # Tier 3 — Store bootstraps & integration stubs
+    "galaxy",
+    "gog",
+    "epic",
+    "steam",
+    "uplay",
+    "ubisoft",
+    # Tier 4 — Anti-cheat / DRM
+    "easyanticheat",
+    "battleye",
+    "beclient",
+    "beservice",
+    "equ8",
+    "punkbuster",
+    "nprotect",
+    "xigncode",
+    "denuvo",
+    "vmprotect",
+    # Tier 5 — Unreal build/debug tools
+    "crashreportclient",
+    "unrealcefsubprocess",
+    "symboldump",
+    "ubiquitous",
+    # Tier 6 — Crash reporting infrastructure
+    "crs-",
+    "bugsplat",
+    # Tier 7 — DRM wrappers & compatibility shims
+    "xlive",
+    # Tier 8 — Installer/patch utilities shipped alongside games
+    "autorun",
+    "7za",
+    "xdelta",
+    # Tier 9 — Dedicated servers, loaders, stubs, updaters
+    "server",
+    "stub",
+    "update",
+    "loader",
+    "browser",
+    "dowser",
+    # Tier 10 — Stardock distribution tools (SDCR, Tachyon)
+    "sdcr",
+    "tachyon",
+    # Tier 11 — Dev/content editor tools
+    "datacompiler",
+    "editor",
+    "modmanager",
+    "packagemanager",
+    "reminder",
+    "contented",
+    "leveled",
+    "resourceed",
+    # Tier 12 — Utilities & debug builds
+    "install",
+    "debug",
+    "utils",
+    "sndrpt",
+    "exception",
+    "explorer",
+    "brwc",
+    "activation",
+    "ccmini",
+    "acpc",
+    # Tier 13 — Trial/stub/demo exes
+    "trial",
+    "_upp",
+    # Tier 14 — Media/codec/streaming tools
+    "ffmpeg",
+    "ffplay",
+    "ffprobe",
+    # Tier 15 — Installer/update frameworks
+    "squirrel",
+    "wininst",
+    "w9xpopen",
+    # Tier 16 — Runtime interpreters (not games)
+    "python",
+    "blender",
+    # Tier 17 — Web UI / overlay frameworks
+    "coherentui",
+    "cefhost",
+    "awesomium",
+    "webview",
+    "overlay",
+    "scummvm",
+    # Tier 18 — Repair/service/helper processes
+    "repair",
+    "service",
+    "helper",
+    # Tier 19 — Unreal engine build tools
+    "unrealpak",
+    # Tier 20 — Patch/update executables
+    "patch",
+    # Tier 21 — Utility tools that ship alongside games
+    "winscp",
+    "activate",
+)
+
+# Non-game directories to skip entirely during exe scanning
+NOISE_DIR_PARTS: tuple[str, ...] = (
+    "__redist",
+    "_commonredist",
+    "redist",
+    "directx",
+    "vcredist",
+    "dotnet",
+    "physx",
+    "support",
+    "_installer",
+    "install",
+    "installer",
 )
 
 
 def _is_noise_exe(name: str) -> bool:
     lower = name.lower()
     return any(part in lower for part in NOISE_EXE_PARTS)
+
+
+def _is_noise_dir(name: str) -> bool:
+    """Skip directories containing common redist/installer payloads."""
+    lower = name.lower()
+    return any(part in lower for part in NOISE_DIR_PARTS)
 
 
 def _find_executables(d: Path) -> list[Path]:
@@ -154,12 +286,23 @@ def _find_executables(d: Path) -> list[Path]:
             if item.is_file() and item.suffix.lower() == ".exe" and not _is_noise_exe(item.name):
                 candidates.append(item)
 
+    def add_exes_skip_noise(folder: Path):
+        if not folder.is_dir():
+            return
+        for item in folder.iterdir():
+            if item.is_file() and item.suffix.lower() == ".exe" and not _is_noise_exe(item.name):
+                candidates.append(item)
+
     add_exes(d)
     for child in d.iterdir():
-        if child.is_dir():
+        if child.is_dir() and not _is_noise_dir(child.name):
             add_exes(child)
-            add_exes(child / "Binaries" / "Win64")
-            add_exes(child / "Binaries" / "WinGDK")
+            b64 = child / "Binaries" / "Win64"
+            if b64.is_dir() and not _is_noise_dir(b64.parent.name):
+                add_exes(b64)
+            bgdk = child / "Binaries" / "WinGDK"
+            if bgdk.is_dir() and not _is_noise_dir(bgdk.parent.name):
+                add_exes(bgdk)
     # Preserve order, remove duplicates.
     seen = set()
     unique = []
@@ -184,10 +327,15 @@ def _find_light_executable_names(d: Path) -> list[str]:
 
     add(d)
     for child in d.iterdir():
-        if not child.is_dir():
+        if not child.is_dir() or _is_noise_dir(child.name):
             continue
-        add(child / "Binaries" / "Win64")
-        add(child / "Binaries" / "WinGDK")
+        add(child)
+        b64 = child / "Binaries" / "Win64"
+        if b64.is_dir() and not _is_noise_dir(b64.parent.name):
+            add(b64)
+        bgdk = child / "Binaries" / "WinGDK"
+        if bgdk.is_dir() and not _is_noise_dir(bgdk.parent.name):
+            add(bgdk)
     return names[:5]
 
 

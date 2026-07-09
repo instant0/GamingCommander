@@ -5,7 +5,6 @@ namespace GamingCommander.Core;
 public interface ILibraryManager
 {
     IReadOnlyList<LibraryRoot> LibraryRoots { get; }
-    IReadOnlyList<IGame> Games { get; }
     IReadOnlyList<GameEntry> GetGamesForRoot(string rootPath);
     void AddRoot(string rootPath, GameSourceKind defaultType, IReadOnlyList<GameEntry> games);
     void RemoveRoot(string rootPath);

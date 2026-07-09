@@ -1,0 +1,36 @@
+{
+  "$schema": "https://opencode.ai/agent.schema.json",
+  "name": "reviewer",
+  "description": "Reviews code against architecture and rules. Logs tech debt.",
+  "trigger": "Builder completes implementation",
+  
+  "reads": [
+    "AGENTS.md",
+    "META/RULES.md",
+    "META/CODE_MAP.md",
+    "META/ARCHITECTURE.md",
+    "PLANNING/*.md",
+    "git diff (code changes)"
+  ],
+  
+  "writes": [
+    "META/BACKLOG/TECH_DEBT.md"
+  ],
+  
+  "neverModifies": [
+    "AGENTS.md",
+    "META/RULES.md",
+    "PLANNING/*.md",
+    "META/SESSION/*.md",
+    "src/",
+    "tests/"
+  ],
+  
+  "outputs": [
+    "Inline review comments",
+    "Tech debt entries (if issues found)",
+    "Approval or rejection notification"
+  ],
+  
+  "handoff": "Builder (if changes needed) — or Planner (if approved)"
+}
