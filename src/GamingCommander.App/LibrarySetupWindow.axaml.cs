@@ -3,7 +3,6 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
-using GamingCommander.App.Services;
 using GamingCommander.App.ViewModels;
 using GamingCommander.Core;
 using GamingCommander.Core.Models;
@@ -17,18 +16,24 @@ public partial class LibrarySetupWindow : Window
     public LibrarySetupWindow(
         IConfigService configService,
         IGamesDatabaseService dbService,
-        ILibraryManager libraryManager,
-        FolderScanner scanner)
+        ILibraryManager libraryManager)
     {
         InitializeComponent();
 
-        _vm = new LibrarySetupViewModel(configService, dbService, libraryManager, scanner, this);
+        _vm = new LibrarySetupViewModel(configService, dbService, libraryManager, this);
         DataContext = _vm;
 
-        this.FindControl<Button>("AddRootButton")!.Click += async (_, _) =>
+        var addBtn = this.FindControl<Button>("AddRootButton")!;
+        var statusText = this.FindControl<TextBlock>("ScanStatusText")!;
+
+        addBtn.Click += async (_, _) =>
         {
+            addBtn.IsEnabled = false;
+            statusText.Text = "Opening folder picker...";
             await _vm.AddRootAsync();
+            statusText.Text = "Scanning complete.";
             RenderRoots();
+            addBtn.IsEnabled = true;
         };
         this.FindControl<Button>("CloseButton")!.Click += (_, _) => _vm.Close();
 
@@ -47,10 +52,10 @@ public partial class LibrarySetupWindow : Window
             var rescanBtn = new Button
             {
                 Content = "Rescan",
-                Background = new SolidColorBrush(Color.Parse("#1A2A3A")),
-                Foreground = new SolidColorBrush(Color.Parse("#8CD8FF")),
+                Background = AppTheme.ButtonBgSecondary,
+                Foreground = AppTheme.TextAccent,
                 Padding = new Thickness(12, 4),
-                FontSize = 11,
+                FontSize = AppTheme.FontSizeLabel,
             };
             rescanBtn.Click += async (_, _) =>
             {
@@ -61,10 +66,10 @@ public partial class LibrarySetupWindow : Window
             var removeBtn = new Button
             {
                 Content = "Remove",
-                Background = new SolidColorBrush(Color.Parse("#3A1A1A")),
-                Foreground = new SolidColorBrush(Color.Parse("#FF6B6B")),
+                Background = AppTheme.ButtonBgDanger,
+                Foreground = AppTheme.TextDanger,
                 Padding = new Thickness(12, 4),
-                FontSize = 11,
+                FontSize = AppTheme.FontSizeLabel,
             };
             removeBtn.Click += (_, _) =>
             {
@@ -84,17 +89,17 @@ public partial class LibrarySetupWindow : Window
             {
                 Text = entry.Path,
                 FontWeight = FontWeight.Bold,
-                FontSize = 13,
+                FontSize = AppTheme.FontSizeItem,
             };
             var countBlock = new TextBlock
             {
                 Text = $"{entry.GameCount} game(s) — {entry.DefaultType}",
-                Foreground = new SolidColorBrush(Color.Parse("#6A7E8E")),
-                FontSize = 11,
+                Foreground = AppTheme.TextMuted,
+                FontSize = AppTheme.FontSizeLabel,
             };
 
             var row = new StackPanel { Spacing = 8, Margin = new Thickness(0, 8) };
-            row.Children.Add(new Grid
+            var topRow = new Grid
             {
                 ColumnDefinitions =
                 [
@@ -106,13 +111,15 @@ public partial class LibrarySetupWindow : Window
                     new StackPanel { Spacing = 2, Children = { nameBlock, countBlock } },
                     combo,
                 },
-            });
+            };
+            Grid.SetColumn(combo, 1);
+            row.Children.Add(topRow);
             row.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 4, 0, 0), Children = { rescanBtn, removeBtn } });
 
             panel.Children.Add(row);
             panel.Children.Add(new Border
             {
-                BorderBrush = new SolidColorBrush(Color.Parse("#1A2A3A")),
+                BorderBrush = AppTheme.EntryBorder,
                 BorderThickness = new Thickness(0, 0, 0, 1),
                 Margin = new Thickness(0, 8, 0, 0),
             });
@@ -123,7 +130,7 @@ public partial class LibrarySetupWindow : Window
             panel.Children.Add(new TextBlock
             {
                 Text = "(no library roots configured — click '+ Add Root' to begin)",
-                Foreground = new SolidColorBrush(Color.Parse("#6A7E8E")),
+                Foreground = AppTheme.TextMuted,
                 FontStyle = FontStyle.Italic,
                 Margin = new Thickness(0, 8),
             });

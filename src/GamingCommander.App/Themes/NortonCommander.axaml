@@ -1,0 +1,63 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    Norton Commander-inspired dark theme.
+    All visual constants are defined here. Change these to re-theme the entire app.
+    For multi-theme support: swap this file's contents or merge a different theme file.
+  -->
+
+  <!-- ════════════════════════════════════════════════════════════════
+       BACKGROUNDS (darkest → lightest layering)
+       ════════════════════════════════════════════════════════════════ -->
+  <Color x:Key="WindowBg">#10161C</Color>
+  <Color x:Key="PaneBg">#0F141A</Color>
+  <Color x:Key="ReadOnlyFieldBg">#0A0F14</Color>
+  <Color x:Key="CommandButtonBg">#14202A</Color>
+  <Color x:Key="ButtonBgCancel">#1A1A1A</Color>
+  <Color x:Key="ButtonBgSkip">#2A2A1A</Color>
+  <Color x:Key="ButtonBgSuccess">#1A3A2A</Color>
+  <Color x:Key="ButtonBgAction">#1A3A4A</Color>
+  <Color x:Key="ButtonBgDanger">#3A1A1A</Color>
+  <Color x:Key="ButtonBgSecondary">#1A2A3A</Color>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       BORDERS
+       ════════════════════════════════════════════════════════════════ -->
+  <Color x:Key="AccentBorder">#3BA7FF</Color>
+  <Color x:Key="SeparatorBorder">#243340</Color>
+  <Color x:Key="EntryBorder">#1A2A3A</Color>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       TEXT (lightest → darkest)
+       ════════════════════════════════════════════════════════════════ -->
+  <Color x:Key="TextPrimary">#D7E2F0</Color>
+  <Color x:Key="TextSecondary">#A0B4C4</Color>
+  <Color x:Key="TextAccent">#8CD8FF</Color>
+  <Color x:Key="TextSuccess">#7FB7A5</Color>
+  <Color x:Key="TextMuted">#6A7E8E</Color>
+  <Color x:Key="TextDimmed">#4A5E6E</Color>
+  <Color x:Key="TextDisabled">#3A4A5A</Color>
+  <Color x:Key="TextHighlight">#F8E38C</Color>
+  <Color x:Key="TextDanger">#FF6B6B</Color>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       STATUS COLORS (game detection states)
+       ════════════════════════════════════════════════════════════════ -->
+  <Color x:Key="StatusInstalled">#7FB7A5</Color>
+  <Color x:Key="StatusMoved">#E8C547</Color>
+  <Color x:Key="StatusOrphaned">#E87070</Color>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       FONT SIZES
+       ════════════════════════════════════════════════════════════════ -->
+  <x:Double x:Key="FontSizeSmall">10</x:Double>
+  <x:Double x:Key="FontSizeLabel">11</x:Double>
+  <x:Double x:Key="FontSizeBody">12</x:Double>
+  <x:Double x:Key="FontSizeItem">13</x:Double>
+  <x:Double x:Key="FontSizeSubHeader">14</x:Double>
+  <x:Double x:Key="FontSizeHeader">16</x:Double>
+  <x:Double x:Key="FontSizeTitle">18</x:Double>
+  <x:Double x:Key="FontSizeAppTitle">20</x:Double>
+
+</ResourceDictionary>

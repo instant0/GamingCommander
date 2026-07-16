@@ -88,14 +88,27 @@ public partial class App : Application
                 Log("Creating FolderScanner with blacklist...");
                 var scanner = new FolderScanner(config.HiddenFolders, blacklist);
 
+                Log("Creating SteamLibraryScanner...");
+                var steamPaths = config.LibraryRoots
+                    .Where(r => r.DefaultType == GameSourceKind.Steam)
+                    .Select(r => r.Path);
+                var steamScanner = new SteamLibraryScanner(steamPaths);
+                Log($"  Steam paths: {string.Join(", ", steamPaths)}");
+
                 Log("Creating LibraryManager...");
-                var libraryManager = new LibraryManager(configService, dbService, scanner);
+                var libraryManager = new LibraryManager(configService, dbService, scanner, steamScanner);
 
                 Log("Creating DesignTimeMigrationPlanner...");
                 var migrationPlanner = new DesignTimeMigrationPlanner();
 
-                bool needsWizard = config.IsFirstRun || config.LibraryRoots.Count == 0;
-                Log($"  needsWizard: {needsWizard}");
+                string currentVersion = typeof(App).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
+                bool isNewerVersion = config.LastSeenVersion is not null
+                    && CompareVersions(config.LastSeenVersion, currentVersion) < 0;
+                bool needsWizard = config.IsFirstRun
+                    || config.LastSeenVersion is null
+                    || isNewerVersion
+                    || config.LibraryRoots.Count == 0;
+                Log($"  CurrentVersion: {currentVersion}, LastSeen: {config.LastSeenVersion ?? "(null)"}, needsWizard: {needsWizard}, isNewerVersion: {isNewerVersion}");
 
                 Log("Creating ShellViewModel...");
                 var shellVm = new ShellViewModel(libraryManager, configService);
@@ -119,6 +132,9 @@ public partial class App : Application
                     wizardWindow.Closed += (_, _) =>
                     {
                         config = configService.Load();
+                        config = config with { LastSeenVersion = currentVersion };
+                        configService.Save(config);
+
                         if (config.LibraryRoots.Count == 0)
                         {
                             shellVm.StatusText = "No library roots configured. Press F2 to add folders.";
@@ -134,6 +150,13 @@ public partial class App : Application
                 }
                 else
                 {
+                    // Stamp version so we don't re-wizard for this build
+                    if (!string.Equals(config.LastSeenVersion, currentVersion, StringComparison.Ordinal))
+                    {
+                        config = config with { LastSeenVersion = currentVersion };
+                        configService.Save(config);
+                    }
+
                     mainWindow.Show();
                     int totalGames = config.LibraryRoots.Sum(
                         r => dbService.GetGamesForRoot(r.Path).Count);
@@ -177,5 +200,13 @@ public partial class App : Application
         if (!Directory.Exists(dataDir))
             Directory.CreateDirectory(dataDir);
         return Path.Combine(dataDir, "games.json");
+    }
+
+    /// <summary>Returns -1 if a &lt; b, 0 if equal, 1 if a &gt; b.</summary>
+    private static int CompareVersions(string a, string b)
+    {
+        if (!Version.TryParse(a, out var va) || !Version.TryParse(b, out var vb))
+            return string.Compare(a, b, StringComparison.Ordinal);
+        return va.CompareTo(vb);
     }
 }

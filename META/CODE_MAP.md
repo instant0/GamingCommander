@@ -10,7 +10,7 @@
 ```
 GamingCommander.sln
 ├── src/
-│   ├── GamingCommander.Core/        Interface definitions + domain models
+│   ├── GamingCommander.Core/        Interface definitions + domain models + shared helpers
 │   ├── GamingCommander.Detection/   Game discovery abstractions + design-time stub
 │   ├── GamingCommander.Migration/   Migration planning abstractions + design-time stub
 │   ├── GamingCommander.UI/          ViewModels (Norton Commander shell)
@@ -31,8 +31,7 @@ GamingCommander.sln
 | Interface | File | Key Members |
 |-----------|------|-------------|
 | `IGame` | `IGame.cs` | `Id`, `Title`, `Source`, `InstallPath`, `ExecutablePath`, `LaunchTarget`, `LastModified` |
-| `ILauncher` | `ILauncher.cs` | `Name`, `IsAvailable`, `Detect()` → games, `Launch(IGame)` |
-| `ILibraryManager` | `ILibraryManager.cs` | `LibraryRoots`, `Games`, `AddRoot()`, `RemoveRoot()`, `Refresh()`, `RescanRoot()`, `UpdateGameEntry()`, `DeleteGameEntry()`, `RetagGame()` |
+| `ILibraryManager` | `ILibraryManager.cs` | `LibraryRoots`, `GetGamesForRoot()`, `AddRoot()`, `RemoveRoot()`, `Refresh()`, `RescanRoot()`, `UpdateGameEntry()`, `DeleteGameEntry()`, `RetagGame()` |
 | `IConfigService` | `IConfigService.cs` | `Load()` → `AppConfig`, `Save(AppConfig)` |
 | `IGamesDatabaseService` | `IGamesDatabaseService.cs` | `Load()` → `GamesDatabase`, `Save()`, same CRUD as ILibraryManager |
 
@@ -42,17 +41,27 @@ GamingCommander.sln
 
 | Model | Kind | Key Fields |
 |-------|------|------------|
-| `GameSourceKind` | enum | `Unknown=0, Standalone=1, Steam=2, Gog=3, Epic=4, EaApp=5, UbisoftConnect=6` |
+| `GameSourceKind` | enum | `Unknown=0, Standalone=1, Steam=2, Gog=3, Epic=4, EaApp=5, UbisoftConnect=6, BattleNet=7, Xbox=8, Rockstar=9, SteamEmu=10` |
 | `FileSystemEntryKind` | enum | `Directory=0, File=1, ParentDirectory=2` |
 | `MigrationMode` | enum | `MoveOnly=0, MoveAndLink=1 (deprecated), ManifestRepairOnly=2` |
 | `GameRecord` | record (implements IGame) | Id, Title, Source, InstallPath, LaunchTarget, ExecutablePath, LastModified, SupportsPointerInteraction, SupportsKeyboardOnlyFlow |
 | `GameEntry` | record | Id, FolderName, DisplayName, GameSource, Override, ExecutablePath, LauncherPath, CmdlineArgs, ManifestPath, LastScanned, LastModified, Extra |
 | `GameRoot` | record | RootPath, DefaultType, Games (List\<GameEntry\>) |
 | `GamesDatabase` | record | Roots (List\<GameRoot\>) |
-| `AppConfig` | record | LibraryRoots, FolderOverrides, HiddenFolders, IsFirstRun |
+| `AppConfig` | record | LibraryRoots, FolderOverrides, HiddenFolders, IsFirstRun, LastSeenVersion, EnableOnlineMetadata |
 | `LibraryRoot` | record | Path, DefaultType |
 | `MigrationPlanSummary` | record | GameId, SourcePath, TargetPath, Mode, RequiresManifestBackup, RequiresLinkCreation (deprecated), IsDryRunOnly |
 | `FileSystemEntry` | record | Name, FullPath, Kind, LastModified, Size |
+| `GameSourceParser` | static class | `InferFromPath(string)`, `ParseFromString(string)` — shared by WizardViewModel, LibrarySetupViewModel, GameSetupWindow |
+
+---
+
+## Core Helpers (GamingCommander.Core/Services)
+
+| Helper | File | Purpose |
+|--------|------|---------|
+| `VdfParser` | `VdfParser.cs` | Minimal VDF/ACF key-value parser for Steam manifest files |
+| `GameEntryId` | `GameEntryId.cs` | Deterministic MD5-based ID generation for GameEntry records |
 
 ---
 
@@ -61,18 +70,19 @@ GamingCommander.sln
 | ViewModel | File | Purpose |
 |-----------|------|---------|
 | `ReactiveObject` | `ReactiveObject.cs` (25 L) | Base INotifyPropertyChanged with `SetProperty<T>` |
-| `ShellViewModel` | `ShellViewModel.cs` (257 L) | Dual-pane shell: navigation, details, status bar, command bar |
-| `ShellPaneItemViewModel` | `ShellPaneItemViewModel.cs` (26 L) | Item model: Title, SourceLabel, PathSummary, Kind, IsBrowsable, GameId |
+| `ShellViewModel` | `ShellViewModel.cs` | Dual-pane shell: navigation, details, status bar, command bar |
+| `ShellPaneItemViewModel` | `ShellPaneItemViewModel.cs` | Item model: Title, SourceLabel, PathSummary, Kind, IsBrowsable, GameId, PlatformId, HasGameSelected |
 | `ShellCommandViewModel` | `ShellCommandViewModel.cs` (8 L) | Hotkey + Label for command bar |
 
 ### ShellViewModel Key Methods
 
 - `JumpToLibraryRoots()` — populate item list from configured roots
 - `LoadGamesForRoot(string rootPath)` — populate item list from a root's game entries
-- `NavigateInto()` — drill into selected item (root or "..")
+- `NavigateInto()` — drill into selected item (root or "..") or launch game
 - `NavigateUp()` — go up one level (root list or no-op)
 - `RetagSelected(GameSourceKind)` — update game source type
 - `Reload()` — refresh current view
+- `HasGameSelected` — true when a game file (not directory) is selected
 
 ### ShellPaneItemViewModel.IsBrowsable
 
@@ -86,22 +96,32 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 
 ## App Services (GamingCommander.App/Services)
 
-| Service | File (lines) | Purpose |
-|---------|-------------|---------|
-| `FolderScanner` | `FolderScanner.cs` (302 L) | Scans directory for games: exe heuristics, marker detection (steam_appid.txt, .egsstore, goggame.yml), type inference, primary exe selection, name-matching bonus, Epic manifest finding, hidden folder ignore list |
-| `GamesDatabaseService` | `GamesDatabaseService.cs` (205 L) | JSON-file CRUD for game entries via private DTOs |
-| `JsonConfigService` | `JsonConfigService.cs` (109 L) | JSON-file persistence for AppConfig |
-| `DesignTimeLibraryManager` | `DesignTimeLibraryManager.cs` (67 L) | Implements ILibraryManager, delegates to IGamesDatabaseService |
-| `GameSetupViewModel` | (in `.App/ViewModels/WizardViewModel.cs`) | First-run wizard dialog logic |
-| `LibrarySetupViewModel` | (in `.App/ViewModels/LibrarySetupViewModel.cs`) | F2 settings dialog logic |
+| Service | File | Purpose |
+|---------|------|---------|
+| `LibraryManager` | `LibraryManager.cs` | Routes scanning to appropriate scanner, manages roots, delegates to IGamesDatabaseService |
+| `FolderScanner` | `FolderScanner.cs` (740 L) | Generic folder scanner: 10-signal detection chain, 320+ noise exe patterns, exe scoring |
+| `SteamLibraryScanner` | `SteamLibraryScanner.cs` | Dedicated Steam scanner: ACF cross-referencing, library path discovery, Moved/Orphaned detection |
+| `GamesDatabaseService` | `GamesDatabaseService.cs` | JSON-file CRUD for game entries via private DTOs, in-memory cache |
+| `JsonConfigService` | `JsonConfigService.cs` | JSON-file persistence for AppConfig |
+| `BlacklistLoader` | `BlacklistLoader.cs` | Loads noise patterns from data/blacklist.json |
+| `WizardViewModel` | `.App/ViewModels/WizardViewModel.cs` | First-run wizard dialog logic |
+| `LibrarySetupViewModel` | `.App/ViewModels/LibrarySetupViewModel.cs` | F2 settings dialog logic |
 
 ### FolderScanner Key Logic
 
-- `Scan(rootPath, defaultType)` → enumerates subdirs, skips hidden + non-game, detects type, picks primary exe
-- `IsNonGameExe()` — filters anti-cheat, installers, launchers (~25 patterns)
-- `ExeNameMatchesFolderName()` — bidirectional substring + token match, beats size-based sort
-- `HasGameMarkerFile()` — checks subtree for steam_appid.txt, .egsstore, etc.
-- `FindPrimaryExecutable()` — prefers name-matching exe over largest exe
+- `Scan(rootPath, defaultType)` → 10-signal priority-ordered detection for GOG, EA, Ubisoft, Epic, Blizzard, Xbox, Rockstar, Steam, Steam Emu
+- Deep executable discovery (root → child → Binaries/Win64/ → Binaries/WinGDK/)
+- Executable scoring (folder-token match +10, launcher penalty -20, shipping bonus +5, filesize bonus)
+- Container detection (parent with no signals, child has signals → promote child)
+- Uses `GameEntryId.Compute()` and `GameSourceParser` from Core
+
+### SteamLibraryScanner Key Logic
+
+- `Scan(rootPath)` / `ScanAll()` → scans steamapps/common/, cross-references ACF from all libraries
+- `DiscoverLibraryPaths()` — parses libraryfolders.vdf for additional Steam library paths
+- Detects Installed/Moved/Orphaned status via ACF cross-referencing
+- Stores status in `GameEntry.Extra` dict (SteamStatus, SteamAppId, AcfLibraryPath, etc.)
+- Uses `GameEntryId.Compute()` from Core
 
 ---
 
@@ -109,30 +129,32 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 
 | Window | AXAML (lines) | Code-behind (lines) | Purpose |
 |--------|--------------|---------------------|---------|
-| `MainWindow` | 127 L | 261 L | Dual-pane shell, keyboard handlers, command bar, details panel |
-| `WizardWindow` | 43 L | 130 L | First-run wizard |
-| `LibrarySetupWindow` | 31 L | 132 L | F2 settings |
-| `GameSetupWindow` | 19 L | 227 L | T-key game editing |
+| `MainWindow` | 135 L | ~550 L | Dual-pane shell, keyboard handlers, command bar, details panel |
+| `WizardWindow` | 43 L | 132 L | First-run wizard |
+| `LibrarySetupWindow` | 31 L | 140 L | F2 settings |
+| `GameSetupWindow` | 19 L | ~225 L | F4 game editing |
 
 ### MainWindow Key Handlers (in `OnKeyDown`)
 
 - `Up/Down` — navigation
-- `Enter` → `NavigateInto()`
-- `Backspace` → `NavigateUp()`
+- `Enter` → `NavigateInto()` (launches games, drills into directories)
+- `Backspace` / `Esc` → `NavigateUp()`
+- `F1` → Help dialog
 - `F2` → LibrarySetup dialog
 - `F3` → "Not yet implemented" (placeholder)
-- `F5` → "Launch not yet implemented" (placeholder)
+- `F4` → GameSetup dialog (retag)
+- `F5` → Launch selected game
+- `F6` → Rescan current root or all roots
+- `F7` → Add a library root
 - `F8` → "Category view not yet implemented" (placeholder)
 - `F9` → JumpToLibraryRoots
 - `F10` → Close()
-- `S` → "Search not yet implemented" (placeholder)
-- `T` → GameSetup dialog (retag)
 
 ### MainWindow Key Events
 
 - `NavigationChanged` → `Focus()` on LeftListBox, `ScrollIntoView`
 - `PropertyChanged(SelectedIndex)` → `ScrollIntoView`
-- `LeftListBox_DoubleTapped` → `NavigateInto()` if browsable
+- `LeftListBox_DoubleTapped` → launches games, drills into directories
 - `CommandButtonPressed` → maps `Tag` hotkey to handler
 
 ---
@@ -141,7 +163,7 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 
 | File | Purpose |
 |------|---------|
-| `blacklist.json` | Aggregated noise patterns for C# startup loading: exe names, directory names, PE metadata defaults, PCGW page title noise. Consumed by `FolderScanner.IsNonGameExe()`, `IsNonGameDir()`, `IsGenericPeMetadata()`, metadata lookup scoring. |
+| `blacklist.json` | Aggregated noise patterns for exe names, directory names, PE metadata defaults, PCGW page title noise. Consumed by FolderScanner and SteamLibraryScanner. |
 
 ## Existing Python Tools (tools/)
 
@@ -191,12 +213,11 @@ data/mock/
 
 ---
 
-## Test Coverage (18 tests total)
+## Test Coverage (17 tests total)
 
 | Project | Tests | What |
 |---------|-------|------|
-| `Core.Tests` | 5 | GameRecord props, FileSystemEntryKind enum (4 tests) |
-| `Detection.Tests` | 1 | DesignTimeGameDiscoveryService returns samples |
+| `Core.Tests` | 5 | GameRecord props, GameSourceParser, FileSystemEntryKind enum |
 | `Migration.Tests` | 1 | DesignTimeMigrationPlanner dry-run plan |
 | `App.Tests` | 11 | ScannerFilterTests (6), MockDataIntegrationTests (5) |
 

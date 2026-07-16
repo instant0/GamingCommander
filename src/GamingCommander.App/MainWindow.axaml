@@ -3,6 +3,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="using:GamingCommander.UI.ViewModels"
+        xmlns:svc="using:GamingCommander.App.Services"
         x:Class="GamingCommander.App.MainWindow"
         x:DataType="vm:ShellViewModel"
         mc:Ignorable="d"
@@ -14,11 +15,14 @@
         CanResize="True"
         d:DesignWidth="1280"
         d:DesignHeight="820">
+  <Window.Resources>
+    <svc:HexToBrushConverter x:Key="HexToBrush" />
+  </Window.Resources>
   <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="12">
     <Border Grid.Row="0" Classes="pane" Padding="12" Margin="0,0,0,10">
       <StackPanel Spacing="4">
-        <TextBlock Text="GamingCommander" FontWeight="Bold" FontSize="20" Foreground="#8CD8FF" />
-        <TextBlock Text="{Binding InteractionHint}" TextWrapping="Wrap" Foreground="#7FB7A5" />
+        <TextBlock Text="GamingCommander" FontWeight="Bold" FontSize="{DynamicResource FontSizeAppTitle}" Foreground="{DynamicResource TextAccent}" />
+        <TextBlock Text="{Binding InteractionHint}" TextWrapping="Wrap" Foreground="{DynamicResource TextSuccess}" />
       </StackPanel>
     </Border>
 
@@ -28,7 +32,7 @@
           <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,4">
             <TextBlock Grid.Column="0" Classes="pane-header" Text="{Binding LeftPaneTitle}" />
             <TextBlock Grid.Column="1" Text="{Binding ItemCount, StringFormat='({0} items)'}"
-                       Foreground="#3BA7FF" FontSize="11" VerticalAlignment="Center" Margin="12,0,0,0" />
+                       Foreground="{DynamicResource TextAccent}" FontSize="{DynamicResource FontSizeLabel}" VerticalAlignment="Center" Margin="12,0,0,0" />
           </Grid>
           <ListBox Grid.Row="1"
                    x:Name="LeftListBox"
@@ -38,14 +42,15 @@
                    Margin="0,2,0,0">
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="vm:ShellPaneItemViewModel">
-                <Border BorderBrush="#243340" BorderThickness="0,0,0,1" Padding="4,6">
-                  <Grid ColumnDefinitions="2*,Auto" RowDefinitions="Auto,Auto">
-                    <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Title}" FontWeight="Bold"
-                               FontSize="14" />
-                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SourceLabel}"
-                               Foreground="#8CD8FF" Margin="12,0,0,0" VerticalAlignment="Center" />
-                    <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding PathSummary}"
-                               TextWrapping="Wrap" Foreground="#6A7E8E" FontSize="11" />
+                <Border BorderBrush="{DynamicResource SeparatorBorder}" BorderThickness="0,0,0,1" Padding="4,3">
+                  <Grid ColumnDefinitions="1*,Auto,Auto">
+                    <TextBlock Grid.Column="0" Text="{Binding Title}" FontWeight="Bold" FontSize="{DynamicResource FontSizeItem}"
+                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Text="{Binding SourceLabel}"
+                               Foreground="{DynamicResource TextAccent}" Margin="6,0" FontSize="{DynamicResource FontSizeLabel}" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="2" Text="{Binding PathSummary}"
+                               Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" MaxWidth="200"
+                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                   </Grid>
                 </Border>
               </DataTemplate>
@@ -57,7 +62,7 @@
       <GridSplitter Grid.Column="1"
                     Width="6"
                     HorizontalAlignment="Stretch"
-                    Background="#3BA7FF"
+                    Background="{DynamicResource AccentBorder}"
                     ResizeDirection="Columns" />
 
       <Border Grid.Column="2" Classes="pane">
@@ -65,37 +70,51 @@
           <TextBlock Grid.Row="0" Classes="pane-header" Text="{Binding RightPaneTitle}" />
 
           <StackPanel Grid.Row="1" Spacing="4" Margin="0,4,0,0">
-            <TextBlock Text="Name" Foreground="#6A7E8E" FontSize="11" />
-            <TextBlock Text="{Binding DetailsName}" FontWeight="Bold" FontSize="16" TextWrapping="Wrap"
-                       Foreground="#D7E2F0" />
+            <TextBlock Text="Name" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" />
+            <TextBlock Text="{Binding DetailsName}" FontWeight="Bold" FontSize="{DynamicResource FontSizeHeader}" TextWrapping="Wrap"
+                       Foreground="{DynamicResource TextPrimary}" />
 
-            <TextBlock Text="Path" Foreground="#6A7E8E" FontSize="11" Margin="0,12,0,0" />
-            <TextBlock Text="{Binding DetailsPath}" TextWrapping="Wrap" FontSize="11"
-                       Foreground="#A0B4C4" />
+            <TextBlock Text="Path" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" Margin="0,12,0,0" />
+            <TextBlock Text="{Binding DetailsPath}" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeLabel}"
+                       Foreground="{DynamicResource TextSecondary}" />
 
-            <TextBlock Text="Type" Foreground="#6A7E8E" FontSize="11" Margin="0,12,0,0" />
-            <TextBlock Text="{Binding DetailsType}" Foreground="#8CD8FF" FontSize="12" />
+            <TextBlock Text="Type" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" Margin="0,12,0,0" />
+            <TextBlock Text="{Binding DetailsType}" Foreground="{DynamicResource TextAccent}" FontSize="{DynamicResource FontSizeBody}" />
 
-            <TextBlock Text="Resolved Type" Foreground="#6A7E8E" FontSize="11" Margin="0,12,0,0" />
-            <TextBlock Text="{Binding DetailsResolvedType}" Foreground="#7FB7A5" FontSize="12" />
+            <StackPanel IsVisible="{Binding HasOverride}" Spacing="0">
+              <TextBlock Text="Override" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" Margin="0,12,0,0" />
+              <TextBlock Text="{Binding DetailsResolvedType}" Foreground="{DynamicResource TextSuccess}" FontSize="{DynamicResource FontSizeBody}" />
+            </StackPanel>
 
-            <TextBlock Text="Last Modified" Foreground="#6A7E8E" FontSize="11" Margin="0,12,0,0" />
-            <TextBlock Text="{Binding DetailsLastModified}" Foreground="#A0B4C4" FontSize="12" />
+            <TextBlock Text="Last Modified" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" Margin="0,12,0,0" />
+            <TextBlock Text="{Binding DetailsLastModified}" Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeBody}" />
 
-            <TextBlock Text="Executable" Foreground="#6A7E8E" FontSize="11" Margin="0,12,0,0" />
-            <TextBlock Text="{Binding DetailsExecutable}" Foreground="#7FB7A5" TextWrapping="Wrap" FontSize="11" />
+            <TextBlock Text="Platform ID" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" Margin="0,12,0,0"
+                       IsVisible="{Binding HasPlatformId}" />
+            <TextBlock Text="{Binding DetailsPlatformId}" Foreground="{DynamicResource TextSuccess}" FontSize="{DynamicResource FontSizeBody}"
+                       IsVisible="{Binding HasPlatformId}" />
+
+            <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,12,0,0"
+                        IsVisible="{Binding HasPlatformStatus}">
+              <TextBlock Text="Status" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" />
+              <TextBlock Text="{Binding DetailsPlatformStatus}" FontSize="{DynamicResource FontSizeLabel}" FontWeight="Bold"
+                         Foreground="{Binding DetailsPlatformStatusColor, Converter={StaticResource HexToBrush}}" />
+            </StackPanel>
+
+            <TextBlock Text="Executable" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" Margin="0,12,0,0" />
+            <TextBlock Text="{Binding DetailsExecutable}" Foreground="{DynamicResource TextSuccess}" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeLabel}" />
 
             <TextBlock Text="Press F4 to edit this entry's type/tags."
-                       Foreground="#3BA7FF" FontSize="11" Margin="0,16,0,0"
+                       Foreground="{DynamicResource TextAccent}" FontSize="{DynamicResource FontSizeLabel}" Margin="0,16,0,0"
                        TextWrapping="Wrap"
-                       IsVisible="{Binding IsFolderSelected}" />
+                       IsVisible="{Binding HasGameSelected}" />
             <TextBlock Text="No item selected — use arrow keys to navigate."
-                       Foreground="#3A4A5A" FontStyle="Italic" FontSize="12" Margin="0,16,0,0"
+                       Foreground="{DynamicResource TextDisabled}" FontStyle="Italic" FontSize="{DynamicResource FontSizeBody}" Margin="0,16,0,0"
                        IsVisible="{Binding !HasSelection}" />
           </StackPanel>
 
           <StackPanel Grid.Row="2" Spacing="4" Margin="0,12,0,0">
-            <TextBlock Text="{Binding ConfiguredRootsCount}" Foreground="#3BA7FF" FontSize="11" />
+            <TextBlock Text="{Binding ConfiguredRootsCount}" Foreground="{DynamicResource TextAccent}" FontSize="{DynamicResource FontSizeLabel}" />
           </StackPanel>
         </Grid>
       </Border>
@@ -113,11 +132,11 @@
       </ItemsControl.ItemsPanel>
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="vm:ShellCommandViewModel">
-          <Border Background="#14202A" Padding="6" Margin="0,0,8,8"
+          <Border Background="{DynamicResource CommandButtonBg}" Padding="6" Margin="0,0,8,8"
                   Tag="{Binding Hotkey}" PointerPressed="CommandButtonPressed">
             <StackPanel Orientation="Horizontal" Spacing="6">
-              <TextBlock Text="{Binding Hotkey}" Foreground="#F8E38C" FontWeight="Bold" />
-              <TextBlock Text="{Binding Label}" Foreground="#6A7E8E" />
+              <TextBlock Text="{Binding Hotkey}" Foreground="{DynamicResource TextHighlight}" FontWeight="Bold" />
+              <TextBlock Text="{Binding Label}" Foreground="{DynamicResource TextMuted}" />
             </StackPanel>
           </Border>
         </DataTemplate>

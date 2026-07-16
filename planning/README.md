@@ -23,6 +23,7 @@ See `META/BACKLOG/TECH_DEBT.md` for known issues.
 | `05-phase-3-category-browse.md` | KODI-style category browsing & quick search | PLANNED |
 | `06-phase-4.md` | Advanced features and polishing | FUTURE |
 | `90-sdk-upgrade.md` | .NET 8 → .NET 9 SDK upgrade | PLANNED |
+| `94-game-detection-overhaul.md` | Comprehensive game detection rewrite | PLANNING |
 
 ## Completed / Archived
 

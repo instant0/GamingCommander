@@ -51,8 +51,8 @@ public partial class WizardWindow : Window
             var removeBtn = new Button
             {
                 Content = "X",
-                Background = new SolidColorBrush(Color.Parse("#3A1A1A")),
-                Foreground = new SolidColorBrush(Color.Parse("#FF6B6B")),
+                Background = AppTheme.ButtonBgDanger,
+                Foreground = AppTheme.TextDanger,
                 Padding = new Thickness(8, 4),
                 MinWidth = 30,
             };
@@ -62,8 +62,8 @@ public partial class WizardWindow : Window
             var scanBtn = new Button
             {
                 Content = entry.IsScanned ? "Rescan" : "Scan",
-                Background = new SolidColorBrush(Color.Parse("#1A3A4A")),
-                Foreground = new SolidColorBrush(Color.Parse("#8CD8FF")),
+                Background = AppTheme.ButtonBgAction,
+                Foreground = AppTheme.TextAccent,
                 Padding = new Thickness(8, 4),
                 MinWidth = 60,
                 IsEnabled = !entry.IsScanning,
@@ -93,8 +93,8 @@ public partial class WizardWindow : Window
                     : entry.GameCount > 0 ? $"{entry.GameCount} games"
                     : entry.IsScanned ? "0 games"
                     : "not scanned",
-                Foreground = new SolidColorBrush(Color.Parse("#7FB7A5")),
-                FontSize = 11,
+                Foreground = AppTheme.TextSuccess,
+                FontSize = AppTheme.FontSizeLabel,
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(8, 0, 0, 0),
             };
@@ -102,7 +102,7 @@ public partial class WizardWindow : Window
 
             var border = new Border
             {
-                BorderBrush = new SolidColorBrush(Color.Parse("#243340")),
+                BorderBrush = AppTheme.SeparatorBorder,
                 BorderThickness = new Thickness(0, 0, 0, 1),
                 Padding = new Thickness(0, 6),
                 Child = new Grid
@@ -117,7 +117,7 @@ public partial class WizardWindow : Window
                     ],
                     Children =
                     {
-                        new TextBlock { Text = entry.Path, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center, FontSize = 12 },
+                        new TextBlock { Text = entry.Path, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center, FontSize = AppTheme.FontSizeBody },
                         combo,
                         scanBadge,
                         scanBtn,

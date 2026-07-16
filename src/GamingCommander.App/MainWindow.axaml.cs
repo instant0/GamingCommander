@@ -1,7 +1,11 @@
 using System.Diagnostics;
 using System.Linq;
+using System.Reflection;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using GamingCommander.App.Services;
@@ -17,12 +21,9 @@ public partial class MainWindow : Window
     private IGamesDatabaseService? _dbService;
     private IConfigService? _configService;
     private FolderScanner? _scanner;
+    private SteamLibraryScanner? _steamScanner;
 
-    public MainWindow()
-    {
-        InitializeComponent();
-        InitializeServices();
-    }
+    private LibraryManager? _libraryManager;
 
     public MainWindow(ShellViewModel shellViewModel, IGamesDatabaseService dbService)
     {
@@ -46,6 +47,14 @@ public partial class MainWindow : Window
         _configService = new JsonConfigService(GetConfigPath());
         var blacklist = new BlacklistLoader(AppDomain.CurrentDomain.BaseDirectory).Load();
         _scanner = new FolderScanner(_configService.Load().HiddenFolders, blacklist);
+
+        AppConfig config = _configService.Load();
+        var steamPaths = config.LibraryRoots
+            .Where(r => r.DefaultType == GameSourceKind.Steam)
+            .Select(r => r.Path);
+        _steamScanner = new SteamLibraryScanner(steamPaths);
+
+        _libraryManager = new LibraryManager(_configService, _dbService, _scanner, _steamScanner);
 
         DataContext = _viewModel;
 
@@ -73,41 +82,6 @@ public partial class MainWindow : Window
 
             _viewModel.RequestLaunch += item => _ = LaunchSelectedGameAsync();
         }
-    }
-
-    private void InitializeServices()
-    {
-        string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-        string dataDir = Path.Combine(baseDir, "data");
-        Directory.CreateDirectory(dataDir);
-
-        string configPath = Path.Combine(dataDir, "settings.json");
-        string dbPath = Path.Combine(dataDir, "games.json");
-
-        _configService = new JsonConfigService(configPath);
-        _dbService = new GamesDatabaseService(dbPath);
-
-        // Load blacklist patterns from data/blacklist.json
-        var blacklist = new BlacklistLoader(baseDir).Load();
-        _scanner = new FolderScanner(_configService.Load().HiddenFolders, blacklist);
-
-        var libraryManager = new LibraryManager(_configService, _dbService, _scanner);
-        _viewModel = new ShellViewModel(libraryManager, _configService);
-        DataContext = _viewModel;
-    }
-
-    private static ShellViewModel CreateDefaultViewModel()
-    {
-        string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-        string dataDir = Path.Combine(baseDir, "data");
-        Directory.CreateDirectory(dataDir);
-
-        var dbService = new GamesDatabaseService(Path.Combine(dataDir, "games.json"));
-        var configService = new JsonConfigService(Path.Combine(dataDir, "settings.json"));
-        var blacklist = new BlacklistLoader(baseDir).Load();
-        var scanner = new FolderScanner(configService.Load().HiddenFolders, blacklist);
-        var libraryManager = new LibraryManager(configService, dbService, scanner);
-        return new ShellViewModel(libraryManager, configService);
     }
 
     private static string GetConfigPath()
@@ -175,13 +149,18 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 break;
 
-            case Key.F9:
-                _viewModel.JumpToLibraryRoots();
+            case Key.F1:
+                await ShowHelpAsync();
                 e.Handled = true;
                 break;
 
             case Key.F3:
-                _viewModel.StatusText = "Not yet implemented";
+                _viewModel.StatusText = "View metadata — coming in a future update";
+                e.Handled = true;
+                break;
+
+            case Key.F9:
+                _viewModel.JumpToLibraryRoots();
                 e.Handled = true;
                 break;
 
@@ -206,7 +185,7 @@ public partial class MainWindow : Window
                 break;
 
             case Key.F8:
-                _viewModel.StatusText = "Category view not yet implemented";
+                _viewModel.StatusText = "Filter/category view — coming in a future update";
                 e.Handled = true;
                 break;
 
@@ -303,23 +282,13 @@ public partial class MainWindow : Window
 
     private async Task OpenLibrarySetupAsync()
     {
-        var dbService = GetDbService();
+        if (_libraryManager is null) return;
         var configService = GetConfigService();
-
-        // _scanner is always set by both constructors and includes blacklist.
-        // Defensive fallback loads blacklist so it's never null.
-        if (_scanner is null)
-        {
-            var blacklist = new BlacklistLoader(AppDomain.CurrentDomain.BaseDirectory).Load();
-            _scanner = new FolderScanner(configService.Load().HiddenFolders, blacklist);
-        }
-
-        AppConfig config = configService.Load();
-        var libraryManager = new LibraryManager(configService, dbService, _scanner);
+        var dbService = GetDbService();
 
         var window = new LibrarySetupWindow(
-            configService, dbService, libraryManager, _scanner);
-        await ShowDialog(window);
+            configService, dbService, _libraryManager);
+        await window.ShowDialog(this);
 
         _viewModel?.Reload();
     }
@@ -346,16 +315,37 @@ public partial class MainWindow : Window
 
     private Task RefreshCurrentRootAsync()
     {
-        if (_viewModel is null || _viewModel.IsAtRootLevel) return Task.CompletedTask;
+        if (_viewModel is null || _libraryManager is null) return Task.CompletedTask;
 
+        // At root level: rescan all configured roots
+        if (_viewModel.IsAtRootLevel)
+        {
+            var config = GetConfigService().Load();
+            if (config.LibraryRoots.Count == 0)
+            {
+                _viewModel.StatusText = "No roots configured. Press F2 or F7 to add one.";
+                return Task.CompletedTask;
+            }
+
+            _libraryManager.Refresh();
+            int totalGames = config.LibraryRoots.Sum(
+                r => _libraryManager.GetGamesForRoot(r.Path).Count);
+            _viewModel.Reload();
+            _viewModel.StatusText = $"Rescanned {config.LibraryRoots.Count} root(s), found {totalGames} game(s).";
+            return Task.CompletedTask;
+        }
+
+        // Drilled into a root: rescan that root only
         string rootPath = _viewModel.CurrentRootPath;
-        var config = GetConfigService().Load();
-        var root = config.LibraryRoots.FirstOrDefault(r =>
+        var cfg = GetConfigService().Load();
+        var matchedRoot = cfg.LibraryRoots.FirstOrDefault(r =>
             r.Path.Equals(rootPath, StringComparison.OrdinalIgnoreCase));
-        if (root is null) return Task.CompletedTask;
+        if (matchedRoot is null) return Task.CompletedTask;
 
-        var games = _scanner!.Scan(rootPath, root.DefaultType);
-        _viewModel.ApplyRescannedGames(games);
+        var scannedGames = _libraryManager.SelectScannerAndScan(rootPath, matchedRoot.DefaultType);
+        _viewModel.ApplyRescannedGames(scannedGames);
+        if (scannedGames.Count == 0)
+            _viewModel.StatusText = "Rescan complete — no games found in this root.";
         return Task.CompletedTask;
     }
 
@@ -372,17 +362,128 @@ public partial class MainWindow : Window
             });
 
         if (folders.Count == 0) return;
-        string result = folders[0].Path.LocalPath;
+        string rawPath = folders[0].Path.LocalPath;
+        string result = LibraryManager.NormalizeLibraryRoot(rawPath);
 
-        var configService = GetConfigService();
-        var dbService = GetDbService();
-        var libraryManager = new LibraryManager(configService, dbService, _scanner!);
+        if (_libraryManager is null) return;
 
-        var games = _scanner!.Scan(result, GameSourceKind.Standalone);
-        libraryManager.AddRoot(result, GameSourceKind.Standalone, games);
+        bool isSteamLibrary = LibraryManager.LooksLikeSteamLibrary(result);
+        GameSourceKind detectedType = isSteamLibrary ? GameSourceKind.Steam : GameSourceKind.Standalone;
+
+        // Pass empty games list — LibraryManager.AddRoot will scan internally
+        _libraryManager.AddRoot(result, detectedType, []);
 
         _viewModel?.Reload();
         _viewModel!.StatusText = $"Added root: {result}";
+    }
+
+    private async Task ShowHelpAsync()
+    {
+        string version = Assembly.GetEntryAssembly()?.GetName()?.Version?.ToString(3) ?? "0.0.0";
+        var textColor = AppTheme.TextSecondary;
+        var headerColor = AppTheme.TextAccent;
+        var keyColor = AppTheme.TextHighlight;
+        var bgColor = AppTheme.PaneBg;
+
+        var keys = new (string key, string desc)[]
+        {
+            ("F1", "Help — this window"),
+            ("F2", "Library Setup — add/remove/rescan folders"),
+            ("F3", "View game metadata (coming soon)"),
+            ("F4", "Edit game type / tags"),
+            ("F5", "Launch selected game"),
+            ("F6", "Rescan current folder or all roots"),
+            ("F7", "Add a library root folder"),
+            ("F8", "Filter/category view (coming soon)"),
+            ("F9", "Jump to library roots"),
+            ("F10", "Quit GamingCommander"),
+            ("Enter", "Launch game / drill into folder"),
+            ("Esc / Backspace", "Go up one level"),
+            ("Up / Down", "Navigate list"),
+        };
+
+        var panel = new StackPanel { Spacing = 8, Background = bgColor };
+
+        panel.Children.Add(new TextBlock
+        {
+            Text = "GamingCommander",
+            FontSize = AppTheme.FontSizeAppTitle,
+            FontWeight = FontWeight.Bold,
+            Foreground = headerColor,
+        });
+        panel.Children.Add(new TextBlock
+        {
+            Text = $"Version {version}",
+            FontSize = AppTheme.FontSizeBody,
+            Foreground = textColor,
+            Margin = new Thickness(0, 0, 0, 8),
+        });
+        panel.Children.Add(new TextBlock
+        {
+            Text = "A Norton Commander-style game launcher and library manager.",
+            TextWrapping = TextWrapping.Wrap,
+            FontSize = AppTheme.FontSizeBody,
+            Foreground = textColor,
+            Margin = new Thickness(0, 0, 0, 12),
+        });
+
+        panel.Children.Add(new TextBlock
+        {
+            Text = "Keyboard Reference",
+            FontSize = AppTheme.FontSizeSubHeader,
+            FontWeight = FontWeight.Bold,
+            Foreground = headerColor,
+            Margin = new Thickness(0, 0, 0, 4),
+        });
+
+        foreach (var (key, desc) in keys)
+        {
+            var row = new Grid
+            {
+                ColumnDefinitions =
+                [
+                    new ColumnDefinition(140, GridUnitType.Pixel),
+                    new ColumnDefinition(1, GridUnitType.Star),
+                ],
+                Margin = new Thickness(0, 2),
+            };
+            row.Children.Add(new TextBlock { Text = key, Foreground = keyColor, FontWeight = FontWeight.Bold, FontSize = AppTheme.FontSizeBody });
+            row.Children.Add(new TextBlock { Text = desc, Foreground = textColor, FontSize = AppTheme.FontSizeBody, Margin = new Thickness(8, 0, 0, 0) });
+            Grid.SetColumn(row.Children[1], 1);
+            panel.Children.Add(row);
+        }
+
+        panel.Children.Add(new TextBlock
+        {
+            Text = "\nData is stored in the app's data/ directory. No game files are modified.",
+            TextWrapping = TextWrapping.Wrap,
+            Foreground = textColor,
+            FontSize = AppTheme.FontSizeLabel,
+            FontStyle = FontStyle.Italic,
+            Margin = new Thickness(0, 12, 0, 0),
+        });
+
+        var helpWindow = new Window
+        {
+            Title = "Help — GamingCommander",
+            Width = 480,
+            Height = 520,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            SystemDecorations = SystemDecorations.Full,
+            Content = new ScrollViewer
+            {
+                Background = bgColor,
+                Content = new Border
+                {
+                    Padding = new Thickness(20),
+                    Background = bgColor,
+                    Child = panel,
+                },
+            },
+        };
+
+        await helpWindow.ShowDialog(this);
     }
 
     private void LeftListBox_DoubleTapped(object? sender, Avalonia.Input.TappedEventArgs e)
@@ -405,11 +506,14 @@ public partial class MainWindow : Window
 
         switch (hotkey)
         {
+            case "F1":
+                _ = ShowHelpAsync();
+                break;
             case "F2":
                 _ = OpenLibrarySetupAsync();
                 break;
             case "F3":
-                _viewModel.StatusText = "View metadata — not yet implemented";
+                _viewModel.StatusText = "View metadata — coming in a future update";
                 break;
             case "F4":
                 _ = OpenGameSetupAsync();
@@ -424,7 +528,7 @@ public partial class MainWindow : Window
                 _ = AddRootAsync();
                 break;
             case "F8":
-                _viewModel.StatusText = "Category view not yet implemented";
+                _viewModel.StatusText = "Filter/category view — coming in a future update";
                 break;
             case "F9":
                 _viewModel.JumpToLibraryRoots();

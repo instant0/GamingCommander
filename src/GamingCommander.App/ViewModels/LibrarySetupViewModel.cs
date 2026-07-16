@@ -12,20 +12,17 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
     private readonly IConfigService _configService;
     private readonly IGamesDatabaseService _dbService;
     private readonly ILibraryManager _libraryManager;
-    private readonly FolderScanner _scanner;
     private readonly Window _window;
 
     public LibrarySetupViewModel(
         IConfigService configService,
         IGamesDatabaseService dbService,
         ILibraryManager libraryManager,
-        FolderScanner scanner,
         Window window)
     {
         _configService = configService;
         _dbService = dbService;
         _libraryManager = libraryManager;
-        _scanner = scanner;
         _window = window;
         LoadRoots();
     }
@@ -40,6 +37,10 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
         "Epic",
         "EA App",
         "Ubisoft Connect",
+        "Battle.net",
+        "Xbox",
+        "Rockstar",
+        "Steam Emulator",
     ];
 
     private void LoadRoots()
@@ -59,11 +60,12 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
             new FolderPickerOpenOptions { Title = "Select Library Root", AllowMultiple = false });
 
         if (folders.Count == 0) return;
-        string path = folders[0].Path.LocalPath;
+        string rawPath = folders[0].Path.LocalPath;
+        string path = LibraryManager.NormalizeLibraryRoot(rawPath);
 
         if (Entries.Any(e => e.Path.Equals(path, StringComparison.OrdinalIgnoreCase))) return;
 
-        GameSourceKind defaultType = InferType(path);
+        GameSourceKind defaultType = GameSourceParser.InferFromPath(path);
         Entries.Add(new LibraryRootEntry(path, defaultType.ToString(), 0));
 
         await ScanAndSaveAsync(path, defaultType);
@@ -71,7 +73,7 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
 
     public async Task RescanAsync(LibraryRootEntry entry)
     {
-        GameSourceKind type = ParseType(entry.DefaultType);
+        GameSourceKind type = GameSourceParser.ParseFromString(entry.DefaultType);
         await ScanAndSaveAsync(entry.Path, type);
         IReadOnlyList<GameEntry> games = _dbService.GetGamesForRoot(entry.Path);
         entry.GameCount = games.Count;
@@ -86,7 +88,7 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
         var newRoots = config.LibraryRoots
             .Where(r => !r.Path.Equals(entry.Path, StringComparison.OrdinalIgnoreCase))
             .ToList();
-        _configService.Save(new AppConfig(newRoots, config.FolderOverrides, config.HiddenFolders, config.IsFirstRun));
+        _configService.Save(config with { LibraryRoots = newRoots });
     }
 
     public void Close()
@@ -96,44 +98,14 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
 
     private async Task ScanAndSaveAsync(string path, GameSourceKind defaultType)
     {
-        IReadOnlyList<GameEntry> games = await Task.Run(() => _scanner.Scan(path, defaultType));
+        // LibraryManager handles scanner routing (FolderScanner vs SteamLibraryScanner)
+        await Task.Run(() => _libraryManager.AddRoot(path, defaultType, []));
 
-        _dbService.AddRoot(path, defaultType, games);
-
-        AppConfig config = _configService.Load();
-        var roots = config.LibraryRoots.ToList();
-        int idx = roots.FindIndex(r => r.Path.Equals(path, StringComparison.OrdinalIgnoreCase));
-        if (idx < 0)
-            roots.Add(new LibraryRoot(path, defaultType));
-        else
-            roots[idx] = new LibraryRoot(path, defaultType);
-
-        _configService.Save(config with { LibraryRoots = roots });
+        IReadOnlyList<GameEntry> games = _dbService.GetGamesForRoot(path);
 
         var entry = Entries.FirstOrDefault(e => e.Path.Equals(path, StringComparison.OrdinalIgnoreCase));
         if (entry != null) entry.GameCount = games.Count;
     }
-
-    private static GameSourceKind InferType(string path)
-    {
-        string lower = path.ToLowerInvariant();
-        if (lower.Contains("steam")) return GameSourceKind.Steam;
-        if (lower.Contains("epic")) return GameSourceKind.Epic;
-        if (lower.Contains("gog")) return GameSourceKind.Gog;
-        if (lower.Contains("ea ") || lower.Contains("electronic arts")) return GameSourceKind.EaApp;
-        if (lower.Contains("ubisoft")) return GameSourceKind.UbisoftConnect;
-        return GameSourceKind.Standalone;
-    }
-
-    private static GameSourceKind ParseType(string type) => type switch
-    {
-        "Steam" => GameSourceKind.Steam,
-        "GOG" => GameSourceKind.Gog,
-        "Epic" => GameSourceKind.Epic,
-        "EA App" => GameSourceKind.EaApp,
-        "Ubisoft Connect" => GameSourceKind.UbisoftConnect,
-        _ => GameSourceKind.Standalone,
-    };
 }
 
     public sealed class LibraryRootEntry : GamingCommander.UI.ViewModels.ReactiveObject

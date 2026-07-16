@@ -34,15 +34,16 @@ GamingCommander is a C# Windows-native game management and launcher application 
 **Goal:** Implement the baseline game management features.
 
 **Tasks:**
-- [ ] Steam Integration — library detection (`libraryfolders.vdf`), manifest parsing (`appmanifest_*.acf`)
-- [ ] Stand-alone Detection — generic `.exe` scanning in user-supplied folders
+- [x] Steam Integration — library detection (`libraryfolders.vdf`), manifest parsing (`appmanifest_*.acf`), ACF cross-referencing, orphan/moved detection
+- [x] Stand-alone Detection — generic signal-based scanning for GOG, EA, Ubisoft, Epic, Blizzard, Xbox, Rockstar, Steam Emu; deep executable discovery + scoring; container detection; 320 noise exe patterns
 - [ ] Migration (Steam) — manifest repair for user-relocated games, Steam manifest patching
-- [ ] Launcher Logic — game launching via URI schemes/process execution
+- [x] Launcher Logic — game launching via `steam://rungameid/{appid}` for Steam, direct `.exe` for others
 
 **Acceptance:**
-- Steam games appear in the UI
-- Stand-alone games detected via folder scan
-- Steam games can be migrated safely
+- ✅ Steam games appear in the UI (Installed/Moved/Orphaned status tracked)
+- ✅ Stand-alone games detected via signal-based folder scan for all major platforms
+- [ ] Steam games can be migrated safely (planned as Phase 2.1)
+- [ ] Epic .item manifest support for metadata enrichment (planned as Phase 3)
 
 ---
 

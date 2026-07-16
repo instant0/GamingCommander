@@ -5,64 +5,49 @@
 
 ---
 
-## ✅ COMPLETED: Keyboard Layout + VFS Cache + Audit
+## ✅ COMPLETED
 
-### Keyboard Layout
-- Enter launches games (was: nothing)
-- F4=Edit/Retag (was: hidden T key)
-- F6=Rescan current root (was: unused)
-- F7=Add Root via folder picker (was: F2 Settings only)
-- Esc=Go up (parallel to Backspace)
-- Double-tap launches games (was: no-op for games)
-- Command bar shows all 10 F-keys in order
-- T key still works as legacy shortcut
+### Theme Extraction
+All hardcoded colors/fonts centralized to `App.axaml` Application.Resources with semantic names. `AppTheme.cs` provides code-behind access. All 4 windows (MainWindow, WizardWindow, GameSetupWindow, LibrarySetupWindow) + their .axaml.cs files fully converted.
 
-### VFS Cache
-- `GamesDatabaseService` caches in memory after first `Load()`
-- Zero IO during UI navigation — only cache hits
-- `Save()` updates cache before disk write
-
-### Filesystem Safety Audit
-- No writes to game library folders anywhere
-- SyncMove/ACF patching exists only in planning docs — no write code exists
-- All game-folder reads are bounded to explicit scanning operations
-
-### Plan Created
-- `planning/93-in-memory-cache-and-wizard-versioning.md`
-- Covers: build versioning, version-aware re-wizard, online metadata config option, metadata expansion phases
+### Steam Status UI Display
+- `ShellPaneItemViewModel` — `PlatformStatus` and `PlatformStatusColor` fields
+- `ShellViewModel.LoadGamesForRoot()` — extracts `SteamStatus`, maps to colors
+- `MainWindow.axaml` — status row in details pane
+- `HexToBrushConverter` — runtime hex string → brush
 
 ---
 
-## What Comes Next (Priority Order)
+## Next: VFS Display Enhancements (Plan Only)
 
-### Step 1: Build Versioning + Re-Wizard System
-Implement Steps 2-8 from `planning/93-in-memory-cache-and-wizard-versioning.md`:
-- Add `<Version>` to `Directory.Build.props`
-- Add `LastSeenVersion` + `EnableOnlineMetadata` to `AppConfig`
-- Wire version comparison in `App.axaml.cs`
-- Update `JsonConfigService`, `WizardViewModel`, `LibrarySetupViewModel`
-- Add online metadata checkbox to wizard UI
-- Build and test
+The user wants a planning document for improved VFS display to support game relocation awareness:
 
-### Step 2: User Blacklist Editor
-See `planning/91-user-blacklist-editor.md`:
-- Hotkey to add/remove blacklist patterns from VFS
-- 6 user categories with separate persistence file
-- Dimmed/greyed VFS display for blacklisted items
+1. **Orphaned games** — Show games that "should" be in a location based on ACF data but whose game files are missing
+2. **Cross-library mismatches** — Show when ACF is on D: but game files are on E: with repair action to move ACF to correct directory
+3. **List coloring** — Color-code orphaned/misplaced games in the left pane list (not just details panel)
 
-### Step 3: Metadata Lookup (F3/View)
-- PE metadata extraction (FileDescription, ProductName, CompanyName)
-- PCGW Cargo API queries with rate limiting
-- Store-first architecture: Epic → Steam → GOG → PCGW enrichment
+**Create planning doc:** `planning/vfs-display-enhancements.md`
 
-### Future: SyncMove (Phase 2.1)
-- Scan-time mismatch detection
-- F6 repair dialog with dry run
-- ACF/Manifest backup-before-write
-- See `planning/04-phase-2-syncmove.md`
+---
 
-### Known Leftover Issues
-- `DesignTimeLibraryManager.cs` still exists (dead code, no callers)
-- `GamingCommander.Detection` project is empty
-- `DesignTimeMigrationPlanner` created in `App.axaml.cs` but unused
-- No test coverage for `LibraryManager`, `BlacklistLoader`, or `GamesDatabaseService`
+## After That: Multi-Theme System (Plan Only)
+
+Plan (don't implement) multi-theme support:
+- "Norton Commander Style" (current — blue/cyan on dark)
+- "Windows Commander" (white/yellow on dark)
+- "GrayScale" (monochrome)
+
+**Create planning doc:** `planning/multi-theme-system.md`
+
+---
+
+## After That: Phase 2.1 SyncMove Migration
+
+Manifest-aware game relocation for Steam (ACF) and Epic (.item).
+**Planning doc:** `planning/04-phase-2-syncmove.md`
+
+---
+
+### SDK Upgrade Note
+
+.NET 9 upgrade (`planning/90-sdk-upgrade.md`) is **lowest priority**. Working application first.

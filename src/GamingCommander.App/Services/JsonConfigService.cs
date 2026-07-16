@@ -57,7 +57,13 @@ public sealed class JsonConfigService : IConfigService
         }
 
         IReadOnlyList<string> hiddenFolders = loaded.HiddenFolders ?? [];
-        return new AppConfig(LibraryRoots: roots, FolderOverrides: overrides, HiddenFolders: hiddenFolders, IsFirstRun: loaded.IsFirstRun);
+        return new AppConfig(
+            LibraryRoots: roots,
+            FolderOverrides: overrides,
+            HiddenFolders: hiddenFolders,
+            IsFirstRun: loaded.IsFirstRun,
+            LastSeenVersion: loaded.LastSeenVersion,
+            EnableOnlineMetadata: loaded.EnableOnlineMetadata);
     }
 
     public void Save(AppConfig config)
@@ -76,6 +82,8 @@ public sealed class JsonConfigService : IConfigService
             }).ToList(),
             HiddenFolders = config.HiddenFolders.ToList(),
             IsFirstRun = config.IsFirstRun,
+            LastSeenVersion = config.LastSeenVersion,
+            EnableOnlineMetadata = config.EnableOnlineMetadata,
         };
 
         string json = JsonSerializer.Serialize(dto, JsonOptions);
@@ -93,6 +101,8 @@ public sealed class JsonConfigService : IConfigService
         public List<ConfigFolderOverrideDto>? FolderOverrides { get; set; }
         public List<string>? HiddenFolders { get; set; }
         public bool IsFirstRun { get; set; }
+        public string? LastSeenVersion { get; set; }
+        public bool EnableOnlineMetadata { get; set; }
     }
 
     private sealed class ConfigLibraryRootDto

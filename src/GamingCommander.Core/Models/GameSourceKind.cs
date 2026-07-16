@@ -9,4 +9,8 @@ public enum GameSourceKind
     Epic = 4,
     EaApp = 5,
     UbisoftConnect = 6,
+    BattleNet = 7,
+    Xbox = 8,
+    Rockstar = 9,
+    SteamEmu = 10,
 }

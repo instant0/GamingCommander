@@ -24,34 +24,34 @@ public sealed class ScannerFilterTests
     }
 
     /// <summary>
-    /// Folder with only non-game executables (installer, setup) is included in scan
-    /// results (it has exe files), but the primary executable will be one of the
-    /// non-game exes (the best available candidate).
+    /// Folder with only non-game executables (installer, setup) is correctly
+    /// excluded from scan results — a folder with only noise executables
+    /// (setup.exe, vcredist_x64.exe) is not a game.
     /// </summary>
     [Fact]
-    public void NonGameFolder_WithOnlyNonGameExe_IsIncludedWithNonGameExe()
+    public void NonGameFolder_WithOnlyNoiseExe_IsExcluded()
     {
         string root = Path.Combine(MockRoot, "standalone");
         var scanner = new FolderScanner();
         var results = scanner.Scan(root, GameSourceKind.Standalone);
 
-        // "_installer" has setup.exe and vcredist_x64.exe — both are non-game exes.
-        // The folder IS included because it has .exe files.
-        var installer = results.FirstOrDefault(g =>
+        // "_installer" has only noise exes (setup.exe, vcredist_x64.exe)
+        Assert.DoesNotContain(results, g =>
             g.FolderName.Equals("_installer", StringComparison.OrdinalIgnoreCase));
-        Assert.NotNull(installer);
 
-        // "redist" has dxwebsetup.exe and oalinst.exe — both non-game.
-        var redist = results.FirstOrDefault(g =>
+        // "redist" has only noise exes (dxwebsetup.exe, oalinst.exe)
+        Assert.DoesNotContain(results, g =>
             g.FolderName.Equals("redist", StringComparison.OrdinalIgnoreCase));
-        Assert.NotNull(redist);
     }
 
     /// <summary>
-    /// Folder with exe and steam_appid.txt should be detected as Steam.
+    /// Folder with exe and steam_appid.txt should be detected as SteamEmu
+    /// by FolderScanner. (Real Steam library detection is structural via
+    /// SteamLibraryScanner — steam_appid.txt alone is NOT a definitive Steam
+    /// signal; many standalone games include it.)
     /// </summary>
     [Fact]
-    public void SteamGame_WithAppidMarker_IsDetectedAsSteam()
+    public void SteamGame_WithAppidOnly_IsDetectedAsSteamEmu()
     {
         string root = Path.Combine(MockRoot, "steam", "steamapps", "common");
         var scanner = new FolderScanner();
@@ -59,25 +59,25 @@ public sealed class ScannerFilterTests
 
         Assert.Contains(results, g =>
             g.FolderName.Equals("MockGameAlpha", StringComparison.OrdinalIgnoreCase)
-            && g.GameSource == GameSourceKind.Steam);
+            && g.GameSource == GameSourceKind.SteamEmu);
     }
 
     /// <summary>
-    /// Folder with steam_api64.dll (but no appid.txt) should be detected via
-    /// the default type when scanned under a Standalone root.
+    /// Folder with steam_api64.dll at root (outside Steam library path)
+    /// should be detected as SteamEmu.
     /// </summary>
     [Fact]
-    public void SteamEmuGame_WithApiDll_IsDetectedAsStandalone()
+    public void SteamEmuGame_WithApiDll_IsDetectedAsSteamEmu()
     {
         string root = Path.Combine(MockRoot, "standalone");
         var scanner = new FolderScanner();
         var results = scanner.Scan(root, GameSourceKind.Standalone);
 
         // SteamEmuEpsilon has steam_api64.dll + GameEpsilon.exe
-        // It should appear but as Standalone (the root default) since
-        // steam_api64.dll is not in the game marker file list
+        // steam_api64.dll at root outside Steam library = Steam Emulator
         Assert.Contains(results, g =>
-            g.FolderName.Equals("SteamEmuEpsilon", StringComparison.OrdinalIgnoreCase));
+            g.FolderName.Equals("SteamEmuEpsilon", StringComparison.OrdinalIgnoreCase)
+            && g.GameSource == GameSourceKind.SteamEmu);
     }
 
     /// <summary>

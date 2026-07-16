@@ -70,9 +70,14 @@ public sealed class ShellViewModel : ReactiveObject
     public string DetailsExecutable => SelectedItem?.LaunchTarget ?? string.Empty;
     public string DetailsLastModified => FormatTimestamp(SelectedItem?.LastModified);
     public string DetailsResolvedType => SelectedItem?.ResolvedType ?? string.Empty;
+    public string DetailsPlatformId => SelectedItem?.PlatformId ?? string.Empty;
+    public bool HasPlatformId => !string.IsNullOrEmpty(SelectedItem?.PlatformId);
+    public string DetailsPlatformStatus => SelectedItem?.PlatformStatus ?? string.Empty;
+    public bool HasPlatformStatus => !string.IsNullOrEmpty(SelectedItem?.PlatformStatus);
+    public string DetailsPlatformStatusColor => SelectedItem?.PlatformStatusColor ?? string.Empty;
     public bool HasSelection => SelectedItem is not null;
-    public bool IsGameSelected => SelectedItem?.IsBrowsable == true;
-    public bool HasOverride => !string.IsNullOrEmpty(SelectedItem?.ResolvedType);
+    public bool HasGameSelected => SelectedItem is { Kind: FileSystemEntryKind.File };
+    public bool HasOverride => SelectedItem?.HasOverride == true;
 
     public string StatusText
     {
@@ -223,12 +228,35 @@ public sealed class ShellViewModel : ReactiveObject
             Kind = FileSystemEntryKind.ParentDirectory,
             LastModified = default,
             ResolvedType = string.Empty,
+            HasOverride = false,
             GameId = null,
             GameCount = 0,
         });
 
         foreach (GameEntry game in games)
         {
+            // Extract platform-specific metadata from Extra dictionary
+            string platformId = game.GameSource switch
+            {
+                GameSourceKind.Steam => game.Extra.TryGetValue("SteamAppId", out var sid) ? sid : string.Empty,
+                GameSourceKind.Epic => game.Extra.TryGetValue("EpicCatalogItemId", out var eid) ? eid : string.Empty,
+                _ => string.Empty,
+            };
+
+            string platformStatus = game.GameSource switch
+            {
+                GameSourceKind.Steam => game.Extra.TryGetValue("SteamStatus", out var status) ? status : string.Empty,
+                _ => string.Empty,
+            };
+
+            string platformStatusColor = platformStatus switch
+            {
+                "Installed" => "#7FB7A5",
+                "Moved" => "#E8C547",
+                "Orphaned" => "#E87070",
+                _ => string.Empty,
+            };
+
             Items.Add(new ShellPaneItemViewModel
             {
                 Title = game.DisplayName,
@@ -238,7 +266,11 @@ public sealed class ShellViewModel : ReactiveObject
                 Kind = FileSystemEntryKind.File,
                 LastModified = game.LastModified,
                 ResolvedType = game.Override ? $"{game.GameSource} (override)" : game.GameSource.ToString(),
+                HasOverride = game.Override,
                 GameId = game.Id,
+                PlatformId = platformId,
+                PlatformStatus = platformStatus,
+                PlatformStatusColor = platformStatusColor,
                 GameCount = 0,
             });
         }
@@ -255,9 +287,14 @@ public sealed class ShellViewModel : ReactiveObject
         OnPropertyChanged(nameof(DetailsType));
         OnPropertyChanged(nameof(DetailsExecutable));
         OnPropertyChanged(nameof(DetailsLastModified));
+        OnPropertyChanged(nameof(DetailsPlatformId));
+        OnPropertyChanged(nameof(HasPlatformId));
+        OnPropertyChanged(nameof(DetailsPlatformStatus));
+        OnPropertyChanged(nameof(HasPlatformStatus));
+        OnPropertyChanged(nameof(DetailsPlatformStatusColor));
         OnPropertyChanged(nameof(DetailsResolvedType));
         OnPropertyChanged(nameof(HasSelection));
-        OnPropertyChanged(nameof(IsGameSelected));
+        OnPropertyChanged(nameof(HasGameSelected));
         OnPropertyChanged(nameof(HasOverride));
     }
 

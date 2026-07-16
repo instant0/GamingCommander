@@ -10,22 +10,22 @@
         WindowStartupLocation="CenterScreen">
   <Grid RowDefinitions="Auto,*,Auto" Margin="20">
     <StackPanel Grid.Row="0" Spacing="8" Margin="0,0,0,16">
-      <TextBlock Text="Welcome to GamingCommander" FontWeight="Bold" FontSize="20" Foreground="#8CD8FF" />
-      <TextBlock TextWrapping="Wrap" Foreground="#6A7E8E">
+      <TextBlock Text="Welcome to GamingCommander" FontWeight="Bold" FontSize="{DynamicResource FontSizeAppTitle}" Foreground="{DynamicResource TextAccent}" />
+      <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextMuted}">
         Add your game library folders below. For each folder, GamingCommander will scan it and find your games.
         Select the platform type for each folder — this sets the default for all games inside it.
       </TextBlock>
       <TextBlock Text="Tip: Steam library roots should point to the folder containing steamapps/, not the steamapps/ itself."
-                 TextWrapping="Wrap" Foreground="#7FB7A5" FontSize="11" />
+                 TextWrapping="Wrap" Foreground="{DynamicResource TextSuccess}" FontSize="{DynamicResource FontSizeLabel}" />
     </StackPanel>
 
-    <Border Grid.Row="1" BorderBrush="#3BA7FF" BorderThickness="1" Background="#0F141A" Padding="12">
+    <Border Grid.Row="1" BorderBrush="{DynamicResource AccentBorder}" BorderThickness="1" Background="{DynamicResource PaneBg}" Padding="12">
       <Grid RowDefinitions="Auto,*">
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,8">
-          <TextBlock Grid.Column="0" Text="Library Folders" FontWeight="Bold" Foreground="#8CD8FF" VerticalAlignment="Center" />
+          <TextBlock Grid.Column="0" Text="Library Folders" FontWeight="Bold" Foreground="{DynamicResource TextAccent}" VerticalAlignment="Center" />
           <Button x:Name="AddFolderButton" Grid.Column="1" Content="+ Add Folder"
-                  Background="#1A3A4A" Foreground="#8CD8FF" Padding="12,4" Margin="8,0,0,0" />
-          <TextBlock x:Name="ScanProgressText" Grid.Column="2" Foreground="#7FB7A5" FontSize="11" VerticalAlignment="Center" Margin="12,0,0,0" />
+                  Background="{DynamicResource ButtonBgAction}" Foreground="{DynamicResource TextAccent}" Padding="12,4" Margin="8,0,0,0" />
+          <TextBlock x:Name="ScanProgressText" Grid.Column="2" Foreground="{DynamicResource TextSuccess}" FontSize="{DynamicResource FontSizeLabel}" VerticalAlignment="Center" Margin="12,0,0,0" />
         </Grid>
         <ScrollViewer Grid.Row="1">
           <StackPanel x:Name="EntriesPanel" Spacing="0" />
@@ -33,11 +33,20 @@
       </Grid>
     </Border>
 
-    <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right" Margin="0,16,0,0">
-      <Button x:Name="SkipButton" Content="Skip (configure later)" Background="#2A2A1A" Foreground="#F8E38C"
-              Padding="16,8" />
-      <Button x:Name="FinishButton" Content="Finish" Background="#1A3A2A" Foreground="#7FB7A5"
-              Padding="20,8" FontWeight="Bold" />
-    </StackPanel>
+    <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,16,0,0">
+      <CheckBox x:Name="OnlineMetadataCheck" Grid.Column="0"
+                IsChecked="{Binding EnableOnlineMetadata}"
+                Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" VerticalAlignment="Center">
+        <TextBlock TextWrapping="Wrap">
+          Enable online metadata lookup <Run Foreground="{DynamicResource TextAccent}" FontSize="{DynamicResource FontSizeSmall}">(game covers, descriptions)</Run>
+        </TextBlock>
+      </CheckBox>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12">
+        <Button x:Name="SkipButton" Content="Skip (configure later)" Background="{DynamicResource ButtonBgSkip}" Foreground="{DynamicResource TextHighlight}"
+                Padding="16,8" />
+        <Button x:Name="FinishButton" Content="Finish" Background="{DynamicResource ButtonBgSuccess}" Foreground="{DynamicResource TextSuccess}"
+                Padding="20,8" FontWeight="Bold" />
+      </StackPanel>
+    </Grid>
   </Grid>
 </Window>

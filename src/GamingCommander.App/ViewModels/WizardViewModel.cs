@@ -37,6 +37,10 @@ public sealed class WizardViewModel : GamingCommander.UI.ViewModels.ReactiveObje
         "Epic",
         "EA App",
         "Ubisoft Connect",
+        "Battle.net",
+        "Xbox",
+        "Rockstar",
+        "Steam Emulator",
     ];
 
     public string ScanStatus
@@ -46,18 +50,27 @@ public sealed class WizardViewModel : GamingCommander.UI.ViewModels.ReactiveObje
     }
     private string _scanStatus = string.Empty;
 
+    public bool EnableOnlineMetadata
+    {
+        get => _enableOnlineMetadata;
+        set => SetProperty(ref _enableOnlineMetadata, value);
+    }
+    private bool _enableOnlineMetadata;
+
     public async Task AddEntryAsync()
     {
         var folders = await _window.StorageProvider.OpenFolderPickerAsync(
             new FolderPickerOpenOptions { Title = "Select Library Folder" });
         if (folders.Count == 0) return;
 
-        string path = folders[0].Path.LocalPath;
+        string rawPath = folders[0].Path.LocalPath;
+        string path = LibraryManager.NormalizeLibraryRoot(rawPath);
         if (Entries.Any(e => e.Path.Equals(path, StringComparison.OrdinalIgnoreCase))) return;
 
-        GameSourceKind defaultType = InferType(path);
+        GameSourceKind defaultType = GameSourceParser.InferFromPath(path);
         var entry = new WizardLibraryEntry(path, defaultType.ToString());
         Entries.Add(entry);
+        await ScanEntryAsync(entry);
     }
 
     public async Task ScanEntryAsync(WizardLibraryEntry entry)
@@ -69,15 +82,32 @@ public sealed class WizardViewModel : GamingCommander.UI.ViewModels.ReactiveObje
 
         await Task.Run(() =>
         {
-            GameSourceKind type = ParseType(entry.SelectedType);
-            IReadOnlyList<GameEntry> games = _scanner.Scan(entry.Path, type);
-            _dbService.AddRoot(entry.Path, type, games);
+            GameSourceKind selectedType = GameSourceParser.ParseFromString(entry.SelectedType);
+
+            // Structural auto-detect: if it looks like a Steam library, use SteamScanner
+            // regardless of selected type. This handles the common case where the user
+            // adds "D:\Games" which happens to be a Steam library.
+            bool isSteamLibrary = LibraryManager.LooksLikeSteamLibrary(entry.Path);
+            GameSourceKind effectiveType = isSteamLibrary ? GameSourceKind.Steam : selectedType;
+
+            IReadOnlyList<GameEntry> games;
+            if (effectiveType == GameSourceKind.Steam)
+            {
+                var steamScanner = new SteamLibraryScanner([entry.Path]);
+                games = steamScanner.Scan(entry.Path);
+            }
+            else
+            {
+                games = _scanner.Scan(entry.Path, effectiveType);
+            }
+            _dbService.AddRoot(entry.Path, effectiveType, games);
 
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
                 entry.GameCount = games.Count;
                 entry.IsScanned = true;
                 entry.IsScanning = false;
+                entry.SelectedType = effectiveType.ToString();
                 ScanStatus = $"Scanned {games.Count} games in {entry.Path}";
                 OnPropertyChanged(nameof(ScanStatus));
             });
@@ -92,11 +122,12 @@ public sealed class WizardViewModel : GamingCommander.UI.ViewModels.ReactiveObje
     public void Finish()
     {
         var roots = Entries
-            .Select(e => new LibraryRoot(e.Path, ParseType(e.SelectedType)))
+            .Select(e => new LibraryRoot(e.Path, GameSourceParser.ParseFromString(e.SelectedType)))
             .ToList();
 
         AppConfig current = _configService.Load();
-        AppConfig config = new AppConfig(roots, [], current.HiddenFolders, IsFirstRun: false);
+        AppConfig config = new AppConfig(roots, [], current.HiddenFolders,
+            IsFirstRun: false, current.LastSeenVersion, EnableOnlineMetadata);
         _configService.Save(config);
 
         _window.Close(true);
@@ -106,11 +137,12 @@ public sealed class WizardViewModel : GamingCommander.UI.ViewModels.ReactiveObje
     {
         var roots = Entries
             .Where(e => e.IsScanned)
-            .Select(e => new LibraryRoot(e.Path, ParseType(e.SelectedType)))
+            .Select(e => new LibraryRoot(e.Path, GameSourceParser.ParseFromString(e.SelectedType)))
             .ToList();
 
         AppConfig current = _configService.Load();
-        AppConfig config = new AppConfig(roots, [], current.HiddenFolders, IsFirstRun: false);
+        AppConfig config = new AppConfig(roots, [], current.HiddenFolders,
+            IsFirstRun: false, current.LastSeenVersion, EnableOnlineMetadata);
         _configService.Save(config);
 
         _window.Close(false);
@@ -131,33 +163,12 @@ public sealed class WizardViewModel : GamingCommander.UI.ViewModels.ReactiveObje
             if (Directory.Exists(path) &&
                 !Entries.Any(e => e.Path.Equals(path, StringComparison.OrdinalIgnoreCase)))
             {
-                var entry = new WizardLibraryEntry(path, InferType(path).ToString());
+                var entry = new WizardLibraryEntry(path, GameSourceParser.InferFromPath(path).ToString());
                 Entries.Add(entry);
                 _ = ScanEntryAsync(entry);
             }
         }
     }
-
-    private static GameSourceKind InferType(string path)
-    {
-        string lower = path.ToLowerInvariant();
-        if (lower.Contains("steam")) return GameSourceKind.Steam;
-        if (lower.Contains("epic")) return GameSourceKind.Epic;
-        if (lower.Contains("gog")) return GameSourceKind.Gog;
-        if (lower.Contains("ea ") || lower.Contains("electronic arts")) return GameSourceKind.EaApp;
-        if (lower.Contains("ubisoft")) return GameSourceKind.UbisoftConnect;
-        return GameSourceKind.Standalone;
-    }
-
-    private static GameSourceKind ParseType(string type) => type switch
-    {
-        "Steam" => GameSourceKind.Steam,
-        "GOG" => GameSourceKind.Gog,
-        "Epic" => GameSourceKind.Epic,
-        "EA App" => GameSourceKind.EaApp,
-        "Ubisoft Connect" => GameSourceKind.UbisoftConnect,
-        _ => GameSourceKind.Standalone,
-    };
 }
 
     public sealed class WizardLibraryEntry : GamingCommander.UI.ViewModels.ReactiveObject

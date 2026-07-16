@@ -25,6 +25,7 @@ public partial class GameSetupWindow : Window
     public string[] AvailableTypes { get; } =
     [
         "Standalone", "Steam", "GOG", "Epic", "EA App", "Ubisoft Connect",
+        "Battle.net", "Xbox", "Rockstar", "Steam Emulator",
     ];
 
     public GameSetupWindow(
@@ -71,8 +72,8 @@ public partial class GameSetupWindow : Window
         var deleteBtn = new Button
         {
             Content = "Delete Entry",
-            Background = new SolidColorBrush(Color.Parse("#3A1A1A")),
-            Foreground = new SolidColorBrush(Color.Parse("#FF6B6B")),
+            Background = AppTheme.ButtonBgDanger,
+            Foreground = AppTheme.TextDanger,
             Padding = new Thickness(16, 8),
         };
         deleteBtn.Click += (_, _) => DeleteAndClose();
@@ -80,8 +81,8 @@ public partial class GameSetupWindow : Window
         var cancelBtn = new Button
         {
             Content = "Cancel",
-            Background = new SolidColorBrush(Color.Parse("#1A1A1A")),
-            Foreground = new SolidColorBrush(Color.Parse("#6A7E8E")),
+            Background = AppTheme.ButtonBgCancel,
+            Foreground = AppTheme.TextMuted,
             Padding = new Thickness(16, 8),
             MinWidth = 80,
         };
@@ -90,8 +91,8 @@ public partial class GameSetupWindow : Window
         var saveBtn = new Button
         {
             Content = "Save",
-            Background = new SolidColorBrush(Color.Parse("#1A3A2A")),
-            Foreground = new SolidColorBrush(Color.Parse("#7FB7A5")),
+            Background = AppTheme.ButtonBgSuccess,
+            Foreground = AppTheme.TextSuccess,
             Padding = new Thickness(20, 8),
             FontWeight = FontWeight.Bold,
             MinWidth = 80,
@@ -110,12 +111,8 @@ public partial class GameSetupWindow : Window
         {
             Text = value,
             IsReadOnly = readOnly,
-            Background = readOnly
-                ? new SolidColorBrush(Color.Parse("#0A0F14"))
-                : new SolidColorBrush(Color.Parse("#0F141A")),
-            Foreground = readOnly
-                ? new SolidColorBrush(Color.Parse("#4A5E6E"))
-                : new SolidColorBrush(Color.Parse("#D7E2F0")),
+            Background = readOnly ? AppTheme.ReadOnlyFieldBg : AppTheme.PaneBg,
+            Foreground = readOnly ? AppTheme.TextDimmed : AppTheme.TextPrimary,
         };
 
         switch (fieldIdx)
@@ -128,7 +125,7 @@ public partial class GameSetupWindow : Window
         }
 
         var panel = new StackPanel { Spacing = 4 };
-        panel.Children.Add(new TextBlock { Text = label, Foreground = new SolidColorBrush(Color.Parse("#6A7E8E")), FontSize = 11 });
+        panel.Children.Add(new TextBlock { Text = label, Foreground = AppTheme.TextMuted, FontSize = AppTheme.FontSizeLabel });
 
         if (isFile && !readOnly)
         {
@@ -139,10 +136,10 @@ public partial class GameSetupWindow : Window
             var picker = new Button
             {
                 Content = pickerLabel,
-                Background = new SolidColorBrush(Color.Parse("#1A3A4A")),
-                Foreground = new SolidColorBrush(Color.Parse("#8CD8FF")),
+                Background = AppTheme.ButtonBgAction,
+                Foreground = AppTheme.TextAccent,
                 Padding = new Thickness(8, 4),
-                FontSize = 11,
+                FontSize = AppTheme.FontSizeLabel,
             };
             picker.Click += async (_, _) =>
             {
@@ -174,7 +171,7 @@ public partial class GameSetupWindow : Window
     private StackPanel MakeComboRow(string label, string[] items, string selected, int fieldIdx)
     {
         var panel = new StackPanel { Spacing = 4 };
-        panel.Children.Add(new TextBlock { Text = label, Foreground = new SolidColorBrush(Color.Parse("#6A7E8E")), FontSize = 11 });
+        panel.Children.Add(new TextBlock { Text = label, Foreground = AppTheme.TextMuted, FontSize = AppTheme.FontSizeLabel });
 
         var combo = new ComboBox
         {
@@ -189,15 +186,7 @@ public partial class GameSetupWindow : Window
 
     private void SaveAndClose()
     {
-        GameSourceKind newType = SelectedType switch
-        {
-            "Steam" => GameSourceKind.Steam,
-            "GOG" => GameSourceKind.Gog,
-            "Epic" => GameSourceKind.Epic,
-            "EA App" => GameSourceKind.EaApp,
-            "Ubisoft Connect" => GameSourceKind.UbisoftConnect,
-            _ => GameSourceKind.Standalone,
-        };
+        GameSourceKind newType = GameSourceParser.ParseFromString(SelectedType);
 
         AppConfig config = _configService.Load();
         GameSourceKind rootDefault = config.LibraryRoots

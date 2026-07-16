@@ -2,26 +2,66 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="GamingCommander.App.App"
              RequestedThemeVariant="Dark">
+  <Application.Resources>
+    <!-- Backgrounds -->
+    <SolidColorBrush x:Key="WindowBg" Color="#10161C" />
+    <SolidColorBrush x:Key="PaneBg" Color="#0F141A" />
+    <SolidColorBrush x:Key="ReadOnlyFieldBg" Color="#0A0F14" />
+    <SolidColorBrush x:Key="CommandButtonBg" Color="#14202A" />
+    <SolidColorBrush x:Key="ButtonBgCancel" Color="#1A1A1A" />
+    <SolidColorBrush x:Key="ButtonBgSkip" Color="#2A2A1A" />
+    <SolidColorBrush x:Key="ButtonBgSuccess" Color="#1A3A2A" />
+    <SolidColorBrush x:Key="ButtonBgAction" Color="#1A3A4A" />
+    <SolidColorBrush x:Key="ButtonBgDanger" Color="#3A1A1A" />
+    <SolidColorBrush x:Key="ButtonBgSecondary" Color="#1A2A3A" />
+    <!-- Borders -->
+    <SolidColorBrush x:Key="AccentBorder" Color="#3BA7FF" />
+    <SolidColorBrush x:Key="SeparatorBorder" Color="#243340" />
+    <SolidColorBrush x:Key="EntryBorder" Color="#1A2A3A" />
+    <!-- Text -->
+    <SolidColorBrush x:Key="TextPrimary" Color="#D7E2F0" />
+    <SolidColorBrush x:Key="TextSecondary" Color="#A0B4C4" />
+    <SolidColorBrush x:Key="TextAccent" Color="#8CD8FF" />
+    <SolidColorBrush x:Key="TextSuccess" Color="#7FB7A5" />
+    <SolidColorBrush x:Key="TextMuted" Color="#6A7E8E" />
+    <SolidColorBrush x:Key="TextDimmed" Color="#4A5E6E" />
+    <SolidColorBrush x:Key="TextDisabled" Color="#3A4A5A" />
+    <SolidColorBrush x:Key="TextHighlight" Color="#F8E38C" />
+    <SolidColorBrush x:Key="TextDanger" Color="#FF6B6B" />
+    <!-- Status -->
+    <SolidColorBrush x:Key="StatusInstalled" Color="#7FB7A5" />
+    <SolidColorBrush x:Key="StatusMoved" Color="#E8C547" />
+    <SolidColorBrush x:Key="StatusOrphaned" Color="#E87070" />
+    <!-- Font Sizes -->
+    <x:Double x:Key="FontSizeSmall">10</x:Double>
+    <x:Double x:Key="FontSizeLabel">11</x:Double>
+    <x:Double x:Key="FontSizeBody">12</x:Double>
+    <x:Double x:Key="FontSizeItem">13</x:Double>
+    <x:Double x:Key="FontSizeSubHeader">14</x:Double>
+    <x:Double x:Key="FontSizeHeader">16</x:Double>
+    <x:Double x:Key="FontSizeTitle">18</x:Double>
+    <x:Double x:Key="FontSizeAppTitle">20</x:Double>
+  </Application.Resources>
   <Application.Styles>
     <FluentTheme />
     <Style Selector="Window">
-      <Setter Property="Background" Value="#10161C" />
-      <Setter Property="Foreground" Value="#D7E2F0" />
+      <Setter Property="Background" Value="{DynamicResource WindowBg}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
       <Setter Property="FontFamily" Value="Cascadia Mono,Consolas,Monospace" />
     </Style>
     <Style Selector="Border.pane">
-      <Setter Property="BorderBrush" Value="#3BA7FF" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBorder}" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="Padding" Value="8" />
-      <Setter Property="Background" Value="#0F141A" />
+      <Setter Property="Background" Value="{DynamicResource PaneBg}" />
     </Style>
     <Style Selector="TextBlock.pane-header">
       <Setter Property="FontWeight" Value="Bold" />
-      <Setter Property="Foreground" Value="#8CD8FF" />
+      <Setter Property="Foreground" Value="{DynamicResource TextAccent}" />
       <Setter Property="Margin" Value="0,0,0,8" />
     </Style>
     <Style Selector="TextBlock.status-line">
-      <Setter Property="Foreground" Value="#F8E38C" />
+      <Setter Property="Foreground" Value="{DynamicResource TextHighlight}" />
     </Style>
   </Application.Styles>
 </Application>
