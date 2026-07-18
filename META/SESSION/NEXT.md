@@ -39,46 +39,63 @@ Merged `detect_folder.py` + `list_standalone_games.py` → single `tools/detect.
 
 ## Priority Order
 
-### 1. Bug Fixes & Stabilization (P0)
+### 1. Phase D: Complexity Reduction (P0 — Current Focus)
 
-**Known bugs to fix:**
-- [ ] **Static vs instance noise check divergence** — `IsNoiseExePattern()` (static, hardcoded 25 patterns) vs `IsNonGameExe()` (instance, full JSON blacklist). `HasRootExecutableSignal()` and `HasUnrealLayoutSignal()` don't see the JSON blacklist. HIGH severity.
-- [ ] **Close stale TECH_DEBT entries** — Bugs 1-4 in `META/BACKLOG/TECH_DEBT.md` appear fixed in code but entries were never closed.
-- [ ] **Remove dead `CollectAllCommonFolderNames`** in `SteamLibraryScanner.cs` (defined but unused).
+**Goal:** Reduce mental complexity, eliminate duplication, improve naming, add documentation, proactively split files.
+**Plan:** `planning/10-phase-d-complexity-reduction.md`
+**Task Template:** `META/TASKS/TEMPLATE/task-template.md`
 
-**Test gaps to fill (Stabilization):**
-- [ ] `SteamLibraryScanner` — zero tests (ACF parsing, cross-library detection, Missing/Orphaned)
-- [ ] `VdfParser` — zero tests (malformed input, nested blocks, escape sequences)
-- [ ] `BlacklistLoader` — zero tests (loading, parsing, error handling)
-- [ ] `IsNoiseExePattern` vs `IsNonGameExe` divergence — needs test proving the bug
-- [ ] `ScoreExecutable` — zero tests
+**Layers (15 tasks, ~9 hours):**
 
-### 2. Standalone & Steam Feature Completion (P1)
+| Layer | Tasks | Focus |
+|-------|-------|-------|
+| 1 — Shared Utilities | T16-T18 | Extract FileSystemHelper, JsonFileHelper, AvailableTypes |
+| 2 — Naming & Docs | T19-T22 | Rename variables, add XML docs, consolidate noise checks |
+| 3 — Proactive Splits | T23-T28 | Extract StoreSignalDetector, ExecutableDiscovery, SteamAcfParser, KeyboardDispatcher, HelpDialogBuilder, ShellDetailsViewModel |
+| 4 — Pattern Extraction | T29-T30 | Extract folder-picker pattern, integrate JsonFileHelper |
+
+**Start with:** T16 (Extract FileSystemHelper) — no prerequisites, highest impact
+
+### 2. Phase E: Stabilization & Test Coverage (P1)
+
+**Goal:** Fix known bugs, close tech debt, fill test gaps.
+**Plan:** `planning/11-phase-e-stabilization.md`
+
+**Layers (10 tasks, ~6.5 hours):**
+
+| Layer | Tasks | Focus |
+|-------|-------|-------|
+| 1 — Tech Debt | T31 | Close stale TECH_DEBT entries 1-5 |
+| 2 — Bug Fixes | T32-T33 | Fix BlacklistLoader tiers (Bug 6), ScoreExecutable blacklist (Bug 7) |
+| 3 — Critical Tests | T34-T37 | VdfParser, BlacklistLoader, SteamLibraryScanner, noise-check regression |
+| 4 — Secondary Tests | T38-T40 | ScoreExecutable, GameEntryId, GamesDatabaseService |
+
+### 3. Standalone & Steam Feature Completion (P2)
 
 **Standalone gaps:**
 - [ ] Container detection only promotes Tier-1 signals — pure standalone games under container parents are dropped
 - [ ] Launcher exe discovery is shallow (root-level only)
-- [ ] Scoring ignores JSON blacklist patterns (only ~10 hardcoded launcher patterns penalized)
+- [ ] Scoring ignores JSON blacklist patterns (only ~10 hardcoded launcher patterns penalized) — FIXED in T30
 
 **Steam gaps:**
 - [ ] `FindPrimaryExe` is shallow (root-level only, 7-item noise filter) — misses exes in subfolders
 - [ ] Silent `catch { }` blocks — no user feedback on corrupt manifests
 - [ ] No cross-library deduplication in `ScanAll`
 
-### 3. EA Install Metadata (Future — Application Feature)
+### 4. EA Install Metadata (Future — Application Feature)
 EA install logs contain rich metadata:
 - `__Installer/InstallLog.txt` — game name, studio, install path, registry keys, redistributables
 - `__Installer/installerdata.xml` — content IDs, title, locale, EULA paths
 
 **Status:** Detection logic done. Application metadata parsing planned for later.
 
-### 4. SCUMMVM/DOSBox Game Category (Future — Application Feature)
+### 5. SCUMMVM/DOSBox Game Category (Future — Application Feature)
 GOG SCUMMVM and DOSBox games could have a "Retro" or "DOS Game" category,
 similar to how Engine metadata is already tracked.
 
 **Status:** Detection done. Category type planned for application.
 
-### 5. PCGamingWiki Metadata Lookup (P1)
+### 6. PCGamingWiki Metadata Lookup (P2)
 
 **Status:** Research 100% complete, C# implementation 0%. Full plan at `planning/04-phase-2-metadata-lookup.md`.
 
@@ -88,16 +105,16 @@ similar to how Engine metadata is already tracked.
 - [ ] HTTP client infrastructure with rate limiting
 - [ ] F3/F4 key conflict resolution (F4 is retag, plan says metadata)
 
-### 6. Multi-Theme System (P2 — nice-to-have)
+### 7. Multi-Theme System (P3 — nice-to-have)
 
 **Planning doc:** `planning/97-multi-theme-system.md`
 - Theme definitions (WindowsCommander, GrayScale)
 - ThemeManager + AppConfig persistence
 - F2 Settings theme selector
 
-### 8. detect.py Refactoring (P1 — needs planning)
+### 8. detect.py Refactoring (P2 — needs planning)
 
-**Problem:** `tools/detect.py` is ~1800 lines. Violates "Avoid Massive Source Files" principle.
+**Problem:** `tools/detect.py` is ~1829 lines. Violates "Avoid Massive Source Files" principle.
 
 **Needs planning for:**
 - Split into modules (detection/, scoring/, logging/)

@@ -16,6 +16,8 @@ See `META/BACKLOG/TECH_DEBT.md` for known issues.
 
 | Document | Description | Status |
 | :--- | :--- | :--- |
+| `10-phase-d-complexity-reduction.md` | Reduce mental complexity: extract utilities, fix naming, add docs | 🔵 ACTIVE |
+| `11-phase-e-stabilization.md` | Bug fixes, tech debt closure, test coverage gaps | PLANNED |
 | `04-phase-2.md` | Steam & Stand-alone game implementation | ACTIVE |
 | `04-phase-2-syncmove.md` | SyncMove — Manifest-aware game migration | PLANNED |
 | `04-phase-2-metadata-lookup.md` | Game Metadata Lookup (F4) | PLANNED |
