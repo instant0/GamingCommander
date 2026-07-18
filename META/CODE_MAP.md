@@ -169,13 +169,16 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 
 ## Existing Python Tools (tools/)
 
+> **Note:** `detect.py` is the unified replacement for `detect_folder.py` and `list_standalone_games.py`. Deprecated tools are retained for reference only.
+
 | Tool | Purpose | Status |
 |------|---------|--------|
+| `detect.py` | Unified game detection tool: 4-phase scan, 9 store signals, engine detection, GOG metadata | ✅ Primary |
 | `parse_steam_acf.py` | Parse Steam ACF files, extract identification + migration fields | ✅ Validated |
-| `list_standalone_games.py` | Three-tier classification of standalone game folders | ✅ Exists |
+| `list_standalone_games.py` | Three-tier classification of standalone game folders | ⚠️ Deprecated — use detect.py |
 | `discover_steam_libraries.py` | Find Steam libraries via registry + libraryfolders.vdf | ✅ Exists |
 | `list_steam_common.py` | List Steam common folders cross-referenced with ACFs | ✅ Exists |
-| `detect_folder.py` | Detect launcher type from folder contents | ✅ Exists |
+| `detect_folder.py` | Detect launcher type from folder contents | ⚠️ Deprecated — use detect.py |
 | `validate_steam_libraries.py` | Validate Steam library structure | ✅ Exists |
 | `decode_manifest.py` | Parse Epic .manifest binary + generate .item files | ✅ Exists |
 | `parse_manifest.py` | Simpler Epic .manifest parser | ✅ Exists |

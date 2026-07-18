@@ -20,6 +20,7 @@ public sealed class LibraryManager : ILibraryManager
     private readonly FolderScanner _scanner;
     private readonly SteamLibraryScanner? _steamScanner;
 
+    /// <summary>Creates a new LibraryManager with the specified services.</summary>
     public LibraryManager(
         IConfigService configService,
         IGamesDatabaseService db,
@@ -38,11 +39,13 @@ public sealed class LibraryManager : ILibraryManager
     public IReadOnlyList<LibraryRoot> LibraryRoots =>
         _configService.Load().LibraryRoots;
 
+    /// <summary>Returns game entries for the specified root from the database.</summary>
     public IReadOnlyList<GameEntry> GetGamesForRoot(string rootPath)
     {
         return _db.GetGamesForRoot(rootPath);
     }
 
+    /// <summary>Adds a new library root. Scans if no games provided. Persists to both config and database.</summary>
     public void AddRoot(string rootPath, GameSourceKind defaultType, IReadOnlyList<GameEntry> games)
     {
         AppConfig config = _configService.Load();
@@ -64,6 +67,7 @@ public sealed class LibraryManager : ILibraryManager
         }
     }
 
+    /// <summary>Removes a root from both the games database and config.</summary>
     public void RemoveRoot(string rootPath)
     {
         // Remove from games database
@@ -95,21 +99,25 @@ public sealed class LibraryManager : ILibraryManager
         }
     }
 
+    /// <summary>Delegates rescan results to the database service.</summary>
     public void RescanRoot(string rootPath, IReadOnlyList<GameEntry> games)
     {
         _db.RescanRoot(rootPath, games);
     }
 
+    /// <summary>Delegates game entry update to the database service.</summary>
     public void UpdateGameEntry(string rootPath, GameEntry updated)
     {
         _db.UpdateGameEntry(rootPath, updated);
     }
 
+    /// <summary>Delegates game entry deletion to the database service.</summary>
     public void DeleteGameEntry(string rootPath, string gameId)
     {
         _db.DeleteGameEntry(rootPath, gameId);
     }
 
+    /// <summary>Delegates game retag to the database service.</summary>
     public void RetagGame(string rootPath, string gameId, GameSourceKind newType)
     {
         _db.RetagGame(rootPath, gameId, newType);

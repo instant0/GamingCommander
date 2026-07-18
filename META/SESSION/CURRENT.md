@@ -23,6 +23,7 @@
 5. ✅ Bug fixes & cleanup — Plan 95 complete
 6. ✅ Theme extraction — all hardcoded colors/fonts centralized
 7. ✅ VFS display enhancements — Plan 96 complete
+8. ✅ Documentation & code structure cleanup — T01–T15 complete (3 phases: docs, XML docs, code splits)
 
 ## Known Issues Found During Investigation
 
@@ -132,6 +133,29 @@ All hardcoded colors and font sizes centralized to `App.axaml` Application.Resou
 - `ShellViewModel.LoadGamesForRoot()` — maps Moved→yellow, Orphaned/Missing→red, Installed/empty→default
 - `MainWindow.axaml` left-pane ListBox — Title TextBlock bound to `ItemStatusColor` via `HexToBrushConverter`
 - `HexToBrushConverter` — empty string now returns `TextPrimary` (so non-game items keep default color)
+
+### Documentation & Code Structure Cleanup (T01–T15 — Complete)
+
+**Phase A — Documentation Cleanup (T01–T07):**
+- T01: Deleted stale `AGENTS.md.old`
+- T02: Updated `README.md` with current phase, layout, build instructions
+- T03: Archived `.sisyphus/plans/` → `META/COMPLETED/.sisyphus-plans-archive/`
+- T04: Replaced 1340-line stale `docs/FEATURES.md` with 12-line redirect stub
+- T05: Cleaned ILauncher ghost references in 4 files
+- T06: Fixed test count 18→17 in 2 files
+- T07: Updated `META/CODE_MAP.md` Python tools table
+
+**Phase B — XML Documentation (T08–T12):**
+- T08: Added `/// <summary>` to 4 Core interfaces
+- T09: Added XML docs to 8 Core model files
+- T10: Added XML docs to 5 App service files
+- T11: Added XML docs to 6 ViewModel files
+- T12: Added XML docs to 2 Migration files
+
+**Phase C — Code Structure (T13–T15):**
+- T13: Split `GameEntry.cs` → `GameRoot.cs` + `GamesDatabase.cs`; split `LibraryRoot.cs` → `FolderOverride.cs`; split `FileSystemEntry.cs` → `FileSystemEntryKind.cs` (4 new files)
+- T14: Extracted `BlacklistData` record from `BlacklistLoader.cs` → `BlacklistData.cs`
+- T15: Extracted `LibraryRootEntry` and `WizardLibraryEntry` to their own files (2 new files)
 
 ## Test Status
 **17 tests passing** (5 Core + 1 Migration + 11 App). Build clean, 0 errors. 4 Avalonia AVLN3001 warnings (cosmetic).

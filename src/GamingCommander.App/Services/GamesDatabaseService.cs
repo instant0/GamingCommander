@@ -4,6 +4,10 @@ using GamingCommander.Core.Models;
 
 namespace GamingCommander.App.Services;
 
+/// <summary>
+/// JSON-file implementation of IGamesDatabaseService with in-memory caching.
+/// Reads/writes data/games.json using DTO mapping.
+/// </summary>
 public sealed class GamesDatabaseService : IGamesDatabaseService
 {
     private readonly string _dbPath;
@@ -14,11 +18,13 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
         PropertyNameCaseInsensitive = true,
     };
 
+    /// <summary>Creates a new database service targeting the specified JSON file path.</summary>
     public GamesDatabaseService(string dbPath)
     {
         _dbPath = dbPath;
     }
 
+    /// <summary>Loads the games database from disk. Returns cached version if already loaded.</summary>
     public GamesDatabase Load()
     {
         if (_cachedDb is not null)
@@ -70,6 +76,7 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
         }
     }
 
+    /// <summary>Serializes and persists the games database to disk. Updates the in-memory cache.</summary>
     public void Save(GamesDatabase db)
     {
         // Update cache first, then persist to disk
@@ -106,6 +113,7 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
         File.WriteAllText(_dbPath, json);
     }
 
+    /// <summary>Returns all game entries for the specified library root path.</summary>
     public IReadOnlyList<GameEntry> GetGamesForRoot(string rootPath)
     {
         GamesDatabase db = Load();
@@ -114,6 +122,7 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
             .Games ?? [];
     }
 
+    /// <summary>Adds a new library root with its game entries to the database.</summary>
     public void AddRoot(string rootPath, GameSourceKind defaultType, IEnumerable<GameEntry> games)
     {
         GamesDatabase db = Load();
@@ -125,6 +134,7 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
         Save(new GamesDatabase(roots));
     }
 
+    /// <summary>Removes a library root and all associated game entries.</summary>
     public void RemoveRoot(string rootPath)
     {
         GamesDatabase db = Load();
@@ -134,6 +144,7 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
         Save(new GamesDatabase(roots));
     }
 
+    /// <summary>Replaces all entries for a root with freshly scanned results.</summary>
     public void RescanRoot(string rootPath, IEnumerable<GameEntry> games)
     {
         GamesDatabase db = Load();
@@ -146,6 +157,7 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
         Save(new GamesDatabase(roots));
     }
 
+    /// <summary>Updates a single game entry within the specified root.</summary>
     public void UpdateGameEntry(string rootPath, GameEntry updated)
     {
         GamesDatabase db = Load();
@@ -162,6 +174,7 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
         Save(new GamesDatabase(roots));
     }
 
+    /// <summary>Removes a game entry by ID from the specified root.</summary>
     public void DeleteGameEntry(string rootPath, string gameId)
     {
         GamesDatabase db = Load();
@@ -174,6 +187,7 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
         Save(new GamesDatabase(roots));
     }
 
+    /// <summary>Changes the source type of a game entry.</summary>
     public void RetagGame(string rootPath, string gameId, GameSourceKind newType)
     {
         GamesDatabase db = Load();

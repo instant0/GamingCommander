@@ -90,7 +90,12 @@ GamingCommander.sln
 
 ### Provider Detection Pipeline
 
-Each launcher detector (Steam, Epic, GOG, EA, Ubisoft, Battle.net, Xbox) must be isolated behind `ILauncher` interface.
+Launcher detection is isolated behind `ILibraryManager`. The `LibraryManager` routes scanning to the appropriate scanner based on folder structure:
+
+- `SteamLibraryScanner` — structural Steam detection (steamapps/common/ is definitive)
+- `FolderScanner` — generic folder scanner for Standalone, GOG, EA, Ubisoft, Epic, and other sources
+
+> **Note:** `ILauncher` (proposed in ADR-008) was retired in favor of this two-tier scanner architecture. The isolation intent is preserved — scanner implementations are decoupled from core logic.
 
 ### Future Metadata Pipeline
 

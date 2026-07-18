@@ -7,6 +7,10 @@ using GamingCommander.Core.Models;
 
 namespace GamingCommander.App.ViewModels;
 
+/// <summary>
+/// ViewModel for the first-run wizard. Scans configured library folders,
+/// presents results, and saves initial configuration.
+/// </summary>
 public sealed class WizardViewModel : GamingCommander.UI.ViewModels.ReactiveObject
 {
     private readonly IConfigService _configService;
@@ -27,6 +31,7 @@ public sealed class WizardViewModel : GamingCommander.UI.ViewModels.ReactiveObje
         _window = window;
     }
 
+    /// <summary>Library entries added by the user during the wizard.</summary>
     public ObservableCollection<WizardLibraryEntry> Entries { get; } = [];
 
     public string[] AvailableTypes { get; } =
@@ -43,6 +48,7 @@ public sealed class WizardViewModel : GamingCommander.UI.ViewModels.ReactiveObje
         "Steam Emulator",
     ];
 
+    /// <summary>Status text displayed during scanning (e.g., "Scanning D:\Games...").</summary>
     public string ScanStatus
     {
         get => _scanStatus;
@@ -50,6 +56,7 @@ public sealed class WizardViewModel : GamingCommander.UI.ViewModels.ReactiveObje
     }
     private string _scanStatus = string.Empty;
 
+    /// <summary>Whether to enable online metadata lookup (PCGamingWiki, etc.).</summary>
     public bool EnableOnlineMetadata
     {
         get => _enableOnlineMetadata;
@@ -57,6 +64,7 @@ public sealed class WizardViewModel : GamingCommander.UI.ViewModels.ReactiveObje
     }
     private bool _enableOnlineMetadata;
 
+    /// <summary>Opens a folder picker and adds the selected folder as a library entry.</summary>
     public async Task AddEntryAsync()
     {
         var folders = await _window.StorageProvider.OpenFolderPickerAsync(
@@ -73,6 +81,7 @@ public sealed class WizardViewModel : GamingCommander.UI.ViewModels.ReactiveObje
         await ScanEntryAsync(entry);
     }
 
+    /// <summary>Scans a library entry for games using the appropriate scanner.</summary>
     public async Task ScanEntryAsync(WizardLibraryEntry entry)
     {
         if (entry.IsScanning) return;
@@ -114,11 +123,13 @@ public sealed class WizardViewModel : GamingCommander.UI.ViewModels.ReactiveObje
         });
     }
 
+    /// <summary>Removes a library entry from the wizard.</summary>
     public void RemoveEntry(WizardLibraryEntry entry)
     {
         Entries.Remove(entry);
     }
 
+    /// <summary>Saves all entries as library roots and closes the wizard.</summary>
     public void Finish()
     {
         var roots = Entries
@@ -133,6 +144,7 @@ public sealed class WizardViewModel : GamingCommander.UI.ViewModels.ReactiveObje
         _window.Close(true);
     }
 
+    /// <summary>Saves only scanned entries as library roots and closes the wizard.</summary>
     public void Cancel()
     {
         var roots = Entries
@@ -169,44 +181,4 @@ public sealed class WizardViewModel : GamingCommander.UI.ViewModels.ReactiveObje
             }
         }
     }
-}
-
-    public sealed class WizardLibraryEntry : GamingCommander.UI.ViewModels.ReactiveObject
-{
-    public WizardLibraryEntry(string path, string selectedType)
-    {
-        Path = path;
-        _selectedType = selectedType;
-        SelectedType = selectedType;
-    }
-
-    public string Path { get; }
-
-    public string SelectedType
-    {
-        get => _selectedType;
-        set => SetProperty(ref _selectedType, value);
-    }
-    private string _selectedType = string.Empty;
-
-    public int GameCount
-    {
-        get => _gameCount;
-        set => SetProperty(ref _gameCount, value);
-    }
-    private int _gameCount;
-
-    public bool IsScanned
-    {
-        get => _isScanned;
-        set => SetProperty(ref _isScanned, value);
-    }
-    private bool _isScanned;
-
-    public bool IsScanning
-    {
-        get => _isScanning;
-        set => SetProperty(ref _isScanning, value);
-    }
-    private bool _isScanning;
 }

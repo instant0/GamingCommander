@@ -4,6 +4,10 @@ using GamingCommander.Core.Models;
 
 namespace GamingCommander.UI.ViewModels;
 
+/// <summary>
+/// Primary dual-pane shell ViewModel. Manages navigation between library roots
+/// and game entries, item selection, details panel, status bar, and platform metadata display.
+/// </summary>
 public sealed class ShellViewModel : ReactiveObject
 {
     private readonly ILibraryManager _libraryManager;
@@ -14,7 +18,10 @@ public sealed class ShellViewModel : ReactiveObject
     private int _previousRootIndex;
     private string _statusText = string.Empty;
 
+    /// <summary>Raised after navigation completes. Subscribers should re-focus the left pane.</summary>
     public event Action? NavigationChanged;
+
+    /// <summary>Raised when a game should be launched. Subscribers handle the actual process start.</summary>
     public event Action<ShellPaneItemViewModel>? RequestLaunch;
 
     public ShellViewModel(ILibraryManager libraryManager, IConfigService configService)
@@ -35,9 +42,13 @@ public sealed class ShellViewModel : ReactiveObject
         JumpToLibraryRoots();
     }
 
+    /// <summary>Title displayed in the left pane header (root name or truncated path).</summary>
     public string LeftPaneTitle => IsAtRootLevel ? "Library Roots" : TruncatePath(_currentRootPath);
+
+    /// <summary>Title displayed in the right pane header ('Details').</summary>
     public string RightPaneTitle => "Details";
 
+    /// <summary>True when viewing the top-level library root list (not inside a root).</summary>
     public bool IsAtRootLevel
     {
         get => _isAtRootLevel;
@@ -49,8 +60,10 @@ public sealed class ShellViewModel : ReactiveObject
     }
     private bool _isAtRootLevel = true;
 
+    /// <summary>Observable collection of items displayed in the left pane.</summary>
     public ObservableCollection<ShellPaneItemViewModel> Items { get; } = [];
 
+    /// <summary>Index of the currently selected item in the left pane. -1 if nothing selected.</summary>
     public int SelectedIndex
     {
         get => _selectedIndex;
@@ -61,6 +74,7 @@ public sealed class ShellViewModel : ReactiveObject
         }
     }
 
+    /// <summary>The currently selected ShellPaneItemViewModel, or null.</summary>
     public ShellPaneItemViewModel? SelectedItem =>
         SelectedIndex >= 0 && SelectedIndex < Items.Count ? Items[SelectedIndex] : null;
 
@@ -78,15 +92,18 @@ public sealed class ShellViewModel : ReactiveObject
     public string DetailsPlatformStatusDetail => SelectedItem?.PlatformStatusDetail ?? string.Empty;
     public bool HasPlatformStatusDetail => !string.IsNullOrEmpty(SelectedItem?.PlatformStatusDetail);
     public bool HasSelection => SelectedItem is not null;
+    /// <summary>True when a game file (not a directory or parent) is selected.</summary>
     public bool HasGameSelected => SelectedItem is { Kind: FileSystemEntryKind.File };
     public bool HasOverride => SelectedItem?.HasOverride == true;
 
+    /// <summary>Text shown in the bottom status bar.</summary>
     public string StatusText
     {
         get => _statusText;
         set => SetProperty(ref _statusText, value);
     }
 
+    /// <summary>Context-sensitive hint text shown below the item list.</summary>
     public string InteractionHint { get; private set; } = string.Empty;
 
     public ObservableCollection<ShellCommandViewModel> Commands { get; } =
@@ -107,6 +124,7 @@ public sealed class ShellViewModel : ReactiveObject
     public string ConfiguredRootsCount => $"{_libraryManager.LibraryRoots.Count} folder(s) configured";
     public int ItemCount => Items.Count;
 
+    /// <summary>Populates the item list with configured library roots.</summary>
     public void JumpToLibraryRoots()
     {
         _currentRootPath = string.Empty;
@@ -143,6 +161,7 @@ public sealed class ShellViewModel : ReactiveObject
         NavigationChanged?.Invoke();
     }
 
+    /// <summary>Drills into the selected item (root → games, directory → sub-entries) or launches a game.</summary>
     public void NavigateInto()
     {
         ShellPaneItemViewModel? item = SelectedItem;
@@ -177,6 +196,7 @@ public sealed class ShellViewModel : ReactiveObject
         UpdateDetailsForSelection();
     }
 
+    /// <summary>Goes up one level (games → roots, or no-op if already at roots).</summary>
     public void NavigateUp()
     {
         if (IsAtRootLevel) return;
@@ -187,6 +207,7 @@ public sealed class ShellViewModel : ReactiveObject
 
     public string? GetSelectedGameId() => SelectedItem?.GameId;
 
+    /// <summary>Updates the source type of the selected game.</summary>
     public void RetagSelected(GameSourceKind newType)
     {
         if (SelectedItem?.GameId is null || IsAtRootLevel) return;
@@ -207,6 +228,7 @@ public sealed class ShellViewModel : ReactiveObject
         StatusText = "Rescan complete";
     }
 
+    /// <summary>Refreshes the current view by re-loading from database.</summary>
     public void Reload()
     {
         if (IsAtRootLevel)

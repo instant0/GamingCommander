@@ -4,6 +4,9 @@ using GamingCommander.Core.Models;
 
 namespace GamingCommander.App.Services;
 
+/// <summary>
+/// JSON-file implementation of IConfigService. Reads/writes settings.json with DTO mapping.
+/// </summary>
 public sealed class JsonConfigService : IConfigService
 {
     private readonly string _configPath;
@@ -13,11 +16,13 @@ public sealed class JsonConfigService : IConfigService
         PropertyNameCaseInsensitive = true,
     };
 
+    /// <summary>Creates a new config service targeting the specified JSON file path.</summary>
     public JsonConfigService(string configPath)
     {
         _configPath = configPath;
     }
 
+    /// <summary>Loads application configuration from disk. Returns defaults if file missing.</summary>
     public AppConfig Load()
     {
         if (!File.Exists(_configPath))
@@ -66,6 +71,7 @@ public sealed class JsonConfigService : IConfigService
             EnableOnlineMetadata: loaded.EnableOnlineMetadata);
     }
 
+    /// <summary>Serializes and persists the application configuration to disk.</summary>
     public void Save(AppConfig config)
     {
         var dto = new ConfigDto

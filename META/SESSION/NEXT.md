@@ -30,6 +30,11 @@ Merged `detect_folder.py` + `list_standalone_games.py` → single `tools/detect.
 - `--log FILE` flag for detailed detection logs
 - Result: 157 games, 0 no-exe, 0 unknowns
 
+### Documentation & Code Structure Cleanup (T01–T15)
+- Phase A: Deleted stale docs, updated README, archived old plans, cleaned ghost references, fixed test counts, updated CODE_MAP
+- Phase B: Added XML docs to 4 Core interfaces, 8 models, 5 services, 6 ViewModels, 2 Migration files
+- Phase C: Split 3 multi-type Core files (4 new files), extracted BlacklistData, extracted 2 ViewModel nested types
+
 ---
 
 ## Priority Order

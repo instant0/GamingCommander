@@ -7,6 +7,9 @@ using GamingCommander.Core.Models;
 
 namespace GamingCommander.App.ViewModels;
 
+/// <summary>
+/// ViewModel for the F2 Library Setup dialog. Manages adding, removing, and rescanning library roots.
+/// </summary>
 public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.ReactiveObject
 {
     private readonly IConfigService _configService;
@@ -27,6 +30,7 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
         LoadRoots();
     }
 
+    /// <summary>Library root entries displayed in the setup dialog.</summary>
     public ObservableCollection<LibraryRootEntry> Entries { get; } = [];
 
     public string[] AvailableTypes { get; } =
@@ -54,6 +58,7 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
         }
     }
 
+    /// <summary>Opens a folder picker, scans the folder, and adds it as a library root.</summary>
     public async Task AddRootAsync()
     {
         var folders = await _window.StorageProvider.OpenFolderPickerAsync(
@@ -71,6 +76,7 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
         await ScanAndSaveAsync(path, defaultType);
     }
 
+    /// <summary>Rescans a library root for games and updates the entry's game count.</summary>
     public async Task RescanAsync(LibraryRootEntry entry)
     {
         GameSourceKind type = GameSourceParser.ParseFromString(entry.DefaultType);
@@ -79,6 +85,7 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
         entry.GameCount = games.Count;
     }
 
+    /// <summary>Removes a library root from the database, config, and UI.</summary>
     public void RemoveEntry(LibraryRootEntry entry)
     {
         Entries.Remove(entry);
@@ -91,6 +98,7 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
         _configService.Save(config with { LibraryRoots = newRoots });
     }
 
+    /// <summary>Closes the setup dialog.</summary>
     public void Close()
     {
         _window.Close();
@@ -106,25 +114,4 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
         var entry = Entries.FirstOrDefault(e => e.Path.Equals(path, StringComparison.OrdinalIgnoreCase));
         if (entry != null) entry.GameCount = games.Count;
     }
-}
-
-    public sealed class LibraryRootEntry : GamingCommander.UI.ViewModels.ReactiveObject
-{
-    public LibraryRootEntry(string path, string defaultType, int gameCount)
-    {
-        Path = path;
-        _defaultType = defaultType;
-        DefaultType = defaultType;
-        GameCount = gameCount;
-    }
-
-    public string Path { get; }
-    public int GameCount { get; set; }
-
-    public string DefaultType
-    {
-        get => _defaultType;
-        set => SetProperty(ref _defaultType, value);
-    }
-    private string _defaultType = string.Empty;
 }

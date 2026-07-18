@@ -52,7 +52,7 @@ GamingCommander is a C# Windows-native game management and launcher application 
 | Date | Milestone | Summary |
 |------|-----------|---------|
 | 2025-Q1 | Phase 0 | Avalonia 11.x chosen, solution scaffolded, Windows validation pass |
-| 2025-Q2 | Phase 1.0 | Dual-pane UI, config engine, IGame/ILauncher/ILibraryManager interfaces |
+| 2025-Q2 | Phase 1.0 | Dual-pane UI, config engine, IGame/ILibraryManager interfaces (ILauncher later retired) |
 | 2025-Q3 | Phase 1.1 | First-run wizard, virtual FS navigation, F2/T keys, details panel enhanced |
-| 2025-Q4 | Phase 1.1a | Navigation/mouse fixes, 18 tests, mock data, Python validation tools |
+| 2025-Q4 | Phase 1.1a | Navigation/mouse fixes, 17 tests, mock data, Python validation tools |
 | 2026-Q1 | Phase 1.2 | Research docs for Steam ACF/VDF, Epic, standalone, GOG, EA, Ubisoft |

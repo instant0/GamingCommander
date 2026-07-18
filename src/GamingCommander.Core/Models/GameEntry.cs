@@ -1,23 +1,33 @@
 namespace GamingCommander.Core.Models;
 
+/// <summary>
+/// A discovered game entry stored in the games database.
+/// </summary>
 public sealed record GameEntry(
+    /// <summary>Deterministic unique identifier (MD5-based).</summary>
     string Id,
+    /// <summary>Name of the game's installation folder.</summary>
     string FolderName,
+    /// <summary>Human-readable game name shown in the UI.</summary>
     string DisplayName,
+    /// <summary>Detected or overridden store/platform type.</summary>
     GameSourceKind GameSource,
+    /// <summary>True if the user manually changed the source type.</summary>
     bool Override,
+    /// <summary>Path to the primary game executable.</summary>
     string ExecutablePath,
+    /// <summary>Path to the game's launcher executable (if any).</summary>
     string LauncherPath,
+    /// <summary>Command-line arguments passed to the executable on launch.</summary>
     string CmdlineArgs,
+    /// <summary>Path to the launcher manifest file (e.g., Steam ACF).</summary>
     string ManifestPath,
+    /// <summary>Timestamp of the most recent scan that produced this entry.</summary>
     DateTimeOffset LastScanned,
+    /// <summary>Timestamp of the game directory's most recent modification.</summary>
     DateTimeOffset LastModified,
+    /// <summary>
+    /// Platform-specific metadata. Common keys: SteamStatus, SteamAppId,
+    /// AcfExpectedPath, AcfLibraryPath.
+    /// </summary>
     Dictionary<string, string> Extra);
-
-public sealed record GameRoot(
-    string RootPath,
-    GameSourceKind DefaultType,
-    List<GameEntry> Games);
-
-public sealed record GamesDatabase(
-    List<GameRoot> Roots);

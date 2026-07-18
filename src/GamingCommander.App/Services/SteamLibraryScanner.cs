@@ -17,6 +17,7 @@ public sealed class SteamLibraryScanner
     private static readonly IReadOnlyList<string> RequiredAcfFields =
     ["appid", "name", "installdir", "StateFlags", "LastUpdated", "SizeOnDisk", "buildid"];
 
+    /// <summary>Creates a new scanner with the specified configured Steam library paths.</summary>
     public SteamLibraryScanner(IEnumerable<string> configuredSteamPaths)
     {
         _configuredSteamPaths = configuredSteamPaths.Select(NormalizePath).Distinct(StringComparer.OrdinalIgnoreCase).ToList();

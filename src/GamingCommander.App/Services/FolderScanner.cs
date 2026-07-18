@@ -39,16 +39,19 @@ public sealed class FolderScanner
         "steam controller configs", "steamworks shared",
     ], StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Creates a scanner with default hardcoded noise patterns (for tests and simple cases).</summary>
     public FolderScanner()
         : this([], DefaultNoiseExePatterns, [], DefaultLauncherPatterns)
     {
     }
 
+    /// <summary>Creates a scanner with custom hidden folder names and default noise patterns.</summary>
     public FolderScanner(IEnumerable<string> hiddenFolderNames)
         : this(hiddenFolderNames, DefaultNoiseExePatterns, [], DefaultLauncherPatterns)
     {
     }
 
+    /// <summary>Creates a scanner with hidden folder names and blacklist data from data/blacklist.json.</summary>
     public FolderScanner(
         IEnumerable<string> hiddenFolderNames,
         BlacklistData blacklist)
@@ -76,6 +79,10 @@ public sealed class FolderScanner
     //  Public API
     // ════════════════════════════════════════════════════════════════
 
+    /// <summary>
+    /// Scans a library root for game folders using a 10-signal priority-ordered detection chain.
+    /// Returns game entries with detected source types, executables, and metadata.
+    /// </summary>
     public IReadOnlyList<GameEntry> Scan(string rootPath, GameSourceKind defaultType)
     {
         if (!Directory.Exists(rootPath))

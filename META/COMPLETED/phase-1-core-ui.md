@@ -9,7 +9,7 @@
 - F9 shortcut to jump to library-root drive listing
 - Configuration engine with JSON persistence (settings.json)
 - First-run setup wizard with library root management
-- Core interfaces: IGame, ILauncher, ILibraryManager, IConfigService, IGamesDatabaseService
+- Core interfaces: IGame, ILibraryManager, IConfigService, IGamesDatabaseService (ILauncher later retired in plan 95)
 - Domain models: GameEntry, GameRoot, GamesDatabase, AppConfig, GameRecord
 - Virtual file system navigation (games.json)
 - F2 Library Root Setup dialog

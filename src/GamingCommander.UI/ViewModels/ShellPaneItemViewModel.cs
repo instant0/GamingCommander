@@ -2,26 +2,39 @@ using GamingCommander.Core.Models;
 
 namespace GamingCommander.UI.ViewModels;
 
+/// <summary>
+/// View model for items displayed in the left-pane list (games, directories, parent entries).
+/// </summary>
 public sealed class ShellPaneItemViewModel
 {
+    /// <summary>Display name of the item (game name or directory name).</summary>
     public required string Title { get; init; }
 
+    /// <summary>Short label for the game's source type (e.g., 'Steam', 'Standalone').</summary>
     public required string SourceLabel { get; init; }
 
+    /// <summary>Truncated path summary for display (~50 chars max).</summary>
     public required string PathSummary { get; init; }
 
+    /// <summary>Path used to launch the game when Enter is pressed.</summary>
     public required string LaunchTarget { get; init; }
 
+    /// <summary>Whether this is a directory, file, or parent directory entry.</summary>
     public FileSystemEntryKind Kind { get; init; }
 
+    /// <summary>True if this item can be drilled into (directory or parent).</summary>
     public bool IsBrowsable => Kind is FileSystemEntryKind.Directory or FileSystemEntryKind.ParentDirectory;
 
+    /// <summary>Timestamp of the last modification to this item.</summary>
     public DateTimeOffset LastModified { get; init; }
 
+    /// <summary>The effective source type after applying overrides.</summary>
     public string ResolvedType { get; init; } = string.Empty;
 
+    /// <summary>True if the user manually changed this item's source type.</summary>
     public bool HasOverride { get; init; }
 
+    /// <summary>Database ID of the game, or null for non-game items.</summary>
     public string? GameId { get; init; }
 
     /// <summary>
@@ -55,5 +68,6 @@ public sealed class ShellPaneItemViewModel
     /// </summary>
     public string ItemStatusColor { get; init; } = string.Empty;
 
+    /// <summary>Number of games in this root (only set for root-level entries).</summary>
     public int GameCount { get; init; }
 }

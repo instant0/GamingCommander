@@ -21,7 +21,7 @@
 - Mock data: data/mock/ directory tree with Steam, Epic, standalone, anti-cheat scenarios
 - Mock registry .reg files for 5 launchers
 - Python validation tools (ACF parsing, registry parsing, Epic manifest decoding)
-- 18 tests (up from 3): model tests, scanner filter tests (6), integration tests (5)
+- 17 tests (up from 3): model tests, scanner filter tests (6), integration tests (5)
 - GamingCommander.App.Tests project created
 
 ## Key Decisions
