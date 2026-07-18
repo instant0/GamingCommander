@@ -42,5 +42,18 @@ public sealed class ShellPaneItemViewModel
     /// </summary>
     public string PlatformStatusColor { get; init; } = string.Empty;
 
+    /// <summary>
+    /// Descriptive status detail (e.g. "Moved (ACF in D:\SteamLibrary)", "Missing — ACF exists but game files not found").
+    /// Shown in the right-pane details panel for richer context.
+    /// </summary>
+    public string PlatformStatusDetail { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Foreground color hex for the game title in the left-pane list.
+    /// Set when game has a non-normal status (Moved, Orphaned, Missing).
+    /// Empty for normal (Installed) or non-platform games — converter returns default text color.
+    /// </summary>
+    public string ItemStatusColor { get; init; } = string.Empty;
+
     public int GameCount { get; init; }
 }

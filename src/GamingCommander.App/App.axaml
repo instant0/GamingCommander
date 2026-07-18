@@ -32,6 +32,7 @@
     <SolidColorBrush x:Key="StatusInstalled" Color="#7FB7A5" />
     <SolidColorBrush x:Key="StatusMoved" Color="#E8C547" />
     <SolidColorBrush x:Key="StatusOrphaned" Color="#E87070" />
+    <SolidColorBrush x:Key="StatusMissing" Color="#E87070" />
     <!-- Font Sizes -->
     <x:Double x:Key="FontSizeSmall">10</x:Double>
     <x:Double x:Key="FontSizeLabel">11</x:Double>

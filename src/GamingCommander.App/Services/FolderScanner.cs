@@ -274,7 +274,7 @@ public sealed class FolderScanner
     //  Pass 2 — Deep Fallback Detection (Medium/Low Confidence)
     // ════════════════════════════════════════════════════════════════
 
-    private static GameSourceKind DetectFallbackType(DirectoryInfo subDir)
+    private GameSourceKind DetectFallbackType(DirectoryInfo subDir)
     {
         // 1 — Steam Emulator deep: steam_emu.ini at root, child, or UE path
         if (HasSteamEmuDeepSignal(subDir))
@@ -351,7 +351,7 @@ public sealed class FolderScanner
         return false;
     }
 
-    private static bool HasUnrealLayoutSignal(DirectoryInfo dir)
+    private bool HasUnrealLayoutSignal(DirectoryInfo dir)
     {
         // Need Engine/ directory
         string enginePath = Path.Combine(dir.FullName, "Engine");
@@ -370,7 +370,7 @@ public sealed class FolderScanner
                     foreach (string exe in Directory.EnumerateFiles(win64, "*.exe", SearchOption.TopDirectoryOnly))
                     {
                         string name = Path.GetFileNameWithoutExtension(exe).ToLowerInvariant();
-                        if (!IsNoiseExePattern(name))
+                        if (!IsNoiseExeName(name))
                             return true;
                     }
                 }
@@ -380,14 +380,14 @@ public sealed class FolderScanner
         return false;
     }
 
-    private static bool HasRootExecutableSignal(DirectoryInfo dir)
+    private bool HasRootExecutableSignal(DirectoryInfo dir)
     {
         try
         {
             foreach (string exe in Directory.EnumerateFiles(dir.FullName, "*.exe", SearchOption.TopDirectoryOnly))
             {
                 string name = Path.GetFileNameWithoutExtension(exe).ToLowerInvariant();
-                if (!IsNoiseExePattern(name))
+                if (!IsNoiseExeName(name))
                     return true;
             }
         }
@@ -600,6 +600,16 @@ public sealed class FolderScanner
                 return true;
         }
         return false;
+    }
+
+    /// <summary>
+    /// Instance method: checks if an exe name (without extension) matches the full
+    /// JSON blacklist. Used by HasRootExecutableSignal and HasUnrealLayoutSignal
+    /// so presence detection uses the same data as candidate filtering.
+    /// </summary>
+    private bool IsNoiseExeName(string name)
+    {
+        return _noiseExePatterns.Any(p => name.Contains(p));
     }
 
     private bool IsNonGameExe(string exePath)

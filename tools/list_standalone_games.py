@@ -1,20 +1,24 @@
 #!/usr/bin/env python3
 """
+DEPRECATED — Use tools/detect.py instead.
+
 Standalone directory scanner — three-tier classification.
 
-Tiers (in priority order):
-  1. HIGH confidence — folder root has launcher markers (GOG, EA, Ubisoxt, Epic)
-  2. LOW confidence — folder root has .exe file(s) but no markers
-  3. Unknown / needs review — no markers, no root exe
+Flow:
+  1. Quick root scan — check for signals (marker files/folders) and .exe.
+  2. Classify immediately if clear signal found.  DONE.  No deep walk.
+  3. Only for unknowns: deeper scan for signals + exe (only .exe/.dll/.ini files).
+  4. If deep scan still finds nothing, flag for review.
 
-Container detection (Tier 3 sub-check):
-  A folder with no markers and no root exe is a container ONLY if at least
-  one of its *children* has launcher markers.  Children with only executables
-  (no markers) do NOT make the parent a container — those execs belong to the
-  parent's own game tree.
+Tiers (priority order):
+  Tier 1 (HIGH)  — root has launcher markers (GOG, EA, Ubisoft, Epic)
+  Tier 2 (LOW)   — root has .exe file(s) but no markers
+  Tier 3 (? )    — no markers, no root exe → check children, else Unknown
 
-Markers are checked case-insensitively.  Executable walk is depth-limited
-(WALK_MAX_DEPTH).  Folders in SKIP_NAMES are ignored.
+Container detection:
+  A folder is a container ONLY if at least one child has launcher markers.
+  Children with only executables (no markers) do NOT make the parent a
+  container — those exes belong to the parent's own game tree.
 """
 
 import json
@@ -79,33 +83,57 @@ def _match_markers(names_lower: set[str], dirs_lower: set[str]):
 
 
 # ---------------------------------------------------------------------------
-def _scandir_info(path: Path):
-    """One-level scandir of *path*.  Return (has_markers, has_root_exe, child_dirs)."""
+# Quick root scan — single directory, no recursion, no stat.
+# ---------------------------------------------------------------------------
+
+def _scan_root(path: Path):
+    """
+    One-level scan of *path*.  Returns:
+      (store, markers, has_root_exe, root_exe_name, child_dirs)
+    No file stats.  Only checks names.
+    """
     try:
         entries = list(os.scandir(path))
     except PermissionError:
-        return False, False, []
-    names = {e.name.lower() for e in entries}
-    dirs  = {e.name.lower() for e in entries if e.is_dir(follow_symlinks=False)}
-    store, _ = _match_markers(names, dirs)
-    has_markers = store != "Standalone"
-    has_root_exe = any(
-        e.name.lower().endswith(".exe") and not _exe_is_noise(e.name)
-        for e in entries
-    )
-    child_dirs = [e for e in entries if e.is_dir(follow_symlinks=False)]
-    return has_markers, has_root_exe, child_dirs
+        return "Standalone", [], False, None, []
+
+    names = set()
+    dirs_lower = set()
+    child_dirs = []
+    root_exe = None
+
+    for e in entries:
+        name_lower = e.name.lower()
+        names.add(name_lower)
+        if e.is_dir(follow_symlinks=False):
+            dirs_lower.add(name_lower)
+            child_dirs.append(e)
+        elif name_lower.endswith(".exe") and not _exe_is_noise(e.name):
+            if root_exe is None:
+                root_exe = e.name  # first non-noise exe
+
+    store, markers = _match_markers(names, dirs_lower)
+    has_root_exe = root_exe is not None
+    return store, markers, has_root_exe, root_exe, child_dirs
 
 
 # ---------------------------------------------------------------------------
-# Full depth-limited walk + collection
+# Deep signal scan — walk depth-limited, ONLY collect signals + exe names.
+# No stat().  No size collection.  Fast.
 # ---------------------------------------------------------------------------
 
-def _walk_and_collect(game_dir: Path):
-    """Walk to WALK_MAX_DEPTH.  Return (store, markers, exe_list)."""
+def _deep_signal_scan(game_dir: Path):
+    """
+    Walk to WALK_MAX_DEPTH.  Only processes files with relevant extensions
+    (.exe, .dll, .ini) — everything else is skipped.  This keeps the walk
+    fast on large directories (e.g. MMO data folders with thousands of assets).
+    Returns (store, markers, exe_names).
+    """
+    SIGNAL_EXTS = {".exe", ".dll", ".ini"}
+
     all_names: set[str] = set()
     all_dirs:  set[str] = set()
-    exe_candidates: list[dict] = []
+    exe_names: list[str] = []
 
     stack: list[tuple[Path, int]] = [(game_dir, 0)]
     while stack:
@@ -115,41 +143,47 @@ def _walk_and_collect(game_dir: Path):
         except PermissionError:
             continue
 
-        rel = current.relative_to(game_dir)
+        subdirs: list[Path] = []
         for e in entries:
-            key = str(rel / e.name) if depth > 0 else e.name
-            all_names.add(key.lower())
             if e.is_dir(follow_symlinks=False):
-                all_dirs.add(key.lower())
-            if e.name.lower().endswith(".exe") and not _exe_is_noise(key):
-                try:
-                    sz = e.stat(follow_symlinks=False).st_size
-                except OSError:
-                    sz = 0
-                exe_candidates.append({"path": key, "size": sz, "name": e.name})
+                subdirs.append(Path(e.path))
+                continue
+            # Skip files without signal extensions entirely
+            name_lower = e.name.lower()
+            if not any(name_lower.endswith(ext) for ext in SIGNAL_EXTS):
+                continue
+            all_names.add(e.name.lower())
+            if name_lower.endswith(".exe") and not _exe_is_noise(e.name):
+                exe_names.append(e.name)
+
         if depth < WALK_MAX_DEPTH:
-            for e in entries:
-                if e.is_dir(follow_symlinks=False):
-                    stack.append((Path(e.path), depth + 1))
+            for d in subdirs:
+                all_dirs.add(d.name.lower())
+                stack.append((d, depth + 1))
 
     store, markers = _match_markers(all_names, all_dirs)
-    exe_candidates.sort(key=lambda x: x["size"], reverse=True)
-    return store, markers, exe_candidates
+    return store, markers, exe_names
 
 
-def detect_game(game_dir: Path) -> dict:
-    """Collect all info for a folder assumed to be a game."""
-    store, markers, exes = _walk_and_collect(game_dir)
+# ---------------------------------------------------------------------------
+# Build result dict
+# ---------------------------------------------------------------------------
+
+def _build_result(game_dir: Path, store: str, markers: list[str],
+                  exe_names: list[str], **extra) -> dict:
+    """Build a result dict from collected data."""
     result: dict = {
         "folder": game_dir.name,
         "path": str(game_dir),
         "store": store,
         "confidence": "High" if markers else "Low",
         "markers": markers,
-        "exe_count": len(exes),
-        "exes": exes,
+        "exe_count": len(exe_names),
+        "exes": [{"path": name, "name": Path(name).name} for name in exe_names],
         "gog_metadata": None,
     }
+    result.update(extra)
+
     if store == "GOG":
         try:
             for f in game_dir.glob("goggame-*.info"):
@@ -177,10 +211,10 @@ def scan_standalone_directory(
     """
     Scan *root* for games.
 
-    Three-tier classification:
-      - Markers found at root  → launcher game (HIGH confidence)
-      - Root .exe, no markers   → standalone (LOW confidence)
-      - No markers, no root exe → check for container, else Unknown/needs_review
+    Flow per folder:
+      1. Quick root scan → if Tier 1 or Tier 2 → done, no deep walk.
+      2. Only for unknowns → deep signal scan for signals + exe names.
+      3. If nothing found → flag for review.
     """
     root_path = Path(root)
     if not root_path.is_dir():
@@ -212,47 +246,50 @@ def scan_standalone_directory(
             if _excluded(child):
                 continue
 
-            hm, hre, child_dirs = _scandir_info(child)
+            store, markers, has_root_exe, root_exe, child_dirs = _scan_root(child)
 
-            # --- Tier 1: has markers → launcher game ---
-            if hm:
-                g = detect_game(child)
-                g["folder"] = f"{prefix}{child.name}"
-                if prefix:
-                    g["container"] = prefix.rstrip("/")
-                games.append(g)
+            # --- Tier 1: has markers → launcher game.  Done. ---
+            if markers:
+                exe_list = [root_exe] if root_exe else []
+                games.append(_build_result(
+                    child, store, markers, exe_list,
+                    folder=f"{prefix}{child.name}",
+                    **({"container": prefix.rstrip("/")} if prefix else {}),
+                ))
                 continue
 
-            # --- Tier 2: root exe, no markers → standalone ---
-            if hre:
-                g = detect_game(child)
-                g["folder"] = f"{prefix}{child.name}"
-                if prefix:
-                    g["container"] = prefix.rstrip("/")
-                games.append(g)
+            # --- Tier 2: root exe, no markers → standalone.  Done. ---
+            if has_root_exe:
+                games.append(_build_result(
+                    child, store, [], [root_exe],
+                    folder=f"{prefix}{child.name}",
+                    **({"container": prefix.rstrip("/")} if prefix else {}),
+                ))
                 continue
 
             # --- Tier 3: no markers, no root exe ---
-            # Sub-check: container?  Only if a child has launcher markers.
-            is_container = any(
-                _scandir_info(Path(c.path))[0] for c in child_dirs
-            )
+            # Quick container check: do child dirs have markers?
+            is_container = False
+            for c in child_dirs:
+                c_store, c_markers, _, _, _ = _scan_root(Path(c.path))
+                if c_markers:
+                    is_container = True
+                    break
 
             if is_container:
                 _scan(child, prefix=f"{prefix}{entry.name}/")
                 continue
 
-            # Not a container.  Could be a game with deep exes or junk.
-            # Do the full walk and let the user decide.
-            g = detect_game(child)
-            g["folder"] = f"{prefix}{child.name}"
-            if prefix:
-                g["container"] = prefix.rstrip("/")
-            # If the deep walk also found no markers, flag for review
-            if not g["markers"]:
-                g["needs_review"] = True
-                g["store"] = "Unknown"
-            games.append(g)
+            # Not a container.  Deep scan for signals + exe names.
+            deep_store, deep_markers, deep_exes = _deep_signal_scan(child)
+
+            games.append(_build_result(
+                child, deep_store if deep_markers else "Unknown",
+                deep_markers, deep_exes,
+                folder=f"{prefix}{child.name}",
+                **({"container": prefix.rstrip("/")} if prefix else {}),
+                **({"needs_review": True} if not deep_markers else {}),
+            ))
 
     _scan(root_path)
     games.sort(key=lambda g: g["folder"].lower())
@@ -271,7 +308,7 @@ def main() -> None:
             "  2. Root exe, no markers   → standalone (LOW confidence)\n"
             "  3. No markers, no root exe → container if child has markers,\n"
             "                              else Unknown / needs_review\n"
-            "Depth-limited walk (4 levels).  Case-insensitive matching.\n"
+            "Only unknowns get a deep walk.  Case-insensitive matching.\n"
             "--steam-libraries excludes Steam roots.\n"
         )
         sys.exit(1 if args and "-h" not in args else 0)

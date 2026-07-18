@@ -20,6 +20,23 @@
   * Are prerequisites validated?
   * Are side effects explicit?
 
+## Development Principles
+
+- **Think Simple** — Avoid clever one-liners that obscure intent. Simple code is debuggable code.
+- **Smart** — Choose the right abstraction level. Not too simple (copy-paste), not too complex (premature abstraction).
+- **Modularized** — One function = one job. If you can't name it clearly, it does too much.
+- **Re-use** — Extract shared logic into functions. Don't duplicate scan logic across tiers.
+- **Avoid Duplicate Code** — If the same pattern appears twice, it should be a function. DRY.
+- **Avoid Massive Source Files** — If a file exceeds ~500 lines, consider splitting.
+- **Name Functions Correctly** — Names should describe what, not how. `_find_exe_in_subdirs` is clear. `_scan` is too vague.
+- **Add Comments** — Explain WHY, not WHAT. "Why do we check for launcher?" is useful. "This loops through files" is not.
+- **Avoid Overengineering** — Don't build frameworks for problems that don't exist yet.
+- **Evaluate Two Perspectives** — Before implementing, ask: "What's the simple way? What's the robust way?" Then choose based on actual needs.
+- **Discuss with User** — When unsure, ask. Don't guess at requirements.
+- **Plan Before Edit** — Read the code, understand the flow, write the change in your head, then edit.
+- **Create Before Delete** — Always have a working version before removing the old one.
+- **Small, Targeted Edits** — No major rewrites without a clear plan. Document why as changes are made.
+
 ## Change Workflow
 
 For each implementation task:

@@ -45,7 +45,8 @@
                 <Border BorderBrush="{DynamicResource SeparatorBorder}" BorderThickness="0,0,0,1" Padding="4,3">
                   <Grid ColumnDefinitions="1*,Auto,Auto">
                     <TextBlock Grid.Column="0" Text="{Binding Title}" FontWeight="Bold" FontSize="{DynamicResource FontSizeItem}"
-                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                               Foreground="{Binding ItemStatusColor, Converter={StaticResource HexToBrush}}" />
                     <TextBlock Grid.Column="1" Text="{Binding SourceLabel}"
                                Foreground="{DynamicResource TextAccent}" Margin="6,0" FontSize="{DynamicResource FontSizeLabel}" VerticalAlignment="Center" />
                     <TextBlock Grid.Column="2" Text="{Binding PathSummary}"
@@ -100,6 +101,10 @@
               <TextBlock Text="{Binding DetailsPlatformStatus}" FontSize="{DynamicResource FontSizeLabel}" FontWeight="Bold"
                          Foreground="{Binding DetailsPlatformStatusColor, Converter={StaticResource HexToBrush}}" />
             </StackPanel>
+
+            <TextBlock Text="{Binding DetailsPlatformStatusDetail}" TextWrapping="Wrap"
+                       Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeLabel}"
+                       Margin="0,2,0,0" IsVisible="{Binding HasPlatformStatusDetail}" />
 
             <TextBlock Text="Executable" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" Margin="0,12,0,0" />
             <TextBlock Text="{Binding DetailsExecutable}" Foreground="{DynamicResource TextSuccess}" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeLabel}" />

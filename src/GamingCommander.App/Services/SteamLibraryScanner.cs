@@ -25,6 +25,7 @@ public sealed class SteamLibraryScanner
     /// <summary>
     /// Scan a single Steam library root path. Detects games in steamapps/common/
     /// and cross-references ACF files from ALL known Steam libraries.
+    /// Also detects "Missing" games — ACFs whose game files no longer exist in any library.
     /// </summary>
     public IReadOnlyList<GameEntry> Scan(string libraryRootPath)
     {
@@ -40,29 +41,49 @@ public sealed class SteamLibraryScanner
 
         // Step 3: Scan common/ folder in the requested root only
         string commonDir = Path.Combine(root, "steamapps", "common");
-        if (!Directory.Exists(commonDir))
-            return [];
-
         var entries = new List<GameEntry>();
 
-        foreach (DirectoryInfo gameDir in GetDirectoriesSafe(commonDir))
+        if (Directory.Exists(commonDir))
         {
-            string folderName = gameDir.Name;
-
-            if (acfMap.TryGetValue(folderName, out var acfInfo))
+            foreach (DirectoryInfo gameDir in GetDirectoriesSafe(commonDir))
             {
-                // ACF found — determine status
-                string acfLibrary = acfInfo.LibraryPath;
-                string status = acfLibrary.Equals(root, StringComparison.OrdinalIgnoreCase)
-                    ? "Installed"
-                    : "Moved";
+                string folderName = gameDir.Name;
 
-                entries.Add(CreateEntry(root, gameDir, folderName, acfInfo, status));
+                if (acfMap.TryGetValue(folderName, out var acfInfo))
+                {
+                    // ACF found — determine status
+                    string acfLibrary = acfInfo.LibraryPath;
+                    string status = acfLibrary.Equals(root, StringComparison.OrdinalIgnoreCase)
+                        ? "Installed"
+                        : "Moved";
+
+                    entries.Add(CreateEntry(root, gameDir, folderName, acfInfo, status));
+                }
+                else
+                {
+                    // No ACF found anywhere — orphaned
+                    entries.Add(CreateOrphanedEntry(root, gameDir, folderName));
+                }
             }
-            else
+        }
+
+        // Step 4: Detect Missing games — ACFs whose installdir has no matching common/ folder
+        foreach (var (installdir, acfInfo) in acfMap)
+        {
+            bool found = false;
+            foreach (string steamPath in allSteamPaths)
             {
-                // No ACF found anywhere — orphaned
-                entries.Add(CreateOrphanedEntry(root, gameDir, folderName));
+                string candidate = Path.Combine(steamPath, "steamapps", "common", installdir);
+                if (Directory.Exists(candidate))
+                {
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found)
+            {
+                entries.Add(CreateMissingAcfEntry(root, acfInfo));
             }
         }
 
@@ -71,7 +92,7 @@ public sealed class SteamLibraryScanner
 
     /// <summary>
     /// Scan ALL configured Steam libraries and return a flat list.
-    /// Prefer this for full refresh — it catches cross-library moves.
+    /// Prefer this for full refresh — it catches cross-library moves and missing games.
     /// </summary>
     public IReadOnlyList<GameEntry> ScanAll()
     {
@@ -106,6 +127,27 @@ public sealed class SteamLibraryScanner
                 {
                     entries.Add(CreateOrphanedEntry(libraryPath, gameDir, folderName));
                 }
+            }
+        }
+
+        // Detect Missing games — ACFs whose installdir has no matching common/ folder
+        foreach (var (installdir, acfInfo) in acfMap)
+        {
+            bool found = false;
+            foreach (string steamPath in allSteamPaths)
+            {
+                string candidate = Path.Combine(steamPath, "steamapps", "common", installdir);
+                if (Directory.Exists(candidate))
+                {
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found)
+            {
+                entries.Add(CreateMissingAcfEntry(
+                    acfInfo.LibraryPath, acfInfo));
             }
         }
 
@@ -245,6 +287,22 @@ public sealed class SteamLibraryScanner
         string displayName = !string.IsNullOrWhiteSpace(acf.Name) ? acf.Name : NormalizeDisplayName(folderName);
         string id = GameEntryId.Compute(libraryRoot, folderName);
 
+        var extra = new Dictionary<string, string>
+        {
+            ["SteamStatus"] = status,
+            ["SteamAppId"] = acf.AppId,
+            ["AcfLibraryPath"] = acf.LibraryPath,
+            ["AcfSizeOnDisk"] = acf.SizeOnDisk,
+            ["AcfBuildId"] = acf.BuildId,
+            ["AcfStateFlags"] = acf.StateFlags,
+        };
+
+        // For Moved games, store the expected path so the UI can show cross-library context
+        if (status == "Moved")
+        {
+            extra["AcfExpectedPath"] = Path.Combine(acf.LibraryPath, "steamapps", "common", folderName);
+        }
+
         return new GameEntry(
             Id: id,
             FolderName: folderName,
@@ -257,15 +315,7 @@ public sealed class SteamLibraryScanner
             ManifestPath: acf.AcfFilePath,
             LastScanned: DateTimeOffset.UtcNow,
             LastModified: GetLastWriteTimeSafe(gameDir),
-            Extra: new Dictionary<string, string>
-            {
-                ["SteamStatus"] = status,
-                ["SteamAppId"] = acf.AppId,
-                ["AcfLibraryPath"] = acf.LibraryPath,
-                ["AcfSizeOnDisk"] = acf.SizeOnDisk,
-                ["AcfBuildId"] = acf.BuildId,
-                ["AcfStateFlags"] = acf.StateFlags,
-            });
+            Extra: extra);
     }
 
     private static GameEntry CreateOrphanedEntry(
@@ -290,6 +340,55 @@ public sealed class SteamLibraryScanner
                 ["SteamStatus"] = "Orphaned",
                 ["SteamAppId"] = string.Empty,
             });
+    }
+
+    /// <summary>
+    /// Create a GameEntry for an ACF whose game files no longer exist in any known library.
+    /// The ACF still registers the game, but the common/ folder is gone.
+    /// </summary>
+    private static GameEntry CreateMissingAcfEntry(string libraryRoot, AcfInfo acf)
+    {
+        string id = GameEntryId.Compute(libraryRoot, acf.Installdir);
+
+        return new GameEntry(
+            Id: id,
+            FolderName: acf.Installdir,
+            DisplayName: !string.IsNullOrWhiteSpace(acf.Name) ? acf.Name : NormalizeDisplayName(acf.Installdir),
+            GameSource: GameSourceKind.Steam,
+            Override: false,
+            ExecutablePath: string.Empty,
+            LauncherPath: string.Empty,
+            CmdlineArgs: $"steam://rungameid/{acf.AppId}",
+            ManifestPath: acf.AcfFilePath,
+            LastScanned: DateTimeOffset.UtcNow,
+            LastModified: DateTimeOffset.MinValue,
+            Extra: new Dictionary<string, string>
+            {
+                ["SteamStatus"] = "Missing",
+                ["SteamAppId"] = acf.AppId,
+                ["AcfLibraryPath"] = acf.LibraryPath,
+                ["AcfFilePath"] = acf.AcfFilePath,
+                ["AcfSizeOnDisk"] = acf.SizeOnDisk,
+                ["AcfBuildId"] = acf.BuildId,
+                ["AcfStateFlags"] = acf.StateFlags,
+            });
+    }
+
+    /// <summary>
+    /// Collect all folder names under steamapps/common/ across all known Steam paths.
+    /// Used to check whether an ACF's installdir exists in any library.
+    /// </summary>
+    private static HashSet<string> CollectAllCommonFolderNames(IEnumerable<string> steamPaths)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (string path in steamPaths)
+        {
+            string commonDir = Path.Combine(path, "steamapps", "common");
+            if (!Directory.Exists(commonDir)) continue;
+            foreach (DirectoryInfo dir in GetDirectoriesSafe(commonDir))
+                names.Add(dir.Name);
+        }
+        return names;
     }
 
     // ════════════════════════════════════════════════════════════════

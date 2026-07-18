@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Detect game store type for subfolders using signal files only.
+"""DEPRECATED — Use tools/detect.py instead.
+
+Detect game store type for subfolders using signal files only.
 
 Priority order (first match wins):
   1. GOG       — goggame-* files at root

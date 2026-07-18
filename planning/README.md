@@ -23,7 +23,10 @@ See `META/BACKLOG/TECH_DEBT.md` for known issues.
 | `05-phase-3-category-browse.md` | KODI-style category browsing & quick search | PLANNED |
 | `06-phase-4.md` | Advanced features and polishing | FUTURE |
 | `90-sdk-upgrade.md` | .NET 8 → .NET 9 SDK upgrade | PLANNED |
-| `94-game-detection-overhaul.md` | Comprehensive game detection rewrite | PLANNING |
+| `94-game-detection-overhaul.md` | Comprehensive game detection rewrite | COMPLETED |
+| `95-bugfix-and-cleanup.md` | Bug fixes, dead code removal, helper extraction | COMPLETED |
+| `96-vfs-display-enhancements.md` | Game health visibility (Missing, cross-library, list coloring) | COMPLETED |
+| `97-multi-theme-system.md` | Runtime theme switching (3 themes) | PLANNED |
 
 ## Completed / Archived
 
@@ -34,6 +37,7 @@ See `META/BACKLOG/TECH_DEBT.md` for known issues.
 | `02-phase-1.md` | Phase 1.0 complete |
 | `03-phase-1-ui-polish.md` | Phase 1.1 complete |
 | `03-phase-1-research.md` | Phase 1.2 complete |
+| `93-in-memory-cache-and-wizard-versioning.md` | In-memory VFS cache + wizard versioning | COMPLETED |
 | `99-stabilization.md` | Phase 1.1a complete |
 
 ## Naming Convention

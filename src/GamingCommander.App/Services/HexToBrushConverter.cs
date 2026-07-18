@@ -25,7 +25,8 @@ public sealed class HexToBrushConverter : IValueConverter
             }
         }
 
-        return AppTheme.TextSecondary;
+        // Empty/null string → use primary text color (for non-game items in the list)
+        return AppTheme.TextPrimary;
     }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

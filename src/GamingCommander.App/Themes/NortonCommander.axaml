@@ -47,6 +47,7 @@
   <Color x:Key="StatusInstalled">#7FB7A5</Color>
   <Color x:Key="StatusMoved">#E8C547</Color>
   <Color x:Key="StatusOrphaned">#E87070</Color>
+  <Color x:Key="StatusMissing">#E87070</Color>
 
   <!-- ════════════════════════════════════════════════════════════════
        FONT SIZES

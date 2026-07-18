@@ -75,6 +75,8 @@ public sealed class ShellViewModel : ReactiveObject
     public string DetailsPlatformStatus => SelectedItem?.PlatformStatus ?? string.Empty;
     public bool HasPlatformStatus => !string.IsNullOrEmpty(SelectedItem?.PlatformStatus);
     public string DetailsPlatformStatusColor => SelectedItem?.PlatformStatusColor ?? string.Empty;
+    public string DetailsPlatformStatusDetail => SelectedItem?.PlatformStatusDetail ?? string.Empty;
+    public bool HasPlatformStatusDetail => !string.IsNullOrEmpty(SelectedItem?.PlatformStatusDetail);
     public bool HasSelection => SelectedItem is not null;
     public bool HasGameSelected => SelectedItem is { Kind: FileSystemEntryKind.File };
     public bool HasOverride => SelectedItem?.HasOverride == true;
@@ -254,6 +256,27 @@ public sealed class ShellViewModel : ReactiveObject
                 "Installed" => "#7FB7A5",
                 "Moved" => "#E8C547",
                 "Orphaned" => "#E87070",
+                "Missing" => "#E87070",
+                _ => string.Empty,
+            };
+
+            // Left-pane list color: empty for Installed/non-platform (converter returns default), colored for problems
+            string itemStatusColor = platformStatus switch
+            {
+                "Moved" => "#E8C547",
+                "Orphaned" => "#E87070",
+                "Missing" => "#E87070",
+                _ => string.Empty,
+            };
+
+            // Richer status detail for the details panel
+            string platformStatusDetail = platformStatus switch
+            {
+                "Moved" => game.Extra.TryGetValue("AcfExpectedPath", out var expectedPath)
+                    ? $"Moved — ACF expects: {expectedPath}"
+                    : "Moved — ACF is in a different library",
+                "Missing" => "Missing — ACF exists but game files not found",
+                "Orphaned" => "Orphaned — game folder has no ACF registration",
                 _ => string.Empty,
             };
 
@@ -271,6 +294,8 @@ public sealed class ShellViewModel : ReactiveObject
                 PlatformId = platformId,
                 PlatformStatus = platformStatus,
                 PlatformStatusColor = platformStatusColor,
+                PlatformStatusDetail = platformStatusDetail,
+                ItemStatusColor = itemStatusColor,
                 GameCount = 0,
             });
         }
@@ -292,6 +317,8 @@ public sealed class ShellViewModel : ReactiveObject
         OnPropertyChanged(nameof(DetailsPlatformStatus));
         OnPropertyChanged(nameof(HasPlatformStatus));
         OnPropertyChanged(nameof(DetailsPlatformStatusColor));
+        OnPropertyChanged(nameof(DetailsPlatformStatusDetail));
+        OnPropertyChanged(nameof(HasPlatformStatusDetail));
         OnPropertyChanged(nameof(DetailsResolvedType));
         OnPropertyChanged(nameof(HasSelection));
         OnPropertyChanged(nameof(HasGameSelected));

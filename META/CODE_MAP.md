@@ -71,13 +71,13 @@ GamingCommander.sln
 |-----------|------|---------|
 | `ReactiveObject` | `ReactiveObject.cs` (25 L) | Base INotifyPropertyChanged with `SetProperty<T>` |
 | `ShellViewModel` | `ShellViewModel.cs` | Dual-pane shell: navigation, details, status bar, command bar |
-| `ShellPaneItemViewModel` | `ShellPaneItemViewModel.cs` | Item model: Title, SourceLabel, PathSummary, Kind, IsBrowsable, GameId, PlatformId, HasGameSelected |
+| `ShellPaneItemViewModel` | `ShellPaneItemViewModel.cs` | Item model: Title, SourceLabel, PathSummary, Kind, IsBrowsable, GameId, PlatformId, PlatformStatus, PlatformStatusColor, PlatformStatusDetail, ItemStatusColor, HasGameSelected |
 | `ShellCommandViewModel` | `ShellCommandViewModel.cs` (8 L) | Hotkey + Label for command bar |
 
 ### ShellViewModel Key Methods
 
 - `JumpToLibraryRoots()` — populate item list from configured roots
-- `LoadGamesForRoot(string rootPath)` — populate item list from a root's game entries
+- `LoadGamesForRoot(string rootPath)` — populate item list from a root's game entries; maps SteamStatus to PlatformStatusColor, PlatformStatusDetail, and ItemStatusColor
 - `NavigateInto()` — drill into selected item (root or "..") or launch game
 - `NavigateUp()` — go up one level (root list or no-op)
 - `RetagSelected(GameSourceKind)` — update game source type
@@ -100,7 +100,7 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 |---------|------|---------|
 | `LibraryManager` | `LibraryManager.cs` | Routes scanning to appropriate scanner, manages roots, delegates to IGamesDatabaseService |
 | `FolderScanner` | `FolderScanner.cs` (740 L) | Generic folder scanner: 10-signal detection chain, 320+ noise exe patterns, exe scoring |
-| `SteamLibraryScanner` | `SteamLibraryScanner.cs` | Dedicated Steam scanner: ACF cross-referencing, library path discovery, Moved/Orphaned detection |
+| `SteamLibraryScanner` | `SteamLibraryScanner.cs` | Dedicated Steam scanner: ACF cross-referencing, library path discovery, Installed/Moved/Orphaned/Missing detection |
 | `GamesDatabaseService` | `GamesDatabaseService.cs` | JSON-file CRUD for game entries via private DTOs, in-memory cache |
 | `JsonConfigService` | `JsonConfigService.cs` | JSON-file persistence for AppConfig |
 | `BlacklistLoader` | `BlacklistLoader.cs` | Loads noise patterns from data/blacklist.json |
@@ -117,10 +117,12 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 
 ### SteamLibraryScanner Key Logic
 
-- `Scan(rootPath)` / `ScanAll()` → scans steamapps/common/, cross-references ACF from all libraries
+- `Scan(rootPath)` / `ScanAll()` → scans steamapps/common/, cross-references ACFs from all libraries
 - `DiscoverLibraryPaths()` — parses libraryfolders.vdf for additional Steam library paths
-- Detects Installed/Moved/Orphaned status via ACF cross-referencing
-- Stores status in `GameEntry.Extra` dict (SteamStatus, SteamAppId, AcfLibraryPath, etc.)
+- Detects Installed/Moved/Orphaned/Missing status via ACF cross-referencing
+- "Missing" detection: iterates all ACFs, checks if each installdir exists in any library's common/
+- "Moved" games store `AcfExpectedPath` in Extra for cross-library context
+- Stores status in `GameEntry.Extra` dict (SteamStatus, SteamAppId, AcfLibraryPath, AcfExpectedPath, etc.)
 - Uses `GameEntryId.Compute()` from Core
 
 ---
