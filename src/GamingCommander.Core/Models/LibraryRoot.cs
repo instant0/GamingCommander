@@ -5,6 +5,6 @@ namespace GamingCommander.Core.Models;
 /// </summary>
 public sealed record LibraryRoot(
     /// <summary>Absolute path to the library root directory.</summary>
-    string Path,
+    string RootPath,
     /// <summary>Default source type assigned to games found under this root.</summary>
     GameSourceKind DefaultType);

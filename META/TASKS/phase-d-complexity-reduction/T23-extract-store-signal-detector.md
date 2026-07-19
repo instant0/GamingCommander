@@ -4,7 +4,16 @@
 **Phase:** D — Complexity Reduction
 **Effort:** ~40 min
 **Risk:** Low
-**Status:** pending
+**Status:** ✅ completed
+
+---
+
+## Completion Notes
+
+- **Completed:** 2026-07-19
+- **What was done:** Created `StoreSignalDetector.cs` with `DetectType` + 10 signal methods (HasGogSignal, HasEaSignal, HasUbisoftEmulatorSignal, HasUbisoftSignal, HasEpicSignal, HasBlizzardSignal, HasXboxSignal, HasRockstarSignal, HasSteamSignal, HasSteamEmulatorSignal). All methods `internal static`. Updated FolderScanner.Scan() and ScanContainerChildren() to call `StoreSignalDetector.DetectType()`. Removed all 11 methods from FolderScanner.
+- **Verification:** Build clean (0 errors), 17 tests passing.
+- **Issues encountered:** None
 **Prerequisites:** T16 (FileSystemHelper), T21 (Noise check consolidation)
 
 ---

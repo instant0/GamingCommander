@@ -4,7 +4,16 @@
 **Phase:** D — Complexity Reduction
 **Effort:** ~25 min
 **Risk:** Low
-**Status:** pending
+**Status:** ✅ completed (updated per evaluation)
+
+---
+
+## Completion Notes
+
+- **Completed:** 2026-07-19
+- **What was done:** Created `HelpDialogBuilder.cs` with `ShowHelpAsync(Window owner)` static method. Moved all 107 lines of UI construction logic from MainWindow. Updated MainWindow F1 handlers (OnKeyDown + CommandButtonPressed) to call `HelpDialogBuilder.ShowHelpAsync(this)`. Removed `ShowHelpAsync` from MainWindow. Cleaned up unused `using` statements.
+- **Verification:** Build clean (0 errors), 17 tests passing.
+- **Issues encountered:** Had to add `using Avalonia;` for `Thickness` type.
 **Prerequisites:** None
 
 ---

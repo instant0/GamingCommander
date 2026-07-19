@@ -13,6 +13,7 @@ public partial class LibrarySetupWindow : Window
 {
     private readonly LibrarySetupViewModel _vm;
 
+    /// <summary>F2 library setup window. Allows user to manage library roots and folder overrides.</summary>
     public LibrarySetupWindow(
         IConfigService configService,
         IGamesDatabaseService dbService,
@@ -79,7 +80,7 @@ public partial class LibrarySetupWindow : Window
 
             var combo = new ComboBox
             {
-                ItemsSource = _vm.AvailableTypes,
+                ItemsSource = GameSourceParser.SourceDisplayNames,
                 SelectedItem = entry.DefaultType,
                 MinWidth = 100,
             };

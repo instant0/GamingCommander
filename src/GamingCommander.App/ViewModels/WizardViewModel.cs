@@ -34,20 +34,6 @@ public sealed class WizardViewModel : GamingCommander.UI.ViewModels.ReactiveObje
     /// <summary>Library entries added by the user during the wizard.</summary>
     public ObservableCollection<WizardLibraryEntry> Entries { get; } = [];
 
-    public string[] AvailableTypes { get; } =
-    [
-        "Standalone",
-        "Steam",
-        "GOG",
-        "Epic",
-        "EA App",
-        "Ubisoft Connect",
-        "Battle.net",
-        "Xbox",
-        "Rockstar",
-        "Steam Emulator",
-    ];
-
     /// <summary>Status text displayed during scanning (e.g., "Scanning D:\Games...").</summary>
     public string ScanStatus
     {
@@ -158,27 +144,5 @@ public sealed class WizardViewModel : GamingCommander.UI.ViewModels.ReactiveObje
         _configService.Save(config);
 
         _window.Close(false);
-    }
-
-    private void AddRecommendedPaths()
-    {
-        string[] recommended =
-        [
-            @"D:\Games",
-            @"E:\Games",
-            @"C:\Games",
-            @"D:\SteamLibrary",
-        ];
-
-        foreach (string path in recommended)
-        {
-            if (Directory.Exists(path) &&
-                !Entries.Any(e => e.Path.Equals(path, StringComparison.OrdinalIgnoreCase)))
-            {
-                var entry = new WizardLibraryEntry(path, GameSourceParser.InferFromPath(path).ToString());
-                Entries.Add(entry);
-                _ = ScanEntryAsync(entry);
-            }
-        }
     }
 }

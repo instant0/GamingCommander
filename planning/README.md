@@ -16,8 +16,6 @@ See `META/BACKLOG/TECH_DEBT.md` for known issues.
 
 | Document | Description | Status |
 | :--- | :--- | :--- |
-| `10-phase-d-complexity-reduction.md` | Reduce mental complexity: extract utilities, fix naming, add docs | 🔵 ACTIVE |
-| `11-phase-e-stabilization.md` | Bug fixes, tech debt closure, test coverage gaps | PLANNED |
 | `04-phase-2.md` | Steam & Stand-alone game implementation | ACTIVE |
 | `04-phase-2-syncmove.md` | SyncMove — Manifest-aware game migration | PLANNED |
 | `04-phase-2-metadata-lookup.md` | Game Metadata Lookup (F4) | PLANNED |
@@ -39,6 +37,8 @@ See `META/BACKLOG/TECH_DEBT.md` for known issues.
 | `02-phase-1.md` | Phase 1.0 complete |
 | `03-phase-1-ui-polish.md` | Phase 1.1 complete |
 | `03-phase-1-research.md` | Phase 1.2 complete |
+| `10-phase-d-complexity-reduction.md` | Complexity reduction: extract utilities, fix naming, add docs | COMPLETED |
+| `11-phase-e-stabilization.md` | Bug fixes, tech debt closure, test coverage gaps | COMPLETED |
 | `93-in-memory-cache-and-wizard-versioning.md` | In-memory VFS cache + wizard versioning | COMPLETED |
 | `99-stabilization.md` | Phase 1.1a complete |
 

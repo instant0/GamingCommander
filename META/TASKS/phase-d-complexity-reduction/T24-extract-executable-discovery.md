@@ -4,7 +4,26 @@
 **Phase:** D — Complexity Reduction
 **Effort:** ~40 min
 **Risk:** Low
-**Status:** pending
+**Status:** ✅ completed (updated per evaluation)
+
+---
+
+## Completion Notes
+
+- **Completed:** 2026-07-19
+- **What was done:** Created `ExecutableDiscovery.cs` with 6 methods: `FindExecutablesDeep` (params: noiseExePatterns, noiseDirectoryPatterns), `ScoreExecutable` (params: launcherPatterns), `FindPrimaryExecutable` (params: noiseExePatterns, noiseDirectoryPatterns, launcherPatterns), `FindLauncherExecutable` (params: launcherPatterns), `ExeNameMatchesFolderName` (static), `FindEpicManifest` (static). Moved `NoiseSubDirNames` to `FileSystemHelper`. Updated FolderScanner.AddGameEntry() to call `ExecutableDiscovery.*`. Removed all 6 methods + NoiseSubDirNames from FolderScanner.
+- **Verification:** Build clean (0 errors), 17 tests passing.
+- **Issues encountered:** Type mismatch — `_noiseDirectoryPatterns` is `IReadOnlySet<string>` not `IReadOnlyList<string>`. Fixed by changing ExecutableDiscovery parameter types to `IReadOnlySet<string>` for noiseDirectoryPatterns.
+
+---
+
+## Evaluation Corrections (2026-07-19)
+
+1. **`ScoreExecutable` needs `launcherPatterns` parameter** — it uses `_launcherPatterns` (instance field, line 531) to penalize launcher stubs. Updated signature: `ScoreExecutable(string exePath, string folderName, IReadOnlyList<string> launcherPatterns)`
+2. **`FindLauncherExecutable` should be extracted** — it's executable discovery logic (line 572-586), uses `_launcherPatterns`. Add to extraction list.
+3. **`ExeNameMatchesFolderName` may be dead code** — not called anywhere in current codebase. Still extract for potential future use.
+4. **`FindExecutablesDeep` is instance method** — calls `IsNoiseExeByPath` (instance). After extraction, passes `noiseExePatterns` as parameter.
+5. **Updated method list:** 6 methods (added `FindLauncherExecutable`)
 **Prerequisites:** T16 (FileSystemHelper), T21 (Noise check consolidation)
 
 ---

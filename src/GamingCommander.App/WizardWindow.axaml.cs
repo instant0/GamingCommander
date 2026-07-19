@@ -5,6 +5,7 @@ using Avalonia.Media;
 using GamingCommander.App.Services;
 using GamingCommander.App.ViewModels;
 using GamingCommander.Core;
+using GamingCommander.Core.Models;
 
 namespace GamingCommander.App;
 
@@ -14,6 +15,7 @@ public partial class WizardWindow : Window
     private readonly StackPanel _entriesPanel;
     private readonly TextBlock _progressText;
 
+    /// <summary>First-run wizard window. Guides user through initial library root configuration.</summary>
     public WizardWindow(IConfigService configService, IGamesDatabaseService dbService)
     {
         InitializeComponent();
@@ -79,7 +81,7 @@ public partial class WizardWindow : Window
 
             var combo = new ComboBox
             {
-                ItemsSource = _vm.AvailableTypes,
+                ItemsSource = GameSourceParser.SourceDisplayNames,
                 SelectedItem = entry.SelectedType,
                 MinWidth = 100,
                 Margin = new Thickness(8, 0),

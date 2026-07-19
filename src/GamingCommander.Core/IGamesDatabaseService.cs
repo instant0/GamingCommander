@@ -17,7 +17,7 @@ public interface IGamesDatabaseService
     IReadOnlyList<GameEntry> GetGamesForRoot(string rootPath);
 
     /// <summary>Adds a new library root with its game entries.</summary>
-    void AddRoot(string rootPath, GameSourceKind defaultType, IEnumerable<GameEntry> games);
+    void AddRoot(string rootPath, GameSourceKind defaultType, IEnumerable<GameEntry> initialGames);
 
     /// <summary>Removes a library root and all its associated game entries.</summary>
     void RemoveRoot(string rootPath);
@@ -26,7 +26,7 @@ public interface IGamesDatabaseService
     void RescanRoot(string rootPath, IEnumerable<GameEntry> games);
 
     /// <summary>Updates a single game entry within the specified root.</summary>
-    void UpdateGameEntry(string rootPath, GameEntry updated);
+    void UpdateGameEntry(string rootPath, GameEntry updatedEntry);
 
     /// <summary>Removes a game entry by ID from the specified root.</summary>
     void DeleteGameEntry(string rootPath, string gameId);

@@ -1,6 +1,7 @@
 # META/BACKLOG/TECH_DEBT.md — Technical Debt & Known Issues
 
 **Nature:** Mutable. Entries appended by Builder/Reviewer, moved to PLANNING/ when prioritized.
+**Last verified:** 2026-07-19
 
 ---
 
@@ -13,6 +14,7 @@
 - **Impact:** GOG games not detected.
 - **Suggested fix:** Change to prefix match: `Path.GetFileName(f).StartsWith("goggame-")`
 - **Status:** ✅ Fixed — `HasGogSignal()` now uses `GetFilesSafe(dir, "goggame*")` (prefix match)
+- **Verified:** 2026-07-19 — StoreSignalDetector.cs line 66
 
 ### Bug 2: EA detection needs __Installer/ directory check
 - **Discovered:** 2026-Q1
@@ -21,6 +23,7 @@
 - **Impact:** EA games not detected correctly.
 - **Suggested fix:** Check for `__Installer/` subdirectory as primary EA signal.
 - **Status:** ✅ Fixed — `HasEaSignal()` now checks for `__Installer/` directory
+- **Verified:** 2026-07-19 — StoreSignalDetector.cs line 72
 
 ### Bug 3: Ubisoft detection needs uplay_install.manifest check
 - **Discovered:** 2026-Q1
@@ -29,6 +32,7 @@
 - **Impact:** Ubisoft games not detected correctly.
 - **Suggested fix:** Check for `uplay_install.manifest` file or `uplay_r*_loader*.dll` pattern.
 - **Status:** ✅ Fixed — `HasUbisoftSignal()` now checks for `uplay_install.manifest`
+- **Verified:** 2026-07-19 — StoreSignalDetector.cs line 111
 
 ### Bug 4: Recursive Directory.GetFiles performance issue
 - **Discovered:** 2026-Q1
@@ -37,6 +41,7 @@
 - **Impact:** Slow scanning on large game folders.
 - **Suggested fix:** Use `SearchOption.TopDirectoryOnly` for initial scan.
 - **Status:** ✅ Fixed — all `Directory.GetFiles` calls use `TopDirectoryOnly`
+- **Verified:** 2026-07-19 — 12 occurrences across 5 files all use TopDirectoryOnly
 
 ---
 
@@ -49,20 +54,23 @@
 - **Impact:** HIGH — Folders with only JSON-blacklisted exes (but not hardcoded ones) are incorrectly detected as game folders.
 - **Suggested fix:** Make `IsNoiseExePattern()` instance (or pass the full pattern list) so presence detection uses the same data as candidate filtering.
 - **Status:** ✅ Fixed — Added `IsNoiseExeName()` instance method using full `_noiseExePatterns`. `HasRootExecutableSignal()` and `HasUnrealLayoutSignal()` now non-static, call `IsNoiseExeName()`. `DetectFallbackType()` also made non-static to support the call chain.
+- **Verified:** 2026-07-19 — FolderScanner.cs lines 224, 241, 303
 
 ### Bug 6: Blacklist tier information discarded after loading
 - **Discovered:** 2026-07-17
 - **Where:** `BlacklistLoader.cs` line 46-48
 - **Issue:** All 21 tiers of `exe_name_patterns` are flattened into a single `IReadOnlyList<string>`. Tier severity (universal noise vs store bootstraps vs anticheat) is lost. Scoring cannot differentiate between a "tier_1 universal noise" exe and a "tier_17 store bootstrap" exe.
 - **Impact:** MEDIUM — Less accurate exe scoring and filtering.
-- **Status:** Open
+- **Status:** ✅ Fixed — Added `BlacklistTierEntry` record, `TieredExePatterns` property to `BlacklistData`, `GetTieredTiers()` method in `BlacklistLoader`, `GetExePatternTier()` in `FolderScanner`
+- **Verified:** 2026-07-19 — BlacklistData.cs, BlacklistLoader.cs, FolderScanner.cs
 
 ### Bug 7: Exe scoring ignores JSON blacklist patterns
 - **Discovered:** 2026-07-17
 - **Where:** `FolderScanner.cs` line 524
 - **Issue:** `ScoreExecutable()` only penalizes ~10 hardcoded `_launcherPatterns` (e.g. "launcher", "updater", "bootstrapper"). JSON blacklist patterns like "patch", "activate", "trial", "config" are not penalized in scoring.
 - **Impact:** MEDIUM — Suboptimal primary exe selection.
-- **Status:** Open
+- **Status:** ✅ Fixed — Updated `ScoreExecutable` signature to accept `noiseExePatterns` and `tierLookup` parameters. Added tier-based penalty logic (-5 to -30 based on tier severity).
+- **Verified:** 2026-07-19 — ExecutableDiscovery.cs lines 94-138
 
 ---
 

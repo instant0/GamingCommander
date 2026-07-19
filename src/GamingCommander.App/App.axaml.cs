@@ -91,7 +91,7 @@ public partial class App : Application
                 Log("Creating SteamLibraryScanner...");
                 var steamPaths = config.LibraryRoots
                     .Where(r => r.DefaultType == GameSourceKind.Steam)
-                    .Select(r => r.Path);
+                    .Select(r => r.RootPath);
                 var steamScanner = new SteamLibraryScanner(steamPaths);
                 Log($"  Steam paths: {string.Join(", ", steamPaths)}");
 
@@ -143,7 +143,7 @@ public partial class App : Application
                         {
                             shellVm.JumpToLibraryRoots();
                             int totalGames = config.LibraryRoots.Sum(
-                                r => dbService.GetGamesForRoot(r.Path).Count);
+                                r => dbService.GetGamesForRoot(r.RootPath).Count);
                             shellVm.StatusText = $"Welcome — {config.LibraryRoots.Count} root(s), {totalGames} game(s) loaded.";
                         }
                     };
@@ -159,7 +159,7 @@ public partial class App : Application
 
                     mainWindow.Show();
                     int totalGames = config.LibraryRoots.Sum(
-                        r => dbService.GetGamesForRoot(r.Path).Count);
+                        r => dbService.GetGamesForRoot(r.RootPath).Count);
                     shellVm.StatusText = $"Loaded {config.LibraryRoots.Count} root(s), {totalGames} game(s). Press F2 to manage.";
                 }
             }
@@ -202,11 +202,11 @@ public partial class App : Application
         return Path.Combine(dataDir, "games.json");
     }
 
-    /// <summary>Returns -1 if a &lt; b, 0 if equal, 1 if a &gt; b.</summary>
-    private static int CompareVersions(string a, string b)
+    /// <summary>Returns -1 if leftVersion &lt; rightVersion, 0 if equal, 1 if leftVersion &gt; rightVersion.</summary>
+    private static int CompareVersions(string leftVersion, string rightVersion)
     {
-        if (!Version.TryParse(a, out var va) || !Version.TryParse(b, out var vb))
-            return string.Compare(a, b, StringComparison.Ordinal);
-        return va.CompareTo(vb);
+        if (!Version.TryParse(leftVersion, out var left) || !Version.TryParse(rightVersion, out var right))
+            return string.Compare(leftVersion, rightVersion, StringComparison.Ordinal);
+        return left.CompareTo(right);
     }
 }

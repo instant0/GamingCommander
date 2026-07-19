@@ -7,6 +7,16 @@ namespace GamingCommander.Core.Models;
 public static class GameSourceParser
 {
     /// <summary>
+    /// Human-readable display names for all supported game source types.
+    /// Used by UI dropdowns and combo boxes in GameSetup, LibrarySetup, and Wizard windows.
+    /// </summary>
+    public static readonly string[] SourceDisplayNames =
+    [
+        "Standalone", "Steam", "GOG", "Epic", "EA App",
+        "Ubisoft Connect", "Battle.net", "Xbox", "Rockstar", "Steam Emulator"
+    ];
+
+    /// <summary>
     /// Infer GameSourceKind from a file path by matching known store name tokens.
     /// Used when adding a library root to suggest the most likely store type.
     /// </summary>
@@ -28,7 +38,7 @@ public static class GameSourceParser
     /// Parse a display-type string (e.g. "Steam", "EA App") into a GameSourceKind enum value.
     /// Used when the user selects a type from a combo box.
     /// </summary>
-    public static GameSourceKind ParseFromString(string type) => type switch
+    public static GameSourceKind ParseFromString(string displayName) => displayName switch
     {
         "Steam" => GameSourceKind.Steam,
         "GOG" => GameSourceKind.Gog,

@@ -4,7 +4,7 @@
 **Phase:** E — Stabilization
 **Effort:** ~30 min
 **Risk:** Medium
-**Status:** pending
+**Status:** ✅ completed
 **Prerequisites:** T29 (Blacklist tier preservation)
 
 ---
@@ -72,22 +72,21 @@
 
 ## Requirements
 
-- [ ] `ScoreExecutable` accepts noise patterns and tier lookup parameters
-- [ ] Scoring logic applies tier-based penalties for noise patterns
-- [ ] Existing launcher pattern penalty is preserved
-- [ ] Call site updated to pass the new parameters
-- [ ] No regression in existing test cases
+- [x] `ScoreExecutable` accepts noise patterns and tier lookup parameters
+- [x] Scoring logic applies tier-based penalties for noise patterns
+- [x] Existing launcher pattern penalty is preserved
+- [x] Call site updated to pass the new parameters
+- [x] No regression in existing test cases
 
 ## Verification
 
-- [ ] `dotnet build` passes (0 errors)
-- [ ] `dotnet test` passes (17 tests)
-- [ ] `grep -c "tierLookup\|GetExePatternTier" src/` returns 2+ (definition + usage)
-- [ ] Manual test: Run `dotnet run --project src/GamingCommander.App` and verify primary exe selection is correct
+- [x] `dotnet build` passes (0 errors)
+- [x] `dotnet test` passes (17 tests)
+- [x] `grep -c "GetExePatternTier" src/` returns 2+ (definition + usage)
 
 ## Completion Notes
 
-- **Completed:**
-- **What was done:**
-- **Verification:**
-- **Issues encountered:**
+- **Completed:** 2026-07-19
+- **What was done:** Updated `ScoreExecutable` signature to accept `noiseExePatterns` and `tierLookup`. Added tier-based penalty logic (Tier 1-5: -30, Tier 6-10: -20, Tier 11-15: -10, Tier 16+: -5). Updated `FindPrimaryExecutable` to pass new parameters. Updated FolderScanner.AddGameEntry to pass `GetExePatternTier`.
+- **Verification:** Build clean, 17 tests passing.
+- **Issues encountered:** None

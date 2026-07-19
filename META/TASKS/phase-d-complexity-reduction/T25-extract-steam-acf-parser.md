@@ -4,7 +4,24 @@
 **Phase:** D — Complexity Reduction
 **Effort:** ~35 min
 **Risk:** Low
-**Status:** pending
+**Status:** ✅ completed (updated per evaluation)
+
+---
+
+## Completion Notes
+
+- **Completed:** 2026-07-19
+- **What was done:** Created `SteamAcfParser.cs` with `ParseAcfFile`, `DiscoverLibraryPaths`, `NormalizePath`, and moved existing `AcfInfo` record (kept original field names). Updated SteamLibraryScanner to call `SteamAcfParser.ParseAcfFile()`, `SteamAcfParser.DiscoverLibraryPaths()`, `SteamAcfParser.NormalizePath()`. Removed `RequiredAcfFields`, `ParseAcfFile`, `DiscoverLibraryPaths`, `AcfInfo` record, `NormalizePath` from SteamLibraryScanner.
+- **Verification:** Build clean (0 errors), 17 tests passing.
+- **Issues encountered:** Had to keep `using GamingCommander.Core.Services` for `GameEntryId` (not just VdfParser).
+
+---
+
+## Evaluation Corrections (2026-07-19)
+
+1. **`AcfInfo` record already exists** at SteamLibraryScanner.cs line 436. Do NOT create a new `SteamAcfInfo` — move the existing `AcfInfo` record to `SteamAcfParser.cs` and make it `internal`.
+2. **Field naming:** Use actual field names from code: `LibraryPath`, `AcfFilePath`, `AppId`, `Name`, `Installdir`, `StateFlags`, `LastUpdated`, `SizeOnDisk`, `BuildId` (not the task's proposed names).
+3. **`VdfParser` using moves:** Both `ParseAcfFile` and `DiscoverLibraryPaths` use `VdfParser` — the `using GamingCommander.Core.Services` moves from SteamLibraryScanner to SteamAcfParser.
 **Prerequisites:** None
 
 ---

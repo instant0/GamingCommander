@@ -4,20 +4,20 @@
 **Phase:** D — Complexity Reduction
 **Effort:** ~40 min
 **Risk:** Minimal
-**Status:** pending
-**Prerequisites:** None
+**Status:** ✅ completed
+**Prerequisites:** T18 must run first (removes 3 `AvailableTypes` properties that were incorrectly listed here)
 
 ---
 
 ## Objective
 
-30 public members across the codebase lack `/// <summary>` XML documentation. This makes the code harder to understand for junior developers and AI agents. Add documentation to every undocumented public member.
+~20 public members across the codebase lack `/// <summary>` XML documentation. This makes the code harder to understand for junior developers and AI agents. Add documentation to every undocumented public member.
 
 ## What Needs to Change
 
 ### 1. `src/GamingCommander.App/GameSetupWindow.axaml.cs`
 
-**Current state:** 8 public members without docs
+**Current state:** 7 public members without docs (`AvailableTypes` removed by T18)
 **Actions:**
 - [ ] Add `/// <summary>` to constructor: "F4 game editing dialog. Allows user to modify game metadata (name, type, executable, launcher, args)."
 - [ ] Add `/// <summary>` to `DisplayName`: "The editable display name of the game."
@@ -26,7 +26,6 @@
 - [ ] Add `/// <summary>` to `LauncherPath`: "The full path to the game's launcher executable (if any)."
 - [ ] Add `/// <summary>` to `CmdlineArgs`: "Command-line arguments passed to the game on launch."
 - [ ] Add `/// <summary>` to `ManifestPath`: "The path to the game's store manifest file (Epic .item, etc.)."
-- [ ] Add `/// <summary>` to `AvailableTypes`: "Human-readable names of all supported game source types."
 
 ### 2. `src/GamingCommander.App/WizardWindow.axaml.cs`
 
@@ -59,21 +58,9 @@
 **Actions:**
 - [ ] Add `/// <summary>` to constructor: "Loads noise patterns from data/blacklist.json. Falls back to hardcoded defaults if file is missing."
 
-### 7. `src/GamingCommander.App/ViewModels/LibrarySetupViewModel.cs`
+### 7. `src/GamingCommander.UI/ViewModels/ShellViewModel.cs`
 
-**Current state:** 1 public member without docs
-**Actions:**
-- [ ] Add `/// <summary>` to `AvailableTypes`: "Human-readable names of all supported game source types." (Will be removed in T18 — but document it here for completeness)
-
-### 8. `src/GamingCommander.App/ViewModels/WizardViewModel.cs`
-
-**Current state:** 1 public member without docs
-**Actions:**
-- [ ] Add `/// <summary>` to `AvailableTypes`: "Human-readable names of all supported game source types." (Will be removed in T18 — but document it here for completeness)
-
-### 9. `src/GamingCommander.UI/ViewModels/ShellViewModel.cs`
-
-**Current state:** 17 public members without docs
+**Current state:** ~19 public members without docs (`HasGameSelected` already has docs on line 95 — do NOT re-document it)
 **Actions:**
 - [ ] Add `/// <summary>` to constructor: "Creates the shell ViewModel with navigation, selection, and details panel state."
 - [ ] Add `/// <summary>` to `DetailsName`: "Display name of the currently selected game, shown in the details panel."
@@ -91,13 +78,14 @@
 - [ ] Add `/// <summary>` to `HasPlatformStatusDetail`: "True when detailed platform status information is available."
 - [ ] Add `/// <summary>` to `HasSelection`: "True when any item is selected in the left pane."
 - [ ] Add `/// <summary>` to `HasOverride`: "True when the selected game has a user-defined folder override."
+- [ ] Add `/// <summary>` to `Commands`: "Hotkey-to-action mappings displayed in the bottom command bar."
 - [ ] Add `/// <summary>` to `CurrentRootPath`: "The full path of the currently browsed library root."
 - [ ] Add `/// <summary>` to `ConfiguredRootsCount`: "Number of configured library roots."
 - [ ] Add `/// <summary>` to `ItemCount`: "Number of items currently displayed in the left pane."
 - [ ] Add `/// <summary>` to `GetCurrentRootPath()`: "Returns the full path of the currently browsed library root, or null if at root level."
 - [ ] Add `/// <summary>` to `GetSelectedGameId()`: "Returns the ID of the currently selected game, or null if no game is selected."
 
-### 10. `src/GamingCommander.App/Program.cs`
+### 8. `src/GamingCommander.App/Program.cs`
 
 **Current state:** 2 public members without docs
 **Actions:**
@@ -108,12 +96,14 @@
 
 - All changes are documentation-only — no logic, no behavior
 - XML docs improve IDE tooltips, IntelliSense, and AI agent comprehension
-- Priority: ShellViewModel (17 members) > GameSetupWindow (8) > HexToBrushConverter (2) > others
-- Constructor docs describe the window/service's purpose, not implementation details
+- `HasGameSelected` on line 95 already has `/// <summary>` — skip it
+- `Commands`, `CurrentRootPath`, `ConfiguredRootsCount`, `ItemCount` were missing from the original task — added here
+- T18 removes `AvailableTypes` from 3 files — those entries removed from this task
 
 ## Requirements
 
-- [ ] All 30 public members listed above have `/// <summary>` XML docs
+- [ ] All ~20 public members listed above have `/// <summary>` XML docs
+- [ ] `HasGameSelected` is NOT re-documented (already has docs)
 - [ ] Descriptions are 1-2 sentences, explaining purpose not implementation
 - [ ] No logic changes
 - [ ] No `using` statement changes
@@ -126,7 +116,7 @@
 
 ## Completion Notes
 
-- **Completed:**
-- **What was done:**
-- **Verification:**
-- **Issues encountered:**
+- **Completed:** 2026-07-19
+- **What was done:** Added `/// <summary>` XML docs to ~20 public members across GameSetupWindow, WizardWindow, LibrarySetupWindow, MainWindow, HexToBrushConverter, BlacklistLoader, ShellViewModel, and Program.
+- **Verification:** Build clean, all tests passing.
+- **Issues encountered:** None.

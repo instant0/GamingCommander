@@ -13,7 +13,7 @@ public static class GameEntryId
     /// Compute a stable game entry ID from the library root path and folder name.
     /// The same inputs always produce the same ID, regardless of platform path separator.
     /// </summary>
-    public static string Compute(string rootPath, string folderName)
+    public static string ComputeId(string rootPath, string folderName)
     {
         string combined = $"{rootPath}|{folderName}";
         byte[] hash = MD5.HashData(Encoding.UTF8.GetBytes(combined));

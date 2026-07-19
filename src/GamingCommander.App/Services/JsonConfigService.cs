@@ -1,4 +1,3 @@
-using System.Text.Json;
 using GamingCommander.Core;
 using GamingCommander.Core.Models;
 
@@ -10,11 +9,6 @@ namespace GamingCommander.App.Services;
 public sealed class JsonConfigService : IConfigService
 {
     private readonly string _configPath;
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        WriteIndented = true,
-        PropertyNameCaseInsensitive = true,
-    };
 
     /// <summary>Creates a new config service targeting the specified JSON file path.</summary>
     public JsonConfigService(string configPath)
@@ -25,13 +19,9 @@ public sealed class JsonConfigService : IConfigService
     /// <summary>Loads application configuration from disk. Returns defaults if file missing.</summary>
     public AppConfig Load()
     {
-        if (!File.Exists(_configPath))
-        {
-            return new AppConfig(LibraryRoots: [], FolderOverrides: [], HiddenFolders: [], IsFirstRun: true);
-        }
-
-        string json = File.ReadAllText(_configPath);
-        var loaded = JsonSerializer.Deserialize<ConfigDto>(json, JsonOptions);
+        ConfigDto? loaded = JsonFileHelper.ReadFromFile<ConfigDto>(
+            _configPath,
+            () => new ConfigDto());
         if (loaded is null)
         {
             return new AppConfig(LibraryRoots: [], FolderOverrides: [], HiddenFolders: [], IsFirstRun: true);
@@ -44,7 +34,7 @@ public sealed class JsonConfigService : IConfigService
             {
                 if (!string.IsNullOrWhiteSpace(root.Path))
                 {
-                    roots.Add(new LibraryRoot(Path: root.Path, DefaultType: root.Type));
+                    roots.Add(new LibraryRoot(RootPath: root.Path, DefaultType: root.Type));
                 }
             }
         }
@@ -52,11 +42,11 @@ public sealed class JsonConfigService : IConfigService
         var overrides = new List<FolderOverride>();
         if (loaded.FolderOverrides != null)
         {
-            foreach (ConfigFolderOverrideDto ov in loaded.FolderOverrides)
+            foreach (ConfigFolderOverrideDto folderOverride in loaded.FolderOverrides)
             {
-                if (!string.IsNullOrWhiteSpace(ov.FolderPath))
+                if (!string.IsNullOrWhiteSpace(folderOverride.FolderPath))
                 {
-                    overrides.Add(new FolderOverride(FolderPath: ov.FolderPath, Type: ov.Type));
+                    overrides.Add(new FolderOverride(FolderPath: folderOverride.FolderPath, OverrideType: folderOverride.Type));
                 }
             }
         }
@@ -78,13 +68,13 @@ public sealed class JsonConfigService : IConfigService
         {
             LibraryRoots = config.LibraryRoots.Select(r => new ConfigLibraryRootDto
             {
-                Path = r.Path,
+                Path = r.RootPath,
                 Type = r.DefaultType,
             }).ToList(),
             FolderOverrides = config.FolderOverrides.Select(o => new ConfigFolderOverrideDto
             {
                 FolderPath = o.FolderPath,
-                Type = o.Type,
+                Type = o.OverrideType,
             }).ToList(),
             HiddenFolders = config.HiddenFolders.ToList(),
             IsFirstRun = config.IsFirstRun,
@@ -92,13 +82,7 @@ public sealed class JsonConfigService : IConfigService
             EnableOnlineMetadata = config.EnableOnlineMetadata,
         };
 
-        string json = JsonSerializer.Serialize(dto, JsonOptions);
-        string? dir = Path.GetDirectoryName(_configPath);
-        if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
-        {
-            Directory.CreateDirectory(dir);
-        }
-        File.WriteAllText(_configPath, json);
+        JsonFileHelper.WriteToFile(_configPath, dto);
     }
 
     private sealed class ConfigDto

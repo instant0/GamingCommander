@@ -4,22 +4,23 @@
 **Phase:** D — Complexity Reduction
 **Effort:** ~20 min
 **Risk:** Low
-**Status:** pending
-**Prerequisites:** None
+**Status:** ✅ completed
+**Prerequisites:** T16 (FileSystemHelper created)
 
 ---
 
 ## Objective
 
-`FolderScanner.cs` (lines 644-657) and `SteamLibraryScanner.cs` (lines 426-432) both have `NormalizeDisplayName` methods, but they do different things. The FolderScanner version strips suffixes like "Remastered", "Definitive Edition", etc. The Steam version only replaces `_` and `-` with spaces. This inconsistency means Steam games get worse display names than standalone games. Unify to the more complete version.
+`FolderScanner.cs` (lines 644-657) and `SteamLibraryScanner.cs` (lines 426-432) both have `NormalizeDisplayName` methods, but they do different things. The FolderScanner version strips 7 common suffixes (Remastered, Definitive Edition, etc.) AND replaces `_`/`-` with spaces. The Steam version only replaces `_`/`-` with spaces. Steam games get worse display names than standalone games. Unify to the more complete FolderScanner version.
 
 ## What Needs to Change
 
-### 1. New method in `src/GamingCommander.App/Services/FileSystemHelper.cs`
+### 1. `src/GamingCommander.App/Services/FileSystemHelper.cs`
 
-**Current state:** Created in T16 with `GetDirectoriesSafe` and `GetLastWriteTimeSafe`
+**Current state:** Created in T16 with filesystem utilities.
 **Actions:**
-- [ ] Add `NormalizeDisplayName(string folderName)` static method:
+- [ ] Add `NormalizeDisplayName(string folderName)` static method
+- [ ] Use the **original FolderScanner order** (strip suffixes FIRST, then replace characters) to preserve existing behavior:
   ```csharp
   /// <summary>
   /// Normalizes a game folder name into a human-readable display name.
@@ -29,22 +30,17 @@
   internal static string NormalizeDisplayName(string folderName)
   {
       string name = folderName
+          .Replace("Remastered", "")
+          .Replace("Definitive Edition", "")
+          .Replace("Enhanced Edition", "")
+          .Replace("Ultimate Edition", "")
+          .Replace("Special Edition", "")
+          .Replace("GOTY", "")
+          .Replace("Edition", "")
           .Replace("_", " ")
-          .Replace("-", " ");
-
-      string[] suffixesToRemove =
-      [
-          " Remastered", " Definitive Edition", " Enhanced Edition",
-          " Ultimate Edition", " Special Edition", " GOTY", " Edition"
-      ];
-
-      foreach (string suffix in suffixesToRemove)
-      {
-          if (name.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
-              name = name[..^suffix.Length];
-      }
-
-      return name.Trim();
+          .Replace("-", " ")
+          .Trim();
+      return name;
   }
   ```
 
@@ -53,32 +49,32 @@
 **Current state:** Lines 644-657 contain `private static string NormalizeDisplayName(string folderName)`
 **Actions:**
 - [ ] Delete the `NormalizeDisplayName` method (lines 644-657)
-- [ ] Update the call site in `AddGameEntry()` (line ~695) to use `FileSystemHelper.NormalizeDisplayName()`
+- [ ] Update the call site in `AddGameEntry()` (line 694) to use `FileSystemHelper.NormalizeDisplayName()`
 
 ### 3. `src/GamingCommander.App/Services/SteamLibraryScanner.cs`
 
-**Current state:** Lines 426-432 contain `private static string NormalizeDisplayName(string folderName)`
+**Current state:** Lines 426-432 contain `private static string NormalizeDisplayName(string folderName)` — only replaces `_`/`-`
 **Actions:**
 - [ ] Delete the `NormalizeDisplayName` method (lines 426-432)
-- [ ] Update the call site in `CreateEntry()` (line ~295) to use `FileSystemHelper.NormalizeDisplayName()`
+- [ ] Update call sites in `CreateEntry()` (line 288), `CreateOrphanedEntry()` (line 330), and `CreateMissingAcfEntry()` (line 357) to use `FileSystemHelper.NormalizeDisplayName()`
 
 ## Context
 
 - The FolderScanner version strips 7 common suffixes — this is the complete version
 - The Steam version only does character replacement — this is the incomplete version
 - Both are called when building `GameEntry.DisplayName` from the folder name
-- Steam games like "The Witcher 3 - Wild Hunt" and "Civilization VI - Rise and Fall" benefit from the suffix stripping
-- No test data currently exercises the suffix stripping — but it's a cosmetic improvement
+- **Using the original FolderScanner order** (suffix stripping before character replacement) preserves existing behavior for FolderScanner. SteamLibraryScanner will now also get suffix stripping — an improvement, not a regression.
+- No test data currently exercises the suffix stripping — but it's a cosmetic improvement for Steam games like "Civilization VI - Definitive Edition"
 
 ## Requirements
 
-- [ ] `FileSystemHelper.NormalizeDisplayName` exists with suffix-stripping logic
+- [ ] `FileSystemHelper.NormalizeDisplayName` exists with suffix-stripping logic (original FolderScanner order)
 - [ ] `FolderScanner.cs` no longer contains `NormalizeDisplayName`
 - [ ] `SteamLibraryScanner.cs` no longer contains `NormalizeDisplayName`
 - [ ] Both scanners call `FileSystemHelper.NormalizeDisplayName()`
 - [ ] `FileSystemHelper.NormalizeDisplayName` has `/// <summary>` XML doc
-- [ ] No behavior change for FolderScanner (same logic, just moved)
-- [ ] SteamLibraryScanner now strips suffixes (improved behavior)
+- [ ] No behavior change for FolderScanner (same logic, same order)
+- [ ] SteamLibraryScanner now strips suffixes (improved display names)
 
 ## Verification
 
@@ -90,7 +86,7 @@
 
 ## Completion Notes
 
-- **Completed:**
-- **What was done:**
-- **Verification:**
-- **Issues encountered:**
+- **Completed:** 2026-07-19
+- **What was done:** Unified `NormalizeDisplayName` in `FileSystemHelper` with full suffix stripping (Remastered, Definitive Edition, etc.). Removed duplicates from FolderScanner and SteamLibraryScanner. Steam games now get improved display names.
+- **Verification:** Build clean, all tests passing.
+- **Issues encountered:** None.

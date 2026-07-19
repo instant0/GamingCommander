@@ -39,7 +39,7 @@ public sealed class ShellPaneItemViewModel
 
     /// <summary>
     /// Platform-specific identifier (e.g. Steam App ID, Epic Catalog Item ID).
-    /// Populated from GameEntry.Extra during LoadGamesForRoot.
+    /// Populated from GameEntry.PlatformMetadata during LoadGamesForRoot.
     /// </summary>
     public string PlatformId { get; init; } = string.Empty;
 

@@ -52,7 +52,7 @@ GamingCommander.sln
 | `LibraryRoot` | record | Path, DefaultType |
 | `MigrationPlanSummary` | record | GameId, SourcePath, TargetPath, Mode, RequiresManifestBackup, RequiresLinkCreation (deprecated), IsDryRunOnly |
 | `FileSystemEntry` | record | Name, FullPath, Kind, LastModified, Size |
-| `GameSourceParser` | static class | `InferFromPath(string)`, `ParseFromString(string)` — shared by WizardViewModel, LibrarySetupViewModel, GameSetupWindow |
+| `GameSourceParser` | static class | `InferFromPath(string)`, `ParseFromString(string)`, `AvailableTypes` — shared by all ViewModels |
 
 ---
 
@@ -99,11 +99,17 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 | Service | File | Purpose |
 |---------|------|---------|
 | `LibraryManager` | `LibraryManager.cs` | Routes scanning to appropriate scanner, manages roots, delegates to IGamesDatabaseService |
-| `FolderScanner` | `FolderScanner.cs` (740 L) | Generic folder scanner: 10-signal detection chain, 320+ noise exe patterns, exe scoring |
+| `FolderScanner` | `FolderScanner.cs` | Generic folder scanner: fallback detection chain, exe noise filtering, container detection |
+| `StoreSignalDetector` | `StoreSignalDetector.cs` | DetectType + 10 store/platform signal checks (GOG, EA, Ubisoft, Epic, Blizzard, Xbox, Rockstar, Steam) |
+| `ExecutableDiscovery` | `ExecutableDiscovery.cs` | Deep exe search, primary exe selection, launcher detection, Epic manifest discovery |
 | `SteamLibraryScanner` | `SteamLibraryScanner.cs` | Dedicated Steam scanner: ACF cross-referencing, library path discovery, Installed/Moved/Orphaned/Missing detection |
+| `SteamAcfParser` | `SteamAcfParser.cs` | Parses Steam ACF files and libraryfolders.vdf; AcfInfo record |
 | `GamesDatabaseService` | `GamesDatabaseService.cs` | JSON-file CRUD for game entries via private DTOs, in-memory cache |
 | `JsonConfigService` | `JsonConfigService.cs` | JSON-file persistence for AppConfig |
 | `BlacklistLoader` | `BlacklistLoader.cs` | Loads noise patterns from data/blacklist.json |
+| `FileSystemHelper` | `FileSystemHelper.cs` | Shared filesystem utilities: GetDirectoriesSafe, GetFilesSafe, GetLastWriteTimeSafe, NormalizeDisplayName, NoiseSubDirNames |
+| `JsonFileHelper` | `JsonFileHelper.cs` | Shared JSON read/write: ReadFromFile\<T\>, WriteToFile\<T\>, DefaultOptions |
+| `HelpDialogBuilder` | `HelpDialogBuilder.cs` | Builds and shows the help dialog with keyboard shortcuts |
 | `WizardViewModel` | `.App/ViewModels/WizardViewModel.cs` | First-run wizard dialog logic |
 | `LibrarySetupViewModel` | `.App/ViewModels/LibrarySetupViewModel.cs` | F2 settings dialog logic |
 
@@ -218,13 +224,13 @@ data/mock/
 
 ---
 
-## Test Coverage (17 tests total)
+## Test Coverage (99 tests total)
 
 | Project | Tests | What |
 |---------|-------|------|
-| `Core.Tests` | 5 | GameRecord props, GameSourceParser, FileSystemEntryKind enum |
+| `Core.Tests` | 33 | VdfParser (20), GameEntryId (8), GameRecord (1), FileSystemEntryKind (4) |
 | `Migration.Tests` | 1 | DesignTimeMigrationPlanner dry-run plan |
-| `App.Tests` | 11 | ScannerFilterTests (6), MockDataIntegrationTests (5) |
+| `App.Tests` | 65 | GamesDatabaseService (16), SteamLibraryScanner (14), BlacklistLoader (11), ExecutableScoring (10), ScannerFilter (9), MockDataIntegration (5) |
 
 ---
 

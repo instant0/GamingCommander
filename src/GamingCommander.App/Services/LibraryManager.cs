@@ -16,19 +16,19 @@ namespace GamingCommander.App.Services;
 public sealed class LibraryManager : ILibraryManager
 {
     private readonly IConfigService _configService;
-    private readonly IGamesDatabaseService _db;
+    private readonly IGamesDatabaseService _databaseService;
     private readonly FolderScanner _scanner;
     private readonly SteamLibraryScanner? _steamScanner;
 
     /// <summary>Creates a new LibraryManager with the specified services.</summary>
     public LibraryManager(
         IConfigService configService,
-        IGamesDatabaseService db,
+        IGamesDatabaseService databaseService,
         FolderScanner scanner,
         SteamLibraryScanner? steamScanner = null)
     {
         _configService = configService;
-        _db = db;
+        _databaseService = databaseService;
         _scanner = scanner;
         _steamScanner = steamScanner;
     }
@@ -42,25 +42,25 @@ public sealed class LibraryManager : ILibraryManager
     /// <summary>Returns game entries for the specified root from the database.</summary>
     public IReadOnlyList<GameEntry> GetGamesForRoot(string rootPath)
     {
-        return _db.GetGamesForRoot(rootPath);
+        return _databaseService.GetGamesForRoot(rootPath);
     }
 
     /// <summary>Adds a new library root. Scans if no games provided. Persists to both config and database.</summary>
-    public void AddRoot(string rootPath, GameSourceKind defaultType, IReadOnlyList<GameEntry> games)
+    public void AddRoot(string rootPath, GameSourceKind defaultType, IReadOnlyList<GameEntry> initialGames)
     {
         AppConfig config = _configService.Load();
 
         // If no games were provided, scan the folder to discover them
-        IReadOnlyList<GameEntry> resolved = games;
+        IReadOnlyList<GameEntry> resolved = initialGames;
         if (resolved.Count == 0 && Directory.Exists(rootPath))
             resolved = SelectScannerAndScan(rootPath, defaultType);
 
         // Persist to games database
-        _db.AddRoot(rootPath, defaultType, resolved);
+        _databaseService.AddRoot(rootPath, defaultType, resolved);
 
         // Persist root to config (append if not already present)
         var roots = config.LibraryRoots.ToList();
-        if (!roots.Any(r => r.Path.Equals(rootPath, StringComparison.OrdinalIgnoreCase)))
+        if (!roots.Any(r => r.RootPath.Equals(rootPath, StringComparison.OrdinalIgnoreCase)))
         {
             roots.Add(new LibraryRoot(rootPath, defaultType));
             _configService.Save(config with { LibraryRoots = roots });
@@ -71,12 +71,12 @@ public sealed class LibraryManager : ILibraryManager
     public void RemoveRoot(string rootPath)
     {
         // Remove from games database
-        _db.RemoveRoot(rootPath);
+        _databaseService.RemoveRoot(rootPath);
 
         // Remove from config
         AppConfig config = _configService.Load();
         var roots = config.LibraryRoots
-            .Where(r => !r.Path.Equals(rootPath, StringComparison.OrdinalIgnoreCase))
+            .Where(r => !r.RootPath.Equals(rootPath, StringComparison.OrdinalIgnoreCase))
             .ToList();
         _configService.Save(config with { LibraryRoots = roots });
     }
@@ -91,36 +91,36 @@ public sealed class LibraryManager : ILibraryManager
         AppConfig config = _configService.Load();
         foreach (LibraryRoot root in config.LibraryRoots)
         {
-            if (!Directory.Exists(root.Path))
+            if (!Directory.Exists(root.RootPath))
                 continue;
 
-            IReadOnlyList<GameEntry> games = SelectScannerAndScan(root.Path, root.DefaultType);
-            _db.RescanRoot(root.Path, games);
+            IReadOnlyList<GameEntry> games = SelectScannerAndScan(root.RootPath, root.DefaultType);
+            _databaseService.RescanRoot(root.RootPath, games);
         }
     }
 
     /// <summary>Delegates rescan results to the database service.</summary>
     public void RescanRoot(string rootPath, IReadOnlyList<GameEntry> games)
     {
-        _db.RescanRoot(rootPath, games);
+        _databaseService.RescanRoot(rootPath, games);
     }
 
     /// <summary>Delegates game entry update to the database service.</summary>
-    public void UpdateGameEntry(string rootPath, GameEntry updated)
+    public void UpdateGameEntry(string rootPath, GameEntry updatedEntry)
     {
-        _db.UpdateGameEntry(rootPath, updated);
+        _databaseService.UpdateGameEntry(rootPath, updatedEntry);
     }
 
     /// <summary>Delegates game entry deletion to the database service.</summary>
     public void DeleteGameEntry(string rootPath, string gameId)
     {
-        _db.DeleteGameEntry(rootPath, gameId);
+        _databaseService.DeleteGameEntry(rootPath, gameId);
     }
 
     /// <summary>Delegates game retag to the database service.</summary>
     public void RetagGame(string rootPath, string gameId, GameSourceKind newType)
     {
-        _db.RetagGame(rootPath, gameId, newType);
+        _databaseService.RetagGame(rootPath, gameId, newType);
     }
 
     // ════════════════════════════════════════════════════════════════

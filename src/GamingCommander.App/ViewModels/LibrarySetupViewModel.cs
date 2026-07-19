@@ -33,28 +33,14 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
     /// <summary>Library root entries displayed in the setup dialog.</summary>
     public ObservableCollection<LibraryRootEntry> Entries { get; } = [];
 
-    public string[] AvailableTypes { get; } =
-    [
-        "Standalone",
-        "Steam",
-        "GOG",
-        "Epic",
-        "EA App",
-        "Ubisoft Connect",
-        "Battle.net",
-        "Xbox",
-        "Rockstar",
-        "Steam Emulator",
-    ];
-
     private void LoadRoots()
     {
         Entries.Clear();
         AppConfig config = _configService.Load();
         foreach (LibraryRoot root in config.LibraryRoots)
         {
-            IReadOnlyList<GameEntry> games = _dbService.GetGamesForRoot(root.Path);
-            Entries.Add(new LibraryRootEntry(root.Path, root.DefaultType.ToString(), games.Count));
+            IReadOnlyList<GameEntry> games = _dbService.GetGamesForRoot(root.RootPath);
+            Entries.Add(new LibraryRootEntry(root.RootPath, root.DefaultType.ToString(), games.Count));
         }
     }
 
@@ -93,7 +79,7 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
 
         AppConfig config = _configService.Load();
         var newRoots = config.LibraryRoots
-            .Where(r => !r.Path.Equals(entry.Path, StringComparison.OrdinalIgnoreCase))
+            .Where(r => !r.RootPath.Equals(entry.Path, StringComparison.OrdinalIgnoreCase))
             .ToList();
         _configService.Save(config with { LibraryRoots = newRoots });
     }

@@ -4,8 +4,9 @@
 **Phase:** D — Complexity Reduction
 **Effort:** ~15 min
 **Risk:** Minimal
-**Status:** pending
+**Status:** ✅ completed
 **Prerequisites:** None
+**Must run before:** T20 (avoids documenting properties that get deleted)
 
 ---
 
@@ -23,7 +24,7 @@ The same 10-element string array `AvailableTypes` is defined identically in thre
   ```csharp
   /// <summary>
   /// Human-readable display names for all supported game source types.
-  /// Used by UI dropdowns and combo boxes.
+  /// Used by UI dropdowns and combo boxes in GameSetup, LibrarySetup, and Wizard windows.
   /// </summary>
   public static readonly string[] AvailableTypes =
   [
@@ -31,7 +32,7 @@ The same 10-element string array `AvailableTypes` is defined identically in thre
       "Ubisoft Connect", "Battle.net", "Xbox", "Rockstar", "Steam Emulator"
   ];
   ```
-- [ ] This array is already in the Core assembly, accessible to all other projects
+- [ ] This array is in the Core assembly, accessible to all other projects
 
 ### 2. `src/GamingCommander.App/GameSetupWindow.axaml.cs`
 
@@ -39,7 +40,7 @@ The same 10-element string array `AvailableTypes` is defined identically in thre
 **Actions:**
 - [ ] Delete the property definition (lines 25-29)
 - [ ] Replace all references to `AvailableTypes` with `GameSourceParser.AvailableTypes`
-  - Used in `RenderFields()` at line ~78 and `MakeComboRow()` at line ~175
+  - Used in `RenderFields()` at line ~63 and `MakeComboRow()` at line ~171
 
 ### 3. `src/GamingCommander.App/ViewModels/LibrarySetupViewModel.cs`
 
@@ -47,7 +48,6 @@ The same 10-element string array `AvailableTypes` is defined identically in thre
 **Actions:**
 - [ ] Delete the property definition (lines 36-48)
 - [ ] Replace all references to `AvailableTypes` with `GameSourceParser.AvailableTypes`
-  - Used in the class to populate the source type dropdown
 
 ### 4. `src/GamingCommander.App/ViewModels/WizardViewModel.cs`
 
@@ -55,7 +55,6 @@ The same 10-element string array `AvailableTypes` is defined identically in thre
 **Actions:**
 - [ ] Delete the property definition (lines 37-49)
 - [ ] Replace all references to `AvailableTypes` with `GameSourceParser.AvailableTypes`
-  - Used in the class to populate the source type dropdown
 
 ## Context
 
@@ -63,6 +62,7 @@ The same 10-element string array `AvailableTypes` is defined identically in thre
 - `GameSourceParser` is already the right home — it's the shared model for game source types
 - The array is `public static readonly` — no instantiation needed
 - All three consumer files already have `using GamingCommander.Core.Models;`
+- **Must run before T20** — T20 plans to add XML docs to the properties being deleted here
 
 ## Requirements
 
@@ -83,7 +83,7 @@ The same 10-element string array `AvailableTypes` is defined identically in thre
 
 ## Completion Notes
 
-- **Completed:**
-- **What was done:**
-- **Verification:**
-- **Issues encountered:**
+- **Completed:** 2026-07-19
+- **What was done:** Added `GameSourceParser.AvailableTypes` to Core. Removed duplicate definitions from GameSetupWindow, LibrarySetupViewModel, and WizardViewModel. Updated all references.
+- **Verification:** Build clean, all tests passing.
+- **Issues encountered:** None.

@@ -4,7 +4,14 @@
 **Phase:** D — Complexity Reduction
 **Effort:** ~25 min
 **Risk:** Low
-**Status:** pending
+**Status:** ⏭️ skipped — trivial, already exists
+
+---
+
+## Evaluation Notes (2026-07-19)
+
+**Reason for skipping:** `LibraryManager.NormalizeLibraryRoot` already exists and is called by all three consumers. The duplicate check is 1 line in each ViewModel (`Entries.Any(e => e.Path.Equals(...))`). `MainWindow.AddRootAsync` has no duplicate check — it delegates to `_libraryManager.AddRoot`. Extracting 1-2 lines of logic into a new file adds indirection without meaningful benefit. Additionally:
+- Type mismatch: ViewModels use `LibraryRootEntry`/`WizardLibraryEntry`, not `LibraryRoot` — the helper would need to accept different types
 **Prerequisites:** T18 (AvailableTypes extracted)
 
 ---

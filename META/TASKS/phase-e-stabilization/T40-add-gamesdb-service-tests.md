@@ -4,7 +4,7 @@
 **Phase:** E — Stabilization
 **Effort:** ~40 min
 **Risk:** Low
-**Status:** pending
+**Status:** ✅ completed
 **Prerequisites:** T17 (JsonFileHelper extracted)
 
 ---
@@ -56,21 +56,21 @@
 
 ## Requirements
 
-- [ ] Test file created with 15+ test methods
-- [ ] All tests pass: `dotnet test --filter "FullyQualifiedName~GamesDatabaseServiceTests"`
-- [ ] Tests use temporary directories (no dependency on real data/)
-- [ ] Tests verify both success and edge cases
-- [ ] Tests verify caching behavior
+- [x] Test file created with 16 test methods
+- [x] All tests pass: `dotnet test --filter "FullyQualifiedName~GamesDatabaseServiceTests"`
+- [x] Tests use temporary directories (no dependency on real data/)
+- [x] Tests verify both success and edge cases
+- [x] Tests verify caching behavior
 
 ## Verification
 
-- [ ] `dotnet build` passes (0 errors)
-- [ ] `dotnet test` passes (now 95+ tests)
-- [ ] `dotnet test --filter "FullyQualifiedName~GamesDatabaseServiceTests"` shows all tests passing
+- [x] `dotnet build` passes (0 errors)
+- [x] `dotnet test` passes (now 99 tests: 33 Core + 1 Migration + 65 App)
+- [x] `dotnet test --filter "FullyQualifiedName~GamesDatabaseServiceTests"` shows 16 tests passing
 
 ## Completion Notes
 
-- **Completed:**
-- **What was done:**
-- **Verification:**
-- **Issues encountered:**
+- **Completed:** 2026-07-19
+- **What was done:** Created GamesDatabaseServiceTests.cs with 16 tests covering Load/Save (empty, valid, corrupt), CRUD (add, remove, update, delete, retag), caching (same reference, updated cache), and edge cases (rescan replaces, multi-root isolation).
+- **Verification:** Build clean, 99 tests passing.
+- **Issues encountered:** Save_UpdatesCache initial assertion was wrong — AddRoot creates a new GamesDatabase instance so `Assert.Same` failed. Fixed to `Assert.NotSame` with correct behavior validation.

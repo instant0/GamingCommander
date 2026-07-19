@@ -1,4 +1,3 @@
-using System.Globalization;
 using GamingCommander.Core.Models;
 using GamingCommander.Core.Services;
 
@@ -14,13 +13,11 @@ namespace GamingCommander.App.Services;
 public sealed class SteamLibraryScanner
 {
     private readonly IReadOnlyList<string> _configuredSteamPaths;
-    private static readonly IReadOnlyList<string> RequiredAcfFields =
-    ["appid", "name", "installdir", "StateFlags", "LastUpdated", "SizeOnDisk", "buildid"];
 
     /// <summary>Creates a new scanner with the specified configured Steam library paths.</summary>
     public SteamLibraryScanner(IEnumerable<string> configuredSteamPaths)
     {
-        _configuredSteamPaths = configuredSteamPaths.Select(NormalizePath).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        _configuredSteamPaths = configuredSteamPaths.Select(SteamAcfParser.NormalizePath).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     /// <summary>
@@ -30,7 +27,7 @@ public sealed class SteamLibraryScanner
     /// </summary>
     public IReadOnlyList<GameEntry> Scan(string libraryRootPath)
     {
-        string root = NormalizePath(libraryRootPath);
+        string root = SteamAcfParser.NormalizePath(libraryRootPath);
         if (!Directory.Exists(root))
             return [];
 
@@ -46,7 +43,7 @@ public sealed class SteamLibraryScanner
 
         if (Directory.Exists(commonDir))
         {
-            foreach (DirectoryInfo gameDir in GetDirectoriesSafe(commonDir))
+            foreach (DirectoryInfo gameDir in FileSystemHelper.GetDirectoriesSafe(commonDir))
             {
                 string folderName = gameDir.Name;
 
@@ -101,7 +98,7 @@ public sealed class SteamLibraryScanner
         var allSteamPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (string path in _configuredSteamPaths)
         {
-            foreach (string discoveredPath in DiscoverLibraryPaths(path))
+            foreach (string discoveredPath in SteamAcfParser.DiscoverLibraryPaths(path))
                 allSteamPaths.Add(discoveredPath);
         }
 
@@ -113,7 +110,7 @@ public sealed class SteamLibraryScanner
             string commonDir = Path.Combine(libraryPath, "steamapps", "common");
             if (!Directory.Exists(commonDir)) continue;
 
-            foreach (DirectoryInfo gameDir in GetDirectoriesSafe(commonDir))
+            foreach (DirectoryInfo gameDir in FileSystemHelper.GetDirectoriesSafe(commonDir))
             {
                 string folderName = gameDir.Name;
 
@@ -159,6 +156,9 @@ public sealed class SteamLibraryScanner
     //  Steam Path Discovery
     // ════════════════════════════════════════════════════════════════
 
+    /// <summary>
+    /// Discovers all Steam library paths from libraryfolders.vdf and configured paths.
+    /// </summary>
     private HashSet<string> DiscoverAllSteamPaths(string primaryRoot)
     {
         var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -167,52 +167,12 @@ public sealed class SteamLibraryScanner
         paths.Add(primaryRoot);
 
         // Include all configured Steam paths
-        foreach (string p in _configuredSteamPaths)
-            paths.Add(p);
+        foreach (string steamPath in _configuredSteamPaths)
+            paths.Add(steamPath);
 
         // Discover paths from libraryfolders.vdf
-        foreach (string discoveredPath in DiscoverLibraryPaths(primaryRoot))
+        foreach (string discoveredPath in SteamAcfParser.DiscoverLibraryPaths(primaryRoot))
             paths.Add(discoveredPath);
-
-        return paths;
-    }
-
-    /// <summary>
-    /// Parse libraryfolders.vdf to discover all Steam library paths.
-    /// Format: numbered keys like "1" "D:\\SteamLibrary", "2" "E:\\SteamLibrary"
-    /// </summary>
-    private List<string> DiscoverLibraryPaths(string libraryRoot)
-    {
-        var paths = new List<string>();
-        string vdfPath = Path.Combine(libraryRoot, "steamapps", "libraryfolders.vdf");
-        if (!File.Exists(vdfPath)) return paths;
-
-        try
-        {
-            string text = File.ReadAllText(vdfPath);
-            var parsed = VdfParser.Parse(text);
-
-            // Navigate into the root block (usually "LibraryFolders")
-            var block = parsed;
-            if (block.Count == 1 && block.Values.First() is Dictionary<string, object> inner)
-                block = inner;
-
-            foreach (var kvp in block)
-            {
-                // Numeric keys like "1", "2", "3" hold path values
-                if (int.TryParse(kvp.Key, NumberStyles.Integer, CultureInfo.InvariantCulture, out _))
-                {
-                    if (kvp.Value is string pathStr && !string.IsNullOrWhiteSpace(pathStr))
-                    {
-                        paths.Add(NormalizePath(pathStr));
-                    }
-                }
-            }
-        }
-        catch
-        {
-            // Silently return empty on parse failure
-        }
 
         return paths;
     }
@@ -221,6 +181,9 @@ public sealed class SteamLibraryScanner
     //  ACF Collection
     // ════════════════════════════════════════════════════════════════
 
+    /// <summary>
+    /// Builds a map of AppId to ACF metadata from all known Steam library paths.
+    /// </summary>
     private Dictionary<string, AcfInfo> CollectAcfMap(IEnumerable<string> steamPaths)
     {
         var map = new Dictionary<string, AcfInfo>(StringComparer.OrdinalIgnoreCase);
@@ -234,7 +197,7 @@ public sealed class SteamLibraryScanner
             {
                 foreach (string acfFile in Directory.EnumerateFiles(steamappsDir, "appmanifest_*.acf", SearchOption.TopDirectoryOnly))
                 {
-                    var info = ParseAcfFile(acfFile, path);
+                    var info = SteamAcfParser.ParseAcfFile(acfFile, path);
                     if (info != null && !string.IsNullOrWhiteSpace(info.Installdir))
                     {
                         // First match wins (avoids duplicate keys)
@@ -249,44 +212,19 @@ public sealed class SteamLibraryScanner
         return map;
     }
 
-    private static AcfInfo? ParseAcfFile(string acfPath, string libraryPath)
-    {
-        try
-        {
-            string text = File.ReadAllText(acfPath);
-            var fields = VdfParser.ExtractFields(text, RequiredAcfFields.ToArray());
-            if (fields == null) return null;
-
-            string installdir = fields.GetValueOrDefault("installdir", string.Empty);
-            if (string.IsNullOrWhiteSpace(installdir)) return null;
-
-            return new AcfInfo(
-                LibraryPath: libraryPath,
-                AcfFilePath: acfPath,
-                AppId: fields.GetValueOrDefault("appid", string.Empty),
-                Name: fields.GetValueOrDefault("name", string.Empty),
-                Installdir: installdir,
-                StateFlags: fields.GetValueOrDefault("StateFlags", string.Empty),
-                LastUpdated: fields.GetValueOrDefault("LastUpdated", string.Empty),
-                SizeOnDisk: fields.GetValueOrDefault("SizeOnDisk", string.Empty),
-                BuildId: fields.GetValueOrDefault("buildid", string.Empty));
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
     // ════════════════════════════════════════════════════════════════
     //  GameEntry Creation
     // ════════════════════════════════════════════════════════════════
 
+    /// <summary>
+    /// Creates a GameEntry for an installed Steam game from its ACF metadata.
+    /// </summary>
     private static GameEntry CreateEntry(
         string libraryRoot, DirectoryInfo gameDir, string folderName,
         AcfInfo acf, string status)
     {
-        string displayName = !string.IsNullOrWhiteSpace(acf.Name) ? acf.Name : NormalizeDisplayName(folderName);
-        string id = GameEntryId.Compute(libraryRoot, folderName);
+        string displayName = !string.IsNullOrWhiteSpace(acf.Name) ? acf.Name : FileSystemHelper.NormalizeDisplayName(folderName);
+        string id = GameEntryId.ComputeId(libraryRoot, folderName);
 
         var extra = new Dictionary<string, string>
         {
@@ -309,34 +247,37 @@ public sealed class SteamLibraryScanner
             FolderName: folderName,
             DisplayName: displayName,
             GameSource: GameSourceKind.Steam,
-            Override: false,
+            IsSourceOverridden: false,
             ExecutablePath: FindPrimaryExe(gameDir),
             LauncherPath: string.Empty,
-            CmdlineArgs: $"steam://rungameid/{acf.AppId}",
+            CommandLineArguments: $"steam://rungameid/{acf.AppId}",
             ManifestPath: acf.AcfFilePath,
             LastScanned: DateTimeOffset.UtcNow,
-            LastModified: GetLastWriteTimeSafe(gameDir),
-            Extra: extra);
+            LastModified: FileSystemHelper.GetLastWriteTimeSafe(gameDir),
+            PlatformMetadata: extra);
     }
 
+    /// <summary>
+    /// Creates a GameEntry for a Steam game whose ACF exists but game files are missing.
+    /// </summary>
     private static GameEntry CreateOrphanedEntry(
         string libraryRoot, DirectoryInfo gameDir, string folderName)
     {
-        string id = GameEntryId.Compute(libraryRoot, folderName);
+        string id = GameEntryId.ComputeId(libraryRoot, folderName);
 
         return new GameEntry(
             Id: id,
             FolderName: folderName,
-            DisplayName: NormalizeDisplayName(folderName),
+            DisplayName: FileSystemHelper.NormalizeDisplayName(folderName),
             GameSource: GameSourceKind.Steam,
-            Override: false,
+            IsSourceOverridden: false,
             ExecutablePath: FindPrimaryExe(gameDir),
             LauncherPath: string.Empty,
-            CmdlineArgs: string.Empty,
+            CommandLineArguments: string.Empty,
             ManifestPath: string.Empty,
             LastScanned: DateTimeOffset.UtcNow,
-            LastModified: GetLastWriteTimeSafe(gameDir),
-            Extra: new Dictionary<string, string>
+            LastModified: FileSystemHelper.GetLastWriteTimeSafe(gameDir),
+            PlatformMetadata: new Dictionary<string, string>
             {
                 ["SteamStatus"] = "Orphaned",
                 ["SteamAppId"] = string.Empty,
@@ -349,21 +290,21 @@ public sealed class SteamLibraryScanner
     /// </summary>
     private static GameEntry CreateMissingAcfEntry(string libraryRoot, AcfInfo acf)
     {
-        string id = GameEntryId.Compute(libraryRoot, acf.Installdir);
+        string id = GameEntryId.ComputeId(libraryRoot, acf.Installdir);
 
         return new GameEntry(
             Id: id,
             FolderName: acf.Installdir,
-            DisplayName: !string.IsNullOrWhiteSpace(acf.Name) ? acf.Name : NormalizeDisplayName(acf.Installdir),
+            DisplayName: !string.IsNullOrWhiteSpace(acf.Name) ? acf.Name : FileSystemHelper.NormalizeDisplayName(acf.Installdir),
             GameSource: GameSourceKind.Steam,
-            Override: false,
+            IsSourceOverridden: false,
             ExecutablePath: string.Empty,
             LauncherPath: string.Empty,
-            CmdlineArgs: $"steam://rungameid/{acf.AppId}",
+            CommandLineArguments: $"steam://rungameid/{acf.AppId}",
             ManifestPath: acf.AcfFilePath,
             LastScanned: DateTimeOffset.UtcNow,
             LastModified: DateTimeOffset.MinValue,
-            Extra: new Dictionary<string, string>
+            PlatformMetadata: new Dictionary<string, string>
             {
                 ["SteamStatus"] = "Missing",
                 ["SteamAppId"] = acf.AppId,
@@ -375,27 +316,13 @@ public sealed class SteamLibraryScanner
             });
     }
 
-    /// <summary>
-    /// Collect all folder names under steamapps/common/ across all known Steam paths.
-    /// Used to check whether an ACF's installdir exists in any library.
-    /// </summary>
-    private static HashSet<string> CollectAllCommonFolderNames(IEnumerable<string> steamPaths)
-    {
-        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (string path in steamPaths)
-        {
-            string commonDir = Path.Combine(path, "steamapps", "common");
-            if (!Directory.Exists(commonDir)) continue;
-            foreach (DirectoryInfo dir in GetDirectoriesSafe(commonDir))
-                names.Add(dir.Name);
-        }
-        return names;
-    }
-
     // ════════════════════════════════════════════════════════════════
     //  Helpers
     // ════════════════════════════════════════════════════════════════
 
+    /// <summary>
+    /// Finds the primary executable in a Steam game's common/ directory.
+    /// </summary>
     private static string FindPrimaryExe(DirectoryInfo dir)
     {
         try
@@ -411,62 +338,15 @@ public sealed class SteamLibraryScanner
         return string.Empty;
     }
 
+    /// <summary>
+    /// Checks if an executable is a known Steam noise file (installer, uninstaller, etc.).
+    /// Subset of the full noise list — Steam-specific to avoid false positives on
+    /// common redistributable names that are valid games in other contexts.
+    /// </summary>
     private static bool IsNoiseExe(string name)
     {
         // Minimal noise check for Steam library context
         return name is "unins000" or "unins001" or "setup" or "vcredist"
             or "dxsetup" or "oalinst" or "commonredist";
     }
-
-    private static string NormalizePath(string path)
-    {
-        return path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-    }
-
-    private static string NormalizeDisplayName(string folderName)
-    {
-        return folderName
-            .Replace("_", " ")
-            .Replace("-", " ")
-            .Trim();
-    }
-
-    private static DirectoryInfo[] GetDirectoriesSafe(string path)
-    {
-        try
-        {
-            return new DirectoryInfo(path).GetDirectories();
-        }
-        catch
-        {
-            return [];
-        }
-    }
-
-    private static DateTimeOffset GetLastWriteTimeSafe(DirectoryInfo dir)
-    {
-        try
-        {
-            return dir.LastWriteTime;
-        }
-        catch
-        {
-            return DateTimeOffset.MinValue;
-        }
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    //  Internal Types
-    // ════════════════════════════════════════════════════════════════
-
-    private sealed record AcfInfo(
-        string LibraryPath,
-        string AcfFilePath,
-        string AppId,
-        string Name,
-        string Installdir,
-        string StateFlags,
-        string LastUpdated,
-        string SizeOnDisk,
-        string BuildId);
 }

@@ -17,8 +17,8 @@ public static class VdfParser
     public static Dictionary<string, object> Parse(string text)
     {
         var lines = text.Split('\n');
-        int idx = 0;
-        var result = ParseBlock(lines, ref idx);
+        int lineIndex = 0;
+        var result = ParseBlock(lines, ref lineIndex);
         return result;
     }
 
@@ -53,14 +53,14 @@ public static class VdfParser
         }
     }
 
-    private static Dictionary<string, object> ParseBlock(string[] lines, ref int idx)
+    private static Dictionary<string, object> ParseBlock(string[] lines, ref int lineIndex)
     {
         var result = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
 
-        while (idx < lines.Length)
+        while (lineIndex < lines.Length)
         {
-            string line = lines[idx].Trim();
-            idx++;
+            string line = lines[lineIndex].Trim();
+            lineIndex++;
 
             if (string.IsNullOrEmpty(line))
                 continue;
@@ -70,19 +70,19 @@ public static class VdfParser
 
             try
             {
-                int pos = 0;
-                string key = ParseQuoted(line, ref pos);
-                pos = SkipWhitespace(line, pos);
+                int charPos = 0;
+                string key = ParseQuoted(line, ref charPos);
+                charPos = SkipWhitespace(line, charPos);
 
-                if (pos < line.Length && line[pos] == '{')
+                if (charPos < line.Length && line[charPos] == '{')
                 {
                     // Block value — recurse
-                    result[key] = ParseBlock(lines, ref idx);
+                    result[key] = ParseBlock(lines, ref lineIndex);
                 }
                 else
                 {
                     // Simple quoted value
-                    string val = ParseQuoted(line, ref pos);
+                    string val = ParseQuoted(line, ref charPos);
                     result[key] = val;
                 }
             }
@@ -95,44 +95,44 @@ public static class VdfParser
         return result;
     }
 
-    private static string ParseQuoted(string line, ref int pos)
+    private static string ParseQuoted(string line, ref int charPos)
     {
-        pos = SkipWhitespace(line, pos);
+        charPos = SkipWhitespace(line, charPos);
 
-        if (pos >= line.Length || line[pos] != '"')
-            throw new FormatException($"Expected '\"' at position {pos} in: {line}");
+        if (charPos >= line.Length || line[charPos] != '"')
+            throw new FormatException($"Expected '\"' at position {charPos} in: {line}");
 
-        pos++; // skip opening quote
+        charPos++; // skip opening quote
 
         var chars = new List<char>();
-        while (pos < line.Length)
+        while (charPos < line.Length)
         {
-            char c = line[pos];
+            char c = line[charPos];
             if (c == '"')
             {
-                pos++; // skip closing quote
+                charPos++; // skip closing quote
                 return new string(chars.ToArray());
             }
-            if (c == '\\' && pos + 1 < line.Length)
+            if (c == '\\' && charPos + 1 < line.Length)
             {
-                pos++;
-                chars.Add(line[pos]);
-                pos++;
+                charPos++;
+                chars.Add(line[charPos]);
+                charPos++;
             }
             else
             {
                 chars.Add(c);
-                pos++;
+                charPos++;
             }
         }
 
         throw new FormatException("Unterminated string");
     }
 
-    private static int SkipWhitespace(string line, int pos)
+    private static int SkipWhitespace(string line, int charPos)
     {
-        while (pos < line.Length && (line[pos] == ' ' || line[pos] == '\t'))
-            pos++;
-        return pos;
+        while (charPos < line.Length && (line[charPos] == ' ' || line[charPos] == '\t'))
+            charPos++;
+        return charPos;
     }
 }

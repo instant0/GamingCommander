@@ -11,6 +11,7 @@ namespace GamingCommander.App.Services;
 /// </summary>
 public sealed class HexToBrushConverter : IValueConverter
 {
+    /// <summary>Converts a hex color string (e.g., '#FF0000') to a SolidColorBrush. Empty string returns the default text brush.</summary>
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         if (value is string hex && !string.IsNullOrEmpty(hex))
@@ -29,6 +30,7 @@ public sealed class HexToBrushConverter : IValueConverter
         return AppTheme.TextPrimary;
     }
 
+    /// <summary>Not supported. Returns null.</summary>
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         throw new NotSupportedException();

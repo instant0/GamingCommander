@@ -1,4 +1,3 @@
-using System.Text.Json;
 using GamingCommander.Core;
 using GamingCommander.Core.Models;
 
@@ -12,11 +11,6 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
 {
     private readonly string _dbPath;
     private GamesDatabase? _cachedDb;
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        WriteIndented = true,
-        PropertyNameCaseInsensitive = true,
-    };
 
     /// <summary>Creates a new database service targeting the specified JSON file path.</summary>
     public GamesDatabaseService(string dbPath)
@@ -30,50 +24,37 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
         if (_cachedDb is not null)
             return _cachedDb;
 
-        if (!File.Exists(_dbPath))
+        GamesDatabaseDto? dto = JsonFileHelper.ReadFromFile<GamesDatabaseDto>(
+            _dbPath,
+            () => new GamesDatabaseDto { Roots = [] });
+        if (dto is null)
         {
             _cachedDb = new GamesDatabase(Roots: []);
             return _cachedDb;
         }
 
-        try
-        {
-            string json = File.ReadAllText(_dbPath);
-            var dto = JsonSerializer.Deserialize<GamesDatabaseDto>(json, JsonOptions);
-            if (dto is null)
-            {
-                _cachedDb = new GamesDatabase(Roots: []);
-                return _cachedDb;
-            }
-
-            _cachedDb = new GamesDatabase(
-                dto.Roots?
-                    .Select(r => new GameRoot(
-                        r.RootPath,
-                        r.DefaultType,
-                        r.Games?
-                            .Select(g => new GameEntry(
-                                g.Id,
-                                g.FolderName,
-                                g.DisplayName,
-                                g.GameSource,
-                                g.Override,
-                                g.ExecutablePath,
-                                g.LauncherPath,
-                                g.CmdlineArgs,
-                                g.ManifestPath,
-                                g.LastScanned,
-                                g.LastModified,
-                                g.Extra ?? []))
-                            .ToList() ?? []))
-                    .ToList() ?? []);
-            return _cachedDb;
-        }
-        catch
-        {
-            _cachedDb = new GamesDatabase(Roots: []);
-            return _cachedDb;
-        }
+        _cachedDb = new GamesDatabase(
+            dto.Roots?
+                .Select(r => new GameRoot(
+                    r.RootPath,
+                    r.DefaultType,
+                    r.Games?
+                        .Select(g => new GameEntry(
+                            g.Id,
+                            g.FolderName,
+                            g.DisplayName,
+                            g.GameSource,
+                            g.Override,
+                            g.ExecutablePath,
+                            g.LauncherPath,
+                            g.CmdlineArgs,
+                            g.ManifestPath,
+                            g.LastScanned,
+                            g.LastModified,
+                            g.Extra ?? []))
+                        .ToList() ?? []))
+                .ToList() ?? []);
+        return _cachedDb;
     }
 
     /// <summary>Serializes and persists the games database to disk. Updates the in-memory cache.</summary>
@@ -94,23 +75,19 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
                     FolderName = g.FolderName,
                     DisplayName = g.DisplayName,
                     GameSource = g.GameSource,
-                    Override = g.Override,
+                    Override = g.IsSourceOverridden,
                     ExecutablePath = g.ExecutablePath,
                     LauncherPath = g.LauncherPath,
-                    CmdlineArgs = g.CmdlineArgs,
+                    CmdlineArgs = g.CommandLineArguments,
                     ManifestPath = g.ManifestPath,
                     LastScanned = g.LastScanned,
                     LastModified = g.LastModified,
-                    Extra = g.Extra,
+                    Extra = g.PlatformMetadata,
                 }).ToList(),
             }).ToList(),
         };
 
-        string json = JsonSerializer.Serialize(dto, JsonOptions);
-        string? dir = Path.GetDirectoryName(_dbPath);
-        if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
-            Directory.CreateDirectory(dir);
-        File.WriteAllText(_dbPath, json);
+        JsonFileHelper.WriteToFile(_dbPath, dto);
     }
 
     /// <summary>Returns all game entries for the specified library root path.</summary>
@@ -123,14 +100,14 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
     }
 
     /// <summary>Adds a new library root with its game entries to the database.</summary>
-    public void AddRoot(string rootPath, GameSourceKind defaultType, IEnumerable<GameEntry> games)
+    public void AddRoot(string rootPath, GameSourceKind defaultType, IEnumerable<GameEntry> initialGames)
     {
         GamesDatabase db = Load();
         if (db.Roots.Any(r => r.RootPath.Equals(rootPath, StringComparison.OrdinalIgnoreCase)))
             return;
 
         var roots = db.Roots.ToList();
-        roots.Add(new GameRoot(rootPath, defaultType, games.ToList()));
+        roots.Add(new GameRoot(rootPath, defaultType, initialGames.ToList()));
         Save(new GamesDatabase(roots));
     }
 
@@ -149,28 +126,28 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
     {
         GamesDatabase db = Load();
         var roots = db.Roots.ToList();
-        int idx = roots.FindIndex(r => r.RootPath.Equals(rootPath, StringComparison.OrdinalIgnoreCase));
-        if (idx < 0) return;
+        int rootIndex = roots.FindIndex(r => r.RootPath.Equals(rootPath, StringComparison.OrdinalIgnoreCase));
+        if (rootIndex < 0) return;
 
-        var existing = roots[idx];
-        roots[idx] = existing with { Games = games.ToList() };
+        var existing = roots[rootIndex];
+        roots[rootIndex] = existing with { Games = games.ToList() };
         Save(new GamesDatabase(roots));
     }
 
     /// <summary>Updates a single game entry within the specified root.</summary>
-    public void UpdateGameEntry(string rootPath, GameEntry updated)
+    public void UpdateGameEntry(string rootPath, GameEntry updatedEntry)
     {
         GamesDatabase db = Load();
         var roots = db.Roots.ToList();
-        int idx = roots.FindIndex(r => r.RootPath.Equals(rootPath, StringComparison.OrdinalIgnoreCase));
-        if (idx < 0) return;
+        int rootIndex = roots.FindIndex(r => r.RootPath.Equals(rootPath, StringComparison.OrdinalIgnoreCase));
+        if (rootIndex < 0) return;
 
-        var games = roots[idx].Games.ToList();
-        int gIdx = games.FindIndex(g => g.Id == updated.Id);
-        if (gIdx < 0) return;
+        var games = roots[rootIndex].Games.ToList();
+        int gameIndex = games.FindIndex(g => g.Id == updatedEntry.Id);
+        if (gameIndex < 0) return;
 
-        games[gIdx] = updated;
-        roots[idx] = roots[idx] with { Games = games };
+        games[gameIndex] = updatedEntry;
+        roots[rootIndex] = roots[rootIndex] with { Games = games };
         Save(new GamesDatabase(roots));
     }
 
@@ -179,11 +156,11 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
     {
         GamesDatabase db = Load();
         var roots = db.Roots.ToList();
-        int idx = roots.FindIndex(r => r.RootPath.Equals(rootPath, StringComparison.OrdinalIgnoreCase));
-        if (idx < 0) return;
+        int rootIndex = roots.FindIndex(r => r.RootPath.Equals(rootPath, StringComparison.OrdinalIgnoreCase));
+        if (rootIndex < 0) return;
 
-        var games = roots[idx].Games.Where(g => g.Id != gameId).ToList();
-        roots[idx] = roots[idx] with { Games = games };
+        var games = roots[rootIndex].Games.Where(g => g.Id != gameId).ToList();
+        roots[rootIndex] = roots[rootIndex] with { Games = games };
         Save(new GamesDatabase(roots));
     }
 
@@ -192,16 +169,16 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
     {
         GamesDatabase db = Load();
         var roots = db.Roots.ToList();
-        int idx = roots.FindIndex(r => r.RootPath.Equals(rootPath, StringComparison.OrdinalIgnoreCase));
-        if (idx < 0) return;
+        int rootIndex = roots.FindIndex(r => r.RootPath.Equals(rootPath, StringComparison.OrdinalIgnoreCase));
+        if (rootIndex < 0) return;
 
-        var games = roots[idx].Games.ToList();
-        int gIdx = games.FindIndex(g => g.Id == gameId);
-        if (gIdx < 0) return;
+        var games = roots[rootIndex].Games.ToList();
+        int gameIndex = games.FindIndex(g => g.Id == gameId);
+        if (gameIndex < 0) return;
 
-        bool isOverride = newType != roots[idx].DefaultType;
-        games[gIdx] = games[gIdx] with { GameSource = newType, Override = isOverride };
-        roots[idx] = roots[idx] with { Games = games };
+        bool isOverride = newType != roots[rootIndex].DefaultType;
+        games[gameIndex] = games[gameIndex] with { GameSource = newType, IsSourceOverridden = isOverride };
+        roots[rootIndex] = roots[rootIndex] with { Games = games };
         Save(new GamesDatabase(roots));
     }
 

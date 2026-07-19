@@ -13,4 +13,4 @@ public sealed record FileSystemEntry(
     /// <summary>Timestamp of the last modification.</summary>
     DateTimeOffset LastModified,
     /// <summary>File size in bytes (0 for directories).</summary>
-    long Size);
+    long SizeInBytes);

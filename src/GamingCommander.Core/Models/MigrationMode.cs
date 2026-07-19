@@ -8,7 +8,7 @@ public enum MigrationMode
     /// <summary>Move game files only; no manifest repair or link creation.</summary>
     MoveOnly = 0,
 
-    /// <summary>Move game files and create a symbolic link at the original location (deprecated).</summary>
+    /// <summary>Move files and create a symbolic link at the original location pointing to the new location.</summary>
     MoveAndLink = 1,
 
     /// <summary>Repair launcher registration without moving files.</summary>

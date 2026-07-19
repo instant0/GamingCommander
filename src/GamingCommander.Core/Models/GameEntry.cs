@@ -13,13 +13,13 @@ public sealed record GameEntry(
     /// <summary>Detected or overridden store/platform type.</summary>
     GameSourceKind GameSource,
     /// <summary>True if the user manually changed the source type.</summary>
-    bool Override,
+    bool IsSourceOverridden,
     /// <summary>Path to the primary game executable.</summary>
     string ExecutablePath,
     /// <summary>Path to the game's launcher executable (if any).</summary>
     string LauncherPath,
     /// <summary>Command-line arguments passed to the executable on launch.</summary>
-    string CmdlineArgs,
+    string CommandLineArguments,
     /// <summary>Path to the launcher manifest file (e.g., Steam ACF).</summary>
     string ManifestPath,
     /// <summary>Timestamp of the most recent scan that produced this entry.</summary>
@@ -30,4 +30,4 @@ public sealed record GameEntry(
     /// Platform-specific metadata. Common keys: SteamStatus, SteamAppId,
     /// AcfExpectedPath, AcfLibraryPath.
     /// </summary>
-    Dictionary<string, string> Extra);
+    Dictionary<string, string> PlatformMetadata);

@@ -4,7 +4,7 @@
 **Phase:** D — Complexity Reduction
 **Effort:** ~20 min
 **Risk:** Low
-**Status:** pending
+**Status:** ✅ merged into T17
 **Prerequisites:** T17 (JsonFileHelper extracted)
 
 ---
@@ -125,7 +125,7 @@ After T17 creates `JsonFileHelper`, integrate it into all three JSON-based servi
 
 ## Completion Notes
 
-- **Completed:**
-- **What was done:**
-- **Verification:**
-- **Issues encountered:**
+- **Completed:** 2026-07-19 (merged into T17)
+- **What was done:** All integration work was completed as part of T17. GamesDatabaseService, JsonConfigService, and BlacklistLoader all use JsonFileHelper.ReadFromFile/WriteToFile.
+- **Verification:** Build clean (0 errors), 17 tests passing.
+- **Issues encountered:** None

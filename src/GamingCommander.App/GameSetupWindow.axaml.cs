@@ -10,24 +10,25 @@ namespace GamingCommander.App;
 
 public partial class GameSetupWindow : Window
 {
-    private readonly GameEntry _original;
+    private readonly GameEntry _originalGame;
     private readonly string _rootPath;
     private readonly IConfigService _configService;
     private readonly IGamesDatabaseService _dbService;
 
+    /// <summary>The editable display name of the game.</summary>
     public string DisplayName { get; set; }
+    /// <summary>The currently selected game source type (e.g., "Steam", "GOG").</summary>
     public string SelectedType { get; set; }
+    /// <summary>The full path to the game's primary executable.</summary>
     public string ExecutablePath { get; set; }
+    /// <summary>The full path to the game's launcher executable (if any).</summary>
     public string LauncherPath { get; set; }
-    public string CmdlineArgs { get; set; }
+    /// <summary>Command-line arguments passed to the game on launch.</summary>
+    public string CommandLineArguments { get; set; }
+    /// <summary>The path to the game's store manifest file (Epic .item, etc.).</summary>
     public string ManifestPath { get; set; }
 
-    public string[] AvailableTypes { get; } =
-    [
-        "Standalone", "Steam", "GOG", "Epic", "EA App", "Ubisoft Connect",
-        "Battle.net", "Xbox", "Rockstar", "Steam Emulator",
-    ];
-
+    /// <summary>F4 game editing dialog. Allows user to modify game metadata (name, type, executable, launcher, args).</summary>
     public GameSetupWindow(
         GameEntry game,
         string rootPath,
@@ -36,7 +37,7 @@ public partial class GameSetupWindow : Window
     {
         InitializeComponent();
 
-        _original = game;
+        _originalGame = game;
         _rootPath = rootPath;
         _configService = configService;
         _dbService = dbService;
@@ -45,7 +46,7 @@ public partial class GameSetupWindow : Window
         SelectedType = game.GameSource.ToString();
         ExecutablePath = game.ExecutablePath;
         LauncherPath = game.LauncherPath;
-        CmdlineArgs = game.CmdlineArgs;
+        CommandLineArguments = game.CommandLineArguments;
         ManifestPath = game.ManifestPath;
 
         this.FindControl<TextBlock>("TitleText")!.Text = $"Configure: {game.DisplayName}";
@@ -60,12 +61,12 @@ public partial class GameSetupWindow : Window
         panel.Children.Clear();
 
         panel.Children.Add(MakeFieldRow("Display Name", DisplayName, 0, false, false, ""));
-        panel.Children.Add(MakeComboRow("Game Type", AvailableTypes, SelectedType, 1));
+        panel.Children.Add(MakeComboRow("Game Type", GameSourceParser.SourceDisplayNames, SelectedType, 1));
         panel.Children.Add(MakeFieldRow("Executable Path", ExecutablePath, 2, false, true, "Browse..."));
         panel.Children.Add(MakeFieldRow("Launcher Path", LauncherPath, 3, false, true, "Browse..."));
-        panel.Children.Add(MakeFieldRow("Launch Args", CmdlineArgs, 4, false, false, ""));
+        panel.Children.Add(MakeFieldRow("Launch Args", CommandLineArguments, 4, false, false, ""));
         panel.Children.Add(MakeFieldRow("Epic Manifest", ManifestPath, 5, false, true, "Browse..."));
-        panel.Children.Add(MakeFieldRow("Folder", _original.FolderName, 6, true, false, ""));
+        panel.Children.Add(MakeFieldRow("Folder", _originalGame.FolderName, 6, true, false, ""));
 
         var btnRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Margin = new Thickness(0, 16, 0, 0) };
 
@@ -105,7 +106,7 @@ public partial class GameSetupWindow : Window
         panel.Children.Add(btnRow);
     }
 
-    private StackPanel MakeFieldRow(string label, string value, int fieldIdx, bool readOnly, bool isFile, string pickerLabel)
+    private StackPanel MakeFieldRow(string label, string value, int fieldIndex, bool readOnly, bool isFile, string pickerLabel)
     {
         var textBox = new TextBox
         {
@@ -115,12 +116,12 @@ public partial class GameSetupWindow : Window
             Foreground = readOnly ? AppTheme.TextDimmed : AppTheme.TextPrimary,
         };
 
-        switch (fieldIdx)
+        switch (fieldIndex)
         {
             case 0: textBox.TextChanged += (_, _) => DisplayName = textBox.Text ?? ""; break;
             case 2: textBox.TextChanged += (_, _) => ExecutablePath = textBox.Text ?? ""; break;
             case 3: textBox.TextChanged += (_, _) => LauncherPath = textBox.Text ?? ""; break;
-            case 4: textBox.TextChanged += (_, _) => CmdlineArgs = textBox.Text ?? ""; break;
+            case 4: textBox.TextChanged += (_, _) => CommandLineArguments = textBox.Text ?? ""; break;
             case 5: textBox.TextChanged += (_, _) => ManifestPath = textBox.Text ?? ""; break;
         }
 
@@ -143,7 +144,7 @@ public partial class GameSetupWindow : Window
             };
             picker.Click += async (_, _) =>
             {
-                if (fieldIdx == 2 || fieldIdx == 3)
+                if (fieldIndex == 2 || fieldIndex == 3)
                 {
                     var result = await StorageProvider.OpenFilePickerAsync(
                         new FilePickerOpenOptions { Title = $"Select {label}", FileTypeFilter = [new FilePickerFileType("Executable") { Patterns = ["*.exe"] }] });
@@ -168,7 +169,7 @@ public partial class GameSetupWindow : Window
         return panel;
     }
 
-    private StackPanel MakeComboRow(string label, string[] items, string selected, int fieldIdx)
+    private StackPanel MakeComboRow(string label, string[] items, string selected, int fieldIndex)
     {
         var panel = new StackPanel { Spacing = 4 };
         panel.Children.Add(new TextBlock { Text = label, Foreground = AppTheme.TextMuted, FontSize = AppTheme.FontSizeLabel });
@@ -184,23 +185,26 @@ public partial class GameSetupWindow : Window
         return panel;
     }
 
+    /// <summary>
+    /// Saves the edited game entry to the database and closes the dialog.
+    /// </summary>
     private void SaveAndClose()
     {
         GameSourceKind newType = GameSourceParser.ParseFromString(SelectedType);
 
         AppConfig config = _configService.Load();
         GameSourceKind rootDefault = config.LibraryRoots
-            .FirstOrDefault(r => r.Path.Equals(_rootPath, StringComparison.OrdinalIgnoreCase))?
+            .FirstOrDefault(r => r.RootPath.Equals(_rootPath, StringComparison.OrdinalIgnoreCase))?
             .DefaultType ?? GameSourceKind.Standalone;
 
-        var updated = _original with
+        var updated = _originalGame with
         {
             DisplayName = DisplayName,
             GameSource = newType,
-            Override = newType != rootDefault,
+            IsSourceOverridden = newType != rootDefault,
             ExecutablePath = ExecutablePath,
             LauncherPath = LauncherPath,
-            CmdlineArgs = CmdlineArgs,
+            CommandLineArguments = CommandLineArguments,
             ManifestPath = ManifestPath,
         };
 
@@ -208,9 +212,12 @@ public partial class GameSetupWindow : Window
         Close();
     }
 
+    /// <summary>
+    /// Deletes the game entry from the database and closes the dialog.
+    /// </summary>
     private void DeleteAndClose()
     {
-        _dbService.DeleteGameEntry(_rootPath, _original.Id);
+        _dbService.DeleteGameEntry(_rootPath, _originalGame.Id);
         Close();
     }
 }

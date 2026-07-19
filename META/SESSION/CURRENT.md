@@ -6,7 +6,7 @@
 ---
 
 ## Phase
-**Stabilization & Feature Completion** — Bug fixes, test coverage, Standalone/Steam gaps, metadata lookup
+**Code Quality & Naming** — T58-T60 complete (naming fixes, XML docs, noise-check consolidation). Phase G T48-T57 still pending.
 
 ## Priority Roadmap
 1. **Bug Fixes & Stabilization (P0)** — Fix noise check divergence, close stale tech debt, fill test gaps
@@ -24,22 +24,22 @@
 6. ✅ Theme extraction — all hardcoded colors/fonts centralized
 7. ✅ VFS display enhancements — Plan 96 complete
 8. ✅ Documentation & code structure cleanup — T01–T15 complete (3 phases: docs, XML docs, code splits)
+9. ✅ Complexity reduction — T16–T22 complete (Phase D: shared helpers, extracted constants, unified methods, XML docs, JSON I/O)
+10. ✅ Code quality — T58–T60 complete (naming fixes, XML docs, noise-check consolidation)
 
 ## Known Issues Found During Investigation
 
 ### Bugs
-- **Static vs instance noise check divergence (HIGH)** — `IsNoiseExePattern()` uses only 25 hardcoded patterns; `IsNonGameExe()` uses full JSON blacklist. Presence detection misses JSON patterns.
+- ~~**Static vs instance noise check divergence (HIGH)**~~ ✅ Fixed by T21 — dead `IsNoiseExePattern()` deleted; all callers use `IsNoiseExeName`/`IsNoiseExeByPath` backed by full JSON blacklist.
 - **Blacklist tier flattening (MEDIUM)** — 21 tiers reduced to flat list at load; can't apply per-tier severity.
 - **Scoring ignores JSON blacklist (MEDIUM)** — Only ~10 hardcoded launcher patterns penalized.
 - **Stale TECH_DEBT entries** — Bugs 1-4 appear fixed in code but entries never closed.
 
 ### Test Coverage Gaps
-- `SteamLibraryScanner` — zero tests
-- `VdfParser` — zero tests
-- `BlacklistLoader` — zero tests
-- `GameEntryId` — zero tests
-- `LibraryManager` — zero tests
-- `GamesDatabaseService` — zero tests
+- `StoreSignalDetector` — zero tests (10 detection signals)
+- `LibraryManager` — zero tests (central orchestrator)
+- `GameSourceParser` — zero tests (string↔enum conversion)
+- `JsonConfigService` — zero tests (settings persistence)
 
 ## Completed This Session
 
@@ -134,6 +134,11 @@ All hardcoded colors and font sizes centralized to `App.axaml` Application.Resou
 - `MainWindow.axaml` left-pane ListBox — Title TextBlock bound to `ItemStatusColor` via `HexToBrushConverter`
 - `HexToBrushConverter` — empty string now returns `TextPrimary` (so non-game items keep default color)
 
+### Code Quality — T58–T60:
+- T58: Fixed 37 naming inaccuracies (Priority 1: public API renames — `Override`→`IsSourceOverridden`, `CmdlineArgs`→`CommandLineArguments`, `Extra`→`PlatformMetadata`, `Path`→`RootPath`, `Type`→`OverrideType`, `Size`→`SizeInBytes`, `Compute`→`ComputeId`, `AvailableTypes`→`SourceDisplayNames`; Priority 2: private field renames — `_db`→`_databaseService`, `idx`/`gIdx`→`rootIndex`/`gameIndex`, `_original`→`_originalGame`, `fieldIdx`→`fieldIndex`, `bgColor`/`textColor`→`backgroundBrush`/`bodyBrush`, VdfParser `idx`/`pos`→`lineIndex`/`charPos`, BlacklistLoader abbreviations→full names). JSON serialization boundary preserved via DTOs.
+- T59: Added 21 XML docs to private methods across FolderScanner (8), SteamLibraryScanner (5), ExecutableDiscovery (2), BlacklistData (1), AppTheme (2), GameSetupWindow (2), MigrationMode (1).
+- T60: Consolidated noise-check duplication into `FileSystemHelper.IsNoiseExeName` and `FileSystemHelper.IsNoiseDirectory`. Updated FolderScanner and ExecutableDiscovery to delegate to FileSystemHelper. SteamLibraryScanner kept separate (intentionally different 7-item subset).
+
 ### Documentation & Code Structure Cleanup (T01–T15 — Complete)
 
 **Phase A — Documentation Cleanup (T01–T07):**
@@ -157,8 +162,38 @@ All hardcoded colors and font sizes centralized to `App.axaml` Application.Resou
 - T14: Extracted `BlacklistData` record from `BlacklistLoader.cs` → `BlacklistData.cs`
 - T15: Extracted `LibraryRootEntry` and `WizardLibraryEntry` to their own files (2 new files)
 
+**Phase D — Complexity Reduction (T16–T22):**
+- T16: Extracted `FileSystemHelper.cs` — shared `GetDirectoriesSafe`, `GetFilesSafe`, `GetLastWriteTimeSafe` (removed from FolderScanner + SteamLibraryScanner)
+- T17: Extracted `JsonFileHelper.cs` — shared `ReadFromFile<T>`/`WriteToFile<T>` with parameterized options; integrated into GamesDatabaseService, JsonConfigService, BlacklistLoader
+- T18: Extracted `GameSourceParser.AvailableTypes` — single definition in Core; removed from 4 App files
+- T19: Renamed ambiguous variables — `p`→`pattern`/`steamPath`, `a/b`→`leftVersion/rightVersion`, `sid/eid`→`steamAppId/epicCatalogItemId`, `ov`→`folderOverride`, `swPath/svDir`→`steamworksPath/steamworksVersionDir`
+- T20: Added XML docs to ~20 public members across 8 files (GameSetupWindow, WizardWindow, LibrarySetupWindow, MainWindow, HexToBrushConverter, BlacklistLoader, ShellViewModel, Program)
+- T21: Deleted dead `IsNoiseExePattern`; renamed `IsNonGameExe`→`IsNoiseExeByPath`; kept `IsNoiseExeName` with XML docs
+- T22: Unified `NormalizeDisplayName` — extracted to FileSystemHelper with suffix stripping; removed from FolderScanner + SteamLibraryScanner
+
+**Phase D — Proactive Splits (T23–T29):**
+- T23: Extracted `StoreSignalDetector.cs` — `DetectType` + 10 signal methods (GOG, EA, Ubisoft, Epic, Blizzard, Xbox, Rockstar, Steam, SteamEmu) from FolderScanner
+- T24: Extracted `ExecutableDiscovery.cs` — `FindExecutablesDeep`, `ScoreExecutable`, `FindPrimaryExecutable`, `FindLauncherExecutable`, `ExeNameMatchesFolderName`, `FindEpicManifest` from FolderScanner. Moved `NoiseSubDirNames` to FileSystemHelper.
+- T25: Extracted `SteamAcfParser.cs` — `ParseAcfFile`, `DiscoverLibraryPaths`, `NormalizePath`, `AcfInfo` record from SteamLibraryScanner
+- T27: Extracted `HelpDialogBuilder.cs` — `ShowHelpAsync(Window)` from MainWindow (107 lines)
+- T26: Skipped — overengineered (two 10-case switch statements are clear as-is)
+- T28: Skipped — high risk, low value (ShellViewModel under 500-line limit, XAML binding changes error-prone)
+- T29: Skipped — trivial (LibraryManager.NormalizeLibraryRoot already exists, duplicate check is 1 line)
+
+**Phase E — Stabilization (T31–T40):**
+- T31: Verified Bugs 1-5 in TECH_DEBT.md are fixed, added verification dates
+- T32: Added `BlacklistTierEntry` record, `TieredExePatterns` property to BlacklistData, updated BlacklistLoader to populate tiered entries
+- T33: Updated `ScoreExecutable` to accept noise patterns and tier lookup, added tier-based penalty logic
+- T34: Created VdfParserTests.cs — 20 tests covering basic parsing, edge cases, error handling, Steam formats, ExtractFields
+- T35: Created BlacklistLoaderTests.cs — 11 tests covering loading, pattern verification, tier preservation, error handling
+- T36: Created SteamLibraryScannerTests.cs — 14 tests covering scanning, ACF parsing, cross-library detection, status fields, ScanAll
+- T37: Added 3 noise-check regression tests for Bug 5 to ScannerFilterTests.cs
+- T38: Created ExecutableScoringTests.cs — 10 tests covering token matching, launcher penalties, noise tier penalties, shipping/Win64 bonuses, file size, combined factors
+- T39: Created GameEntryIdTests.cs — 8 tests covering determinism, uniqueness, format, edge cases
+- T40: Created GamesDatabaseServiceTests.cs — 16 tests covering Load/Save, CRUD, caching, rescan, multi-root isolation
+
 ## Test Status
-**17 tests passing** (5 Core + 1 Migration + 11 App). Build clean, 0 errors. 4 Avalonia AVLN3001 warnings (cosmetic).
+**99 tests passing** (33 Core + 1 Migration + 65 App). Build clean, 0 errors, 0 warnings (previously 4 Avalonia warnings also resolved).
 
 ## Next Session Notes
 - **detect.py refactoring needed** — ~1800 lines, needs planning for module split

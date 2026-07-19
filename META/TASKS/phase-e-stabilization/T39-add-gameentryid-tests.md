@@ -4,7 +4,7 @@
 **Phase:** E — Stabilization
 **Effort:** ~20 min
 **Risk:** Minimal
-**Status:** pending
+**Status:** ✅ completed
 
 ---
 
@@ -45,19 +45,19 @@
 
 ## Requirements
 
-- [ ] Test file created with 8 test methods
-- [ ] All tests pass: `dotnet test --filter "FullyQualifiedName~GameEntryIdTests"`
-- [ ] Tests verify determinism, uniqueness, format, and edge cases
+- [x] Test file created with 8 test methods
+- [x] All tests pass: `dotnet test --filter "FullyQualifiedName~GameEntryIdTests"`
+- [x] Tests verify determinism, uniqueness, format, and edge cases
 
 ## Verification
 
-- [ ] `dotnet build` passes (0 errors)
-- [ ] `dotnet test` passes (now 80+ tests)
-- [ ] `dotnet test --filter "FullyQualifiedName~GameEntryIdTests"` shows all tests passing
+- [x] `dotnet build` passes (0 errors)
+- [x] `dotnet test` passes (now 83 tests: 33 Core + 1 Migration + 49 App)
+- [x] `dotnet test --filter "FullyQualifiedName~GameEntryIdTests"` shows 8 tests passing
 
 ## Completion Notes
 
-- **Completed:**
-- **What was done:**
-- **Verification:**
-- **Issues encountered:**
+- **Completed:** 2026-07-19
+- **What was done:** Created GameEntryIdTests.cs with 8 tests covering determinism (same inputs → same ID), uniqueness (different folders/roots → different IDs), format (16-char lowercase hex), and edge cases (empty folder name, special characters).
+- **Verification:** Build clean, 83 tests passing.
+- **Issues encountered:** None.

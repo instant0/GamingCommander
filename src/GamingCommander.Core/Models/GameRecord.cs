@@ -1,5 +1,3 @@
-using GamingCommander.Core.Models;
-
 namespace GamingCommander.Core.Models;
 
 /// <summary>

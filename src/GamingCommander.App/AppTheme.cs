@@ -56,6 +56,9 @@ public static class AppTheme
     public static double FontSizeTitle => GetDouble("FontSizeTitle");
     public static double FontSizeAppTitle => GetDouble("FontSizeAppTitle");
 
+    /// <summary>
+    /// Resolves a SolidColorBrush from the Application resource dictionary by semantic key.
+    /// </summary>
     private static SolidColorBrush Get(string key)
     {
         if (Application.Current?.TryFindResource(key, out var value) == true)
@@ -67,6 +70,9 @@ public static class AppTheme
         return new SolidColorBrush(Colors.Gray);
     }
 
+    /// <summary>
+    /// Resolves a double value from the Application resource dictionary by semantic key.
+    /// </summary>
     private static double GetDouble(string key)
     {
         if (Application.Current?.TryFindResource(key, out var value) == true && value is double d)

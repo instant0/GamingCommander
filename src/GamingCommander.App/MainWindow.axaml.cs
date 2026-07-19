@@ -1,10 +1,7 @@
 using System.Diagnostics;
-using System.Linq;
-using System.Reflection;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
@@ -25,6 +22,7 @@ public partial class MainWindow : Window
 
     private LibraryManager? _libraryManager;
 
+    /// <summary>Primary application window. Manages dual-pane navigation, keyboard shortcuts, and game launching.</summary>
     public MainWindow(ShellViewModel shellViewModel, IGamesDatabaseService dbService)
     {
         try
@@ -51,7 +49,7 @@ public partial class MainWindow : Window
         AppConfig config = _configService.Load();
         var steamPaths = config.LibraryRoots
             .Where(r => r.DefaultType == GameSourceKind.Steam)
-            .Select(r => r.Path);
+            .Select(r => r.RootPath);
         _steamScanner = new SteamLibraryScanner(steamPaths);
 
         _libraryManager = new LibraryManager(_configService, _dbService, _scanner, _steamScanner);
@@ -150,7 +148,7 @@ public partial class MainWindow : Window
                 break;
 
             case Key.F1:
-                await ShowHelpAsync();
+                _ = HelpDialogBuilder.ShowHelpAsync(this);
                 e.Handled = true;
                 break;
 
@@ -254,7 +252,7 @@ public partial class MainWindow : Window
 
             if (target.StartsWith("steam://", StringComparison.OrdinalIgnoreCase))
             {
-                Process.Start(new ProcessStartInfo
+                using var proc = Process.Start(new ProcessStartInfo
                 {
                     FileName = target,
                     UseShellExecute = true,
@@ -262,11 +260,11 @@ public partial class MainWindow : Window
             }
             else
             {
-                Process.Start(new ProcessStartInfo
+                using var proc = Process.Start(new ProcessStartInfo
                 {
                     FileName = target,
                     UseShellExecute = true,
-                    WorkingDirectory = Path.GetDirectoryName(target),
+                    WorkingDirectory = Path.GetDirectoryName(target) ?? "",
                 });
             }
 
@@ -303,11 +301,13 @@ public partial class MainWindow : Window
 
         var dbService = GetDbService();
         var configService = GetConfigService();
-        var games = dbService.GetGamesForRoot(_viewModel.GetCurrentRootPath()!);
+        string? rootPath = _viewModel.GetCurrentRootPath();
+        if (rootPath is null) return;
+        var games = dbService.GetGamesForRoot(rootPath);
         var game = games.FirstOrDefault(g => g.Id == item.GameId);
         if (game is null) return;
 
-        var window = new GameSetupWindow(game, _viewModel.GetCurrentRootPath()!, configService, dbService);
+        var window = new GameSetupWindow(game, rootPath, configService, dbService);
         await window.ShowDialog(this);
 
         _viewModel.Reload();
@@ -329,7 +329,7 @@ public partial class MainWindow : Window
 
             _libraryManager.Refresh();
             int totalGames = config.LibraryRoots.Sum(
-                r => _libraryManager.GetGamesForRoot(r.Path).Count);
+                r => _libraryManager.GetGamesForRoot(r.RootPath).Count);
             _viewModel.Reload();
             _viewModel.StatusText = $"Rescanned {config.LibraryRoots.Count} root(s), found {totalGames} game(s).";
             return Task.CompletedTask;
@@ -339,7 +339,7 @@ public partial class MainWindow : Window
         string rootPath = _viewModel.CurrentRootPath;
         var cfg = GetConfigService().Load();
         var matchedRoot = cfg.LibraryRoots.FirstOrDefault(r =>
-            r.Path.Equals(rootPath, StringComparison.OrdinalIgnoreCase));
+            r.RootPath.Equals(rootPath, StringComparison.OrdinalIgnoreCase));
         if (matchedRoot is null) return Task.CompletedTask;
 
         var scannedGames = _libraryManager.SelectScannerAndScan(rootPath, matchedRoot.DefaultType);
@@ -377,115 +377,6 @@ public partial class MainWindow : Window
         _viewModel!.StatusText = $"Added root: {result}";
     }
 
-    private async Task ShowHelpAsync()
-    {
-        string version = Assembly.GetEntryAssembly()?.GetName()?.Version?.ToString(3) ?? "0.0.0";
-        var textColor = AppTheme.TextSecondary;
-        var headerColor = AppTheme.TextAccent;
-        var keyColor = AppTheme.TextHighlight;
-        var bgColor = AppTheme.PaneBg;
-
-        var keys = new (string key, string desc)[]
-        {
-            ("F1", "Help — this window"),
-            ("F2", "Library Setup — add/remove/rescan folders"),
-            ("F3", "View game metadata (coming soon)"),
-            ("F4", "Edit game type / tags"),
-            ("F5", "Launch selected game"),
-            ("F6", "Rescan current folder or all roots"),
-            ("F7", "Add a library root folder"),
-            ("F8", "Filter/category view (coming soon)"),
-            ("F9", "Jump to library roots"),
-            ("F10", "Quit GamingCommander"),
-            ("Enter", "Launch game / drill into folder"),
-            ("Esc / Backspace", "Go up one level"),
-            ("Up / Down", "Navigate list"),
-        };
-
-        var panel = new StackPanel { Spacing = 8, Background = bgColor };
-
-        panel.Children.Add(new TextBlock
-        {
-            Text = "GamingCommander",
-            FontSize = AppTheme.FontSizeAppTitle,
-            FontWeight = FontWeight.Bold,
-            Foreground = headerColor,
-        });
-        panel.Children.Add(new TextBlock
-        {
-            Text = $"Version {version}",
-            FontSize = AppTheme.FontSizeBody,
-            Foreground = textColor,
-            Margin = new Thickness(0, 0, 0, 8),
-        });
-        panel.Children.Add(new TextBlock
-        {
-            Text = "A Norton Commander-style game launcher and library manager.",
-            TextWrapping = TextWrapping.Wrap,
-            FontSize = AppTheme.FontSizeBody,
-            Foreground = textColor,
-            Margin = new Thickness(0, 0, 0, 12),
-        });
-
-        panel.Children.Add(new TextBlock
-        {
-            Text = "Keyboard Reference",
-            FontSize = AppTheme.FontSizeSubHeader,
-            FontWeight = FontWeight.Bold,
-            Foreground = headerColor,
-            Margin = new Thickness(0, 0, 0, 4),
-        });
-
-        foreach (var (key, desc) in keys)
-        {
-            var row = new Grid
-            {
-                ColumnDefinitions =
-                [
-                    new ColumnDefinition(140, GridUnitType.Pixel),
-                    new ColumnDefinition(1, GridUnitType.Star),
-                ],
-                Margin = new Thickness(0, 2),
-            };
-            row.Children.Add(new TextBlock { Text = key, Foreground = keyColor, FontWeight = FontWeight.Bold, FontSize = AppTheme.FontSizeBody });
-            row.Children.Add(new TextBlock { Text = desc, Foreground = textColor, FontSize = AppTheme.FontSizeBody, Margin = new Thickness(8, 0, 0, 0) });
-            Grid.SetColumn(row.Children[1], 1);
-            panel.Children.Add(row);
-        }
-
-        panel.Children.Add(new TextBlock
-        {
-            Text = "\nData is stored in the app's data/ directory. No game files are modified.",
-            TextWrapping = TextWrapping.Wrap,
-            Foreground = textColor,
-            FontSize = AppTheme.FontSizeLabel,
-            FontStyle = FontStyle.Italic,
-            Margin = new Thickness(0, 12, 0, 0),
-        });
-
-        var helpWindow = new Window
-        {
-            Title = "Help — GamingCommander",
-            Width = 480,
-            Height = 520,
-            CanResize = false,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            SystemDecorations = SystemDecorations.Full,
-            Content = new ScrollViewer
-            {
-                Background = bgColor,
-                Content = new Border
-                {
-                    Padding = new Thickness(20),
-                    Background = bgColor,
-                    Child = panel,
-                },
-            },
-        };
-
-        await helpWindow.ShowDialog(this);
-    }
-
     private void LeftListBox_DoubleTapped(object? sender, Avalonia.Input.TappedEventArgs e)
     {
         var item = _viewModel?.SelectedItem;
@@ -507,7 +398,7 @@ public partial class MainWindow : Window
         switch (hotkey)
         {
             case "F1":
-                _ = ShowHelpAsync();
+                _ = HelpDialogBuilder.ShowHelpAsync(this);
                 break;
             case "F2":
                 _ = OpenLibrarySetupAsync();

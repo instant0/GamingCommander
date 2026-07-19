@@ -4,7 +4,15 @@
 **Phase:** D — Complexity Reduction
 **Effort:** ~30 min
 **Risk:** Low
-**Status:** pending
+**Status:** ⏭️ skipped — high risk, low value
+
+---
+
+## Evaluation Notes (2026-07-19)
+
+**Reason for skipping:** ShellViewModel is 384 lines (under 500-line limit). The 15 detail properties are simple pass-throughs to `SelectedItem` — no complex logic to extract. The XAML binding update (16+ changes from `{Binding DetailsName}` to `{Binding Details.DetailsName}`) is mechanical but error-prone — a missed binding would cause silent UI breakage. Additionally:
+- Task lists 15 properties but claims 17 — missing `HasGameSelected`
+- Future features (categories, search, metadata) will add more properties, but that's when the split should happen
 **Prerequisites:** None
 
 ---

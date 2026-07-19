@@ -4,7 +4,17 @@
 **Phase:** D — Complexity Reduction
 **Effort:** ~25 min
 **Risk:** Low
-**Status:** pending
+**Status:** ⏭️ skipped — overengineered
+
+---
+
+## Evaluation Notes (2026-07-19)
+
+**Reason for skipping:** The two F-key switch statements (OnKeyDown: 10 cases, CommandButtonPressed: 10 cases) are short, readable, and maintainable as-is. The proposed dispatcher class adds delegate registration complexity (`RegisterKey`, `RegisterHotkey`) for no real benefit. Additionally:
+- Cross-reference error: task says "T25 will use" but T25 is SteamAcfParser
+- `DispatchKey` modifier check (`KeyModifiers.None`) is wrong — F-keys work without modifier check in actual code
+- Fire-and-forget `_ = handler()` loses await semantics from OnKeyDown
+- Class should be `internal` not `public` (same assembly only)
 **Prerequisites:** None
 
 ---

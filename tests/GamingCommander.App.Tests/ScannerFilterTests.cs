@@ -118,4 +118,131 @@ public sealed class ScannerFilterTests
         Assert.DoesNotContain(results, g =>
             g.FolderName.Equals("SteamEmuEpsilon", StringComparison.OrdinalIgnoreCase));
     }
+
+    // ════════════════════════════════════════════════════════════════
+    //  Bug 5 Regression Tests — Instance noise check sees JSON patterns
+    // ════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Regression test for Bug 5: The instance noise-check method must see
+    /// JSON-blacklisted patterns (blender, python, scummvm, server, editor)
+    /// that the old static method missed.
+    /// Folders containing ONLY these noise exes should be excluded.
+    /// </summary>
+    [Fact]
+    public void Scan_FolderWithJsonBlacklistedNoise_IsExcluded()
+    {
+        string tempRoot = Path.Combine(Path.GetTempPath(), "NoiseTest_" + Guid.NewGuid().ToString("N")[..8]);
+        try
+        {
+            Directory.CreateDirectory(tempRoot);
+
+            // Create a folder with only "blender.exe" — a JSON-blacklisted pattern
+            string gameDir = Path.Combine(tempRoot, "BlenderProject");
+            Directory.CreateDirectory(gameDir);
+            File.WriteAllText(Path.Combine(gameDir, "blender.exe"), "");
+
+            // Create a valid game folder so scanner has something to return if it works
+            string validDir = Path.Combine(tempRoot, "ValidGame");
+            Directory.CreateDirectory(validDir);
+            File.WriteAllText(Path.Combine(validDir, "ValidGame.exe"), "");
+
+            // Use custom noise patterns that include "blender" (was previously only
+            // visible to the old static method)
+            var blacklist = new BlacklistData(
+                ExeNamePatterns: ["blender", "python", "scummvm", "server", "editor"],
+                TieredExePatterns: [],
+                DirectoryPatterns: [],
+                PeMetadataPatterns: [],
+                PcgwTitleNoise: []);
+            var scanner = new FolderScanner([], blacklist);
+
+            var results = scanner.Scan(tempRoot, GameSourceKind.Standalone);
+
+            // "BlenderProject" should be excluded because its only exe matches a noise pattern
+            Assert.DoesNotContain(results, g =>
+                g.FolderName.Equals("BlenderProject", StringComparison.OrdinalIgnoreCase));
+
+            // "ValidGame" should still be included
+            Assert.Contains(results, g =>
+                g.FolderName.Equals("ValidGame", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+                Directory.Delete(tempRoot, true);
+        }
+    }
+
+    /// <summary>
+    /// Regression test for Bug 5: Folders with multiple JSON-blacklisted exes
+    /// should all be excluded.
+    /// </summary>
+    [Fact]
+    public void Scan_FolderWithMultipleJsonNoiseExes_IsExcluded()
+    {
+        string tempRoot = Path.Combine(Path.GetTempPath(), "NoiseTest_" + Guid.NewGuid().ToString("N")[..8]);
+        try
+        {
+            Directory.CreateDirectory(tempRoot);
+
+            string gameDir = Path.Combine(tempRoot, "PythonScripts");
+            Directory.CreateDirectory(gameDir);
+            File.WriteAllText(Path.Combine(gameDir, "python3.exe"), "");
+            File.WriteAllText(Path.Combine(gameDir, "server.exe"), "");
+
+            var blacklist = new BlacklistData(
+                ExeNamePatterns: ["python", "server"],
+                TieredExePatterns: [],
+                DirectoryPatterns: [],
+                PeMetadataPatterns: [],
+                PcgwTitleNoise: []);
+            var scanner = new FolderScanner([], blacklist);
+
+            var results = scanner.Scan(tempRoot, GameSourceKind.Standalone);
+
+            Assert.DoesNotContain(results, g =>
+                g.FolderName.Equals("PythonScripts", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+                Directory.Delete(tempRoot, true);
+        }
+    }
+
+    /// <summary>
+    /// Negative case: A folder with a non-noise exe should NOT be excluded.
+    /// </summary>
+    [Fact]
+    public void Scan_FolderWithNonNoiseExe_IsIncluded()
+    {
+        string tempRoot = Path.Combine(Path.GetTempPath(), "NoiseTest_" + Guid.NewGuid().ToString("N")[..8]);
+        try
+        {
+            Directory.CreateDirectory(tempRoot);
+
+            string gameDir = Path.Combine(tempRoot, "MyGame");
+            Directory.CreateDirectory(gameDir);
+            File.WriteAllText(Path.Combine(gameDir, "MyGame.exe"), "");
+
+            var blacklist = new BlacklistData(
+                ExeNamePatterns: ["setup", "installer"],
+                TieredExePatterns: [],
+                DirectoryPatterns: [],
+                PeMetadataPatterns: [],
+                PcgwTitleNoise: []);
+            var scanner = new FolderScanner([], blacklist);
+
+            var results = scanner.Scan(tempRoot, GameSourceKind.Standalone);
+
+            Assert.Contains(results, g =>
+                g.FolderName.Equals("MyGame", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+                Directory.Delete(tempRoot, true);
+        }
+    }
 }

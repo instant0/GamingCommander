@@ -10,7 +10,7 @@ namespace GamingCommander.App.Services;
 /// </summary>
 public sealed class BlacklistLoader
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    private static readonly JsonSerializerOptions BlacklistOptions = new()
     {
         PropertyNameCaseInsensitive = true,
         ReadCommentHandling = JsonCommentHandling.Skip,
@@ -19,6 +19,7 @@ public sealed class BlacklistLoader
 
     private readonly string _basePath;
 
+    /// <summary>Creates a new blacklist loader that reads from data/blacklist.json relative to the given base path.</summary>
     public BlacklistLoader(string basePath)
     {
         _basePath = basePath;
@@ -33,35 +34,34 @@ public sealed class BlacklistLoader
     {
         string jsonPath = Path.Combine(_basePath, "data", "blacklist.json");
 
-        if (!File.Exists(jsonPath))
+        BlacklistDto? dto = JsonFileHelper.ReadFromFile<BlacklistDto>(
+            jsonPath,
+            () => new BlacklistDto(),
+            BlacklistOptions);
+        if (dto?.ExeNamePatterns is null)
             return BlacklistData.Empty;
 
-        try
+        // Build tiered entries with tier numbers preserved
+        var tieredEntries = new List<BlacklistTierEntry>();
+        foreach (var (tierNumber, patterns) in dto.ExeNamePatterns.GetTieredTiers())
         {
-            string json = File.ReadAllText(jsonPath);
-            var dto = JsonSerializer.Deserialize<BlacklistDto>(json, JsonOptions);
-            if (dto?.ExeNamePatterns is null)
-                return BlacklistData.Empty;
-
-            var exePatterns = new List<string>();
-            foreach (var tier in dto.ExeNamePatterns.GetTiers())
-                exePatterns.AddRange(tier);
-
-            var dirPatterns = dto.DirectoryPatterns?.Patterns ?? [];
-            var peMetaPatterns = dto.PeMetadataBlacklist?.Patterns ?? [];
-            var pcgwNoise = dto.PcgwPageTitleNoise?.Patterns ?? [];
-
-            return new BlacklistData(
-                ExeNamePatterns: exePatterns,
-                DirectoryPatterns: dirPatterns,
-                PeMetadataPatterns: peMetaPatterns,
-                PcgwTitleNoise: pcgwNoise);
+            foreach (string pattern in patterns)
+                tieredEntries.Add(new BlacklistTierEntry(pattern, tierNumber));
         }
-        catch
-        {
-            // Silently return empty blacklist on parse failure
-            return BlacklistData.Empty;
-        }
+
+        // Backward-compatible flat list (all patterns, no tier info)
+        var flatPatterns = tieredEntries.Select(t => t.Pattern).ToList();
+
+        var directoryPatterns = dto.DirectoryPatterns?.Patterns ?? [];
+        var peMetadataPatterns = dto.PeMetadataBlacklist?.Patterns ?? [];
+        var pcgwTitleNoise = dto.PcgwPageTitleNoise?.Patterns ?? [];
+
+        return new BlacklistData(
+            ExeNamePatterns: flatPatterns,
+            TieredExePatterns: tieredEntries,
+            DirectoryPatterns: directoryPatterns,
+            PeMetadataPatterns: peMetadataPatterns,
+            PcgwTitleNoise: pcgwTitleNoise);
     }
 
     // ── DTO for deserialization ──────────────────────────────────────────
@@ -172,6 +172,35 @@ public sealed class BlacklistLoader
             if (Tier19UnrealBuildTools is { Count: > 0 }) yield return Tier19UnrealBuildTools;
             if (Tier20PatchUpdate is { Count: > 0 }) yield return Tier20PatchUpdate;
             if (Tier21UtilityTools is { Count: > 0 }) yield return Tier21UtilityTools;
+        }
+
+        /// <summary>
+        /// Returns tier lists with their tier numbers, for building TieredExePatterns.
+        /// Each tuple contains (tierNumber, patterns).
+        /// </summary>
+        public IEnumerable<(int Tier, List<string> Patterns)> GetTieredTiers()
+        {
+            if (Tier1UniversalNoise is { Count: > 0 }) yield return (1, Tier1UniversalNoise);
+            if (Tier2LauncherStubs is { Count: > 0 }) yield return (2, Tier2LauncherStubs);
+            if (Tier3StoreBootstraps is { Count: > 0 }) yield return (3, Tier3StoreBootstraps);
+            if (Tier4AnticheatDrm is { Count: > 0 }) yield return (4, Tier4AnticheatDrm);
+            if (Tier5UnrealBuildDebug is { Count: > 0 }) yield return (5, Tier5UnrealBuildDebug);
+            if (Tier6CrashReporting is { Count: > 0 }) yield return (6, Tier6CrashReporting);
+            if (Tier7DrmWrappers is { Count: > 0 }) yield return (7, Tier7DrmWrappers);
+            if (Tier8InstallerUtilities is { Count: > 0 }) yield return (8, Tier8InstallerUtilities);
+            if (Tier9ServerLoaderStub is { Count: > 0 }) yield return (9, Tier9ServerLoaderStub);
+            if (Tier10DistributionTools is { Count: > 0 }) yield return (10, Tier10DistributionTools);
+            if (Tier11DevEditorTools is { Count: > 0 }) yield return (11, Tier11DevEditorTools);
+            if (Tier12UtilitiesDebug is { Count: > 0 }) yield return (12, Tier12UtilitiesDebug);
+            if (Tier13TrialDemoStub is { Count: > 0 }) yield return (13, Tier13TrialDemoStub);
+            if (Tier14MediaCodecTools is { Count: > 0 }) yield return (14, Tier14MediaCodecTools);
+            if (Tier15InstallerFrameworks is { Count: > 0 }) yield return (15, Tier15InstallerFrameworks);
+            if (Tier16RuntimeInterpreters is { Count: > 0 }) yield return (16, Tier16RuntimeInterpreters);
+            if (Tier17WebUiOverlay is { Count: > 0 }) yield return (17, Tier17WebUiOverlay);
+            if (Tier18RepairServiceHelper is { Count: > 0 }) yield return (18, Tier18RepairServiceHelper);
+            if (Tier19UnrealBuildTools is { Count: > 0 }) yield return (19, Tier19UnrealBuildTools);
+            if (Tier20PatchUpdate is { Count: > 0 }) yield return (20, Tier20PatchUpdate);
+            if (Tier21UtilityTools is { Count: > 0 }) yield return (21, Tier21UtilityTools);
         }
     }
 

@@ -4,7 +4,7 @@
 **Phase:** E — Stabilization
 **Effort:** ~30 min
 **Risk:** Minimal
-**Status:** pending
+**Status:** ✅ completed
 **Prerequisites:** T29 (Blacklist tier preservation)
 
 ---
@@ -50,21 +50,21 @@
 
 ## Requirements
 
-- [ ] Test file created with 10+ test methods
-- [ ] All tests pass: `dotnet test --filter "FullyQualifiedName~BlacklistLoaderTests"`
-- [ ] Tests use temporary directories with mock JSON files
-- [ ] Tests verify both success and error paths
-- [ ] Tests verify tier preservation (after T29)
+- [x] Test file created with 11 test methods
+- [x] All tests pass: `dotnet test --filter "FullyQualifiedName~BlacklistLoaderTests"`
+- [x] Tests use temporary directories with mock JSON files
+- [x] Tests verify both success and error paths
+- [x] Tests verify tier preservation
 
 ## Verification
 
-- [ ] `dotnet build` passes (0 errors)
-- [ ] `dotnet test` passes (now 42+ tests)
-- [ ] `dotnet test --filter "FullyQualifiedName~BlacklistLoaderTests"` shows all tests passing
+- [x] `dotnet build` passes (0 errors)
+- [x] `dotnet test` passes (now 48 tests: 25 Core + 1 Migration + 22 App)
+- [x] `dotnet test --filter "FullyQualifiedName~BlacklistLoaderTests"` shows 11 tests passing
 
 ## Completion Notes
 
-- **Completed:**
-- **What was done:**
-- **Verification:**
-- **Issues encountered:**
+- **Completed:** 2026-07-19
+- **What was done:** Created BlacklistLoaderTests.cs with 11 tests covering: loading (4), pattern verification (2), tier preservation (4), error handling (1). Uses temporary directories with mock JSON files.
+- **Verification:** Build clean, 48 tests passing.
+- **Issues encountered:** None
