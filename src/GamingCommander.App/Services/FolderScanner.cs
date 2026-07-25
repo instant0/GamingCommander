@@ -330,6 +330,7 @@ public sealed class FolderScanner
     /// <summary>
     /// Recursively scans child directories of a container (store/publisher folder) for game entries.
     /// Bounded to maxDepth 2 (container → child → grandchild).
+    /// Organization detection: ≥2 children with game signals → recurse into all.
     /// </summary>
     private void ScanContainerChildren(
         List<GameEntry> entries, DirectoryInfo containerDir,
@@ -339,7 +340,7 @@ public sealed class FolderScanner
 
         var children = FileSystemHelper.GetDirectoriesSafe(containerDir.FullName);
 
-        // First pass: count children with game signals (for organization detection)
+        // Count children with game signals (for organization detection)
         int gameSignalCount = 0;
         foreach (DirectoryInfo child in children)
         {
@@ -352,7 +353,6 @@ public sealed class FolderScanner
             }
         }
 
-        // Second pass: process children
         foreach (DirectoryInfo child in children)
         {
             if (_hiddenFolderNames.Contains(child.Name))
@@ -362,42 +362,34 @@ public sealed class FolderScanner
 
             GameSourceKind childType = StoreSignalDetector.DetectType(child);
 
-            // Tier 1 — Store signals (GOG, EA, Ubisoft, etc.) — always promote
+            // Store signals — always promote
             if (childType != GameSourceKind.Unknown)
             {
                 AddGameEntry(entries, child, rootPath, childType, defaultType);
                 continue;
             }
 
-            // Organization folder: ≥2 game children → recurse into all, promote standalone
-            if (gameSignalCount >= 2)
+            // Organization (≥2 game children) or single game child — promote standalone
+            if (gameSignalCount >= 1)
             {
                 if (HasRootExecutableSignal(child) || HasUnrealLayoutSignal(child))
                 {
                     AddGameEntry(entries, child, rootPath, GameSourceKind.Standalone, defaultType);
                     continue;
                 }
-                ScanContainerChildren(entries, child, rootPath, defaultType, depth + 1);
-                continue;
-            }
-
-            // Single game child or publisher pattern: only recurse (don't promote standalone)
-            if (gameSignalCount == 1 && (HasRootExecutableSignal(child) || HasUnrealLayoutSignal(child)))
-            {
-                // Single game child — this IS the game, but parent isn't a container
-                // Don't add it here; let it be found by the caller's own scanning logic
-                continue;
-            }
-
-            // Publisher folder pattern: only subdirs, no files → recurse
-            if (gameSignalCount == 0)
-            {
-                FileInfo[] files = child.GetFiles("*", SearchOption.TopDirectoryOnly);
-                if (files.Length == 0 && child.GetDirectories().Length > 0)
+                // Organization: recurse into children without direct signals
+                if (gameSignalCount >= 2)
                 {
                     ScanContainerChildren(entries, child, rootPath, defaultType, depth + 1);
-                    continue;
                 }
+                continue;
+            }
+
+            // Publisher folder pattern: root has only dirs, no game children → recurse
+            FileInfo[] files = child.GetFiles("*", SearchOption.TopDirectoryOnly);
+            if (files.Length == 0 && child.GetDirectories().Length > 0)
+            {
+                ScanContainerChildren(entries, child, rootPath, defaultType, depth + 1);
             }
         }
     }

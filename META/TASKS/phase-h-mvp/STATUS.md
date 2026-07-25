@@ -41,7 +41,7 @@
 | T65 | [GOG goggame info parser](T65-gog-info-parser.md) | WP-3 | P0 | Complete |
 | T66 | [UE-aware exe discovery](T66-ue-aware-exe-discovery.md) | WP-3 | P0 | Complete |
 | T67 | [.lnk shortcut exe resolution](T67-lnk-shortcut-resolution.md) | WP-3 | P0 | Complete |
-| T68 | [Container recursion improvements](T68-container-recursion.md) | WP-3 | P0 | Pending |
+| T68 | [Container recursion improvements](T68-container-recursion.md) | WP-3 | P0 | Complete |
 | T69 | [Launch UX polish](T69-launch-ux-polish.md) | WP-4 | P1 | Pending |
 | T70 | [Windows smoke gate](T70-windows-smoke-gate.md) | WP-5 | P0 | Pending |
 | T65b | [Title & exe selection dialogs](T65b-title-exe-selection-dialogs.md) | WP-4 | P1 | Pending |

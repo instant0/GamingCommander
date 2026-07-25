@@ -236,6 +236,21 @@ All hardcoded colors and font sizes centralized to `App.axaml` Application.Resou
 - `ResolveExeFromLnk` searches root + subdirs (3 levels) for the target exe, handles backup renames
 - Integrated into `FolderScanner.AddGameEntry()` as fallback when primary exe discovery fails
 - Created `LnkParserTests.cs` — 13 tests covering extraction, resolution, fuzzy matching, edge cases
+- Build clean, 120 tests passing
+
+### MVP — T68: Container Recursion & Organization Detection (Complete)
+- `HasUnrealLayoutSignal` now checks all UE platforms (Win64, Win32, WinGDK, Steam) — not just Win64
+- Added UE3 fast path: `Binaries/{platform}/*.exe` at root (no Engine/ required)
+- Organization folder detection: ≥2 children with game signals → parent is organization → recurse
+- Publisher folder pattern: dirs-only root → recurse into grandchildren
+- Non-game folder filtering: `s_nonGameFolderNames` + `NoiseSubDirNames` (Soundtrack, Manuals, _CommonRedist, etc.)
+- Bounded recursion (max depth 2)
+- Created `FolderScannerContainerTests.cs` — 13 tests covering UE3/UE4/Win32/WinGDK, organization, non-game, publisher, depth
+- Build clean, 120 tests passing
+- Created `LnkParser.cs` — parses .lnk binary files via latin-1 decode + regex to extract exe names
+- `ResolveExeFromLnk` searches root + subdirs (3 levels) for the target exe, handles backup renames
+- Integrated into `FolderScanner.AddGameEntry()` as fallback when primary exe discovery fails
+- Created `LnkParserTests.cs` — 13 tests covering extraction, resolution, fuzzy matching, edge cases
 - Build clean, 107 tests passing
 - Replaced hardcoded Win64/WinGDK probes with platform loop (`Win64`, `Win32`, `WinGDK`, `Steam`) matching `detect.py _find_game_executables` behavior
 - Added `child/bin/` probe for older UE games (Gothic, Jagged Alliance)
@@ -245,7 +260,7 @@ All hardcoded colors and font sizes centralized to `App.axaml` Application.Resou
 - Build clean, 128 tests passing
 
 ## Test Status
-**107 tests passing** (33 Core + 1 Migration + 73 App). Build clean, 0 errors, 0 warnings.
+**120 tests passing** (33 Core + 1 Migration + 86 App). Build clean, 0 errors, 0 warnings.
 
 ## Next Session Notes
 - **MVP plan written** — `planning/100-mvp-next-steps.md`; session NEXT re-aimed

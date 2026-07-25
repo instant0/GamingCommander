@@ -16,7 +16,7 @@
 |----|------|----------|
 | **WP-1** | **Fix launch pipeline** — T61 ✅, T62 ✅, T63 cancelled | **P0 COMPLETE** |
 | **WP-2** | **First-run defaults** — T64 ✅ | **P0 COMPLETE** |
-| **WP-3** | **C# detection parity** — T65 ✅, T66 ✅, T67 ✅, T68 | **P0 next** |
+| **WP-3** | **C# detection parity** — T65 ✅, T66 ✅, T67 ✅, T68 ✅ | **P0 COMPLETE** |
 | WP-4 | Launch UX polish — T69 | P1 |
 | WP-5 | Windows smoke gate — T70 | P0 gate |
 
@@ -61,6 +61,6 @@ Fix in `ShellViewModel.LoadGamesForRoot` + `MainWindow.LaunchSelectedGameAsync` 
 - T63: Cancelled (trivial logic, not worth Avalonia test infrastructure)
 - T64: First-run config defaults fixed — `IsFirstRun` now true when settings.json missing; 3 new tests (102 total)
 - T65: GOG .info parser — title/exe/args extraction, DLC filtering, relative path resolution, FolderScanner integration; 10 new tests (112 total)
-- T67: .lnk shortcut exe resolution — latin-1 decode + regex extraction, subdir search, backup rename fuzzy matching; 13 new tests (107 total)
+- T68: Container recursion & organization detection — UE3 fast path, all UE platforms, org folder detection, non-game filtering; 13 new tests (120 total)
 - T65b/T71 planned — title/exe selection dialogs, F5 removal
 - Phase G T48–T57 still pending — **not MVP blockers**

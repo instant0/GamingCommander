@@ -202,22 +202,19 @@ public sealed class FolderScannerContainerTests : IDisposable
     }
 
     [Fact]
-    public void Scan_PublisherWithFiles_NotRecursive()
+    public void Scan_PublisherWithFiles_GameChildStillDetected()
     {
-        // Publisher/ has files at root → NOT a publisher pattern
+        // Publisher/ has files at root (not a dirs-only publisher pattern),
+        // but SubDir has an exe — should still be detected.
         string pubDir = CreateDir("Publisher");
         File.WriteAllBytes(Path.Combine(pubDir, "readme.txt"), new byte[10]);
         CreateExe(CreateDir("Publisher", "SubDir"), "Game.exe");
 
         var entries = _scanner.Scan(_tempDir, GameSourceKind.Standalone);
 
-        // SubDir has an exe but publisher pattern doesn't trigger (has files at root)
-        // However, SubDir might still be detected via Pass 2 if we scan it
-        // Actually, Pass 3 only runs when Pass 1+2 fail for the parent
-        // Publisher has no signals, so Pass 3 runs. SubDir has exe but is not checked in old code.
-        // With new code, gameSignalCount=1 (SubDir has exe), so no recurse.
-        // But SubDir itself won't be scanned directly.
-        Assert.Empty(entries);
+        // SubDir has an exe and gameSignalCount=1 → promoted as standalone
+        Assert.Single(entries);
+        Assert.Contains("Game.exe", entries[0].ExecutablePath);
     }
 
     // ════════════════════════════════════════════════════════════════
