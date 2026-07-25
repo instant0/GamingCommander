@@ -130,7 +130,6 @@ public sealed class ShellViewModel : ReactiveObject
         new ShellCommandViewModel { Hotkey = "F3", Label = "Info" },
         new ShellCommandViewModel { Hotkey = "F4", Label = "Edit" },
         new ShellCommandViewModel { Hotkey = "F6", Label = "Rescan" },
-        new ShellCommandViewModel { Hotkey = "F7", Label = "Add" },
         new ShellCommandViewModel { Hotkey = "F8", Label = "Filter" },
         new ShellCommandViewModel { Hotkey = "F9", Label = "Library Roots" },
         new ShellCommandViewModel { Hotkey = "F10", Label = "Quit" },

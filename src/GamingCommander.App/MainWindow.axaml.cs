@@ -3,7 +3,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
-using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using GamingCommander.App.Services;
 using GamingCommander.Core;
@@ -207,11 +206,6 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 break;
 
-            case Key.F7:
-                await AddRootAsync();
-                e.Handled = true;
-                break;
-
             case Key.F8:
                 SetStatusWithAutoClear("Filter/category view — coming in a future update");
                 e.Handled = true;
@@ -363,7 +357,7 @@ public partial class MainWindow : Window
             var config = GetConfigService().Load();
             if (config.LibraryRoots.Count == 0)
             {
-                SetStatusWithAutoClear("No roots configured. Press F2 or F7 to add one.");
+                SetStatusWithAutoClear("No roots configured. Press F2 to add folders.");
                 return Task.CompletedTask;
             }
 
@@ -391,41 +385,6 @@ public partial class MainWindow : Window
         else
             SetStatusWithAutoClear($"Rescan complete — found {scannedGames.Count} game(s).");
         return Task.CompletedTask;
-    }
-
-    private async Task AddRootAsync()
-    {
-        var topLevel = TopLevel.GetTopLevel(this);
-        if (topLevel is null) return;
-
-        var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(
-            new FolderPickerOpenOptions
-            {
-                Title = "Select game library folder",
-                AllowMultiple = false,
-            });
-
-        if (folders.Count == 0) return;
-        string rawPath = folders[0].Path.LocalPath;
-        string result = LibraryManager.NormalizeLibraryRoot(rawPath);
-
-        if (_libraryManager is null) return;
-
-        bool isSteamLibrary = LibraryManager.LooksLikeSteamLibrary(result);
-        GameSourceKind detectedType = isSteamLibrary ? GameSourceKind.Steam : GameSourceKind.Standalone;
-
-        // Pass empty games list — LibraryManager.AddRoot will scan internally
-        bool added = _libraryManager.AddRoot(result, detectedType, []);
-
-        if (added)
-        {
-            _viewModel?.Reload();
-            SetStatusWithAutoClear($"Added root: {result}");
-        }
-        else
-        {
-            SetStatusWithAutoClear($"No games found in {result}");
-        }
     }
 
     private void LeftListBox_DoubleTapped(object? sender, Avalonia.Input.TappedEventArgs e)
@@ -462,9 +421,6 @@ public partial class MainWindow : Window
                 break;
             case "F6":
                 _ = RefreshCurrentRootAsync();
-                break;
-            case "F7":
-                _ = AddRootAsync();
                 break;
             case "F8":
                 SetStatusWithAutoClear("Filter/category view — coming in a future update");

@@ -18,7 +18,7 @@
 | **WP-2** | **First-run defaults** — T64 ✅ | **P0 COMPLETE** |
 | **WP-3** | **C# detection parity** — T65 ✅, T66 ✅, T67 ✅, T68 ✅ | **P0 COMPLETE** |
 | WP-4 | Launch UX polish — T71 ✅, T69 ✅ | **P1 COMPLETE** |
-| WP-5 | Windows smoke gate — T70 | P0 gate |
+| WP-5 | Windows smoke gate — T70 ✅, T75 ✅ (11/12 bugs fixed), T76 pending | P0 COMPLETE + P1 pending |
 
 **Deferred (do not start until MVP gate):**
 

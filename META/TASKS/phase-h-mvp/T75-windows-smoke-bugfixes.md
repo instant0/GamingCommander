@@ -107,6 +107,8 @@ Fix bugs found during Windows smoke gate validation (T70). These are blocking MV
 - `src/GamingCommander.App/Services/FileSystemHelper.cs` — `NoiseSubDirNames`
 - `src/GamingCommander.App/Services/ContainerScanner.cs` — `s_nonGameFolderNames`
 
+**How to test BUG-5:** Rescan the existing `d:\games` library root (F6 while inside it). The `blizzard\battle.net` subfolder should NOT appear as a game entry. The test is about scanning a parent root that contains a store launcher directory as a subfolder — NOT about adding the blizzard subfolder as its own library root.
+
 ---
 
 ### BUG-6: F4 Field Order Wrong (P2) ✅ FIXED
@@ -250,7 +252,7 @@ BUG-1 (P0: rescan) → BUG-2 (P1: colors) → BUG-3 (P1: status) → BUG-4 (P1: 
 - [ ] Manual: Status bar clears after 5 seconds
 - [ ] Manual: Status bar shows "Scanning..." during F6
 - [ ] Manual: Empty folder not listed in VFS
-- [ ] Manual: Battle.net directory not listed as game
+- [ ] Manual: Battle.net directory NOT listed as game when rescanning d:\games library
 - [ ] Manual: Diablo III detected as BattleNet
 - [ ] Manual: BME2 picks lotrfBME2.exe, not WorldBuilder.exe
 - [ ] Manual: F4 field order correct

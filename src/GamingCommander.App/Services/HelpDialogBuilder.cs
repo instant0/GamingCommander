@@ -32,7 +32,6 @@ internal static class HelpDialogBuilder
             ("F3", "View game metadata (coming soon)"),
             ("F4", "Configure game — name, type, exe, args"),
             ("F6", "Rescan current folder or all roots"),
-            ("F7", "Add a library root folder"),
             ("F8", "Filter/category view (coming soon)"),
             ("F9", "Jump to Library Roots"),
             ("F10", "Quit GamingCommander"),

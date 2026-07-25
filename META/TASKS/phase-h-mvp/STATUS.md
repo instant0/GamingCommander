@@ -46,6 +46,8 @@
 | T69 | [Launch UX polish](T69-launch-ux-polish.md) | WP-4 | P1 | Complete |
 | T70 | [Windows smoke gate](T70-windows-smoke-gate.md) | WP-5 | P0 | Complete (bugs found → T75) |
 | T75 | [Windows smoke bugfixes](T75-windows-smoke-bugfixes.md) | WP-5 | P0 | Complete (11/12 bugs fixed, BUG-11 deferred) |
+| T76 | [Library root nesting prevention](T76-library-root-nesting-prevention.md) | WP-5 | P1 | Pending |
+| T77 | [Remove F7 (Add Root)](T77-remove-f7-add-root.md) | WP-5 | P2 | Complete |
 | T65b | [Title & exe selection dialogs](T65b-title-exe-selection-dialogs.md) | WP-4 | P1 | Deferred |
 | T71 | [Remove F5 launch keybind](T71-remove-f5-launch-keybind.md) | WP-4 | P2 | Complete |
 

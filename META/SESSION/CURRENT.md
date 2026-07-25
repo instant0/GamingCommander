@@ -65,6 +65,19 @@ Fixed 11 of 12 bugs from T70 Windows smoke gate. Build clean, 209 tests passing.
 **Files changed:** 11 (GamesDatabaseService, ShellViewModel, MainWindow, LibraryManager, ILibraryManager, FileSystemHelper, ContainerScanner, StoreSignalDetector, FolderScanner, ExecutableDiscovery, GameSetupWindow, MainWindow.axaml)
 **Tests added:** 4 new (209 total)
 
+### MVP — T77: Remove F7 (Add Root) (Complete)
+- Removed F7 from all entry points: `OnKeyDown()`, `CommandButtonPressed()`, `ShellViewModel.Commands`, `HelpDialogBuilder`
+- Removed `AddRootAsync()` method and unused `Avalonia.Platform.Storage` import from MainWindow
+- Updated F6 empty-roots message: "F2 or F7" → "F2"
+- Rationale: F7 was a strict subset of F2 (Library Setup) with worse type detection (Steam-only vs 10-store inference), no type override, no remove/rescan
+- Build clean, 209 tests passing
+
+### MVP — T76: Library Root Nesting Prevention (Pending)
+- Task written: prevent duplicate games from nested library roots
+- Two scenarios: Reject child-of-existing, Absorb parent-of-existing
+- Touches LibraryManager, ILibraryManager, WizardViewModel, LibrarySetupViewModel, MainWindow
+- Awaiting implementation
+
 ### MVP — T71: Remove F5 Launch Keybind (Complete)
 - Removed `case Key.F5:` keyboard handler and `case "F5":` command dispatcher from `MainWindow.axaml.cs`
 - Removed F5 entry from `ShellViewModel.Commands` collection (9 commands remain)
