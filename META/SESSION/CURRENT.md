@@ -259,8 +259,26 @@ All hardcoded colors and font sizes centralized to `App.axaml` Application.Resou
 - Created `ExecutableDiscoveryTests.cs` — 15 tests covering Win64, Win32, WinGDK, Steam, child/bin, recursive fallback, noise filtering, multiple platforms
 - Build clean, 128 tests passing
 
+### Game Detection Logic Documentation (T67/T68 Review — Complete)
+- Created `docs/GAME-DETECTION-LOGIC.md` — comprehensive reference document covering:
+  - Full three-pass detection architecture (Store Signals → Fallback → Container)
+  - All 10 store signal checks with priority order, C# vs Python parity analysis
+  - All 5 fallback signals (Steam Emu deep, Ubisoft legacy, UE layout, root exe, root .lnk)
+  - Container detection logic (organization folders, publisher pattern, depth bounding)
+  - Executable discovery (5-strategy deep search across 4 UE platforms)
+  - Executable scoring system (bonuses + tier-based noise penalties)
+  - Complete noise filtering system (3-layer: directory skip, directory patterns, exe patterns)
+  - 21-tier blacklist structure with severity ratings
+  - GOG metadata enrichment (.info parsing, DLC filtering)
+  - .lnk shortcut resolution with backup rename handling
+  - Known gaps: EA touchup.exe/ActivationUI.exe signals, gog.ico, steamapps outside library, backup/abbreviation/roman scoring, small exe penalty
+  - Detection results summary (157 games, 0 unknowns on D+E drives)
+  - 81 detection-focused tests across 7 test files
+  - Complete file reference and pipeline flowchart
+- All 154 tests passing (33 Core + 1 Migration + 120 App). Build clean.
+
 ## Test Status
-**120 tests passing** (33 Core + 1 Migration + 86 App). Build clean, 0 errors, 0 warnings.
+**154 tests passing** (33 Core + 1 Migration + 120 App). Build clean, 0 errors, 0 warnings.
 
 ## Next Session Notes
 - **MVP plan written** — `planning/100-mvp-next-steps.md`; session NEXT re-aimed
