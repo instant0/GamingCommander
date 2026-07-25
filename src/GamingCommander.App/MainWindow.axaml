@@ -109,7 +109,7 @@
             <TextBlock Text="Executable" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" Margin="0,12,0,0" />
             <TextBlock Text="{Binding DetailsExecutable}" Foreground="{DynamicResource TextSuccess}" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeLabel}" />
 
-            <TextBlock Text="Press F4 to edit this entry's type/tags."
+            <TextBlock Text="Press F4 to configure this entry."
                        Foreground="{DynamicResource TextAccent}" FontSize="{DynamicResource FontSizeLabel}" Margin="0,16,0,0"
                        TextWrapping="Wrap"
                        IsVisible="{Binding HasGameSelected}" />

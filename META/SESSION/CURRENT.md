@@ -44,6 +44,21 @@ Code quality Phases D–G largely done (T58–T60 complete; T48–T57 deferred u
 
 ## Completed This Session
 
+### MVP — T71: Remove F5 Launch Keybind (Complete)
+- Removed `case Key.F5:` keyboard handler and `case "F5":` command dispatcher from `MainWindow.axaml.cs`
+- Removed F5 entry from `ShellViewModel.Commands` collection (9 commands remain)
+- Removed `F5: launch` from `InteractionHint` string
+- Removed `("F5", "Launch selected game")` from `HelpDialogBuilder`
+- Only remaining F5 reference is XML doc example in `ShellCommandViewModel.cs` (harmless)
+- Build clean, 206 tests passing
+
+### MVP — T69: Launch UX Polish (Complete)
+- Fixed F4 help text: `"Edit game type / tags"` → `"Configure game — name, type, exe, args"` in HelpDialogBuilder
+- Unified F9 label to `"Library Roots"` across command bar, help dialog, and InteractionHint
+- Updated InteractionHint to remove F5 and reflect new F4/F9 wording
+- Fixed right-pane F4 hint in MainWindow.axaml: `"Press F4 to edit this entry's type/tags."` → `"Press F4 to configure this entry."`
+- Build clean, 206 tests passing
+
 ### Unified Game Detection Tool (Plan 98 — Complete)
 Merged `detect_folder.py` and `list_standalone_games.py` into a single `tools/detect.py`:
 - **Fast-then-deep architecture** — Phase 1 root scan (single os.scandir) → Phase 2 deep signal scan (unknowns only, .exe/.dll/.ini filtered) → Phase 3 container check → Phase 4 optional enrichment
@@ -278,7 +293,7 @@ All hardcoded colors and font sizes centralized to `App.axaml` Application.Resou
 - All 154 tests passing (33 Core + 1 Migration + 120 App). Build clean.
 
 ## Test Status
-**154 tests passing** (33 Core + 1 Migration + 120 App). Build clean, 0 errors, 0 warnings.
+**206 tests passing** (33 Core + 1 Migration + 172 App). Build clean, 0 errors, 0 warnings.
 
 ## Next Session Notes
 - **MVP plan written** — `planning/100-mvp-next-steps.md`; session NEXT re-aimed

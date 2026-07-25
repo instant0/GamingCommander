@@ -25,7 +25,7 @@
 | WP-1 | T61, T62, T63 | Fix launch pipeline |
 | WP-2 | T64 | First-run config defaults |
 | WP-3 | T65, T66, T67, T68 | C# detection parity |
-| WP-4 | T65b, T69, T71 | Launch UX polish |
+| WP-4 | T69, T71 | Launch UX polish (T65b deferred post-MVP) |
 | WP-5 | T70 | Windows smoke gate |
 
 ---
@@ -43,10 +43,11 @@
 | T67 | [.lnk shortcut exe resolution](T67-lnk-shortcut-resolution.md) | WP-3 | P0 | Complete |
 | T68 | [Container recursion improvements](T68-container-recursion.md) | WP-3 | P0 | Complete |
 | T68C | [Detection robustness & module organization plan](T68C-detection-robustness-plan.md) | WP-3 | P2 | Complete |
-| T69 | [Launch UX polish](T69-launch-ux-polish.md) | WP-4 | P1 | Pending |
-| T70 | [Windows smoke gate](T70-windows-smoke-gate.md) | WP-5 | P0 | Pending |
-| T65b | [Title & exe selection dialogs](T65b-title-exe-selection-dialogs.md) | WP-4 | P1 | Pending |
-| T71 | [Remove F5 launch keybind](T71-remove-f5-launch-keybind.md) | WP-4 | P2 | Pending |
+| T69 | [Launch UX polish](T69-launch-ux-polish.md) | WP-4 | P1 | Complete |
+| T70 | [Windows smoke gate](T70-windows-smoke-gate.md) | WP-5 | P0 | Complete (bugs found → T75) |
+| T75 | [Windows smoke bugfixes](T75-windows-smoke-bugfixes.md) | WP-5 | P0 | Pending |
+| T65b | [Title & exe selection dialogs](T65b-title-exe-selection-dialogs.md) | WP-4 | P1 | Deferred |
+| T71 | [Remove F5 launch keybind](T71-remove-f5-launch-keybind.md) | WP-4 | P2 | Complete |
 
 ---
 
@@ -55,8 +56,10 @@
 Tasks must be completed in the order listed (T61 → T70). Within WP-1, T61 must complete before T62. T63 depends on T61+T62. Within WP-3, T65–T68 are independent and can be done in any order. T70 is the final gate.
 
 ```
-T61 → T62 → T63 → T64 → T65/T66/T67/T68 (parallel OK) → T69 → T70
+T61 → T62 → T63 → T64 → T65/T66/T67/T68 (parallel OK) → T71 → T69 → T70
 ```
+
+**Note:** T65b deferred post-MVP (feature addition, not polish). T71 runs before T69 to avoid verifying a keybind that will be removed.
 
 ---
 

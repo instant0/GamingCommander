@@ -75,13 +75,13 @@ Final validation gate for MVP. Run the application on a Windows machine with rea
 
 ## Completion Notes
 
-- **Completed:**
-- **MVP Status:** (READY / BLOCKED)
+- **Completed:** 2026-07-26
+- **MVP Status:** BLOCKED (P0 bug: rescan overwrites user edits — BUG-1)
 - **Results:**
-  - Build & Publish:
-  - Startup & Wizard:
-  - Launch:
-  - Edit & Rescan:
-  - Visual Feedback:
-  - Stability:
-- **Issues encountered:**
+  - Build & Publish: ✅ 1.1 ✅ 1.2 ✅ 1.3
+  - Startup & Wizard: ✅ 2.1 ✅ 2.2 ✅ 2.3 ✅ 2.4 ⚠️ 2.7 (empty folder listed)
+  - Launch: ✅ 2.8 ✅ 2.9 ✅ 2.10
+  - Edit & Rescan: ✅ 2.11 ⚠️ 2.12 (rescan overwrites user edits)
+  - Visual Feedback: ❌ 2.13 ❌ 2.14 ⚠️ 2.15 (design change: Installed=white)
+  - Stability: ✅ 2.16 ⚠️ 2.17 ⚠️ 2.18 (status doesn't timeout)
+- **Issues encountered:** See T75 bugfix task (12 bugs: 1 P0, 6 P1, 5 P2)

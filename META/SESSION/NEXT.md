@@ -17,12 +17,13 @@
 | **WP-1** | **Fix launch pipeline** — T61 ✅, T62 ✅, T63 cancelled | **P0 COMPLETE** |
 | **WP-2** | **First-run defaults** — T64 ✅ | **P0 COMPLETE** |
 | **WP-3** | **C# detection parity** — T65 ✅, T66 ✅, T67 ✅, T68 ✅ | **P0 COMPLETE** |
-| WP-4 | Launch UX polish — T69 | P1 |
+| WP-4 | Launch UX polish — T71 ✅, T69 ✅ | **P1 COMPLETE** |
 | WP-5 | Windows smoke gate — T70 | P0 gate |
 
 **Deferred (do not start until MVP gate):**
 
 - Phase G T48–T57 (tests/quality polish)
+- T65b: Title & exe selection dialogs (feature addition, not polish)
 - Multi-theme (`97-multi-theme-system.md`)
 - PCGamingWiki metadata (`04-phase-2-metadata-lookup.md`)
 - SyncMove full repair (`04-phase-2-syncmove.md`) — stretch only after WP-5
@@ -62,5 +63,6 @@ Fix in `ShellViewModel.LoadGamesForRoot` + `MainWindow.LaunchSelectedGameAsync` 
 - T64: First-run config defaults fixed — `IsFirstRun` now true when settings.json missing; 3 new tests (102 total)
 - T65: GOG .info parser — title/exe/args extraction, DLC filtering, relative path resolution, FolderScanner integration; 10 new tests (112 total)
 - T68: Container recursion & organization detection — UE3 fast path, all UE platforms, org folder detection, non-game filtering; 13 new tests (120 total)
-- T65b/T71 planned — title/exe selection dialogs, F5 removal
+- T68C: Detection robustness & module organization — extracted FallbackSignalDetector + ContainerScanner from FolderScanner (506→232 LOC), added EA touchup.exe signals, backup/size scoring penalties, 52 new tests (206 total)
+- T65b deferred post-MVP (feature addition, not polish)
 - Phase G T48–T57 still pending — **not MVP blockers**

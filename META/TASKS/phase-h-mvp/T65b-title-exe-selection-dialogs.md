@@ -4,7 +4,7 @@
 **Phase:** H — MVP (post-detection parity)
 **Effort:** ~60 min
 **Risk:** Medium
-**Status:** Pending
+**Status:** Deferred — Post-MVP. This is a feature addition (exe candidate picker + title comparison UI), not UX polish. The existing flow (scan picks best exe, F4 allows manual override) is functional. Requires `FindPrimaryExecutable` refactor to expose candidate list, plus new `ExeSelectionWindow`. Defer until after MVP gate.
 **Prerequisites:** T65 (GOG .info parser provides metadata for comparison)
 **WP:** WP-4 (UX polish)
 

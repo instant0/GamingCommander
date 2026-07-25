@@ -58,7 +58,7 @@
 
 ## Completion Notes
 
-- **Completed:**
-- **What was done:**
-- **Verification:**
-- **Issues encountered:**
+- **Completed:** 2026-07-26
+- **What was done:** Removed F5 keybind from keyboard handler, command dispatcher, InteractionHint, Commands list, and HelpDialogBuilder. Enter remains as the sole launch key.
+- **Verification:** Build clean (0 errors), 206 tests passing. grep confirms only F5 match is XML doc comment in ShellCommandViewModel.cs.
+- **Issues encountered:** None

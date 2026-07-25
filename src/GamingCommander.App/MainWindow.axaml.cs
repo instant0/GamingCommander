@@ -167,11 +167,6 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 break;
 
-            case Key.F5:
-                await LaunchSelectedGameAsync();
-                e.Handled = true;
-                break;
-
             case Key.F6:
                 await RefreshCurrentRootAsync();
                 e.Handled = true;
@@ -418,9 +413,6 @@ public partial class MainWindow : Window
                 break;
             case "F4":
                 _ = OpenGameSetupAsync();
-                break;
-            case "F5":
-                _ = LaunchSelectedGameAsync();
                 break;
             case "F6":
                 _ = RefreshCurrentRootAsync();

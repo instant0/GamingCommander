@@ -39,7 +39,7 @@ public sealed class ShellViewModel : ReactiveObject
             return;
         }
 
-            InteractionHint = "Arrows: navigate  |  Enter: launch/drill in  |  Esc/Backspace: go up  |  F4: edit tags  |  F5: launch  |  F9: roots";
+            InteractionHint = "Arrows: navigate  |  Enter: launch/drill in  |  Esc/Backspace: go up  |  F4: configure  |  F9: Library Roots";
         JumpToLibraryRoots();
     }
 
@@ -129,11 +129,10 @@ public sealed class ShellViewModel : ReactiveObject
         new ShellCommandViewModel { Hotkey = "F2", Label = "Setup" },
         new ShellCommandViewModel { Hotkey = "F3", Label = "Info" },
         new ShellCommandViewModel { Hotkey = "F4", Label = "Edit" },
-        new ShellCommandViewModel { Hotkey = "F5", Label = "Launch" },
         new ShellCommandViewModel { Hotkey = "F6", Label = "Rescan" },
         new ShellCommandViewModel { Hotkey = "F7", Label = "Add" },
         new ShellCommandViewModel { Hotkey = "F8", Label = "Filter" },
-        new ShellCommandViewModel { Hotkey = "F9", Label = "Drives" },
+        new ShellCommandViewModel { Hotkey = "F9", Label = "Library Roots" },
         new ShellCommandViewModel { Hotkey = "F10", Label = "Quit" },
     ];
 

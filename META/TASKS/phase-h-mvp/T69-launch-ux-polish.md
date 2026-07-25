@@ -2,72 +2,67 @@
 
 **Tier:** 1 — Verification/Polish
 **Phase:** H — MVP
-**Effort:** ~15 min
+**Effort:** ~10 min
 **Risk:** Minimal
 **Status:** Pending
-**Prerequisites:** T61, T62
+**Prerequisites:** T71 (Remove F5 first to avoid verifying a removed keybind)
 **WP:** WP-4
 
 ---
 
 ## Objective
 
-Verify that the command bar buttons are clickable and the help dialog matches actual key bindings. The codebase already has both keyboard and mouse-click handlers for all F-key buttons. This task is a verification pass to confirm correctness and fix any discrepancies found.
+Fix two help text discrepancies and verify the remaining key bindings are correct. The command bar, keyboard handlers, and launch failure handling are already verified correct.
 
 ## What Needs to Change
 
-### 1. `src/GamingCommander.App/MainWindow.axaml` — Command bar
+### 1. `HelpDialogBuilder.cs` — Fix F4 description
 
-**Current state:** All 10 F-key buttons have `PointerPressed="CommandButtonPressed"` handlers. Both `OnKeyDown` and `CommandButtonPressed` dispatch to the same methods.
+**Current (line 33):** `"Edit game type / tags"`
+**Problem:** F4 opens `GameSetupWindow` which edits 6 fields: DisplayName, GameSource, ExecutablePath, LauncherPath, CommandLineArguments, ManifestPath. "Edit game type / tags" is inaccurate.
+**Fix:** Change to `"Configure game — name, type, exe, args"` (or similar)
 
-**Actions:**
-- [ ] Verify each button in the XAML has `PointerPressed="CommandButtonPressed"` and a `Tag` matching its hotkey
-- [ ] Verify `IsHitTestVisible` is not set to `false` on any button
-- [ ] Verify F3 and F8 stubs show clear "coming soon" status messages (not silent no-ops)
+### 2. `HelpDialogBuilder.cs` — Fix F9 label consistency
 
-### 2. `src/GamingCommander.App/HelpDialogBuilder.cs` — Help text
+Three different labels exist for the same action:
+- Command bar: `"Drives"` (ShellViewModel.Commands)
+- Help dialog: `"Jump to library roots"` (HelpDialogBuilder)
+- Interaction hint: `"F9: roots"` (ShellViewModel.InteractionHint)
 
-**Current state:** Lines 28-43. Help text matches actual bindings (confirmed by analysis).
+**Fix:** Unify to `"Library Roots"` in all three locations.
 
-**Actions:**
-- [ ] Verify help text matches `OnKeyDown` handler behavior for all keys
-- [ ] Verify F4 description says "Edit game" (not "Edit game type / tags" if that's inaccurate)
-- [ ] Add `S` key documentation if search is implemented; omit if still a stub
+### 3. Verification (already confirmed correct)
 
-### 3. Launch failure handling
-
-**Actions:**
-- [ ] Verify `LaunchSelectedGameAsync()` catch block shows user-readable message (not stack trace)
-- [ ] Verify status bar text is readable (not too long, not truncated)
-- [ ] Verify selection is preserved after launch failure (no navigation change)
+These items were verified during task evaluation and require no changes:
+- All 10 command bar buttons have `PointerPressed="CommandButtonPressed"` and correct `Tag`
+- No `IsHitTestVisible="False"` on any button
+- F3/F8 stubs show clear "coming in a future update" messages
+- `LaunchSelectedGameAsync()` catch shows `ex.Message` (no stack trace)
+- Selection preserved after launch failure (no `SelectedIndex` mutation)
+- `Enter` correctly handles both launch and drill-in
 
 ## Context
 
-- Analysis confirmed all buttons are fully interactive (no decorative-only)
-- Help text is accurate for all documented bindings
-- Minor omissions: `S` (search stub) and `T` (legacy retag) not in help — acceptable for MVP
-- F3/F8 stubs display "coming in a future update" — acceptable for MVP
-- This task is primarily a verification pass, not a code change
+- Code evaluation confirmed all buttons are fully interactive
+- F4 description is the only inaccurate help text
+- F9 label inconsistency is cosmetic but worth fixing for polish
+- `S` (search stub) and `T` (legacy retag) not in help — acceptable for MVP
 
 ## Requirements
 
-- [ ] All command bar buttons are clickable (not decorative)
-- [ ] Help text matches actual key binding behavior
-- [ ] F3/F8 stubs show clear status message
-- [ ] Launch failure shows user-readable error in status bar
-- [ ] Selection preserved after launch failure
+- [ ] F4 help text updated to "Configure game" (or accurate description)
+- [ ] F9 label unified across command bar, help, and hint
+- [ ] Build clean, existing tests pass
 
 ## Verification
 
 - [ ] `dotnet build` passes (0 errors)
 - [ ] `dotnet test` passes (no regressions)
-- [ ] Manual: click each command bar button, verify correct action
-- [ ] Manual: F1 opens help, read each line, verify accuracy
-- [ ] Manual: launch a game, verify status bar message
+- [ ] Manual: F1 opens help, verify F4 and F9 descriptions are accurate
 
 ## Completion Notes
 
-- **Completed:**
-- **What was done:**
-- **Verification:**
-- **Issues encountered:**
+- **Completed:** 2026-07-26
+- **What was done:** Fixed F4 help text ("Configure game — name, type, exe, args"), unified F9 label to "Library Roots" across command bar/help/hint, updated InteractionHint to remove F5 and reflect new wording, fixed right-pane F4 hint in MainWindow.axaml.
+- **Verification:** Build clean (0 errors), 206 tests passing. grep confirms no stale "Drives", "edit tags", or "type/tags" in user-facing text.
+- **Issues encountered:** None

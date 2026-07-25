@@ -24,6 +24,11 @@
 - Game launch counter and play time tracking
 - Category value normalization (publisher name merging)
 - Rating bucketing for gamerankings display
+- Cheat Engine table linking — F4 editor option to associate a `.CT` file with a game; on launch, optionally start Cheat Engine with the table loaded
+- Library root display: show game count + top used tags per root (e.g., "D:\SteamLibrary (123 games) [RPG, Action, Co-op]")
+- SteamDB metadata: tags, user ratings, active users for Steam games — populate GameEntry.Tags automatically
+- Library root details page: aggregate info (total games, top 5 rated, last played)
+- F9 interaction hint shows current mode: `"F9: Mode [Library]"`
 
 ## Technical Ideas
 
