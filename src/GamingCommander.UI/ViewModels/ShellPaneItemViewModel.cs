@@ -19,6 +19,9 @@ public sealed class ShellPaneItemViewModel
     /// <summary>Path used to launch the game when Enter is pressed.</summary>
     public required string LaunchTarget { get; init; }
 
+    /// <summary>Command-line arguments to pass when launching the game. Empty for URI-only launches.</summary>
+    public string CommandLineArguments { get; init; } = string.Empty;
+
     /// <summary>Whether this is a directory, file, or parent directory entry.</summary>
     public FileSystemEntryKind Kind { get; init; }
 

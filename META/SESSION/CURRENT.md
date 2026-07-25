@@ -6,14 +6,15 @@
 ---
 
 ## Phase
-**Code Quality & Naming** — T58-T60 complete (naming fixes, XML docs, noise-check consolidation). Phase G T48-T57 still pending.
+**MVP track active** — Plan [`planning/100-mvp-next-steps.md`](../../planning/100-mvp-next-steps.md).  
+Code quality Phases D–G largely done (T58–T60 complete; T48–T57 deferred until MVP gate).
 
 ## Priority Roadmap
-1. **Bug Fixes & Stabilization (P0)** — Fix noise check divergence, close stale tech debt, fill test gaps
-2. **Standalone & Steam Completion (P1)** — Container detection, exe discovery, scoring, error handling
-3. **PCGamingWiki Metadata (P1)** — Research complete, C# implementation at 0%
-4. **Multi-Theme System (P2)** — Nice-to-have, downprioritized
-5. **.NET 9 SDK Upgrade (P3)** — Lowest priority
+1. **MVP ship gate (P0)** — Fix launch pipeline, first-run defaults, C# detection parity, Windows smoke → see Plan 100
+2. **Standalone & Steam completion (P1)** — remaining container/launcher edges after MVP
+3. **Phase G quality (P2)** — T48–T57 tests/constants after MVP
+4. **PCGamingWiki Metadata (P2)** — Research complete, C# 0%
+5. **Multi-Theme / .NET 9 (P3)** — Nice-to-have
 
 ## Objectives Achieved
 1. ✅ Game detection overhaul — Phase 1+2 complete
@@ -139,6 +140,13 @@ All hardcoded colors and font sizes centralized to `App.axaml` Application.Resou
 - T59: Added 21 XML docs to private methods across FolderScanner (8), SteamLibraryScanner (5), ExecutableDiscovery (2), BlacklistData (1), AppTheme (2), GameSetupWindow (2), MigrationMode (1).
 - T60: Consolidated noise-check duplication into `FileSystemHelper.IsNoiseExeName` and `FileSystemHelper.IsNoiseDirectory`. Updated FolderScanner and ExecutableDiscovery to delegate to FileSystemHelper. SteamLibraryScanner kept separate (intentionally different 7-item subset).
 
+### MVP — T61: Fix Launch Target Resolution (Complete)
+- Added `CommandLineArguments` property to `ShellPaneItemViewModel`
+- `LoadGamesForRoot()` now resolves `LaunchTarget`: prefers `steam://` URI over raw `ExecutablePath` when `CommandLineArguments` starts with `steam://`
+- `LaunchSelectedGameAsync()` now passes `CommandLineArguments` as `ProcessStartInfo.Arguments` for non-URI launches (guard prevents passing URI as args)
+- Steam games launch via protocol; standalone games launch with stored args
+- Build clean, 99 tests passing
+
 ### Documentation & Code Structure Cleanup (T01–T15 — Complete)
 
 **Phase A — Documentation Cleanup (T01–T07):**
@@ -196,8 +204,10 @@ All hardcoded colors and font sizes centralized to `App.axaml` Application.Resou
 **99 tests passing** (33 Core + 1 Migration + 65 App). Build clean, 0 errors, 0 warnings (previously 4 Avalonia warnings also resolved).
 
 ## Next Session Notes
-- **detect.py refactoring needed** — ~1800 lines, needs planning for module split
-- Detection hardening partially complete — FFXIV merge, launcher vs game exe choice still pending
+- **MVP plan written** — `planning/100-mvp-next-steps.md`; session NEXT re-aimed
+- **P0 product bug FIXED (T61):** `LaunchTarget` now resolves `steam://` URI when present in `CommandLineArguments`; standalone launch args passed to `Process.Start`. T62 (launch execution) and T63 (tests) remain.
+- **detect.py** (~1829 LOC) is reference gold; C# needs GOG playTasks / UE paths / container parity before considering Python split
+- Phase G T48–T57 deferred until MVP acceptance criteria pass
 
 ## Key Architecture Decisions
 - **Theme centralized in App.axaml** — All 23 color brushes and 8 font sizes live as Application.Resources with semantic names (e.g. `TextAccent`, `ButtonBgAction`). `AppTheme.cs` provides static accessor for code-behind. To re-theme: swap the resources in App.axaml. `NortonCommander.axaml` retained as reference.

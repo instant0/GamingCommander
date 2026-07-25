@@ -16,8 +16,10 @@ See `META/BACKLOG/TECH_DEBT.md` for known issues.
 
 | Document | Description | Status |
 | :--- | :--- | :--- |
-| `04-phase-2.md` | Steam & Stand-alone game implementation | ACTIVE |
-| `04-phase-2-syncmove.md` | SyncMove — Manifest-aware game migration | PLANNED |
+| **`100-mvp-next-steps.md`** | **MVP ship plan (launch, defaults, detection parity)** | **ACTIVE — execute next** |
+| *Task tracker:* `META/TASKS/phase-h-mvp/STATUS.md` | **MVP task status (T61–T70)** | **ACTIVE — track progress here** |
+| `04-phase-2.md` | Steam & Stand-alone game implementation | ACTIVE (partial; see Plan 100) |
+| `04-phase-2-syncmove.md` | SyncMove — Manifest-aware game migration | PLANNED (post-MVP stretch) |
 | `04-phase-2-metadata-lookup.md` | Game Metadata Lookup (F4) | PLANNED |
 | `05-phase-3.md` | Multi-Launcher integration strategy | FUTURE |
 | `05-phase-3-category-browse.md` | KODI-style category browsing & quick search | PLANNED |

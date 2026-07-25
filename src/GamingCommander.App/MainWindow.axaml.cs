@@ -260,9 +260,15 @@ public partial class MainWindow : Window
             }
             else
             {
+                // For non-URI launches, pass stored command-line arguments (e.g. GOG SCUMMVM args)
+                string args = item.CommandLineArguments.StartsWith("steam://", StringComparison.OrdinalIgnoreCase)
+                    ? string.Empty
+                    : item.CommandLineArguments;
+
                 using var proc = Process.Start(new ProcessStartInfo
                 {
                     FileName = target,
+                    Arguments = args,
                     UseShellExecute = true,
                     WorkingDirectory = Path.GetDirectoryName(target) ?? "",
                 });

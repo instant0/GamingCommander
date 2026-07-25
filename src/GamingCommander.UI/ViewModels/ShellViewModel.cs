@@ -324,12 +324,18 @@ public sealed class ShellViewModel : ReactiveObject
                 _ => string.Empty,
             };
 
+            // Resolve launch target: prefer steam:// URI over raw exe path
+            string launchTarget = game.CommandLineArguments.StartsWith("steam://", StringComparison.OrdinalIgnoreCase)
+                ? game.CommandLineArguments
+                : game.ExecutablePath;
+
             Items.Add(new ShellPaneItemViewModel
             {
                 Title = game.DisplayName,
                 SourceLabel = game.GameSource.ToString(),
                 PathSummary = game.ExecutablePath,
-                LaunchTarget = game.ExecutablePath,
+                LaunchTarget = launchTarget,
+                CommandLineArguments = game.CommandLineArguments,
                 Kind = FileSystemEntryKind.File,
                 LastModified = game.LastModified,
                 ResolvedType = game.IsSourceOverridden ? $"{game.GameSource} (override)" : game.GameSource.ToString(),
