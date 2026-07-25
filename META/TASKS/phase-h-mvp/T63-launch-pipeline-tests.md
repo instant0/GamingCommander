@@ -4,7 +4,7 @@
 **Phase:** H — MVP
 **Effort:** ~30 min
 **Risk:** Low
-**Status:** Pending
+**Status:** Cancelled — logic is trivial (single ternary), testing via ShellViewModel requires Avalonia runtime. Extraction to a testable pure function is not worth the refactor for 2 lines of code.
 **Prerequisites:** T61, T62
 **WP:** WP-1
 

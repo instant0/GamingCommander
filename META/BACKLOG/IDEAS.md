@@ -31,3 +31,4 @@
 - Build-time code generation for GamingResourcesManifest from YAML/JSON source
 - Windows registry abstraction layer for testability
 - Integration test framework using mock data in data/mock/
+- **Configurable detection signals** — Move UE platform names, non-game folder patterns, and noise exe patterns to `data/blacklist.json` (or new `data/signals.json`). This allows updating detection logic without recompiling. Currently hardcoded in: `ExecutableDiscovery.s_uePlatformNames`, `FolderScanner.s_nonGameFolderNames`, `FileSystemHelper.NoiseSubDirNames`, `FolderScanner.DefaultNoiseExePatterns`.

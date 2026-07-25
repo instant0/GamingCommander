@@ -119,7 +119,7 @@ public sealed class FolderScanner
 
             // Pass 3: No signals at all — check if this is a container folder
             // (organizer whose immediate children have launcher signals)
-            ScanContainerChildren(entries, subDir, rootPath, defaultType);
+            ScanContainerChildren(entries, subDir, rootPath, defaultType, depth: 0);
         }
 
         return entries;
@@ -139,7 +139,7 @@ public sealed class FolderScanner
         if (HasUbisoftLegacySignal(subDir))
             return GameSourceKind.UbisoftConnect;
 
-        // 3 — Standalone (Unreal layout): Engine/ + */Binaries/Win64/*.exe
+        // 3 — Standalone (Unreal layout): Engine/ + */Binaries/{platform}/*.exe, or Binaries/{platform}/*.exe at root
         if (HasUnrealLayoutSignal(subDir))
             return GameSourceKind.Standalone;
 
@@ -208,29 +208,70 @@ public sealed class FolderScanner
         return false;
     }
 
-    /// <summary>Checks for Unreal Engine directory layout: Engine/ folder with Binaries/Win64/ containing exes.</summary>
+    /// <summary>UE platform directory names under Binaries/. Matches T66's ExecutableDiscovery.</summary>
+    private static readonly string[] s_uePlatformNames = ["Win64", "Win32", "WinGDK", "Steam"];
+
+    /// <summary>
+    /// Checks for Unreal Engine directory layout:
+    /// - UE4-5: Engine/ folder with child/Binaries/{platform}/*.exe
+    /// - UE3: Binaries/{platform}/*.exe directly at root (no Engine/ needed)
+    /// </summary>
     private bool HasUnrealLayoutSignal(DirectoryInfo dir)
     {
-        // Need Engine/ directory
+        // Fast path: UE3 — Binaries/ at root
+        if (HasBinariesAtRoot(dir))
+            return true;
+
+        // UE4-5: need Engine/ directory
         string enginePath = Path.Combine(dir.FullName, "Engine");
         if (!Directory.Exists(enginePath))
             return false;
 
-        // Check for any child with Binaries/Win64/*.exe
+        // Check for any child with Binaries/{platform}/*.exe
         try
         {
             foreach (DirectoryInfo child in FileSystemHelper.GetDirectoriesSafe(dir.FullName))
             {
                 if (child.Name == "Engine") continue;
-                string win64 = Path.Combine(child.FullName, "Binaries", "Win64");
-                if (Directory.Exists(win64))
+                foreach (string platform in s_uePlatformNames)
                 {
-                    foreach (string exe in Directory.EnumerateFiles(win64, "*.exe", SearchOption.TopDirectoryOnly))
+                    string platPath = Path.Combine(child.FullName, "Binaries", platform);
+                    if (!Directory.Exists(platPath)) continue;
+                    foreach (string exe in Directory.EnumerateFiles(platPath, "*.exe", SearchOption.TopDirectoryOnly))
                     {
                         string name = Path.GetFileNameWithoutExtension(exe).ToLowerInvariant();
                         if (!IsNoiseExeName(name))
                             return true;
                     }
+                }
+            }
+        }
+        catch { }
+        return false;
+    }
+
+    /// <summary>
+    /// UE3 fast path: Binaries/ directly at root with platform subdirs.
+    /// Games like Unreal Tournament 3, Gothic 3 use this layout.
+    /// </summary>
+    private static bool HasBinariesAtRoot(DirectoryInfo dir)
+    {
+        string binariesPath = Path.Combine(dir.FullName, "Binaries");
+        if (!Directory.Exists(binariesPath))
+            return false;
+
+        try
+        {
+            foreach (string platform in s_uePlatformNames)
+            {
+                string platPath = Path.Combine(binariesPath, platform);
+                if (!Directory.Exists(platPath)) continue;
+                foreach (string exe in Directory.EnumerateFiles(platPath, "*.exe", SearchOption.TopDirectoryOnly))
+                {
+                    string name = Path.GetFileNameWithoutExtension(exe).ToLowerInvariant();
+                    // Use static noise check (no instance needed for root-level signal)
+                    if (!FileSystemHelper.IsNoiseExeName(name, FolderScanner.DefaultNoiseExePatterns))
+                        return true;
                 }
             }
         }
@@ -268,28 +309,104 @@ public sealed class FolderScanner
     // ════════════════════════════════════════════════════════════════
     //  Pass 3 — Container Detection
     //  A container is a folder with no signals itself, but whose
-    //  immediate child has Pass 1 (launcher/store) signals.
-    //  Children with only standalone signals do NOT qualify.
+    //  children have game signals (store markers, exes, UE layout).
+    //  Organization folders (≥2 game children) recurse into all children.
     // ════════════════════════════════════════════════════════════════
 
-    /// <summary>Recursively scans child directories of a container (store/publisher folder) for game entries.</summary>
+    /// <summary>Non-game folder names to skip during container recursion.</summary>
+    private static readonly HashSet<string> s_nonGameFolderNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Soundtrack", "Soundtracks", "Original Soundtrack",
+        "Manuals", "Manual", "Item Data", "Misc", "Bonus Content",
+        "Artwork", "Wallpapers", "Music",
+        "Redist", "Support", "Tools", "_CommonRedist", "CommonRedist",
+        "vcredist", "dotnet", "directx", "physx", "installer",
+        "_installer", "install", "easyanticheat", "devtools", "docs",
+        "licenses", "steam controller configs", "steamworks shared",
+        "dlc", "program files", "windowsapps", "squirreltemp",
+        "portable", "uninstall",
+    };
+
+    /// <summary>
+    /// Recursively scans child directories of a container (store/publisher folder) for game entries.
+    /// Bounded to maxDepth 2 (container → child → grandchild).
+    /// </summary>
     private void ScanContainerChildren(
         List<GameEntry> entries, DirectoryInfo containerDir,
-        string rootPath, GameSourceKind defaultType)
+        string rootPath, GameSourceKind defaultType, int depth = 0)
     {
-        foreach (DirectoryInfo child in FileSystemHelper.GetDirectoriesSafe(containerDir.FullName))
+        if (depth > 1) return; // Bounded: max 2 levels
+
+        var children = FileSystemHelper.GetDirectoriesSafe(containerDir.FullName);
+
+        // First pass: count children with game signals (for organization detection)
+        int gameSignalCount = 0;
+        foreach (DirectoryInfo child in children)
+        {
+            if (IsNonGameFolder(child)) continue;
+            if (StoreSignalDetector.DetectType(child) != GameSourceKind.Unknown
+                || HasRootExecutableSignal(child)
+                || HasUnrealLayoutSignal(child))
+            {
+                gameSignalCount++;
+            }
+        }
+
+        // Second pass: process children
+        foreach (DirectoryInfo child in children)
         {
             if (_hiddenFolderNames.Contains(child.Name))
+                continue;
+            if (IsNonGameFolder(child))
                 continue;
 
             GameSourceKind childType = StoreSignalDetector.DetectType(child);
 
-            // Only promote children with Tier 1 (launcher) signals
+            // Tier 1 — Store signals (GOG, EA, Ubisoft, etc.) — always promote
             if (childType != GameSourceKind.Unknown)
             {
                 AddGameEntry(entries, child, rootPath, childType, defaultType);
+                continue;
+            }
+
+            // Organization folder: ≥2 game children → recurse into all, promote standalone
+            if (gameSignalCount >= 2)
+            {
+                if (HasRootExecutableSignal(child) || HasUnrealLayoutSignal(child))
+                {
+                    AddGameEntry(entries, child, rootPath, GameSourceKind.Standalone, defaultType);
+                    continue;
+                }
+                ScanContainerChildren(entries, child, rootPath, defaultType, depth + 1);
+                continue;
+            }
+
+            // Single game child or publisher pattern: only recurse (don't promote standalone)
+            if (gameSignalCount == 1 && (HasRootExecutableSignal(child) || HasUnrealLayoutSignal(child)))
+            {
+                // Single game child — this IS the game, but parent isn't a container
+                // Don't add it here; let it be found by the caller's own scanning logic
+                continue;
+            }
+
+            // Publisher folder pattern: only subdirs, no files → recurse
+            if (gameSignalCount == 0)
+            {
+                FileInfo[] files = child.GetFiles("*", SearchOption.TopDirectoryOnly);
+                if (files.Length == 0 && child.GetDirectories().Length > 0)
+                {
+                    ScanContainerChildren(entries, child, rootPath, defaultType, depth + 1);
+                    continue;
+                }
             }
         }
+    }
+
+    /// <summary>Checks if a folder is clearly not a game (non-game name, data-only, etc.).</summary>
+    private static bool IsNonGameFolder(DirectoryInfo dir)
+    {
+        return s_nonGameFolderNames.Contains(dir.Name)
+            || FileSystemHelper.NoiseSubDirNames.Contains(dir.Name);
     }
 
     // ════════════════════════════════════════════════════════════════
@@ -336,10 +453,48 @@ public sealed class FolderScanner
         string[] exeFiles = FileSystemHelper.GetFilesSafe(subDir, "*.exe");
         string? exePath = ExecutableDiscovery.FindPrimaryExecutable(
             subDir, exeFiles, _noiseExePatterns, _noiseDirectoryPatterns, _launcherPatterns, GetExePatternTier);
+
+        // LNK fallback — if no exe found, try resolving from .lnk shortcuts
+        if (string.IsNullOrEmpty(exePath))
+        {
+            exePath = LnkParser.ResolveExeFromLnk(subDir);
+        }
+
         string? launcherPath = ExecutableDiscovery.FindLauncherExecutable(subDir, exePath, _launcherPatterns);
         string manifestPath = ExecutableDiscovery.FindEpicManifest(subDir);
         string displayName = FileSystemHelper.NormalizeDisplayName(subDir.Name);
         string id = GameEntryId.ComputeId(rootPath, subDir.Name);
+        var platformMetadata = new Dictionary<string, string>();
+        string commandLineArgs = string.Empty;
+
+        // GOG enrichment: parse goggame-*.info for title, exe, args, and game ID
+        if (resolvedType == GameSourceKind.Gog
+            && GogInfoParser.TryParse(subDir, _noiseDirectoryPatterns, out var gogInfo)
+            && gogInfo is not null)
+        {
+            // Title: GOG .info is the official source
+            if (!string.IsNullOrEmpty(gogInfo.Title))
+            {
+                platformMetadata["AutoDetectedTitle"] = displayName;
+                displayName = gogInfo.Title;
+                platformMetadata["TitleSource"] = "GogInfo";
+            }
+
+            // Exe: GOG .info is a fallback when ExecutableDiscovery finds nothing
+            if (string.IsNullOrEmpty(exePath) && !string.IsNullOrEmpty(gogInfo.ExePath))
+            {
+                exePath = gogInfo.ExePath;
+            }
+
+            // Launch args
+            if (!string.IsNullOrEmpty(gogInfo.LaunchArgs))
+            {
+                commandLineArgs = gogInfo.LaunchArgs;
+            }
+
+            // Platform metadata
+            platformMetadata["GogGameId"] = gogInfo.GameId;
+        }
 
         entries.Add(new GameEntry(
             Id: id,
@@ -349,11 +504,11 @@ public sealed class FolderScanner
             IsSourceOverridden: isOverride,
             ExecutablePath: exePath ?? string.Empty,
             LauncherPath: launcherPath ?? string.Empty,
-            CommandLineArguments: string.Empty,
+            CommandLineArguments: commandLineArgs,
             ManifestPath: manifestPath,
             LastScanned: DateTimeOffset.UtcNow,
             LastModified: FileSystemHelper.GetLastWriteTimeSafe(subDir),
-            PlatformMetadata: []));
+            PlatformMetadata: platformMetadata));
     }
 
 }

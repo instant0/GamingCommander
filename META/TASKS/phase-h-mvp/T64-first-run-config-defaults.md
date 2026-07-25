@@ -4,7 +4,7 @@
 **Phase:** H — MVP
 **Effort:** ~20 min
 **Risk:** Low
-**Status:** Pending
+**Status:** Complete
 **Prerequisites:** None
 **WP:** WP-2
 
@@ -78,7 +78,10 @@ On first run, `JsonConfigService.Load()` returns `IsFirstRun = false` even when 
 
 ## Completion Notes
 
-- **Completed:**
+- **Completed:** 2026-07-25
 - **What was done:**
-- **Verification:**
-- **Issues encountered:**
+  - Added `File.Exists(_configPath)` check before `JsonFileHelper.ReadFromFile` in `JsonConfigService.Load()`
+  - `IsFirstRun` now set to `!fileExists` instead of `loaded.IsFirstRun`
+  - Created `JsonConfigServiceTests.cs` with 3 tests: missing file returns IsFirstRun=true, save+load returns IsFirstRun=false, missing games.json returns empty database
+- **Verification:** Build clean (0 errors), 102 tests passing (0 regressions, +3 new)
+- **Issues encountered:** None

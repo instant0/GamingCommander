@@ -25,7 +25,7 @@
 | WP-1 | T61, T62, T63 | Fix launch pipeline |
 | WP-2 | T64 | First-run config defaults |
 | WP-3 | T65, T66, T67, T68 | C# detection parity |
-| WP-4 | T69 | Launch UX polish |
+| WP-4 | T65b, T69, T71 | Launch UX polish |
 | WP-5 | T70 | Windows smoke gate |
 
 ---
@@ -35,15 +35,17 @@
 | # | Task | WP | Priority | Status |
 |---|------|----|----------|--------|
 | T61 | [Fix launch target resolution](T61-fix-launch-target-resolution.md) | WP-1 | P0 | Complete |
-| T62 | [Fix launch execution](T62-fix-launch-execution.md) | WP-1 | P0 | Pending |
-| T63 | [Launch pipeline unit tests](T63-launch-pipeline-tests.md) | WP-1 | P0 | Pending |
-| T64 | [First-run config defaults](T64-first-run-config-defaults.md) | WP-2 | P0 | Pending |
-| T65 | [GOG goggame info parser](T65-gog-info-parser.md) | WP-3 | P0 | Pending |
-| T66 | [UE-aware exe discovery](T66-ue-aware-exe-discovery.md) | WP-3 | P0 | Pending |
-| T67 | [.lnk shortcut exe resolution](T67-lnk-shortcut-resolution.md) | WP-3 | P0 | Pending |
+| T62 | [Fix launch execution](T62-fix-launch-execution.md) | WP-1 | P0 | Complete |
+| T63 | [Launch pipeline unit tests](T63-launch-pipeline-tests.md) | WP-1 | P0 | Cancelled |
+| T64 | [First-run config defaults](T64-first-run-config-defaults.md) | WP-2 | P0 | Complete |
+| T65 | [GOG goggame info parser](T65-gog-info-parser.md) | WP-3 | P0 | Complete |
+| T66 | [UE-aware exe discovery](T66-ue-aware-exe-discovery.md) | WP-3 | P0 | Complete |
+| T67 | [.lnk shortcut exe resolution](T67-lnk-shortcut-resolution.md) | WP-3 | P0 | Complete |
 | T68 | [Container recursion improvements](T68-container-recursion.md) | WP-3 | P0 | Pending |
 | T69 | [Launch UX polish](T69-launch-ux-polish.md) | WP-4 | P1 | Pending |
 | T70 | [Windows smoke gate](T70-windows-smoke-gate.md) | WP-5 | P0 | Pending |
+| T65b | [Title & exe selection dialogs](T65b-title-exe-selection-dialogs.md) | WP-4 | P1 | Pending |
+| T71 | [Remove F5 launch keybind](T71-remove-f5-launch-keybind.md) | WP-4 | P2 | Pending |
 
 ---
 

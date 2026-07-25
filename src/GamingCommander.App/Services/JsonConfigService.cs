@@ -19,6 +19,7 @@ public sealed class JsonConfigService : IConfigService
     /// <summary>Loads application configuration from disk. Returns defaults if file missing.</summary>
     public AppConfig Load()
     {
+        bool fileExists = File.Exists(_configPath);
         ConfigDto? loaded = JsonFileHelper.ReadFromFile<ConfigDto>(
             _configPath,
             () => new ConfigDto());
@@ -56,7 +57,7 @@ public sealed class JsonConfigService : IConfigService
             LibraryRoots: roots,
             FolderOverrides: overrides,
             HiddenFolders: hiddenFolders,
-            IsFirstRun: loaded.IsFirstRun,
+            IsFirstRun: !fileExists,
             LastSeenVersion: loaded.LastSeenVersion,
             EnableOnlineMetadata: loaded.EnableOnlineMetadata);
     }

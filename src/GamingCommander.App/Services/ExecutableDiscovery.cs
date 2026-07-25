@@ -13,7 +13,9 @@ internal static class ExecutableDiscovery
     /// Finds all non-noise executables within a game folder, searching:
     /// 1. Root directory
     /// 2. Immediate child directories (skipping noise dirs)
-    /// 3. Binaries/Win64/ and Binaries/WinGDK/ paths in children
+    /// 3. Binaries/{Win64,Win32,WinGDK,Steam}/ paths in children
+    /// 4. child/bin/ for older UE games
+    /// 5. 2-level recursive fallback when no candidates found
     /// </summary>
     /// <param name="dir">The game directory to search.</param>
     /// <param name="noiseExePatterns">Executable name substrings to exclude (e.g., "launcher", "setup").</param>
@@ -46,21 +48,26 @@ internal static class ExecutableDiscovery
                         candidates.Add(exe);
                 }
 
-                // 3. Binaries/Win64/ and Binaries/WinGDK/
-                string win64 = Path.Combine(child.FullName, "Binaries", "Win64");
-                if (Directory.Exists(win64))
+                // 3. UE Binaries paths — Win64, Win32, WinGDK, Steam
+                // Scans all platforms (no early break) — matches detect.py _find_game_executables behavior.
+                // Missing exes = games with no launch target. Extra candidates = scoring system filters them.
+                foreach (string platform in s_uePlatformNames)
                 {
-                    foreach (string exe in Directory.EnumerateFiles(win64, "*.exe", SearchOption.TopDirectoryOnly))
+                    string platPath = Path.Combine(child.FullName, "Binaries", platform);
+                    if (!Directory.Exists(platPath)) continue;
+
+                    foreach (string exe in Directory.EnumerateFiles(platPath, "*.exe", SearchOption.TopDirectoryOnly))
                     {
                         if (!IsNoiseExeByPath(exe, noiseExePatterns))
                             candidates.Add(exe);
                     }
                 }
 
-                string winGdk = Path.Combine(child.FullName, "Binaries", "WinGDK");
-                if (Directory.Exists(winGdk))
+                // 4. Older UE games — child/bin/ (Gothic, Jagged Alliance)
+                string binPath = Path.Combine(child.FullName, "bin");
+                if (Directory.Exists(binPath))
                 {
-                    foreach (string exe in Directory.EnumerateFiles(winGdk, "*.exe", SearchOption.TopDirectoryOnly))
+                    foreach (string exe in Directory.EnumerateFiles(binPath, "*.exe", SearchOption.TopDirectoryOnly))
                     {
                         if (!IsNoiseExeByPath(exe, noiseExePatterns))
                             candidates.Add(exe);
@@ -69,6 +76,12 @@ internal static class ExecutableDiscovery
             }
         }
         catch { }
+
+        // 5. BioShock pattern — root has no exes, scan 2 levels deep
+        if (candidates.Count == 0)
+        {
+            candidates.AddRange(FindExesRecursive(dir, noiseExePatterns, noiseDirectoryPatterns, maxDepth: 2));
+        }
 
         // Deduplicate by full path
         var seen = new HashSet<string>();
@@ -79,6 +92,56 @@ internal static class ExecutableDiscovery
                 unique.Add(exe);
         }
         return unique;
+    }
+
+    /// <summary>
+    /// UE platform directory names under Binaries/.
+    /// Matches detect.py _find_game_executables (Win64, WinGDK) + _find_exe_in_subdirs (Win32, Steam).
+    /// Linux dropped (Windows-only app).
+    /// </summary>
+    private static readonly string[] s_uePlatformNames = ["Win64", "Win32", "WinGDK", "Steam"];
+
+    /// <summary>
+    /// Walks subdirectories up to maxDepth, collecting non-noise executables.
+    /// Used as a fallback when explicit path probes find nothing (BioShock pattern).
+    /// Matches detect.py _add_exes_recursive with max_depth=2.
+    /// </summary>
+    private static List<string> FindExesRecursive(
+        DirectoryInfo dir,
+        IReadOnlyList<string> noiseExePatterns,
+        IReadOnlySet<string> noiseDirectoryPatterns,
+        int maxDepth,
+        int depth = 0)
+    {
+        var results = new List<string>();
+        if (depth > maxDepth) return results;
+
+        try
+        {
+            foreach (DirectoryInfo child in FileSystemHelper.GetDirectoriesSafe(dir.FullName))
+            {
+                if (IsNoiseDirectory(child.Name, noiseDirectoryPatterns)
+                    || FileSystemHelper.NoiseSubDirNames.Contains(child.Name))
+                    continue;
+
+                // Collect exes from this directory
+                foreach (string exe in Directory.EnumerateFiles(child.FullName, "*.exe", SearchOption.TopDirectoryOnly))
+                {
+                    if (!IsNoiseExeByPath(exe, noiseExePatterns))
+                        results.Add(exe);
+                }
+
+                // Recurse if within depth limit
+                if (depth < maxDepth)
+                {
+                    results.AddRange(FindExesRecursive(child, noiseExePatterns, noiseDirectoryPatterns, maxDepth, depth + 1));
+                }
+            }
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+
+        return results;
     }
 
     /// <summary>

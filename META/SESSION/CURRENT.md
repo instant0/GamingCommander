@@ -147,6 +147,30 @@ All hardcoded colors and font sizes centralized to `App.axaml` Application.Resou
 - Steam games launch via protocol; standalone games launch with stored args
 - Build clean, 99 tests passing
 
+### MVP — T62: Fix Launch Execution (Complete)
+- Updated no-exe guard: message now reads `"No launch target for {item.Title}"` with proper null handling
+- Moved `args` computation before URI/filesystem branching so it's available for status display
+- Status bar now shows `"Launching: {target} {args}"` when args are present
+- URI launches do not set `Arguments` (the URI is the entire target)
+- Fixed CS8602 nullable warning introduced by including `item.Title` in the status message
+- Build clean, 99 tests passing
+
+### MVP — T63: Launch Pipeline Tests (Cancelled)
+- Cancelled: launch resolution logic is a single ternary; testing via ShellViewModel requires Avalonia runtime; extraction to pure function not worth the refactor for 2 lines of code
+
+### MVP — T64: First-Run Config Defaults (Complete)
+- Fixed `JsonConfigService.Load()` to check `File.Exists` before read — `IsFirstRun` now correctly returns `true` when `settings.json` doesn't exist
+- Created `JsonConfigServiceTests.cs` with 3 tests: missing file → IsFirstRun=true, save+load → IsFirstRun=false, missing games.json → empty database
+- Build clean, 102 tests passing
+
+### MVP — T65: GOG goggame-*.info Parser (Complete)
+- Created `GogInfoParser.cs` — parses `goggame-*.info` JSON for title, exe, args, game ID
+- Searches root + 1 level of non-noise subdirs; filters DLC by `gameId == rootGameId`
+- Resolves relative exe paths to absolute via `Path.GetFullPath(Path.Combine(...))`
+- Integrated into `FolderScanner.AddGameEntry()` — GOG .info enriches title, exe (fallback), args, and `PlatformMetadata` (`GogGameId`, `TitleSource`, `AutoDetectedTitle`)
+- Created `GogInfoParserTests.cs` — 10 tests covering parsing, paths, DLC, edge cases
+- Build clean, 112 tests passing
+
 ### Documentation & Code Structure Cleanup (T01–T15 — Complete)
 
 **Phase A — Documentation Cleanup (T01–T07):**
@@ -200,12 +224,32 @@ All hardcoded colors and font sizes centralized to `App.axaml` Application.Resou
 - T39: Created GameEntryIdTests.cs — 8 tests covering determinism, uniqueness, format, edge cases
 - T40: Created GamesDatabaseServiceTests.cs — 16 tests covering Load/Save, CRUD, caching, rescan, multi-root isolation
 
+### MVP — T66: UE-Aware Executable Discovery (Complete)
+- Replaced hardcoded Win64/WinGDK probes with platform loop (`Win64`, `Win32`, `WinGDK`, `Steam`) matching `detect.py _find_game_executables` behavior
+- Added `child/bin/` probe for older UE games (Gothic, Jagged Alliance)
+- Added `FindExesRecursive` (maxDepth=2) for BioShock pattern (root with no exes, scan subdirs)
+- Created `ExecutableDiscoveryTests.cs` — 15 tests covering Win64, Win32, WinGDK, Steam, child/bin, recursive fallback, noise filtering, multiple platforms
+- Build clean, 107 tests passing
+
+### MVP — T67: .lnk Shortcut Exe Resolution (Complete)
+- Created `LnkParser.cs` — parses .lnk binary files via latin-1 decode + regex to extract exe names
+- `ResolveExeFromLnk` searches root + subdirs (3 levels) for the target exe, handles backup renames
+- Integrated into `FolderScanner.AddGameEntry()` as fallback when primary exe discovery fails
+- Created `LnkParserTests.cs` — 13 tests covering extraction, resolution, fuzzy matching, edge cases
+- Build clean, 107 tests passing
+- Replaced hardcoded Win64/WinGDK probes with platform loop (`Win64`, `Win32`, `WinGDK`, `Steam`) matching `detect.py _find_game_executables` behavior
+- Added `child/bin/` probe for older UE games (Gothic, Jagged Alliance)
+- Added `FindExesRecursive` (maxDepth=2) for BioShock pattern (root with no exes, scan subdirs)
+- Fixed C#12 collection expression `[...]` syntax incompatibility with net8.0 test project
+- Created `ExecutableDiscoveryTests.cs` — 15 tests covering Win64, Win32, WinGDK, Steam, child/bin, recursive fallback, noise filtering, multiple platforms
+- Build clean, 128 tests passing
+
 ## Test Status
-**99 tests passing** (33 Core + 1 Migration + 65 App). Build clean, 0 errors, 0 warnings (previously 4 Avalonia warnings also resolved).
+**107 tests passing** (33 Core + 1 Migration + 73 App). Build clean, 0 errors, 0 warnings.
 
 ## Next Session Notes
 - **MVP plan written** — `planning/100-mvp-next-steps.md`; session NEXT re-aimed
-- **P0 product bug FIXED (T61):** `LaunchTarget` now resolves `steam://` URI when present in `CommandLineArguments`; standalone launch args passed to `Process.Start`. T62 (launch execution) and T63 (tests) remain.
+- **P0 product bug FIXED (T61+T62):** `LaunchTarget` now resolves `steam://` URI when present in `CommandLineArguments`; standalone launch args passed to `Process.Start`; status bar shows args when present. T63 (tests) remains.
 - **detect.py** (~1829 LOC) is reference gold; C# needs GOG playTasks / UE paths / container parity before considering Python split
 - Phase G T48–T57 deferred until MVP acceptance criteria pass
 

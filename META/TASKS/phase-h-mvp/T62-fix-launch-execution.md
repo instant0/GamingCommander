@@ -4,7 +4,7 @@
 **Phase:** H — MVP
 **Effort:** ~20 min
 **Risk:** Medium
-**Status:** Pending
+**Status:** Complete
 **Prerequisites:** T61
 **WP:** WP-1
 
@@ -78,7 +78,12 @@
 
 ## Completion Notes
 
-- **Completed:**
+- **Completed:** 2026-07-25
 - **What was done:**
-- **Verification:**
-- **Issues encountered:**
+  - Updated no-exe guard: message now reads `"No launch target for {item.Title}"` with proper null handling
+  - Moved `args` computation before the URI/filesystem branching so it's available for status display
+  - Status bar now shows `"Launching: {target} {args}"` when args are present, `"Launching: {target}"` when empty
+  - URI launches do not set `Arguments` (the URI is the entire target)
+  - Fixed CS8602 nullable warning introduced by including `item.Title` in the status message
+- **Verification:** Build clean (0 errors), 99 tests passing (0 regressions)
+- **Issues encountered:** None

@@ -231,9 +231,11 @@ public partial class MainWindow : Window
         }
 
         var item = _viewModel.SelectedItem;
-        if (item?.LaunchTarget is null || item.LaunchTarget.Length == 0)
+        if (item is null || string.IsNullOrEmpty(item.LaunchTarget))
         {
-            _viewModel.StatusText = "No executable path for this entry.";
+            _viewModel.StatusText = item is not null
+                ? $"No launch target for {item.Title}"
+                : "No game selected.";
             return Task.CompletedTask;
         }
 
@@ -248,7 +250,14 @@ public partial class MainWindow : Window
 
         try
         {
-            _viewModel.StatusText = $"Launching: {target}";
+            // Resolve arguments: URI launches use the URI itself as the entire target, no extra args
+            string args = item.CommandLineArguments.StartsWith("steam://", StringComparison.OrdinalIgnoreCase)
+                ? string.Empty
+                : item.CommandLineArguments;
+
+            _viewModel.StatusText = string.IsNullOrEmpty(args)
+                ? $"Launching: {target}"
+                : $"Launching: {target} {args}";
 
             if (target.StartsWith("steam://", StringComparison.OrdinalIgnoreCase))
             {
@@ -260,11 +269,6 @@ public partial class MainWindow : Window
             }
             else
             {
-                // For non-URI launches, pass stored command-line arguments (e.g. GOG SCUMMVM args)
-                string args = item.CommandLineArguments.StartsWith("steam://", StringComparison.OrdinalIgnoreCase)
-                    ? string.Empty
-                    : item.CommandLineArguments;
-
                 using var proc = Process.Start(new ProcessStartInfo
                 {
                     FileName = target,
