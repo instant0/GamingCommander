@@ -121,7 +121,11 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
         Save(new GamesDatabase(roots));
     }
 
-    /// <summary>Replaces all entries for a root with freshly scanned results.</summary>
+    /// <summary>
+    /// Re-scans a root while preserving user overrides (display name, source type, args, etc.).
+    /// Matches existing games by ID and merges: takes scanned fields but keeps user modifications.
+    /// Games not found in scan results are retained (folder may be temporarily unavailable).
+    /// </summary>
     public void RescanRoot(string rootPath, IEnumerable<GameEntry> games)
     {
         GamesDatabase db = Load();
@@ -130,8 +134,79 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
         if (rootIndex < 0) return;
 
         var existing = roots[rootIndex];
-        roots[rootIndex] = existing with { Games = games.ToList() };
+        var existingGamesLookup = existing.Games.ToDictionary(g => g.Id);
+        var newScannedGames = games.ToList();
+        var mergedGames = new List<GameEntry>();
+
+        // Process newly scanned games — merge with existing if ID matches
+        foreach (GameEntry scanned in newScannedGames)
+        {
+            if (existingGamesLookup.TryGetValue(scanned.Id, out GameEntry? existingGame))
+            {
+                // Merge: take scanned fields but preserve user overrides
+                mergedGames.Add(MergeGameEntries(existingGame, scanned));
+                existingGamesLookup.Remove(scanned.Id); // Mark as processed
+            }
+            else
+            {
+                // New game found during scan
+                mergedGames.Add(scanned);
+            }
+        }
+
+        // Keep existing games that weren't in scan results (temporarily unavailable)
+        foreach (GameEntry remaining in existingGamesLookup.Values)
+        {
+            mergedGames.Add(remaining with { LastScanned = DateTimeOffset.UtcNow });
+        }
+
+        roots[rootIndex] = existing with { Games = mergedGames };
         Save(new GamesDatabase(roots));
+    }
+
+    /// <summary>
+    /// Merges two game entries: takes scanned data but preserves user overrides from existing.
+    /// User overrides are detected by comparing with auto-detected values.
+    /// </summary>
+    private static GameEntry MergeGameEntries(GameEntry existing, GameEntry scanned)
+    {
+        // Preserve display name if user changed it (differs from auto-normalized folder name)
+        string autoDetectedName = FileSystemHelper.NormalizeDisplayName(existing.FolderName);
+        string displayName = existing.DisplayName != autoDetectedName
+            ? existing.DisplayName
+            : scanned.DisplayName;
+
+        // Preserve source type if user overrode it
+        GameSourceKind gameSource = existing.IsSourceOverridden
+            ? existing.GameSource
+            : scanned.GameSource;
+
+        // Preserve command-line args if user added them (non-empty and differs from scanned)
+        string commandLineArgs = !string.IsNullOrEmpty(existing.CommandLineArguments)
+            && existing.CommandLineArguments != scanned.CommandLineArguments
+            ? existing.CommandLineArguments
+            : scanned.CommandLineArguments;
+
+        // Preserve launcher path if user specified it
+        string launcherPath = !string.IsNullOrEmpty(existing.LauncherPath)
+            ? existing.LauncherPath
+            : scanned.LauncherPath;
+
+        // Preserve manifest path if user specified it
+        string manifestPath = !string.IsNullOrEmpty(existing.ManifestPath)
+            ? existing.ManifestPath
+            : scanned.ManifestPath;
+
+        return scanned with
+        {
+            DisplayName = displayName,
+            GameSource = gameSource,
+            IsSourceOverridden = existing.IsSourceOverridden,
+            CommandLineArguments = commandLineArgs,
+            LauncherPath = launcherPath,
+            ManifestPath = manifestPath,
+            LastScanned = DateTimeOffset.UtcNow,
+        };
     }
 
     /// <summary>Updates a single game entry within the specified root.</summary>

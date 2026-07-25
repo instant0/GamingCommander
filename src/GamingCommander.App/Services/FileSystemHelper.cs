@@ -17,6 +17,9 @@ internal static class FileSystemHelper
         "vcredist", "dotnet", "physx", "support", "_installer", "install",
         "installer", "easyanticheat", "devtools", "docs", "licenses",
         "steam controller configs", "steamworks shared",
+        // Store launcher directories — these are games stores, not games themselves
+        "battle.net", "epic games", "origin", "uplay", "gog galaxy",
+        "ea app", "rockstar games", "blizzard",
     ], StringComparer.OrdinalIgnoreCase);
 
     /// <summary>

@@ -59,7 +59,13 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
         GameSourceKind defaultType = GameSourceParser.InferFromPath(path);
         Entries.Add(new LibraryRootEntry(path, defaultType.ToString(), 0));
 
-        await ScanAndSaveAsync(path, defaultType);
+        bool added = await ScanAndSaveAsync(path, defaultType);
+        if (!added)
+        {
+            // Remove the entry if no games were found
+            var entry = Entries.FirstOrDefault(e => e.Path.Equals(path, StringComparison.OrdinalIgnoreCase));
+            if (entry != null) Entries.Remove(entry);
+        }
     }
 
     /// <summary>Rescans a library root for games and updates the entry's game count.</summary>
@@ -90,14 +96,20 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
         _window.Close();
     }
 
-    private async Task ScanAndSaveAsync(string path, GameSourceKind defaultType)
+    /// <summary>
+    /// Scans a folder and saves it as a library root.
+    /// Returns true if the root was added, false if the folder was empty.
+    /// </summary>
+    private async Task<bool> ScanAndSaveAsync(string path, GameSourceKind defaultType)
     {
         // LibraryManager handles scanner routing (FolderScanner vs SteamLibraryScanner)
-        await Task.Run(() => _libraryManager.AddRoot(path, defaultType, []));
+        bool added = await Task.Run(() => _libraryManager.AddRoot(path, defaultType, []));
 
         IReadOnlyList<GameEntry> games = _dbService.GetGamesForRoot(path);
 
         var entry = Entries.FirstOrDefault(e => e.Path.Equals(path, StringComparison.OrdinalIgnoreCase));
         if (entry != null) entry.GameCount = games.Count;
+
+        return added;
     }
 }

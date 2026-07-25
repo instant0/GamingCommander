@@ -14,6 +14,7 @@ public partial class GameSetupWindow : Window
     private readonly string _rootPath;
     private readonly IConfigService _configService;
     private readonly IGamesDatabaseService _dbService;
+    private readonly string _gameFolderPath;
 
     /// <summary>The editable display name of the game.</summary>
     public string DisplayName { get; set; }
@@ -42,6 +43,11 @@ public partial class GameSetupWindow : Window
         _configService = configService;
         _dbService = dbService;
 
+        // Determine game folder path for file picker start location
+        _gameFolderPath = !string.IsNullOrEmpty(game.ExecutablePath)
+            ? Path.GetDirectoryName(game.ExecutablePath) ?? rootPath
+            : rootPath;
+
         DisplayName = game.DisplayName;
         SelectedType = game.GameSource.ToString();
         ExecutablePath = game.ExecutablePath;
@@ -63,10 +69,14 @@ public partial class GameSetupWindow : Window
         panel.Children.Add(MakeFieldRow("Display Name", DisplayName, 0, false, false, ""));
         panel.Children.Add(MakeComboRow("Game Type", GameSourceParser.SourceDisplayNames, SelectedType, 1));
         panel.Children.Add(MakeFieldRow("Executable Path", ExecutablePath, 2, false, true, "Browse..."));
-        panel.Children.Add(MakeFieldRow("Launcher Path", LauncherPath, 3, false, true, "Browse..."));
-        panel.Children.Add(MakeFieldRow("Launch Args", CommandLineArguments, 4, false, false, ""));
-        panel.Children.Add(MakeFieldRow("Epic Manifest", ManifestPath, 5, false, true, "Browse..."));
-        panel.Children.Add(MakeFieldRow("Folder", _originalGame.FolderName, 6, true, false, ""));
+        panel.Children.Add(MakeFieldRow("Launch Args", CommandLineArguments, 3, false, false, ""));
+        panel.Children.Add(MakeFieldRow("Launcher Path", LauncherPath, 4, false, true, "Browse..."));
+
+        // Only show Epic Manifest field for Epic games (BUG-7)
+        if (SelectedType == "Epic")
+            panel.Children.Add(MakeFieldRow("Epic Manifest", ManifestPath, 5, false, true, "Browse..."));
+
+        // Folder field removed — redundant with path shown at top (BUG-8)
 
         var btnRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Margin = new Thickness(0, 16, 0, 0) };
 
@@ -120,8 +130,8 @@ public partial class GameSetupWindow : Window
         {
             case 0: textBox.TextChanged += (_, _) => DisplayName = textBox.Text ?? ""; break;
             case 2: textBox.TextChanged += (_, _) => ExecutablePath = textBox.Text ?? ""; break;
-            case 3: textBox.TextChanged += (_, _) => LauncherPath = textBox.Text ?? ""; break;
-            case 4: textBox.TextChanged += (_, _) => CommandLineArguments = textBox.Text ?? ""; break;
+            case 3: textBox.TextChanged += (_, _) => CommandLineArguments = textBox.Text ?? ""; break;
+            case 4: textBox.TextChanged += (_, _) => LauncherPath = textBox.Text ?? ""; break;
             case 5: textBox.TextChanged += (_, _) => ManifestPath = textBox.Text ?? ""; break;
         }
 
@@ -144,16 +154,23 @@ public partial class GameSetupWindow : Window
             };
             picker.Click += async (_, _) =>
             {
-                if (fieldIndex == 2 || fieldIndex == 3)
+                if (fieldIndex == 2 || fieldIndex == 4) // Executable Path or Launcher Path
                 {
                     var result = await StorageProvider.OpenFilePickerAsync(
-                        new FilePickerOpenOptions { Title = $"Select {label}", FileTypeFilter = [new FilePickerFileType("Executable") { Patterns = ["*.exe"] }] });
+                        new FilePickerOpenOptions
+                        {
+                            Title = $"Select {label}",
+                            FileTypeFilter = [new FilePickerFileType("Executable") { Patterns = ["*.exe"] }],
+                        });
                     if (result.Count > 0) textBox.Text = result[0].Path.LocalPath;
                 }
                 else
                 {
                     var result = await StorageProvider.OpenFilePickerAsync(
-                        new FilePickerOpenOptions { Title = $"Select {label}" });
+                        new FilePickerOpenOptions
+                        {
+                            Title = $"Select {label}",
+                        });
                     if (result.Count > 0) textBox.Text = result[0].Path.LocalPath;
                 }
             };

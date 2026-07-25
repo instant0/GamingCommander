@@ -21,6 +21,9 @@ internal static class ContainerScanner
         "licenses", "steam controller configs", "steamworks shared",
         "dlc", "program files", "windowsapps", "squirreltemp",
         "portable", "uninstall",
+        // Store launcher directories — these are game stores, not games
+        "battle.net", "epic games", "origin", "uplay", "gog galaxy",
+        "ea app", "rockstar games", "blizzard",
     };
 
     /// <summary>

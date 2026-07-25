@@ -21,6 +21,7 @@ public partial class MainWindow : Window
     private SteamLibraryScanner? _steamScanner;
 
     private LibraryManager? _libraryManager;
+    private CancellationTokenSource? _statusClearCts;
 
     /// <summary>Primary application window. Manages dual-pane navigation, keyboard shortcuts, and game launching.</summary>
     public MainWindow(ShellViewModel shellViewModel, IGamesDatabaseService dbService)
@@ -110,6 +111,40 @@ public partial class MainWindow : Window
         return _configService ?? new JsonConfigService(GetConfigPath());
     }
 
+    /// <summary>
+    /// Sets status bar text with optional auto-clear after specified milliseconds.
+    /// Cancels any pending clear operation before setting new status.
+    /// </summary>
+    private void SetStatusWithAutoClear(string message, int autoClearMs = 5000)
+    {
+        if (_viewModel is null) return;
+
+        _viewModel.StatusText = message;
+
+        // Cancel any pending clear
+        _statusClearCts?.Cancel();
+        _statusClearCts?.Dispose();
+        _statusClearCts = null;
+
+        // Schedule auto-clear if requested
+        if (autoClearMs > 0)
+        {
+            _statusClearCts = new CancellationTokenSource();
+            CancellationToken token = _statusClearCts.Token;
+            Task.Delay(autoClearMs, token).ContinueWith(_ =>
+            {
+                if (!token.IsCancellationRequested)
+                {
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        if (_viewModel is not null)
+                            _viewModel.StatusText = string.Empty;
+                    });
+                }
+            }, token);
+        }
+    }
+
     protected override async void OnKeyDown(KeyEventArgs e)
     {
         if (_viewModel is null)
@@ -153,7 +188,7 @@ public partial class MainWindow : Window
                 break;
 
             case Key.F3:
-                _viewModel.StatusText = "View metadata — coming in a future update";
+                SetStatusWithAutoClear("View metadata — coming in a future update");
                 e.Handled = true;
                 break;
 
@@ -178,7 +213,7 @@ public partial class MainWindow : Window
                 break;
 
             case Key.F8:
-                _viewModel.StatusText = "Filter/category view — coming in a future update";
+                SetStatusWithAutoClear("Filter/category view — coming in a future update");
                 e.Handled = true;
                 break;
 
@@ -190,7 +225,7 @@ public partial class MainWindow : Window
             case Key.S:
                 if (e.KeyModifiers == KeyModifiers.None)
                 {
-                    _viewModel.StatusText = "Search not yet implemented";
+                    SetStatusWithAutoClear("Search not yet implemented");
                     e.Handled = true;
                 }
                 break;
@@ -328,15 +363,16 @@ public partial class MainWindow : Window
             var config = GetConfigService().Load();
             if (config.LibraryRoots.Count == 0)
             {
-                _viewModel.StatusText = "No roots configured. Press F2 or F7 to add one.";
+                SetStatusWithAutoClear("No roots configured. Press F2 or F7 to add one.");
                 return Task.CompletedTask;
             }
 
+            SetStatusWithAutoClear("Scanning all roots...", 0); // Don't auto-clear scanning message
             _libraryManager.Refresh();
             int totalGames = config.LibraryRoots.Sum(
                 r => _libraryManager.GetGamesForRoot(r.RootPath).Count);
             _viewModel.Reload();
-            _viewModel.StatusText = $"Rescanned {config.LibraryRoots.Count} root(s), found {totalGames} game(s).";
+            SetStatusWithAutoClear($"Rescanned {config.LibraryRoots.Count} root(s), found {totalGames} game(s).");
             return Task.CompletedTask;
         }
 
@@ -347,10 +383,13 @@ public partial class MainWindow : Window
             r.RootPath.Equals(rootPath, StringComparison.OrdinalIgnoreCase));
         if (matchedRoot is null) return Task.CompletedTask;
 
+        SetStatusWithAutoClear($"Scanning {Path.GetFileName(rootPath)}...", 0);
         var scannedGames = _libraryManager.SelectScannerAndScan(rootPath, matchedRoot.DefaultType);
         _viewModel.ApplyRescannedGames(scannedGames);
         if (scannedGames.Count == 0)
-            _viewModel.StatusText = "Rescan complete — no games found in this root.";
+            SetStatusWithAutoClear("Rescan complete — no games found in this root.");
+        else
+            SetStatusWithAutoClear($"Rescan complete — found {scannedGames.Count} game(s).");
         return Task.CompletedTask;
     }
 
@@ -376,10 +415,17 @@ public partial class MainWindow : Window
         GameSourceKind detectedType = isSteamLibrary ? GameSourceKind.Steam : GameSourceKind.Standalone;
 
         // Pass empty games list — LibraryManager.AddRoot will scan internally
-        _libraryManager.AddRoot(result, detectedType, []);
+        bool added = _libraryManager.AddRoot(result, detectedType, []);
 
-        _viewModel?.Reload();
-        _viewModel!.StatusText = $"Added root: {result}";
+        if (added)
+        {
+            _viewModel?.Reload();
+            SetStatusWithAutoClear($"Added root: {result}");
+        }
+        else
+        {
+            SetStatusWithAutoClear($"No games found in {result}");
+        }
     }
 
     private void LeftListBox_DoubleTapped(object? sender, Avalonia.Input.TappedEventArgs e)
@@ -409,7 +455,7 @@ public partial class MainWindow : Window
                 _ = OpenLibrarySetupAsync();
                 break;
             case "F3":
-                _viewModel.StatusText = "View metadata — coming in a future update";
+                SetStatusWithAutoClear("View metadata — coming in a future update");
                 break;
             case "F4":
                 _ = OpenGameSetupAsync();
@@ -421,7 +467,7 @@ public partial class MainWindow : Window
                 _ = AddRootAsync();
                 break;
             case "F8":
-                _viewModel.StatusText = "Filter/category view — coming in a future update";
+                SetStatusWithAutoClear("Filter/category view — coming in a future update");
                 break;
             case "F9":
                 _viewModel.JumpToLibraryRoots();

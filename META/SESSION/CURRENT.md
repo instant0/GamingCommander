@@ -44,6 +44,27 @@ Code quality Phases D–G largely done (T58–T60 complete; T48–T57 deferred u
 
 ## Completed This Session
 
+### MVP — T75: Windows Smoke Bugfixes (Complete)
+Fixed 11 of 12 bugs from T70 Windows smoke gate. Build clean, 209 tests passing.
+
+| Bug | Severity | Fix |
+|-----|----------|-----|
+| BUG-1 | P0 | `RescanRoot()` now merges scanned results with existing games, preserving user overrides (DisplayName, source type, args, launcher, manifest) |
+| BUG-2 | P1 | Steam Installed → white (default), Moved → yellow, Orphaned/Missing → red |
+| BUG-3 | P1 | Status messages auto-clear after 5 seconds; "Scanning..." feedback during F6 |
+| BUG-4 | P1 | `AddRoot()` returns false for empty folders; "No games found" message shown |
+| BUG-5 | P1 | Store launcher dirs (battle.net, epic games, origin, etc.) added to noise lists |
+| BUG-9 | P1 | `HasBattleNetGameSignal()` + parent folder signal propagation for BattleNet games |
+| BUG-10 | P1 | Exe scoring: folder name match bonus +15, editor/tool patterns added, size bonus reduced |
+| BUG-6 | P2 | F4 field order: Args moved above Launcher Path |
+| BUG-7 | P2 | Epic Manifest field only shown for Epic games |
+| BUG-8 | P2 | Redundant Folder field removed from F4 dialog |
+| BUG-11 | P2 | DEFERRED → ExeCandidateSelector proposal (see BACKLOG/IDEAS.md) |
+| BUG-13 | P2 | Item count hidden at top level (root list) |
+
+**Files changed:** 11 (GamesDatabaseService, ShellViewModel, MainWindow, LibraryManager, ILibraryManager, FileSystemHelper, ContainerScanner, StoreSignalDetector, FolderScanner, ExecutableDiscovery, GameSetupWindow, MainWindow.axaml)
+**Tests added:** 4 new (209 total)
+
 ### MVP — T71: Remove F5 Launch Keybind (Complete)
 - Removed `case Key.F5:` keyboard handler and `case "F5":` command dispatcher from `MainWindow.axaml.cs`
 - Removed F5 entry from `ShellViewModel.Commands` collection (9 commands remain)
@@ -293,7 +314,7 @@ All hardcoded colors and font sizes centralized to `App.axaml` Application.Resou
 - All 154 tests passing (33 Core + 1 Migration + 120 App). Build clean.
 
 ## Test Status
-**206 tests passing** (33 Core + 1 Migration + 172 App). Build clean, 0 errors, 0 warnings.
+**209 tests passing** (33 Core + 1 Migration + 175 App). Build clean, 0 errors, 0 warnings.
 
 ## Next Session Notes
 - **MVP plan written** — `planning/100-mvp-next-steps.md`; session NEXT re-aimed

@@ -32,7 +32,8 @@
           <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,4">
             <TextBlock Grid.Column="0" Classes="pane-header" Text="{Binding LeftPaneTitle}" />
             <TextBlock Grid.Column="1" Text="{Binding ItemCount, StringFormat='({0} items)'}"
-                       Foreground="{DynamicResource TextAccent}" FontSize="{DynamicResource FontSizeLabel}" VerticalAlignment="Center" Margin="12,0,0,0" />
+                       Foreground="{DynamicResource TextAccent}" FontSize="{DynamicResource FontSizeLabel}" VerticalAlignment="Center" Margin="12,0,0,0"
+                       IsVisible="{Binding !IsAtRootLevel}" />
           </Grid>
           <ListBox Grid.Row="1"
                    x:Name="LeftListBox"

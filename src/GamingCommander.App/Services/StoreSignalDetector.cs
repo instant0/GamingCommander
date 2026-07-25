@@ -162,4 +162,39 @@ internal static class StoreSignalDetector
         return File.Exists(Path.Combine(dir.FullName, "steam_api64.dll"))
             || File.Exists(Path.Combine(dir.FullName, "steam_api.dll"));
     }
+
+    /// <summary>
+    /// BattleNet game signal: checks for BattleNet-specific game folder names or executable patterns.
+    /// Used when parent folder has BattleNet signal (e.g., blizzard/diablo iii/).
+    /// </summary>
+    internal static bool HasBattleNetGameSignal(DirectoryInfo dir)
+    {
+        // Check for common BattleNet game folder names
+        string[] battleNetGameNames =
+        [
+            "warcraft", "diablo", "overwatch", "starcraft",
+            "hearthstone", "world of warcraft", "heroes of the storm",
+            "call of duty", "crash bandicoot", "spyro",
+        ];
+
+        string dirName = dir.Name.ToLowerInvariant();
+        if (battleNetGameNames.Any(name => dirName.Contains(name)))
+            return true;
+
+        // Check for BattleNet-specific executables
+        string[] battleNetExes =
+        [
+            "DiabloIII.exe", "Retail.x86_64.exe",
+            "Warcraft III.exe", "Frozen Throne.exe",
+            "Overwatch.exe", "SC2Switcher.exe",
+        ];
+
+        foreach (string exe in battleNetExes)
+        {
+            if (File.Exists(Path.Combine(dir.FullName, exe)))
+                return true;
+        }
+
+        return false;
+    }
 }

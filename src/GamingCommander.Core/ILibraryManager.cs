@@ -13,8 +13,11 @@ public interface ILibraryManager
     /// <summary>Returns game entries for the specified root, reading from the database.</summary>
     IReadOnlyList<GameEntry> GetGamesForRoot(string rootPath);
 
-    /// <summary>Adds a new library root to both config and database.</summary>
-    void AddRoot(string rootPath, GameSourceKind defaultType, IReadOnlyList<GameEntry> initialGames);
+    /// <summary>
+    /// Adds a new library root to both config and database.
+    /// Returns true if the root was added, false if the folder was empty (0 games found).
+    /// </summary>
+    bool AddRoot(string rootPath, GameSourceKind defaultType, IReadOnlyList<GameEntry> initialGames);
 
     /// <summary>Removes a root from both config and database.</summary>
     void RemoveRoot(string rootPath);

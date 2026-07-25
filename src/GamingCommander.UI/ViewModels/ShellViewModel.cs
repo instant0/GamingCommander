@@ -296,7 +296,7 @@ public sealed class ShellViewModel : ReactiveObject
 
             string platformStatusColor = platformStatus switch
             {
-                "Installed" => "#7FB7A5",
+                // Design: Installed = white (default), only show colors for problems
                 "Moved" => "#E8C547",
                 "Orphaned" => "#E87070",
                 "Missing" => "#E87070",

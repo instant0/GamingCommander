@@ -45,8 +45,11 @@ public sealed class LibraryManager : ILibraryManager
         return _databaseService.GetGamesForRoot(rootPath);
     }
 
-    /// <summary>Adds a new library root. Scans if no games provided. Persists to both config and database.</summary>
-    public void AddRoot(string rootPath, GameSourceKind defaultType, IReadOnlyList<GameEntry> initialGames)
+    /// <summary>
+    /// Adds a new library root. Scans if no games provided. Persists to both config and database.
+    /// Returns true if the root was added, false if the folder was empty (0 games found).
+    /// </summary>
+    public bool AddRoot(string rootPath, GameSourceKind defaultType, IReadOnlyList<GameEntry> initialGames)
     {
         AppConfig config = _configService.Load();
 
@@ -54,6 +57,10 @@ public sealed class LibraryManager : ILibraryManager
         IReadOnlyList<GameEntry> resolved = initialGames;
         if (resolved.Count == 0 && Directory.Exists(rootPath))
             resolved = SelectScannerAndScan(rootPath, defaultType);
+
+        // Don't add root if no games found — user can rescan after adding games
+        if (resolved.Count == 0)
+            return false;
 
         // Persist to games database
         _databaseService.AddRoot(rootPath, defaultType, resolved);
@@ -65,6 +72,8 @@ public sealed class LibraryManager : ILibraryManager
             roots.Add(new LibraryRoot(rootPath, defaultType));
             _configService.Save(config with { LibraryRoots = roots });
         }
+
+        return true;
     }
 
     /// <summary>Removes a root from both the games database and config.</summary>

@@ -165,6 +165,13 @@ internal static class ExecutableDiscovery
         string name = Path.GetFileNameWithoutExtension(exePath).ToLowerInvariant();
         string folderLower = folderName.ToLowerInvariant();
 
+        // Bonus for exe name containing folder name (+15)
+        if (name.Contains(folderLower))
+            score += 15;
+        // Bonus for folder name containing exe stem (+15)
+        else if (folderLower.Contains(name))
+            score += 15;
+
         // Folder name token match (+10 per matching token)
         char[] separators = [' ', '_', '-', '.', ':'];
         string[] folderTokens = folderLower.Split(separators, StringSplitOptions.RemoveEmptyEntries);
@@ -221,11 +228,12 @@ internal static class ExecutableDiscovery
         if (name.Contains("shipping") || name.Contains("win64"))
             score += 5;
 
-        // File size bonus: up to +10 for very large files (>= 100MB)
+        // File size bonus: up to +5 for very large files (>= 100MB)
+        // Reduced weight to avoid favoring editor tools over game exes
         try
         {
             long size = new FileInfo(exePath).Length;
-            score += (int)Math.Min(size / 10_000_000, 10);
+            score += (int)Math.Min(size / 20_000_000, 5);
         }
         catch { }
 

@@ -45,7 +45,7 @@
 | T68C | [Detection robustness & module organization plan](T68C-detection-robustness-plan.md) | WP-3 | P2 | Complete |
 | T69 | [Launch UX polish](T69-launch-ux-polish.md) | WP-4 | P1 | Complete |
 | T70 | [Windows smoke gate](T70-windows-smoke-gate.md) | WP-5 | P0 | Complete (bugs found → T75) |
-| T75 | [Windows smoke bugfixes](T75-windows-smoke-bugfixes.md) | WP-5 | P0 | Pending |
+| T75 | [Windows smoke bugfixes](T75-windows-smoke-bugfixes.md) | WP-5 | P0 | Complete (11/12 bugs fixed, BUG-11 deferred) |
 | T65b | [Title & exe selection dialogs](T65b-title-exe-selection-dialogs.md) | WP-4 | P1 | Deferred |
 | T71 | [Remove F5 launch keybind](T71-remove-f5-launch-keybind.md) | WP-4 | P2 | Complete |
 

@@ -6,6 +6,7 @@
 
 ## Feature Ideas
 
+- **ExeCandidateSelector** — Replace filesystem "Browse..." in F4 with a dropdown of detected candidate exes. During scan, store all non-noise exe paths in `GameEntry.Extra["CandidateExes"]` (semicolon-separated). F4 dialog shows a combo box of candidates instead of a file picker. User selects which exe is the game launcher. Keeps the entire experience self-contained — only browse for library roots, never for individual files. Eliminates the need for `SuggestedStartLocation` API and avoids the "wrong folder" UX issue.
 - KODI-style category browsing (F8) — fully designed in planning/05-phase-3-category-browse.md
 - Quick-search overlay (S key) — designed in planning/05-phase-3-category-browse.md
 - GOG Galaxy detection and integration

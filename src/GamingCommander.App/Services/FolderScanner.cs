@@ -23,6 +23,8 @@ public sealed class FolderScanner
         "installer", "setup", "redist", "commonredist", "vcredist",
         "dxsetup", "oalinst", "dotnetruntime", "directx", "xna",
         "unins", "uninstall",
+        // Editor/tool executables — these are development tools, not games
+        "editor", "builder", "tool", "config", "settings",
     ];
 
     private static readonly IReadOnlyList<string> DefaultLauncherPatterns =
@@ -100,6 +102,23 @@ public sealed class FolderScanner
 
             // Pass 1: Check for launcher/store signals at this folder level
             GameSourceKind signalType = StoreSignalDetector.DetectType(subDir);
+
+            // Pass 1b: Check if parent folder has a store signal (e.g., blizzard/ → BattleNet)
+            // This handles games inside store launcher directories
+            if (signalType == GameSourceKind.Unknown)
+            {
+                DirectoryInfo? parent = subDir.Parent;
+                if (parent != null)
+                {
+                    GameSourceKind parentSignal = StoreSignalDetector.DetectType(parent);
+                    if (parentSignal == GameSourceKind.BattleNet)
+                    {
+                        // Parent is a BattleNet launcher dir — check if this child is a game
+                        if (StoreSignalDetector.HasBattleNetGameSignal(subDir))
+                            signalType = GameSourceKind.BattleNet;
+                    }
+                }
+            }
 
             if (signalType != GameSourceKind.Unknown)
             {

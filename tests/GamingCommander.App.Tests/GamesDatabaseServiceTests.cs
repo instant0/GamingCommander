@@ -225,16 +225,77 @@ public sealed class GamesDatabaseServiceTests : IDisposable
     // ════════════════════════════════════════════════════════════════
 
     [Fact]
-    public void RescanRoot_ReplacesAllGames()
+    public void RescanRoot_MergesExistingAndNewGames()
     {
         var svc = CreateService();
         svc.AddRoot(@"D:\Games", GameSourceKind.Standalone,
             [MakeGame("g1"), MakeGame("g2"), MakeGame("g3"), MakeGame("g4"), MakeGame("g5")]);
 
-        svc.RescanRoot(@"D:\Games", [MakeGame("new1"), MakeGame("new2")]);
+        // Rescan with 2 existing (g1, g2) + 1 new (g10) — g3, g4, g5 retained as temporarily unavailable
+        svc.RescanRoot(@"D:\Games", [MakeGame("g1"), MakeGame("g2"), MakeGame("g10")]);
 
         var games = svc.GetGamesForRoot(@"D:\Games");
-        Assert.Equal(2, games.Count);
+        Assert.Equal(6, games.Count); // 2 merged + 1 new + 3 retained = 6
+    }
+
+    [Fact]
+    public void RescanRoot_PreservesUserDisplayName()
+    {
+        var svc = CreateService();
+        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone,
+            [MakeGame("g1", "bme2", "Battle for Middle Earth 2")]);
+
+        // User renames via F4
+        var renamed = MakeGame("g1", "bme2", "My Custom Name");
+        svc.UpdateGameEntry(@"D:\Games", renamed);
+
+        // Rescan with auto-detected name (different from user's custom name)
+        svc.RescanRoot(@"D:\Games", [MakeGame("g1", "bme2", "bme2")]);
+
+        var games = svc.GetGamesForRoot(@"D:\Games");
+        Assert.Single(games);
+        Assert.Equal("My Custom Name", games[0].DisplayName); // User override preserved
+    }
+
+    [Fact]
+    public void RescanRoot_PreservesUserCommandLineArgs()
+    {
+        var svc = CreateService();
+        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone,
+            [MakeGame("g1")]);
+
+        // User adds custom args via F4
+        var withArgs = MakeGame("g1");
+        withArgs = withArgs with { CommandLineArguments = "--windowed --nosound" };
+        svc.UpdateGameEntry(@"D:\Games", withArgs);
+
+        // Rescan with empty args
+        svc.RescanRoot(@"D:\Games", [MakeGame("g1")]);
+
+        var games = svc.GetGamesForRoot(@"D:\Games");
+        Assert.Single(games);
+        Assert.Equal("--windowed --nosound", games[0].CommandLineArguments);
+    }
+
+    [Fact]
+    public void RescanRoot_PreservesUserSourceOverride()
+    {
+        var svc = CreateService();
+        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone,
+            [MakeGame("g1")]);
+
+        // User changes source type via F4
+        var retagged = MakeGame("g1");
+        retagged = retagged with { GameSource = GameSourceKind.Gog, IsSourceOverridden = true };
+        svc.UpdateGameEntry(@"D:\Games", retagged);
+
+        // Rescan detects as Standalone
+        svc.RescanRoot(@"D:\Games", [MakeGame("g1")]);
+
+        var games = svc.GetGamesForRoot(@"D:\Games");
+        Assert.Single(games);
+        Assert.Equal(GameSourceKind.Gog, games[0].GameSource); // User override preserved
+        Assert.True(games[0].IsSourceOverridden);
     }
 
     [Fact]
