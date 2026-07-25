@@ -66,10 +66,16 @@ internal static class StoreSignalDetector
         return FileSystemHelper.GetFilesSafe(dir, "goggame*").Length > 0;
     }
 
-    /// <summary>EA signal: __Installer/ directory at folder root.</summary>
+    /// <summary>EA signal: __Installer/ directory, Touchup.exe, or ActivationUI.exe at folder root.</summary>
     internal static bool HasEaSignal(DirectoryInfo dir)
     {
-        return Directory.Exists(Path.Combine(dir.FullName, "__Installer"));
+        if (Directory.Exists(Path.Combine(dir.FullName, "__Installer")))
+            return true;
+
+        // Some EA games ship with Touchup.exe or ActivationUI.exe at root instead of __Installer/
+        string lower = dir.FullName;
+        return File.Exists(Path.Combine(lower, "Touchup.exe"))
+            || File.Exists(Path.Combine(lower, "ActivationUI.exe"));
     }
 
     /// <summary>Ubisoft Emulator signal: uplay_loader* executable + INI with Username= and AccountId=.</summary>

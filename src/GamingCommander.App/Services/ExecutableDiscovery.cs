@@ -178,6 +178,23 @@ internal static class ExecutableDiscovery
         if (launcherPatterns.Any(p => name.Contains(p)))
             score -= 20;
 
+        // Penalize backup copies (-25 to -30)
+        if (name.Contains("copy of") || name.Contains(" - copy"))
+            score -= 25;
+        else if (name.Contains("org_") || name.StartsWith("org_"))
+            score -= 20;
+        else if (name.Contains("original"))
+            score -= 15;
+
+        // Penalize tiny executables that are likely helpers/tools (-15)
+        try
+        {
+            long size = new FileInfo(exePath).Length;
+            if (size < 100_000) // < 100KB
+                score -= 15;
+        }
+        catch { }
+
         // Penalize known noise patterns with tier-based severity
         foreach (string pattern in noiseExePatterns)
         {

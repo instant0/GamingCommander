@@ -10,7 +10,7 @@
 GamingCommander detects installed games by scanning user-configured library roots.
 Two parallel detection systems exist:
 
-1. **C# implementation** (`FolderScanner` + `StoreSignalDetector` + `ExecutableDiscovery` + `LnkParser` + `GogInfoParser`) — runs in the application at startup.
+1. **C# implementation** (`FolderScanner` + `StoreSignalDetector` + `FallbackSignalDetector` + `ContainerScanner` + `ExecutableDiscovery` + `LnkParser` + `GogInfoParser`) — runs in the application at startup.
 2. **Python reference** (`tools/detect.py`) — development/research tool used to fine-tune signals and validate results. Deprecated but retained as ground truth.
 
 The Python tool (`detect.py`, ~1829 LOC) is the **reference gold**. The C# code was ported from it with adjustments for the application context (no PE metadata extraction in-app, no PCGamingWiki network calls, etc.).
@@ -32,20 +32,23 @@ LibraryManager
 - ACF files provide authoritative metadata
 - Cross-library ACF detection for moved games
 
-`FolderScanner` handles all non-Steam platforms (GOG, EA, Ubisoft, Epic, Blizzard, Xbox, Rockstar, Steam Emu, Standalone) using a signal-chain approach.
+`FolderScanner` handles all non-Steam platforms (GOG, EA, Ubisoft, Epic, Blizzard, Xbox, Rockstar, Steam Emu, Standalone) using a signal-chain approach. It delegates to:
+- `StoreSignalDetector` — 10-signal priority chain (Pass 1)
+- `FallbackSignalDetector` — 5 fallback signals (Pass 2)
+- `ContainerScanner` — container/publisher folder recursion (Pass 3)
 
 ### FolderScanner Three-Pass Architecture
 
 ```
 Scan(rootPath, defaultType)
   ├─ Pass 1: StoreSignalDetector.DetectType(subDir)  → Tier 1 (HIGH confidence)
-  ├─ Pass 2: DetectFallbackType(subDir)              → Tier 2 (MEDIUM/LOW confidence)
+  ├─ Pass 2: FallbackSignalDetector.DetectFallbackType(subDir)  → Tier 2 (MEDIUM/LOW)
   │    ├─ Steam Emulator deep signal
   │    ├─ Ubisoft legacy signal
   │    ├─ Unreal Engine layout signal
   │    ├─ Root executable signal
   │    └─ Root .lnk shortcut signal
-  └─ Pass 3: ScanContainerChildren(subDir)           → Tier 3 (Container/Publisher)
+  └─ Pass 3: ContainerScanner.ScanContainerChildren(subDir)  → Tier 3 (Container/Publisher)
 ```
 
 ### Python Reference Four-Phase Architecture
@@ -68,7 +71,7 @@ Both C# and Python check stores in **priority order** (first match wins). The C#
 | Priority | Platform | Signal | C# Code | Python Code | Match Type |
 |----------|----------|--------|---------|-------------|------------|
 | 1 | **GOG** | `goggame*` files at root (goggame.dll, goggame-*.info, gog_*) | `HasGogSignal` | `_check_gog` + `_scan_root` | File glob `goggame*` (C#); `goggame.dll` exact + prefix scan (Python) |
-| 2 | **EA** | `__Installer/` directory at root | `HasEaSignal` | `_check_ea` | Directory existence |
+| 2 | **EA** | `__Installer/` directory at root, or `Touchup.exe`/`ActivationUI.exe` at root | `HasEaSignal` | `_check_ea` | Directory existence + exe name check |
 | 3 | **Ubisoft Emulator** | `uplay_loader*` + `.ini` with `Username=` and `AccountId=` | `HasUbisoftEmulatorSignal` | `_check_ubisoft_emu` | Loader pattern + INI content scan |
 | 4 | **Ubisoft** | `uplay_install.manifest` or `uplay_r*_loader*.dll` at root | `HasUbisoftSignal` | `_check_ubisoft` | Exact file name + glob pattern |
 | 5 | **Epic** | `.egstore/` or `.egsstore/` directory at root | `HasEpicSignal` | `_check_epic` | Directory existence |
@@ -83,7 +86,7 @@ Both C# and Python check stores in **priority order** (first match wins). The C#
 | Scenario | Python | C# | Impact |
 |----------|--------|-----|--------|
 | `gog.ico` at root | ✅ Detected as GOG signal (in `_scan_root`) | ❌ Not in `HasGogSignal` | Minor — GOG games always have `goggame*` files |
-| `touchup.exe` / `ActivationUI.exe` at root | ✅ Detected as EA signal | ❌ Not in `HasEaSignal` | **Gap** — C# only checks `__Installer/` dir. EA games with these exes but no `__Installer/` will be missed |
+| `touchup.exe` / `ActivationUI.exe` at root | ✅ Detected as EA signal | ✅ Detected in `HasEaSignal` | Parity |
 | `steam_appid.txt` alone (no `steam_api64.dll`) | ❌ Not a Phase 1 signal (weak, only used in Tier 2) | ✅ Detected as `SteamEmu` via `HasSteamSignal` | Minor difference — C# is slightly more aggressive |
 | `uplay_install.state` | ✅ Detected (Python deep scan `_match_markers`) | ✅ Detected in `HasUbisoftSignal` | Parity |
 | Deep signal: `steam_emu.ini` | Phase 2 deep scan | `HasSteamEmuDeepSignal` in Pass 2 | Parity |
@@ -230,6 +233,10 @@ When multiple exe candidates exist, they are scored:
 | Factor | Score | Notes |
 |--------|-------|-------|
 | Launcher pattern match | -20 | "launcher", "launch", "updater", "bootstrap", etc. |
+| Backup copy ("copy of", " - Copy") | -25 | Windows copy renames |
+| Backup prefix ("org_") | -20 | Backup/original copies |
+| "original" keyword | -15 | Backup indicator |
+| Tiny exe (< 100KB) | -15 | Likely helper/tool, not the game |
 | Tier 1-5 noise pattern | -30 | Universal noise: uninstallers, installers, redists, crash reports |
 | Tier 6-10 noise pattern | -20 | Likely non-game: DRM wrappers, server stubs |
 | Tier 11-15 noise pattern | -10 | Possibly non-game: dev tools, trial stubs |
@@ -243,12 +250,12 @@ Python's `_pick_best_root_exe` and `_pick_primary_executable` use a similar but 
 
 | Factor | Python | C# | Difference |
 |--------|--------|-----|------------|
-| Backup penalties (copy, org, original) | -15 to -40 | ❌ Not in C# `ScoreExecutable` | **Gap** — C# doesn't penalize backup copies in scoring. These are handled by noise filtering instead. |
+| Backup penalties (copy, org, original) | -15 to -40 | -25 to -20 (copy/org/original) | **Parity** — C# now penalizes backup copies |
 | Tool penalties (20+ patterns) | -25 | Via tier-based noise penalty | Different implementation, same intent |
 | Exact folder token match | +15 | +10 per token (no explicit "exact match" bonus) | Python is slightly stronger on exact matches |
 | Abbreviation match | +8 | ❌ Not in C# | **Gap** — e.g., "g3" matching folder "Gothic3" |
 | Roman numeral match | +12 | ❌ Not in C# | **Gap** — e.g., "u9" matching "IX" (9), "heroes4" matching "IV" |
-| Small exe penalty (< 100KB) | -15 | ❌ Not in C# | **Gap** — Python penalizes tiny executables |
+| Small exe penalty (< 100KB) | -15 | -15 (< 100KB) | **Parity** — C# now penalizes tiny executables |
 | PE metadata match | +15/+10 | ❌ Not in C# (PE extraction is a Phase 4 feature) | Expected gap — PE enrichment is not in the C# app |
 | Folder prefix/startswith bonus | +5 | ❌ Not in C# | **Gap** — Python boosts exes whose name starts with a folder token |
 
@@ -503,7 +510,7 @@ Distinguishing emulated Steam games from real Steam games:
 | `BlacklistLoaderTests` | 11 | Loading, patterns, tier preservation, error handling |
 | `ExecutableScoringTests` | 10 | Token matching, launcher penalties, noise tiers, shipping, file size |
 | `ScannerFilterTests` | 9 | Non-game folders, noise exe exclusion, hidden folders, Bug 5 regression |
-| **Total detection tests** | **81** | |
+| **Total detection tests** | **133** | |
 
 ---
 
@@ -513,13 +520,13 @@ Distinguishing emulated Steam games from real Steam games:
 
 | Gap | Severity | Python Feature | C# Status | Notes |
 |-----|----------|---------------|-----------|-------|
-| EA `touchup.exe` / `ActivationUI.exe` signals | Medium | Root-level EA signal detection | Not implemented | EA games without `__Installer/` fall to Standalone |
-| `gog.ico` as GOG signal | Low | GOG signal detection | Not implemented | All GOG games have `goggame*` files too |
-| `steamapps/` dir outside Steam library | Low | Steam emulator detection | Not implemented | Edge case for pirated/cracked games |
-| Backup/copy penalties in scoring | Low | `-30` to `-40` penalties | Not implemented | Handled by `.lnk` fuzzy matching instead |
-| Abbreviation matching (+8) | Low | Token prefix matching | Not implemented | e.g., "g3" matching "Gothic3" |
-| Roman numeral matching (+12) | Low | "u9" ↔ "IX", "heroes4" ↔ "IV" | Not implemented | Edge case for game numbering |
-| Small exe penalty (< 100KB) | Low | `-15` penalty | Not implemented | Tiny exes rarely pass noise filter anyway |
+| EA `touchup.exe` / `ActivationUI.exe` signals | — | Root-level EA signal detection | ✅ Implemented | Parity achieved |
+| `gog.ico` as GOG signal | Low | GOG signal detection | ❌ Not implemented | All GOG games have `goggame*` files too |
+| `steamapps/` dir outside Steam library | Low | Steam emulator detection | ❌ Not implemented | Edge case for pirated/cracked games |
+| Backup/copy penalties in scoring | — | `-30` to `-40` penalties | ✅ Implemented | -25 for "copy of", -20 for "org_", -15 for "original" |
+| Abbreviation matching (+8) | Low | Token prefix matching | ❌ Not implemented | e.g., "g3" matching "Gothic3" |
+| Roman numeral matching (+12) | Low | "u9" ↔ "IX", "heroes4" ↔ "IV" | ❌ Not implemented | Edge case for game numbering |
+| Small exe penalty (< 100KB) | — | `-15` penalty | ✅ Implemented | Parity achieved |
 | PE metadata scoring boost | Low | +15 for FileDescription match | N/A (Phase 4 only) | PE enrichment is optional in Python, not in C# app |
 | Engine detection (Unity, RAGE, Frostbite) | Low | `_detect_engine()` | Not implemented | Not used in game detection, only metadata |
 | Extension-filtered deep walk | Low | `.exe/.dll/.ini` only | Not implemented | C# scans all files but filters noise |
@@ -542,8 +549,10 @@ Distinguishing emulated Steam games from real Steam games:
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `src/App/Services/FolderScanner.cs` | 506 | Three-pass detection: store signals → fallback → container |
-| `src/App/Services/StoreSignalDetector.cs` | 159 | 10-signal priority chain for store/platform detection |
+| `src/App/Services/FolderScanner.cs` | 232 | Three-pass detection orchestrator + AddGameEntry assembly |
+| `src/App/Services/StoreSignalDetector.cs` | 163 | 10-signal priority chain for store/platform detection |
+| `src/App/Services/FallbackSignalDetector.cs` | 193 | 5 fallback signals: Steam Emu deep, Ubisoft legacy, UE layout, root exe, root .lnk |
+| `src/App/Services/ContainerScanner.cs` | 116 | Container/publisher folder recursion with organization detection |
 | `src/App/Services/ExecutableDiscovery.cs` | 352 | Deep exe search (5 strategies), scoring, launcher detection |
 | `src/App/Services/LnkParser.cs` | 140 | .lnk binary parsing, exe resolution with backup rename matching |
 | `src/App/Services/GogInfoParser.cs` | 163 | GOG goggame-*.info JSON parsing, DLC filtering |
@@ -564,12 +573,14 @@ Distinguishing emulated Steam games from real Steam games:
 
 | File | Tests | Focus |
 |------|-------|-------|
+| `tests/App.Tests/StoreSignalDetectorTests.cs` | 31 | All 10 store signals, priority order, no-signal cases |
+| `tests/App.Tests/FallbackSignalTests.cs` | 16 | 5 fallback signals: Steam Emu deep, Ubisoft legacy, UE layout, root exe, root .lnk |
 | `tests/App.Tests/FolderScannerContainerTests.cs` | 13 | Container/UE/layout detection |
 | `tests/App.Tests/ExecutableDiscoveryTests.cs` | 15 | Deep exe search across platforms |
+| `tests/App.Tests/ExecutableScoringTests.cs` | 15 | Token matching, launcher/backup penalties, noise tiers, shipping, file size |
 | `tests/App.Tests/LnkParserTests.cs` | 13 | .lnk parsing and resolution |
 | `tests/App.Tests/GogInfoParserTests.cs` | 10 | GOG metadata parsing |
 | `tests/App.Tests/BlacklistLoaderTests.cs` | 11 | Blacklist loading and tiers |
-| `tests/App.Tests/ExecutableScoringTests.cs` | 10 | Exe scoring logic |
 | `tests/App.Tests/ScannerFilterTests.cs` | 9 | Noise filtering and regression |
 
 ### Data Files
@@ -620,7 +631,7 @@ START: Scan library root
   │   │   ├─ Steam Emu strong? → GameSourceKind.SteamEmu → AddGameEntry
   │   │   └─ Steam Emu weak? → GameSourceKind.SteamEmu → AddGameEntry
   │   │
-  │   ├─ PASS 2: DetectFallbackType()
+      │   ├─ PASS 2: FallbackSignalDetector.DetectFallbackType()
   │   │   ├─ steam_emu.ini deep? → SteamEmu → AddGameEntry
   │   │   ├─ UbiStats.dll? → UbisoftConnect → AddGameEntry
   │   │   ├─ UE layout (Engine/ + Binaries/ or Binaries/ at root)?
@@ -630,7 +641,7 @@ START: Scan library root
   │   │   └─ Root .lnk file?
   │   │       └─ → Standalone → AddGameEntry
   │   │
-  │   └─ PASS 3: ScanContainerChildren()
+      │   └─ PASS 3: ContainerScanner.ScanContainerChildren()
   │       ├─ Count children with game signals
   │       ├─ ≥1 game child:
   │       │   ├─ Children with store signals → promoted

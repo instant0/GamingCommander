@@ -200,12 +200,96 @@ public sealed class ExecutableScoringTests : IDisposable
             $"Best exe ({bestScore}) should score higher than worst ({worstScore})");
     }
 
+    // ════════════════════════════════════════════════════════════════
+    //  Backup Penalties
+    // ════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void ScoreExecutable_CopyOfExe_Penalizes()
+    {
+        string original = CreateTempExe("MyGame.exe");
+        string copy = CreateTempExe("copy of MyGame.exe");
+
+        int originalScore = ExecutableDiscovery.ScoreExecutable(
+            original, "MyGame", [], [], _ => 999);
+        int copyScore = ExecutableDiscovery.ScoreExecutable(
+            copy, "MyGame", [], [], _ => 999);
+
+        Assert.True(originalScore > copyScore,
+            $"Original ({originalScore}) should score higher than copy ({copyScore})");
+    }
+
+    [Fact]
+    public void ScoreExecutable_DashCopyExe_Penalizes()
+    {
+        string original = CreateTempExe("MyGame.exe");
+        string copy = CreateTempExe("MyGame - Copy.exe");
+
+        int originalScore = ExecutableDiscovery.ScoreExecutable(
+            original, "MyGame", [], [], _ => 999);
+        int copyScore = ExecutableDiscovery.ScoreExecutable(
+            copy, "MyGame", [], [], _ => 999);
+
+        Assert.True(originalScore > copyScore,
+            $"Original ({originalScore}) should score higher than dash-copy ({copyScore})");
+    }
+
+    [Fact]
+    public void ScoreExecutable_OrgPrefixExe_Penalizes()
+    {
+        string original = CreateTempExe("MyGame.exe");
+        string orgCopy = CreateTempExe("org_MyGame.exe");
+
+        int originalScore = ExecutableDiscovery.ScoreExecutable(
+            original, "MyGame", [], [], _ => 999);
+        int orgScore = ExecutableDiscovery.ScoreExecutable(
+            orgCopy, "MyGame", [], [], _ => 999);
+
+        Assert.True(originalScore > orgScore,
+            $"Original ({originalScore}) should score higher than org_ prefix ({orgScore})");
+    }
+
+    [Fact]
+    public void ScoreExecutable_OriginalKeywordExe_Penalizes()
+    {
+        string original = CreateTempExe("MyGame.exe");
+        string originalCopy = CreateTempExe("MyGameOriginal.exe");
+
+        int originalScore = ExecutableDiscovery.ScoreExecutable(
+            original, "MyGame", [], [], _ => 999);
+        int originalCopyScore = ExecutableDiscovery.ScoreExecutable(
+            originalCopy, "MyGame", [], [], _ => 999);
+
+        Assert.True(originalScore > originalCopyScore,
+            $"Original ({originalScore}) should score higher than 'original' keyword ({originalCopyScore})");
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    //  Small Exe Penalty
+    // ════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void ScoreExecutable_TinyExe_LowerThanLarge()
+    {
+        string tiny = CreateTempExeWithSize("Helper.exe", 50 * 1024); // 50KB
+        string large = CreateTempExeWithSize("MyGame.exe", 200 * 1024); // 200KB
+
+        int tinyScore = ExecutableDiscovery.ScoreExecutable(
+            tiny, "MyGame", [], [], _ => 999);
+        int largeScore = ExecutableDiscovery.ScoreExecutable(
+            large, "MyGame", [], [], _ => 999);
+
+        // Tiny exe gets -15 penalty, large doesn't
+        Assert.True(largeScore > tinyScore,
+            $"Large exe ({largeScore}) should score higher than tiny ({tinyScore})");
+    }
+
     // ── Helpers ───────────────────────────────────────────────
 
     private string CreateTempExe(string fileName)
     {
         string path = Path.Combine(_tempDir, fileName);
-        File.WriteAllBytes(path, new byte[1024]); // 1KB default
+        File.WriteAllBytes(path, new byte[200 * 1024]); // 200KB (above small-exe penalty threshold)
         return path;
     }
 
