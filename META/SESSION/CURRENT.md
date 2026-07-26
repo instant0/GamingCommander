@@ -10,13 +10,17 @@
 Code quality Phases D–G largely done (T58–T60 complete; T48–T57 deferred until MVP gate).
 
 ## Priority Roadmap
-1. **P0 — Fix Battle.net detection** — `blizzard` in noise filter blocks all BattleNet games → see `planning/107-battle-net-detection-fix.md`
+1. ~~**P0 — Fix Battle.net detection**~~ ✅ **FIXED** — `"blizzard"` and `"battle.net"` removed from noise filters
 2. **P1 — Unify setup screens** — Merge Wizard + F2 into single LibrarySetupWindow → see `planning/106-unified-setup-screen.md`
 3. **P2 — Steam status messages** — Actionable guidance for Orphaned/Missing/Moved → see `planning/108-steam-status-messages.md`
 4. **Phase G quality (P2)** — T48–T57 tests/constants after MVP
 5. **Tags + Metadata Display (P2)** — User tags, PCGW scraping, engine/store badges → see Plan 102
 6. **detect.py port completion (P2)** — Remaining gaps → see Plan 103
 7. **detect.py module split (P3)** — Break into 8 modules → see Plan 104
+8. ~~**PE Metadata Scoring (P2)**~~ ✅ **IMPLEMENTED** — `ScoreExecutable()` reads PE Description/InternalName for noise filtering
+9. ~~**EA InstallLog.txt Parsing (P2)**~~ ✅ **IMPLEMENTED** — `EaInstallLogParser` extracts authoritative game name, display name, studio
+10. **Epic Manifest Enrichment (P2)** — Parse `.item` files from ProgramData for authoritative game names → see `docs/GAME-DETECTION-LOGIC.md` Store Manifest Systems section
+11. **EA/Ubisoft Registry Fallback (P2)** — Check registry keys for games when filesystem signals fail
 
 ## Objectives Achieved
 1. ✅ Game detection overhaul — Phase 1+2 complete
@@ -34,11 +38,11 @@ Code quality Phases D–G largely done (T58–T60 complete; T48–T57 deferred u
 
 ### Bugs
 - ~~**Static vs instance noise check divergence (HIGH)**~~ ✅ Fixed by T21
+- ~~**Battle.net detection fails (HIGH)**~~ ✅ **FIXED** — `"blizzard"` and `"battle.net"` removed from `NoiseSubDirNames` and `s_nonGameFolderNames`
 - **Blacklist tier flattening (MEDIUM)** — 21 tiers reduced to flat list at load; can't apply per-tier severity.
 - **Scoring ignores JSON blacklist (MEDIUM)** — Only ~10 hardcoded launcher patterns penalized.
 - **Stale TECH_DEBT entries** — Bugs 1-4 appear fixed in code but entries never closed.
 - **F6 Rescan crashes (CRITICAL)** — `ContainerScanner` permission errors, no top-level try-catch, no re-entrancy guard, duplicate ID crash → Plan 105
-- **Battle.net detection fails (HIGH)** — `"blizzard"` in `NoiseSubDirNames` skips entire publisher folder → Plan 107
 - **Steam Controller Config noise (LOW)** — Not in noise filter, appears as orphaned game → Plan 107
 - **Duplicate setup screens (MEDIUM)** — Wizard + F2 with 60-70% overlapping code → Plan 106
 - **blacklist.json in user data (MEDIUM)** — Should ship alongside exe, not in user data folder → Plan 107 / Bug 16
@@ -50,6 +54,99 @@ Code quality Phases D–G largely done (T58–T60 complete; T48–T57 deferred u
 - `JsonConfigService` — zero tests (settings persistence)
 
 ## Completed This Session
+
+### Battle.net Detection Fix (P0 — Complete)
+Fixed the critical BattleNet detection regression by removing `"blizzard"` and `"battle.net"` from noise filters:
+
+| File | Change |
+|------|--------|
+| `FileSystemHelper.cs` | Removed `"blizzard"` and `"battle.net"` from `NoiseSubDirNames` |
+| `ContainerScanner.cs` | Removed `"blizzard"` and `"battle.net"` from `s_nonGameFolderNames` |
+
+**Result:** BattleNet games (Diablo III, World of Warcraft, etc.) are now detected correctly when library root contains a `blizzard/` subdirectory.
+
+### PE Metadata Analysis (Complete)
+Analyzed `extended-p-games.txt` (85 executables) and `extended-e.txt` (191 executables) with PE metadata:
+
+**Key Findings:**
+- **InternalName is MORE reliable than Description** for noise filtering (47 VC++ "setup" instances)
+- **93% of executables have different Description vs InternalName** — complementary signal
+- **File size: games 25-480MB, noise <1MB** — current threshold too low
+- **PE read is built into .NET** — use `FileVersionInfo.GetVersionInfo()`
+
+**Proposed Implementation:**
+- Add PE metadata scoring to `ExecutableDiscovery.ScoreExecutable()` (~30 lines)
+- Penalize Description: `"setup"`, `"microsoft"`, `"uninstall"`, `"redistributable"`
+- Penalize InternalName: `"setup"`, `"launcher"`, `"uninstall"`, `"crash"`
+- Bonus Description: `"retail"`, `"game"`, `"client"`
+
+**Game Name Enrichment:**
+- PCGamingWiki can resolve abbreviated game names (e.g., `lotrbfme2` → "The Lord of the Rings: The Battle for Middle-earth II")
+- Use exe name (without extension) as search key
+- Rate limit: 0.6s between PCGW calls
+- Cache results to avoid repeated lookups
+
+### EA InstallLog.txt Parser + PE Metadata Scoring (Complete)
+Implemented two detection enhancements:
+
+| Feature | File | Lines | Change |
+|---------|------|-------|--------|
+| EA InstallLog.txt parser | `EaInstallLogParser.cs` | ~90 | Parses `__Installer/InstallLog.txt` (UTF-16) for game name, display name, studio. Install location NOT trusted (may be stale). |
+| PE metadata scoring | `ExecutableDiscovery.cs` | +25 | `ScoreExecutable()` reads `FileVersionInfo.GetVersionInfo()` — penalizes noise Description/InternalName (-25/-20), bonuses game-like descriptions (+10). |
+| EA enrichment integration | `FolderScanner.cs` | +20 | `AddGameEntry()` calls `EaInstallLogParser.TryParse()` for EA games, sets DisplayName from authoritative Display Game Name. |
+| EA parser tests | `EaInstallLogParserTests.cs` | ~170 | 8 tests: standard parsing, multiple sessions, missing data, wrong install location. |
+
+**Results:** Build clean, 227 tests passing (33 Core + 1 Migration + 193 App).
+
+### Store Manifest Analysis (Complete)
+Analyzed how each game store tracks installed games:
+
+| Store | Manifest | Format | Status |
+|-------|----------|--------|--------|
+| Steam | `appmanifest_*.acf` | VDF | ✅ Implemented |
+| GOG | `goggame-*.info` | JSON | ✅ Implemented |
+| Epic | `*.item` in `%ProgramData%\Epic\EpicGamesLauncher\Data\Manifests\` | JSON | ⚠️ Python has `epic_crossref_item_manifests()` |
+| Battle.net | `.battle.net/` dir | Binary | ✅ Implemented |
+| Rockstar | `title.rgl` | Binary | ✅ Implemented |
+| Xbox | `default-metadata.json` | JSON | ✅ Implemented |
+| EA App | Encrypted `IS` file | Encrypted | ❌ Not implemented |
+| Origin | `*.mfst` files | HTTP query | ❌ Not implemented |
+| Ubisoft | `uplay_install.manifest` | Protobuf | ⚠️ Signal only |
+
+**Key insight:** Publisher folders (Ubisoft/, EA Games/) contain actual games — we CANNOT skip them. Detection relies on signal-based checking of each subfolder.
+
+**Engine detection note:** Engine detection (Unreal, Unity, RAGE, Frostbite) helps identify file/folder layout for exe discovery, but does NOT determine game store classification. Store signals determine Standalone vs specific store.
+
+### Documentation Updates
+- Updated `docs/GAME-DETECTION-LOGIC.md` with BattleNet fix, PE metadata analysis, and Store Manifest Systems section
+- Updated `planning/102-tags-metadata-display.md` with PCGW game name enrichment strategy
+- Added Epic manifest parsing, EA/Ubisoft registry fallback to priority roadmap
+
+### Detection Pattern Analysis & Parity Fix (Complete)
+Analyzed 165 games (1191 executables) from training data and fixed Python/C# parity gaps:
+
+| Fix | File | Change |
+|-----|------|--------|
+| Generic crash pattern | `tools/detect.py` | Replaced 6 specific crash patterns with generic `"crash"` |
+| Error reporter pattern | `tools/detect.py` + `data/blacklist.json` | Added `"error"` to filter BlizzardError, CrypticError, etc. |
+| Removed launcher from noise | `data/blacklist.json` | Removed `"launcher"` from noise patterns (scoring penalty only) |
+| Removed eos from noise | `data/blacklist.json` | Removed `"eos"` pattern (was breaking Fortnite detection) |
+| Added missing patterns | `data/blacklist.json` | Added `"unwise"`, `"asksavegames"`, `"delsaves"`, `"movie"`, `"intro"`, `"unrealcefsubprocess"` for Python parity |
+| Fixed tier numbering | `data/blacklist.json` | Renumbered tiers 1-21 after restructuring |
+| Updated test cases | `data/blacklist.json` | Added test cases for crash, error, launcher, eos patterns |
+| Fixed test script encoding | `tools/test_detection_patterns.py` | Added `errors="ignore"` for UTF-8 compatibility |
+
+**Results:**
+- Python/C# parity: 597 exes filtered by both, 0 discrepancies
+- Scoring accuracy: 100% on 67 tested games
+- Backup handling: 100% correct on 23 games with backups
+- Build clean, 185 tests passing
+
+### Documentation Update (Complete)
+Updated `docs/GAME-DETECTION-LOGIC.md` with:
+- Pattern analysis results section
+- Important filtering decisions table (launcher, error, eos patterns)
+- Python/C# parity summary
 
 ### F6 Crash Fix + F5 Rescan Rebinding (Plan 105 — Complete)
 Fixed 5 crash paths in the rescan pipeline and moved F6→F5:
@@ -355,6 +452,8 @@ All hardcoded colors and font sizes centralized to `App.axaml` Application.Resou
 **219 tests passing** (33 Core + 1 Migration + 185 App). Build clean, 0 errors, 0 warnings.
 
 ## Documentation Review (Current Session)
+- Created `docs/EPIC-MANIFEST-ENRICHMENT.md` — complete analysis of Epic Games Store detection and metadata enrichment: .item file format, .mancpn identifiers, global ProgramData cross-reference, Epic GraphQL searchStore API, GUID-based identification, C# gap analysis (FindEpicManifest searches *.json not *.item, no global cross-ref, no API client), proposed implementation pipeline (EpicManifestParser + EpicStoreApiClient), test plan with 13 test cases
+- Created `docs/F2-WIZARD-UNIFICATION-ANALYSIS.md` — verification pass on Plan 106: cross-referenced all 18 feature claims against actual code, found 1 inaccuracy (needsWizard condition simplified), 1 data model gap (LibraryRootEntry missing IsScanning/IsScanned), refined effort estimate to ~2 hours, documented complete file change matrix
 - Fixed stale test count in CODE_MAP.md (99→217, App.Tests 65→183)
 - Removed F5/F7 from CODE_MAP.md MainWindow handler list
 - Removed stale "Critical bug" section from NEXT.md (bug fixed in T61/T62)

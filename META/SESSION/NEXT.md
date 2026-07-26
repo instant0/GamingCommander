@@ -22,20 +22,27 @@
 
 **Post-MVP backlog (ordered by priority):**
 
-1. **P0 — Fix Battle.net detection** — blizzard in noise filter blocks detection → see `planning/107-battle-net-detection-fix.md`
+1. ~~**P0 — Fix Battle.net detection**~~ ✅ **FIXED** — `"blizzard"` and `"battle.net"` removed from noise filters
 2. **P1 — Unify setup screens** (Wizard + F2 merge) → see `planning/106-unified-setup-screen.md`
 3. **P2 — Steam status messages** — actionable guidance for Orphaned/Missing/Moved → see `planning/108-steam-status-messages.md`
-4. Phase G T48–T57 (tests/quality polish) — harden what shipped
-5. Steam SyncMove repair (backup + ACF path fix) — from `planning/04-phase-2-syncmove.md`
-6. PCGamingWiki metadata + Tags system — see `planning/102-tags-metadata-display.md`
-7. Port remaining detect.py edges — see `planning/103-detect-py-port-status.md`
-8. Split detect.py into modules — see `planning/104-detect-py-module-split.md`
-9. Category browse / search (F8, S key) — see `planning/101-top-level-modes-and-filter.md`
+4. ~~**P2 — PE Metadata Scoring**~~ ✅ **IMPLEMENTED** — `ScoreExecutable()` reads `FileVersionInfo.GetVersionInfo()` for noise filtering by Description/InternalName
+5. ~~**P2 — EA InstallLog.txt Parsing**~~ ✅ **IMPLEMENTED** — `EaInstallLogParser` extracts authoritative game name, display name, studio from `__Installer/InstallLog.txt`
+6. **P2 — Game Name Enrichment (PCGW)** — PCGW lookup for old games with empty PE metadata (non-EA) → see `planning/102-tags-metadata-display.md` Phase 3
+7. **P2 — Epic Manifest Enrichment** — Port `lookup_metadata.py`'s `epic_crossref_item_manifests()` to C# for authoritative game names → see `docs/GAME-DETECTION-LOGIC.md` Store Manifest Systems section
+8. **P2 — EA/Ubisoft Registry Fallback** — Port `parse_registry.py` logic to C# for install path detection
+8. Phase G T48–T57 (tests/quality polish) — harden what shipped
+9. Steam SyncMove repair (backup + ACF path fix) — from `planning/04-phase-2-syncmove.md`
+10. PCGamingWiki metadata + Tags system — see `planning/102-tags-metadata-display.md`
+11. Port remaining detect.py edges — see `planning/103-detect-py-port-status.md`
+12. Split detect.py into modules — see `planning/104-detect-py-module-split.md`
+13. Category browse / search (F8, S key) — see `planning/101-top-level-modes-and-filter.md`
 
 ---
 
 ## Recently completed (context only)
 
+- **Battle.net Detection Fix (P0) ✅ COMPLETE** — Removed `"blizzard"` and `"battle.net"` from `NoiseSubDirNames` and `s_nonGameFolderNames`. Build clean, 219 tests passing.
+- **PE Metadata Analysis ✅ COMPLETE** — Analyzed 276 executables with PE metadata. Key findings: InternalName more reliable than Description, 93% divergence, file size thresholds. Updated docs and planning.
 - Plan 105 (F6 Crash Fix + F5 Rescan) ✅ COMPLETE — 5 crash fixes, F6→F5 rebinding, 2 new tests, 219 tests passing
 - Phases D–G partial: complexity reduction, stabilization, 99→217 tests, theme extraction, VFS display, detect.py unified, detection hardening (Python)
 - T58–T60 naming/docs/noise consolidation done

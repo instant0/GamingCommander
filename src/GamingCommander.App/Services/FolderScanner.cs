@@ -233,6 +233,33 @@ public sealed class FolderScanner
             platformMetadata["GogGameId"] = gogInfo.GameId;
         }
 
+        // EA enrichment: parse __Installer/InstallLog.txt for game name, display name, studio.
+        // The Install Location field may reference an old/wrong path, but game name and studio are reliable.
+        if (resolvedType == GameSourceKind.EaApp
+            && EaInstallLogParser.TryParse(subDir, out var eaInfo)
+            && eaInfo is not null)
+        {
+            // Display name: EA display name is authoritative (e.g., "Dragon Age™: Inquisition")
+            if (!string.IsNullOrEmpty(eaInfo.DisplayName))
+            {
+                platformMetadata["AutoDetectedTitle"] = displayName;
+                displayName = eaInfo.DisplayName;
+                platformMetadata["TitleSource"] = "EaInstallLog";
+            }
+
+            // Studio metadata
+            if (!string.IsNullOrEmpty(eaInfo.Studio))
+            {
+                platformMetadata["Studio"] = eaInfo.Studio;
+            }
+
+            // Game name (non-trademarked)
+            if (!string.IsNullOrEmpty(eaInfo.GameName))
+            {
+                platformMetadata["EaGameName"] = eaInfo.GameName;
+            }
+        }
+
         entries.Add(new GameEntry(
             Id: id,
             FolderName: subDir.Name,

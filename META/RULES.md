@@ -47,6 +47,8 @@ For each implementation task:
 4. Refactor: keep files focused, avoid duplicated logic, extract complex responsibilities.
 5. Build and test.
 
+**Documentation-only sessions:** When only editing `.md` files, do NOT run `dotnet build` or `dotnet test`. Documentation has no code to verify.
+
 ## Safety Rules
 
 Never modify game platform data without:

@@ -190,19 +190,20 @@ _NOISE_EXE_PARTS: tuple[str, ...] = (
     "cleanup", "touchup", "installer", "unins", "uninstal", "unwise",
     "setup", "redist", "vcredist", "dxsetup", "oalinst", "dotnet",
     "directx", "physx", "msi", "msiexec", "xna", "ndp", "dotnetfx",
-    # Tier 2 — Launcher stubs
+    # Tier 2 — Launcher stubs (penalized in scoring, NOT filtered as noise)
+    # Note: "launcher" is intentionally NOT in this list — launchers are penalized
+    # in scoring but not filtered, as some games use launchers as entry points.
     "updater", "patcher", "startup", "bootstrapper",
     # Tier 3 — Store bootstraps & integration stubs (exe names only, not game names)
     "galaxy", "epicgames", "uplay_loader", "ubisoft_game_launcher",
     # Tier 4 — Anti-cheat / DRM
     "easyanticheat", "battleye", "beclient", "beservice", "equ8",
     "punkbuster", "nprotect", "xigncode", "denuvo", "vmprotect",
-    # Tier 5 — Unreal build/debug tools
-    "crashreportclient", "crashhelper", "crashdebug", "crashlog",
-    "crashsender", "crashpad_handler",
+    # Tier 5 — Crash reporting infrastructure (generic "crash" catches all variants)
+    "crash", "bugsplat", "crs-",
     "unrealcefsubprocess", "symboldump", "ubiquitous",
-    # Tier 6 — Crash reporting infrastructure
-    "crs-", "bugsplat",
+    # Tier 6 — Error reporters (BlizzardError, CrypticError, etc.)
+    "error",
     # Tier 7 — DRM wrappers & compatibility shims
     "xlive",
     # Tier 8 — Installer/patch utilities shipped alongside games

@@ -8,71 +8,69 @@
     "description": "Executable filenames containing these substrings are NOT game executables. Applied as case-insensitive substring match against the full filename.",
     "tier_1_universal_noise": [
       "cleanup", "touchup", "crash", "installer", "unins",
-      "uninstall", "setup", "redist", "vcredist", "dxsetup",
-      "oalinst", "dotnet", "directx", "physx", "eos",
-      "msi", "msiexec", "xna", "ndp", "dotnetfx"
+      "uninstall", "unwise", "setup", "redist", "vcredist", "dxsetup",
+      "oalinst", "dotnet", "directx", "physx",
+      "msi", "msiexec", "xna", "ndp", "dotnetfx",
+      "asksavegames", "delsaves"
     ],
     "tier_2_launcher_stubs": [
-      "launcher", "updater", "patcher", "startup", "bootstrapper"
+      "updater", "patcher", "startup", "bootstrapper"
     ],
     "tier_3_store_bootstraps": [
-      "galaxy", "gog", "epic", "steam", "uplay", "ubisoft"
+      "galaxy", "gog", "epic", "uplay", "ubisoft"
     ],
     "tier_4_anticheat_drm": [
       "easyanticheat", "battleye", "beclient", "beservice", "equ8",
       "punkbuster", "nprotect", "xigncode", "denuvo", "vmprotect"
     ],
-    "tier_5_unreal_build_debug": [
-      "crashreportclient", "unrealcefsubprocess", "symboldump", "ubiquitous"
+    "tier_5_error_crash_reporting": [
+      "crash", "error", "crs-", "bugsplat", "unrealcefsubprocess"
     ],
-    "tier_6_crash_reporting": [
-      "crs-", "bugsplat"
-    ],
-    "tier_7_drm_wrappers": [
+    "tier_6_drm_wrappers": [
       "xlive"
     ],
-    "tier_8_installer_utilities": [
+    "tier_7_installer_utilities": [
       "autorun", "7za", "xdelta"
     ],
-    "tier_9_server_loader_stub": [
-      "server", "stub", "update", "loader", "browser", "dowser"
+    "tier_8_server_loader_stub": [
+      "dedicatedserver", "stub", "update", "loader", "browser", "dowser"
     ],
-    "tier_10_distribution_tools": [
-      "sdcr", "tachyon"
+    "tier_9_distribution_tools": [
+      "sdcr", "tachyon", "movie", "intro"
     ],
-    "tier_11_dev_editor_tools": [
+    "tier_10_dev_editor_tools": [
       "datacompiler", "editor", "modmanager", "packagemanager", "reminder",
       "contented", "leveled", "resourceed"
     ],
-    "tier_12_utilities_debug": [
+    "tier_11_utilities_debug": [
       "install", "debug", "utils", "sndrpt", "exception", "explorer",
       "brwc", "activation", "ccmini", "acpc"
     ],
-    "tier_13_trial_demo_stub": [
+    "tier_12_trial_demo_stub": [
       "trial", "_upp"
     ],
-    "tier_14_media_codec_tools": [
+    "tier_13_media_codec_tools": [
       "ffmpeg", "ffplay", "ffprobe"
     ],
-    "tier_15_installer_frameworks": [
+    "tier_14_installer_frameworks": [
       "squirrel", "wininst", "w9xpopen"
     ],
-    "tier_16_runtime_interpreters": [
+    "tier_15_runtime_interpreters": [
       "python", "blender"
     ],
-    "tier_17_web_ui_overlay": [
+    "tier_16_web_ui_overlay": [
       "coherentui", "cefhost", "awesomium", "webview", "overlay", "scummvm"
     ],
-    "tier_18_repair_service_helper": [
+    "tier_17_repair_service_helper": [
       "repair", "service", "helper"
     ],
-    "tier_19_unreal_build_tools": [
+    "tier_18_unreal_build_tools": [
       "unrealpak"
     ],
-    "tier_20_patch_update": [
+    "tier_19_patch_update": [
       "patch"
     ],
-    "tier_21_utility_tools": [
+    "tier_20_utility_tools": [
       "winscp", "activate"
     ],
     "_test_cases": [
@@ -150,7 +148,13 @@
       {"filename": "Patch.exe",                          "expected_noise": true,  "reason": "contains 'patch' — generic patch exe"},
       {"filename": "-WinSCP.exe",                        "expected_noise": true,  "reason": "contains 'winscp' — WinSCP file transfer tool"},
       {"filename": "Activate.exe",                       "expected_noise": true,  "reason": "contains 'activate' — activation tool"},
-      {"filename": "u9patch118.exe",                     "expected_noise": true,  "reason": "contains 'patch' — game patch, not the game itself"}
+      {"filename": "u9patch118.exe",                     "expected_noise": true,  "reason": "contains 'patch' — game patch, not the game itself"},
+      {"filename": "CrashReport.exe",                    "expected_noise": true,  "reason": "contains 'crash' — crash reporter"},
+      {"filename": "UnityCrashHandler64.exe",            "expected_noise": true,  "reason": "contains 'crash' — Unity crash handler"},
+      {"filename": "BlizzardError.exe",                  "expected_noise": true,  "reason": "contains 'error' — Blizzard error reporter"},
+      {"filename": "FortniteClient-Win64-Shipping_EAC_EOS.exe", "expected_noise": false, "reason": "actual game exe (EOS integration)"},
+      {"filename": "AoW3Launcher.exe",                   "expected_noise": false, "reason": "legitimate game launcher (scored, not filtered)"},
+      {"filename": "Launcher.exe",                       "expected_noise": false, "reason": "could be legitimate game launcher (scored, not filtered)"}
     ]
   },
 

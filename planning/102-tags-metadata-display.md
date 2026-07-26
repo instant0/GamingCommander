@@ -398,6 +398,37 @@ if (_config.AutoTagStore && gameSource != GameSourceKind.Unknown)
 
 Fetch metadata from web sources. Cache locally. Display in details pane.
 
+### 5.1a Game Name Enrichment via PCGW
+
+**Key Finding:** PCGamingWiki can resolve abbreviated game names (e.g., `lotrbfme2` → "The Lord of the Rings: The Battle for Middle-earth II").
+
+**Use Case:** When PE metadata is insufficient (old games pre-2010 often have empty Description/InternalName), PCGW lookup can provide the full game name.
+
+**Implementation Strategy:**
+1. **Extract exe name** (without extension) as search key: `lotrbfme2.exe` → `lotrbfme2`
+2. **Rate limit aggressively**: Only search for games that need enrichment (empty PE metadata)
+3. **Cache results**: Store resolved names in `games.json` to avoid repeated lookups
+4. **Graceful fallback**: If PCGW lookup fails, keep the folder name as display name
+
+**Example Resolution Chain:**
+```
+Folder: "BFME2" (display name from folder)
+  ↓
+PE Metadata: Description="" (empty, old game)
+  ↓
+PCGW Search: "lotrbfme2" (exe name without extension)
+  ↓
+Result: "The Lord of the Rings: The Battle for Middle-earth II"
+  ↓
+Update: DisplayName = "The Lord of the Rings: The Battle for Middle-earth II"
+```
+
+**Rate Limiting Strategy:**
+- **Batch processing**: Process enrichment in background after initial scan
+- **Throttle**: 0.6s between PCGW calls (their rate limit)
+- **Priority queue**: Enrich games with empty PE metadata first
+- **User opt-in**: Configurable setting `EnableOnlineMetadata` (default: true)
+
 ### 5.2 Source Priority
 
 | Priority | Source | Fields | API Key | Rate Limit |
@@ -492,6 +523,7 @@ public class SteamStoreProvider : IMetadataProvider
 /// Fetches metadata from PCGamingWiki Cargo API (free, no key).
 /// Primary: Cargo API for structured fields.
 /// Fallback: Parse API for engine, modes, perspectives.
+/// Also: Game name enrichment for old games with empty PE metadata.
 /// </summary>
 public class PcgwProvider : IMetadataProvider
 {
@@ -504,6 +536,7 @@ public class PcgwProvider : IMetadataProvider
     
     public async Task<GameMetadataRecord?> LookupAsync(
         string gameTitle, string? steamAppId = null, string? gogGameId = null,
+        string? exeName = null,  // NEW: for game name enrichment
         CancellationToken ct = default)
     {
         await EnforceRateLimit(ct);
@@ -528,7 +561,50 @@ public class PcgwProvider : IMetadataProvider
             if (result != null) return result;
         }
         
+        // Step 3: Game name enrichment via exe name (for old games)
+        if (!string.IsNullOrEmpty(exeName))
+        {
+            var enriched = await EnrichGameName(exeName, ct);
+            if (enriched != null)
+            {
+                return new GameMetadataRecord
+                {
+                    GameEntryId = "",  // Will be set by caller
+                    Developer = enriched.Developer,
+                    Publisher = enriched.Publisher,
+                    Description = enriched.Description,
+                    PcGamingWikiUrl = enriched.PcGamingWikiUrl,
+                    LastMetadataSource = "PCGW (enrichment)",
+                    LastUpdated = DateTime.UtcNow,
+                };
+            }
+        }
+        
         return null;
+    }
+    
+    /// <summary>
+    /// Enrich game name using exe name (without extension).
+    /// Example: "lotrbfme2" → "The Lord of the Rings: The Battle for Middle-earth II"
+    /// </summary>
+    private async Task<EnrichmentResult?> EnrichGameName(string exeName, CancellationToken ct)
+    {
+        // Try OpenSearch with exe name
+        var pageName = await OpenSearch(exeName, ct);
+        if (pageName == null) return null;
+        
+        // Fetch page content for full name
+        var pageData = await FetchPageData(pageName, ct);
+        if (pageData == null) return null;
+        
+        return new EnrichmentResult
+        {
+            FullName = pageData.Title,
+            Developer = pageData.Developer,
+            Publisher = pageData.Publisher,
+            Description = pageData.Description,
+            PcGamingWikiUrl = $"https://pcgamingwiki.com/wiki/{pageName}",
+        };
     }
     
     private async Task EnforceRateLimit(CancellationToken ct)
@@ -538,6 +614,15 @@ public class PcgwProvider : IMetadataProvider
             await Task.Delay(RateLimitMs - (int)elapsed, ct);
         _lastCall = DateTime.UtcNow;
     }
+}
+
+internal record EnrichmentResult
+{
+    public string FullName { get; init; } = string.Empty;
+    public string? Developer { get; init; }
+    public string? Publisher { get; init; }
+    public string? Description { get; init; }
+    public string? PcGamingWikiUrl { get; init; }
 }
 ```
 

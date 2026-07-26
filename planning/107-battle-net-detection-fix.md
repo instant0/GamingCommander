@@ -1,6 +1,6 @@
 # Plan 107 — BattleNet Detection Fix + Noise Filter Cleanup
 
-**Status:** DRAFT — awaiting approval  
+**Status:** ✅ **COMPLETE**  
 **Audience:** Builder  
 **Priority:** P0 (BattleNet games not detected)  
 **Effort:** ~1–2 hours  
@@ -235,13 +235,13 @@ While fixing BattleNet detection, clean up other noise entries that block legiti
 
 ## 6. Success Criteria
 
-- [ ] BattleNet games detected when library root contains `blizzard\` subdirectory
-- [ ] BattleNet games classified as `GameStoreType.BattleNet` (not Standalone)
-- [ ] Parent propagation works for BattleNet publisher containers
-- [ ] Steam Controller Configs, DirectX, VCRedist folders are filtered as noise
-- [ ] `"blizzard"` and `"battle.net"` removed from all noise/skip lists
-- [ ] No regressions in existing store detection
-- [ ] Build clean, all tests pass
+- [x] BattleNet games detected when library root contains `blizzard\` subdirectory
+- [x] BattleNet games classified as `GameStoreType.BattleNet` (not Standalone)
+- [x] Parent propagation works for BattleNet publisher containers
+- [x] Steam Controller Configs, DirectX, VCRedist folders are filtered as noise
+- [x] `"blizzard"` and `"battle.net"` removed from all noise/skip lists
+- [x] No regressions in existing store detection
+- [x] Build clean, all tests pass (219 tests)
 
 ---
 

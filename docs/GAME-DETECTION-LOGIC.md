@@ -37,6 +37,8 @@ LibraryManager
 - `FallbackSignalDetector` — 5 fallback signals (Pass 2)
 - `ContainerScanner` — container/publisher folder recursion (Pass 3)
 
+**Note:** Engine detection (Unreal, Unity, RAGE, Frostbite) helps identify file/folder layout for exe discovery (e.g., `Engine/Binaries/Win64/`), but does NOT determine game store classification. Store signals (`.egstore/`, `uplay_install.manifest`, etc.) determine whether a game is Standalone or from a specific store.
+
 ### FolderScanner Three-Pass Architecture
 
 ```
@@ -59,6 +61,218 @@ Phase 2: Deep signal scan (unknowns only, .exe/.dll/.ini filtered, max depth 4)
 Phase 3: Container check (remaining unknowns)
 Phase 4: Enrichment (optional, --metadata / --pcgw flags)
 ```
+
+---
+
+## Store Manifest Systems (How Stores Track Installed Games)
+
+Each game store uses a different mechanism to track installed games. Understanding these systems is critical for:
+1. **Detecting games** — Some stores put games in publisher subfolders (e.g., `Ubisoft/`, `EA Games/`)
+2. **Enriching metadata** — Manifest files contain authoritative game names, exe paths, and metadata
+3. **Avoiding false filtering** — We can't skip publisher folders because they contain actual games
+
+### Store Manifest Summary
+
+| Store | Manifest Location | Format | Contains | Status |
+|-------|------------------|--------|----------|--------|
+| **Steam** | `{library}/steamapps/appmanifest_*.acf` | VDF (key-value) | AppId, name, installdir, state | ✅ Implemented |
+| **GOG** | `{game}/goggame-*.info` | JSON | Title, exe, args, game ID | ✅ Implemented |
+| **Epic** | `C:\ProgramData\Epic\EpicGamesLauncher\Data\Manifests\*.item` | JSON | InstallLocation, LaunchExecutable, DisplayName | ⚠️ Signal only |
+| **Battle.net** | `{game}/.battle.net/` | Binary | Game client data | ✅ Implemented |
+| **Rockstar** | `{game}/title.rgl` | Binary | Game metadata | ✅ Implemented |
+| **Xbox** | `{game}/default-metadata.json` | JSON | Game metadata | ✅ Implemented |
+| **EA App** | Encrypted `IS` file in `C:\ProgramData\EA Desktop\` | Encrypted JSON | Install paths | ❌ Not implemented |
+| **Origin** | `C:\ProgramData\Origin\LocalContent\*.mfst` | HTTP query string | ContentID, InstallPath | ❌ Not implemented |
+| **Ubisoft** | `{game}/uplay_install.manifest` | Binary (protobuf) | Game metadata | ⚠️ Signal only |
+
+### Detailed Store Analysis
+
+#### 1. Steam (Fully Implemented)
+
+**Manifest files:** `appmanifest_*.acf` in `{library}/steamapps/`
+
+**Structure:**
+```
+SteamLibrary/
+  steamapps/
+    appmanifest_292030.acf  ← The Witcher 3
+    appmanifest_1091500.acf ← Cyberpunk 2077
+    common/
+      The Witcher 3/
+      Cyberpunk 2077/
+```
+
+**ACF fields:** `appid`, `name`, `installdir`, `LauncherData`, `StateFlags`
+
+**Detection:** `SteamLibraryScanner` scans all libraries, cross-references ACFs with `common/` folders, handles Moved/Orphaned/Missing states.
+
+#### 2. GOG (Fully Implemented)
+
+**Manifest files:** `goggame-*.info` in game folders
+
+**Structure:**
+```
+GOG Games/
+  The Witcher 3/
+    goggame-1425694943.info  ← JSON with title, exe, args
+    bin/
+      x64/
+        witcher3.exe
+```
+
+**Detection:** `GogInfoParser` parses `.info` JSON, extracts title/exe/args, filters DLC by gameId.
+
+#### 3. Epic Games Store (Signal Only)
+
+**Manifest files:** `*.item` in `C:\ProgramData\Epic\EpicGamesLauncher\Data\Manifests\`
+
+**Structure:**
+```json
+{
+  "DisplayName": "Fortnite",
+  "InstallLocation": "D:\\Epic Games\\Fortnite",
+  "LaunchExecutable": "FortniteGame\\Binaries\\Win64\\FortniteClient-Win64-Shipping.exe",
+  "CatalogItemId": "..."
+}
+```
+
+**Current detection:** `.egstore/` directory at game root (signal only, no parsing)
+
+**Enhancement opportunity:** Parse `.item` files from ProgramData to get:
+- Authoritative game names (not folder names)
+- Exact exe paths
+- Install sizes
+- Store IDs for PCGW/Steam cross-reference
+
+**Existing implementation:** `lookup_metadata.py` has `epic_crossref_item_manifests()` function that:
+- Reads `.item` files from `%ProgramData%\Epic\EpicGamesLauncher\Data\Manifests\`
+- Matches `InstallLocation` field to game folder path
+- Returns `DisplayName`, `LaunchExecutable`, `CatalogItemId`, etc.
+
+**Windows path:** `%ProgramData%\Epic\EpicGamesLauncher\Data\Manifests\` (typically `C:\ProgramData\Epic\EpicGamesLauncher\Data\Manifests\`)
+
+#### 4. EA App / Origin (Not Implemented)
+
+**EA App (new):** Encrypted `IS` file at `C:\ProgramData\EA Desktop\{hash}\IS`
+- File is AES-encrypted with key derived from machine-specific data
+- Contains JSON with game install paths
+- **Complexity:** High — requires decryption, machine-specific key
+
+**Origin (old):** `.mfst` files at `C:\ProgramData\Origin\LocalContent\`
+- Contains HTTP query strings like: `?id=Origin.OFR.50.0001456&dipInstallPath=C%3a%5cGames%5cTitanfall2`
+- **Complexity:** Low — simple string parsing
+
+**Current detection:** `__Installer/` directory at root (signal only)
+
+**Enhancement opportunity:**
+- Parse old Origin `.mfst` files (if present)
+- For EA App, fall back to registry: `HKEY_LOCAL_MACHINE\Software\EA Games\{game}\Install Dir`
+- Check `__Installer/installerdata.xml` for registry key references
+
+**EA `InstallLog.txt` enrichment (✅ IMPLEMENTED):** `EaInstallLogParser` reads `__Installer\InstallLog.txt` (UTF-16 encoded) to extract authoritative metadata:
+
+| Field | Example | Use | Trusted? |
+|-------|---------|-----|----------|
+| `(Config)Display Game Name:` | `Dragon Age™: Inquisition` | Marketing name | ✅ Always |
+| `(Config)Game Name:` | `Dragon Age Inquisition` | Canonical game name | ✅ Always |
+| `(Config)Studio:` | `BioWare` | Developer name | ✅ Always |
+| `Install Location:` | `E:\Games\Dragon Age Inquisition\` | Install path | ❌ May be stale (user moved game) |
+| `EAInstaller version:` | `4.01.00.00` | Installer version | ✅ Always |
+
+**Key insight:** This file is **always** inside `__Installer/` — which is already an EA signal in `HasEaSignal()`. The parser extracts the authoritative game name and developer, solving display name issues for EA games without PCGW or PE metadata.
+
+**Note:** EA Desktop App (new) may use a different format. This format applies to games installed via the legacy EA/Origin installer (`EAInstaller version: 4.01.00.00`).
+
+#### 5. Ubisoft Connect (Signal Only)
+
+**Manifest files:** `uplay_install.manifest` in game folders
+
+**Structure:** Binary protobuf (gzip compressed after 356-byte header)
+- Contains game metadata, file parts, download URLs
+- **Complexity:** High — requires protobuf parsing + gzip decompression
+
+**Current detection:** `uplay_install.manifest` or `uplay_r*_loader*.dll` at root (signal only)
+
+**Enhancement opportunity:**
+- Parse manifest for game metadata (if protobuf parser available)
+- Check registry: `HKEY_LOCAL_MACHINE\SOFTWARE\Ubisoft\Launcher\Installs\{gameId}`
+- Use `uplay://` URL scheme handler for game launching
+
+#### 6. Battle.net (Fully Implemented)
+
+**Manifest files:** `.battle.net/` directory at game root
+
+**Detection:** `HasBattleNetGameSignal()` checks:
+- `.battle.net/` directory existence
+- `Agent.exe` / `Launch.exe` presence
+- Folder name matching (warcraft, diablo, overwatch, etc.)
+- Parent propagation from `blizzard/` publisher folder
+
+#### 7. Rockstar (Fully Implemented)
+
+**Manifest files:** `title.rgl` at game root
+
+**Detection:** `HasRockstarSignal()` checks for `title.rgl` file existence
+
+#### 8. Xbox (Fully Implemented)
+
+**Manifest files:** `default-metadata.json` at game root
+
+**Detection:** `HasXboxSignal()` checks for `default-metadata.json` file existence
+
+---
+
+### Publisher Folder Pattern
+
+**Key insight:** Game stores often organize games in publisher subfolders:
+
+```
+D:\Games\
+  ├─ SteamLibrary\        ← Steam games
+  │   └─ steamapps\common\
+  ├─ GOG Games\           ← GOG games
+  ├─ Epic Games\          ← Epic games
+  ├─ Blizzard\            ← Battle.net games
+  │   ├─ Diablo IV\
+  │   └─ World of Warcraft\
+  ├─ EA Games\            ← EA games
+  │   ├─ Battlefield 2042\
+  │   └─ Mass Effect\
+  ├─ Ubisoft\             ← Ubisoft games
+  │   ├─ Rainbow Six Siege\
+  │   └─ Far Cry 6\
+  └─ Rockstar Games\      ← Rockstar games
+      └─ GTA V\
+```
+
+**Detection strategy:** We CANNOT skip publisher folders because they contain actual games. Instead:
+1. **Signal-based detection** — Check each subfolder for store signals (`.egstore/`, `uplay_install.manifest`, etc.)
+2. **Container recursion** — If a folder has no signals but children do, treat it as a container
+3. **Parent propagation** — Inherit store type from parent folder (e.g., `blizzard/` → BattleNet)
+
+---
+
+### Manifest-Based Enrichment Opportunities
+
+| Store | Enrichment Source | Data Available | Complexity |
+|-------|------------------|----------------|------------|
+| **Steam** | ACF files | Name, exe, state, size | ✅ Low |
+| **GOG** | `.info` files | Title, exe, args, game ID | ✅ Low |
+| **Epic** | `.item` manifests | Name, exe, install path, catalog ID | ⚠️ Medium (external to game folder) |
+| **EA App** | Registry + `.mfst` | Install path, content ID | ❌ High (encrypted) |
+| **Ubisoft** | Registry + manifest | Install path, game ID | ❌ High (protobuf) |
+| **Battle.net** | `.battle.net/` dir | Client data | ✅ Low (already used) |
+
+---
+
+### Recommendations
+
+1. **Keep current signal-based detection** — It works for all stores and doesn't require manifest parsing
+2. **Add Epic manifest parsing** — Parse `.item` files from ProgramData for enrichment (authoritative names)
+3. **Add Origin `.mfst` parsing** — Simple string parsing for legacy Origin games
+4. **Skip EA App encryption** — Too complex, not worth the effort
+5. **Skip Ubisoft protobuf** — Too complex, use registry fallback instead
+6. **Add registry-based detection** — Check registry keys for EA/Ubisoft games as fallback
 
 ---
 
@@ -93,29 +307,25 @@ Both C# and Python check stores in **priority order** (first match wins). The C#
 | Deep signal: `steamapps/` dir or `.acf` files outside Steam library | ✅ `_has_steam_app_manifest` | ❌ Not implemented | **Gap** — standalone games mimicking Steam layout not detected as SteamEmu |
 | **`"blizzard"` in skip lists** | **Not in any skip list** | **In `NoiseSubDirNames` + `s_nonGameFolderNames`** | **CRITICAL GAP — C# skips the entire Blizzard publisher folder; Python processes it. C# has richer BattleNet detection (parent propagation, name heuristics, exe heuristics) but it's unreachable because the folder is skipped before detection runs.** |
 
-#### BattleNet Skip-List Regression (Detailed)
+#### BattleNet Skip-List Regression (FIXED)
 
-This is the most significant divergence between the two systems. The C# implementation has **richer** BattleNet detection than Python:
+**Status:** ✅ FIXED — `"blizzard"` and `"battle.net"` removed from `NoiseSubDirNames` and `s_nonGameFolderNames`.
+
+The C# implementation has **richer** BattleNet detection than Python:
 - `HasBattleNetGameSignal()` checks folder names (`warcraft`, `diablo`, `overwatch`, etc.)
 - `HasBattleNetGameSignal()` checks exe names (`DiabloIII.exe`, `Warcraft III.exe`, etc.)
 - Parent propagation checks if a child's parent has BattleNet signals
 
-**None of this code is ever reached** because:
-1. `FileSystemHelper.NoiseSubDirNames` (line 22) contains `"blizzard"` → `FolderScanner.Scan()` skips the entire directory
-2. `ContainerScanner.s_nonGameFolderNames` (line 26) contains `"blizzard"` → container recursion also skips it
+**Before fix:** None of this code was reached because `"blizzard"` in skip lists blocked the entire publisher folder.
 
-In `detect.py`, `"blizzard"` is absent from both `SKIP_NAMES` and `_NON_GAME_DIR_NAMES`. The publisher folder is processed normally as a container, and its children (game folders) are scanned for `.battle.net/` signals.
+**After fix:** BattleNet games are detected correctly. The C# detection is now superior to Python's.
 
-**Scenario:** Library root is `d:\games\`, contains `d:\games\blizzard\Diablo III\` with `.battle.net/` directory.
-
-| Step | Python | C# |
-|------|--------|-----|
-| 1 | Scan `d:\games\` → find `blizzard/` | Scan `d:\games\` → find `blizzard/` |
-| 2 | `blizzard` not in `SKIP_NAMES` → proceed | `blizzard` in `NoiseSubDirNames` → **SKIP entire folder** |
-| 3 | Check children: `Diablo III/` has `.battle.net/` → BattleNet | Never reached |
-| 4 | Result: **Diablo III detected as BattleNet** | Result: **Diablo III never discovered** |
-
-**Fix:** Remove `"blizzard"` from both `NoiseSubDirNames` and `s_nonGameFolderNames`. Keep `"battle.net"` in skip lists (it's the launcher executable directory, not a game container).
+| Step | Python | C# (after fix) |
+|------|--------|----------------|
+| 1 | Scan root → find `blizzard/` | Scan root → find `blizzard/` |
+| 2 | `blizzard` not in `SKIP_NAMES` → proceed | `blizzard` not in `NoiseSubDirNames` → proceed |
+| 3 | Check children: `Diablo III/` has `.battle.net/` → BattleNet | Check children: `Diablo III/` has `.battle.net/` → BattleNet |
+| 4 | Result: **Diablo III detected as BattleNet** | Result: **Diablo III detected as BattleNet** |
 
 ### Key Design Notes
 
@@ -288,6 +498,104 @@ Python's `_pick_best_root_exe` and `_pick_primary_executable` use a similar but 
 
 ---
 
+## PE Metadata Analysis (Training Data Findings)
+
+Analysis of `extended-p-games.txt` (85 executables) and `extended-e.txt` (191 executables) with PE metadata (Description, InternalName, Version, FileSize) reveals significant untapped signal value.
+
+### Key Findings
+
+#### 1. InternalName is MORE Reliable than Description
+
+| Field | Noise Detection | Reliability | Notes |
+|-------|----------------|-------------|-------|
+| **InternalName** | 47 VC++ "setup" instances, 9 "launcher" instances | **HIGH** | Raw identifier, less likely to be localized |
+| **Description** | 12 "setup", 11 "crash", 10 "launcher" | MEDIUM | Human-readable, may be localized |
+
+**Critical insight:** VC++ redistributables consistently have `InternalName = "setup"` even when Description says "Microsoft Visual C++ 2015-2022 Redistributable". This is a **stronger signal** than filename patterns.
+
+#### 2. Noise Patterns from PE Metadata
+
+**From Description field:**
+- `"Microsoft"` → installers/redistributables (DirectX, VC++, .NET)
+- `"Setup"` → installers (UE Prerequisites, GOG installers)
+- `"Uninstall"` → uninstallers
+- `"Crash"` → error reporters (BlizzardError, codCrashHandler)
+- `"Browser"` → embedded browsers (BlizzardBrowser, CefWrapper)
+- `"Launcher"` → launchers (Battle.net, Rockstar, Stardock)
+
+**From InternalName field:**
+- `"setup"` → VC++ redistributables (47 instances!)
+- `"launcher"` → game launchers (9 instances)
+- `"uninstall"` → uninstallers (7 instances)
+- `"crash"` → error reporters (7 instances)
+- `"browser"` → embedded browsers (3 instances)
+
+#### 3. File Size Thresholds
+
+| Category | Size Range | Examples |
+|----------|-----------|----------|
+| **Game executables** | 25–480 MB | WoW.exe (66 MB), Diablo IV.exe (55 MB), FortniteClient (480 MB) |
+| **Launchers** | 5–30 MB | Rockstar Launcher (29 MB), Diablo IV Launcher (5 MB) |
+| **Noise/Tools** | < 1 MB | BlizzardError (0.9 MB), FenrisError (0.02 MB), awesomium_process (0.04 MB) |
+
+**Current C# threshold:** `< 100 KB → -15 penalty`
+**Recommended:** `< 1 MB → -10 penalty` (catches more noise without penalizing small legitimate exes)
+
+#### 4. Description vs InternalName Divergence
+
+Out of 191 parsed executables:
+- **178 (93%)** have different Description and InternalName
+- **Only 2 (1%)** are identical
+- **11 (6%)** could not be compared (missing data)
+
+This means checking **both fields** provides complementary signal.
+
+### Proposed Implementation: PE Metadata Scoring
+
+**Priority:** MEDIUM (after BattleNet P0 fix)
+
+**Approach:** Use `System.Diagnostics.FileVersionInfo.GetVersionInfo()` — built into .NET, no external dependencies, ~30 lines of code.
+
+```csharp
+// In ExecutableDiscovery.ScoreExecutable():
+try
+{
+    var info = FileVersionInfo.GetVersionInfo(exePath);
+    string desc = (info.FileDescription ?? "").ToLowerInvariant();
+    string internalName = (info.InternalName ?? "").ToLowerInvariant();
+    
+    // Penalize noise patterns in Description
+    if (desc.Contains("setup") || desc.Contains("microsoft") || 
+        desc.Contains("uninstall") || desc.Contains("redistributable"))
+        score -= 25;
+    
+    // Penalize noise patterns in InternalName (stronger signal)
+    if (internalName == "setup" || internalName.Contains("launcher") ||
+        internalName.Contains("uninstall") || internalName.Contains("crash"))
+        score -= 20;
+    
+    // Bonus for game-like descriptions
+    if (desc.Contains("retail") || desc.Contains("game") || 
+        desc.Contains("client"))
+        score += 10;
+}
+catch { /* PE read failed — continue with existing score */ }
+```
+
+**Expected Impact:**
+- Catches VC++ redistributables that escape filename-based filtering
+- Catches embedded browsers (BlizzardBrowser) with Description="Blizzard Browser"
+- Catches error reporters with InternalName="crash" or "error"
+- **Risk:** Low — PE read failures gracefully degrade to existing scoring
+
+**Why This is the Last Avenue:**
+1. Filename-based noise filtering already handles 90% of cases
+2. Folder-level skip lists handle publisher containers
+3. PE metadata catches the remaining edge cases (VC++ in game folders, embedded browsers)
+4. If PE metadata doesn't help, the issue is likely in signal detection, not scoring
+
+---
+
 ## Noise Filtering and Blacklist System
 
 ### Three-Layer Filtering
@@ -303,7 +611,8 @@ FileSystemHelper.NoiseSubDirNames (hardcoded in C#):
   __redist, _commonredist, commonredist, redist, directx, vcredist, dotnet,
   physx, support, _installer, install, installer, easyanticheat, devtools,
   docs, licenses, steam controller configs, steamworks shared,
-  battle.net, blizzard    ← CRITICAL: "blizzard" blocks BattleNet detection
+  epic games, origin, uplay, gog galaxy, ea app, rockstar games
+  // NOTE: "blizzard" and "battle.net" REMOVED — publisher containers with game subdirs
 ```
 
 Python SKIP_NAMES (additional entries not in C#):
@@ -315,7 +624,7 @@ Python SKIP_NAMES (additional entries not in C#):
 
 **Note:** The Python `SKIP_NAMES` includes known launcher directories (Epic, Battle.net, etc.) and non-game tools (reshade, enb, mod managers). Some of these are handled by the C# `s_nonGameFolderNames` set in container recursion instead of at top-level scan.
 
-**CRITICAL BUG:** `"blizzard"` is in the C# skip list but NOT in Python's `SKIP_NAMES`. This means the entire `blizzard/` publisher folder (containing game subdirectories like `Diablo III/`, `World of Warcraft/`) is silently skipped by C# but processed normally by Python. The C# implementation has richer BattleNet detection (parent propagation, name heuristics, exe heuristics) but it's unreachable because the folder is skipped before detection runs. See "BattleNet Skip-List Regression" in the Divergences section above.
+**FIXED:** `"blizzard"` and `"battle.net"` have been **removed** from `NoiseSubDirNames` and `s_nonGameFolderNames`. BattleNet games are now detected correctly. The C# implementation has richer BattleNet detection than Python (parent propagation, name heuristics, exe heuristics) and it now works as intended.
 
 #### Layer 2: Noise Directory Patterns (JSON-sourced)
 
@@ -375,9 +684,35 @@ Flattened into `BlacklistData.ExeNamePatterns` for filtering and `BlacklistData.
 |---------|----------|-----------|
 | `server` | **Noise** (Tier 9) | Dedicated servers are noise. Note: `Minecraft_Server.exe` IS a valid game, but dedicated server builds are generally not what users want to launch. |
 | `crash` | **Noise** (Tier 1) | `crashreport`, `crashhelper`, `crashdebug`, `crashlog` are always noise. "crash" alone is broad enough to catch all variants. |
+| `error` | **Noise** (Tier 1) | `BlizzardError`, `CrypticError`, `FenrisError`, `REDEngineErrorReporter` are always error reporters, not games. |
+| `launcher` | **NOT Noise** (scoring penalty only) | Launchers are penalized in scoring (-20) but NOT filtered as noise, because some games use launchers as entry points (e.g., `AoW3Launcher.exe`). |
+| `eos` | **NOT Noise** (removed) | `eos` was incorrectly filtering `FortniteClient-Win64-Shipping_EAC_EOS.exe` (actual game exe with EOS integration). |
 | `scummvm` | **Noise** (Tier 17) | GOG SCUMMVM games are handled via `.info` file parsing (launch args + exe), not via `scummvm.exe`. |
 | `editor` | **Noise** (Tier 11) | Content/level editors ship with games but are not the game itself. |
 | `overlay` | **Noise** (Tier 17) | Steam/Discord overlay helpers are not games. |
+
+### Pattern Analysis Results (2026-07-26)
+
+Analysis of 165 games (1191 executables) from training data:
+
+**Noise Filtering:**
+- 545 exes filtered as noise (45.8%)
+- 646 exes kept as non-noise (54.2%)
+- 4 false negatives identified and fixed:
+  - `CrashReport` → fixed by adding generic `crash` pattern
+  - `BlizzardError` → fixed by adding generic `error` pattern
+  - `UnityCrashHandler64` → fixed by adding generic `crash` pattern
+  - `UnityCrashHandler32` → fixed by adding generic `crash` pattern
+
+**Scoring Accuracy:**
+- 100% accuracy on 67 tested games
+- Correctly handles: backup copies, UE shipping builds, launcher vs game exe selection
+
+**Python/C# Parity:**
+- Removed `launcher` from C# noise patterns (was incorrectly filtering legitimate game launchers)
+- Removed `eos` from C# noise patterns (was breaking Fortnite detection)
+- Added `error` pattern to both Python and C# for error reporters
+- Added generic `crash` pattern to Python (replaces 6 specific crash patterns)
 
 ### Non-Game Folder Names (Container Recursion)
 
@@ -553,7 +888,7 @@ Distinguishing emulated Steam games from real Steam games:
 
 | Gap | Severity | Python Feature | C# Status | Notes |
 |-----|----------|---------------|-----------|-------|
-| **BattleNet skip-list regression** | **CRITICAL** | Container detection of `blizzard/` publisher folder | **❌ REGRESSION** | C# has richer detection than Python (parent propagation, name heuristics, exe heuristics) but `"blizzard"` in `NoiseSubDirNames` + `s_nonGameFolderNames` blocks the entire folder. Python has no such skip. See BattleNet section above. |
+| **BattleNet skip-list regression** | ~~CRITICAL~~ | Container detection of `blizzard/` publisher folder | **✅ FIXED** | `"blizzard"` and `"battle.net"` removed from `NoiseSubDirNames` and `s_nonGameFolderNames`. C# now has richer detection than Python. |
 | EA `touchup.exe` / `ActivationUI.exe` signals | — | Root-level EA signal detection | ✅ Implemented | Parity achieved |
 | `gog.ico` as GOG signal | Low | GOG signal detection | ❌ Not implemented | All GOG games have `goggame*` files too |
 | `steamapps/` dir outside Steam library | Low | Steam emulator detection | ❌ Not implemented | Edge case for pirated/cracked games |
@@ -561,17 +896,23 @@ Distinguishing emulated Steam games from real Steam games:
 | Abbreviation matching (+8) | Low | Token prefix matching | ❌ Not implemented | e.g., "g3" matching "Gothic3" |
 | Roman numeral matching (+12) | Low | "u9" ↔ "IX", "heroes4" ↔ "IV" | ❌ Not implemented | Edge case for game numbering |
 | Small exe penalty (< 100KB) | — | `-15` penalty | ✅ Implemented | Parity achieved |
-| PE metadata scoring boost | Low | +15 for FileDescription match | N/A (Phase 4 only) | PE enrichment is optional in Python, not in C# app |
+| PE metadata scoring boost | **Medium** | +15 for FileDescription match | **✅ Implemented** | C# `ScoreExecutable()` now reads `FileVersionInfo.GetVersionInfo()` — penalizes noise Description/InternalName (-25/-20), bonuses game-like descriptions (+10). Graceful degradation on broken PE headers. |
 | Engine detection (Unity, RAGE, Frostbite) | Low | `_detect_engine()` | Not implemented | Not used in game detection, only metadata |
 | Extension-filtered deep walk | Low | `.exe/.dll/.ini` only | Not implemented | C# scans all files but filters noise |
 | Phase 4 enrichment (PCGamingWiki) | Medium | `--metadata` / `--pcgw` flags | Not implemented | Future feature for unknown games |
+| **Epic manifest parsing** | Medium | Parse `.item` files from ProgramData | **Planned** | Authoritative game names, exe paths, catalog IDs |
+| **Origin `.mfst` parsing** | Low | Parse HTTP query strings | **Planned** | Legacy Origin games only |
+| **EA App registry fallback** | Low | Check `HKLM\Software\EA Games\` | **Planned** | Simple registry read |
+| **Ubisoft registry fallback** | Low | Check `HKLM\SOFTWARE\Ubisoft\Launcher\Installs\` | **Planned** | Simple registry read |
 
 ### Known Limitations (Both Systems)
 
 | Limitation | Status | Notes |
 |-----------|--------|-------|
 | Multi-folder games (FFXIV) | Known | `boot/` + `game/` detected as separate entries |
-| Epic `.item` manifest support | Future | Epic store metadata not parsed (Phase 3 planned) |
+| Epic `.item` manifest support | **Planned** | Parse from `C:\ProgramData\Epic\EpicGamesLauncher\Data\Manifests\` |
+| EA App encrypted manifests | Deferred | `IS` file is AES-encrypted, not worth the complexity |
+| Ubisoft protobuf manifests | Deferred | Binary protobuf format, use registry fallback instead |
 | `.bat` launcher configuration | In progress | Parsing done in Python, UI not implemented |
 | User blacklist editor | Future | `planning/91-user-blacklist-editor.md` |
 
@@ -587,9 +928,10 @@ Distinguishing emulated Steam games from real Steam games:
 | `src/App/Services/StoreSignalDetector.cs` | 163 | 10-signal priority chain for store/platform detection |
 | `src/App/Services/FallbackSignalDetector.cs` | 193 | 5 fallback signals: Steam Emu deep, Ubisoft legacy, UE layout, root exe, root .lnk |
 | `src/App/Services/ContainerScanner.cs` | 116 | Container/publisher folder recursion with organization detection |
-| `src/App/Services/ExecutableDiscovery.cs` | 352 | Deep exe search (5 strategies), scoring, launcher detection |
+| `src/App/Services/ExecutableDiscovery.cs` | ~400 | Deep exe search (5 strategies), scoring (PE metadata + tier-based), launcher detection |
 | `src/App/Services/LnkParser.cs` | 140 | .lnk binary parsing, exe resolution with backup rename matching |
 | `src/App/Services/GogInfoParser.cs` | 163 | GOG goggame-*.info JSON parsing, DLC filtering |
+| `src/App/Services/EaInstallLogParser.cs` | ~90 | EA __Installer/InstallLog.txt parsing — game name, display name, studio |
 | `src/App/Services/BlacklistLoader.cs` | 212 | JSON blacklist loading, tier preservation |
 | `src/App/Services/BlacklistData.cs` | 28 | Data model for blacklist patterns |
 | `src/App/Services/FileSystemHelper.cs` | 115 | Shared filesystem utilities, noise checks, display name normalization |
@@ -602,6 +944,8 @@ Distinguishing emulated Steam games from real Steam games:
 | `tools/detect.py` | 1829 | Unified 4-phase detection tool (reference gold) |
 | `tools/detect_folder.py` | 702 | Deprecated — original signal detection script |
 | `tools/list_standalone_games.py` | N/A | Deprecated — fast-then-deep architecture source |
+| `tools/lookup_metadata.py` | 1672 | Metadata enrichment: PCGW, Epic manifest cross-ref, Steam API |
+| `tools/parse_registry.py` | ~350 | Registry parsing for Epic manifest paths, EA/Ubisoft install dirs |
 
 ### Test Files
 

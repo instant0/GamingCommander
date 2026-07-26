@@ -18,8 +18,9 @@ internal static class FileSystemHelper
         "installer", "easyanticheat", "devtools", "docs", "licenses",
         "steam controller configs", "steamworks shared",
         // Store launcher directories — these are games stores, not games themselves
-        "battle.net", "epic games", "origin", "uplay", "gog galaxy",
-        "ea app", "rockstar games", "blizzard",
+        // NOTE: "blizzard" and "battle.net" REMOVED — they are publisher containers with game subdirs
+        "epic games", "origin", "uplay", "gog galaxy",
+        "ea app", "rockstar games",
     ], StringComparer.OrdinalIgnoreCase);
 
     /// <summary>

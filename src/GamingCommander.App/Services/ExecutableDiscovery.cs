@@ -237,6 +237,37 @@ internal static class ExecutableDiscovery
         }
         catch { }
 
+        // PE metadata scoring: penalize noise patterns in Description/InternalName.
+        // Uses System.Diagnostics.FileVersionInfo — built into .NET, no external dependencies.
+        // Gracefully degrades on read failure (old/broken PE headers).
+        try
+        {
+            var peInfo = System.Diagnostics.FileVersionInfo.GetVersionInfo(exePath);
+            string desc = (peInfo.FileDescription ?? "").ToLowerInvariant();
+            string internalName = (peInfo.InternalName ?? "").ToLowerInvariant();
+
+            // Penalize noise in FileDescription (-25)
+            if (desc.Contains("setup") || desc.Contains("microsoft") ||
+                desc.Contains("uninstall") || desc.Contains("redistributable") ||
+                desc.Contains("directx") || desc.Contains("cabinet"))
+                score -= 25;
+
+            // Penalize noise in InternalName (-20)
+            if (internalName == "setup" || internalName.Contains("launcher") ||
+                internalName.Contains("uninstall") || internalName.Contains("crash") ||
+                internalName.Contains("error"))
+                score -= 20;
+
+            // Bonus for game-like descriptions (+10)
+            if (desc.Contains("retail") || desc.Contains("client") ||
+                desc.Contains("shipping"))
+                score += 10;
+        }
+        catch
+        {
+            // PE read failed (broken header, old exe, etc.) — continue with existing score
+        }
+
         return score;
     }
 

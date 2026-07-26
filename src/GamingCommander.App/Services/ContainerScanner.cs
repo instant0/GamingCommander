@@ -22,8 +22,9 @@ internal static class ContainerScanner
         "dlc", "program files", "windowsapps", "squirreltemp",
         "portable", "uninstall",
         // Store launcher directories — these are game stores, not games
-        "battle.net", "epic games", "origin", "uplay", "gog galaxy",
-        "ea app", "rockstar games", "blizzard",
+        // NOTE: "blizzard" and "battle.net" REMOVED — they are publisher containers with game subdirs
+        "epic games", "origin", "uplay", "gog galaxy",
+        "ea app", "rockstar games",
     };
 
     /// <summary>
