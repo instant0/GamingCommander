@@ -1,0 +1,264 @@
+GamingCommander — Readme & Permissions Guide
+=============================================
+
+Version: 0.3.x (MVP)
+License: CC BY-NC 4.0 (see below)
+
+What is GamingCommander?
+------------------------
+
+GamingCommander is a game library manager and launcher for Windows. It scans
+your hard drives for installed games, collects metadata, and lets you launch
+them from a single interface. Think of it as a "commander" for your game
+collection — similar to how file managers organize your documents.
+
+GamingCommander does NOT modify, move, or delete any game files. It only
+reads game directories to discover what is installed, and writes to its own
+small data folder to remember what it found.
+
+
+What does GamingCommander do?
+-----------------------------
+
+  1. SCAN    — You tell it which folders contain games. It looks inside
+               those folders to find game executables, store manifests,
+               and metadata files.
+
+  2. ORGANIZE — It shows your games in a list with their names, types
+               (Steam, GOG, Epic, etc.), and status (installed, moved,
+               etc.). You can add custom tags to each game.
+
+  3. LAUNCH  — Select a game and press Enter. GamingCommander starts the
+               game for you. For Steam games, it opens the Steam launcher.
+               For standalone games, it runs the .exe directly.
+
+
+What permissions does GamingCommander need?
+-------------------------------------------
+
+GamingCommander needs the following access on your Windows system. Each
+permission is explained with why it is needed.
+
+
+PERMISSION 1: Read game directories
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  What:     Read files and folders inside the game directories you add.
+  Why:      To discover which games are installed. GamingCommander looks
+            for .exe files, store manifest files (.acf, .item, .info),
+            and metadata files to identify games and their types.
+  Scope:    ONLY the folders you explicitly add via the setup screen.
+            GamingCommander does not scan your entire hard drive.
+  Examples: Reading "C:\Program Files\Steam\steamapps\common\GameName\"
+            to find GameName.exe and detect it as a Steam game.
+
+
+PERMISSION 2: Read Steam library files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  What:     Read Steam ACF manifest files (appmanifest_*.acf) and
+            library configuration (libraryfolders.vdf).
+  Why:      To detect which Steam games are installed, their App IDs,
+            and whether games have been moved between libraries.
+            ACF files are small text files that Steam uses to track
+            installed games.
+  Scope:    Only reads files in steamapps/ folders you have configured.
+  Examples: Reading "D:\SteamLibrary\steamapps\appmanifest_292030.acf"
+            to find that The Witcher 3 is installed with AppID 292030.
+
+
+PERMISSION 3: Read Epic Games manifest files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  What:     Read Epic Games Store manifest files (.item, .mancpn) from
+            game directories and from the global ProgramData folder.
+  Why:      To identify Epic games and their display names. Epic uses
+            codenames for folders (e.g., "Sugar" for Fortnite), so the
+            manifest files provide the real game names.
+  Scope:    Reads .egstore/ folders inside game directories you add,
+            and C:\ProgramData\Epic\EpicGamesLauncher\Data\Manifests\.
+  Examples: Reading "Fortnite\.egsstore\manifests\*.item" to find the
+            display name "Fortnite" instead of the folder name.
+
+
+PERMISSION 4: Read GOG metadata files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  What:     Read GOG game metadata files (goggame-*.info).
+  Why:      To extract the game's real name, executable path, and
+            launch arguments. GOG stores this information in JSON
+            files alongside the game.
+  Scope:    Only reads files in game directories you have added.
+  Examples: Reading "GOG Games\Witcher 3\goggame-12345.info" to find
+            the game name and launch command.
+
+
+PERMISSION 5: Read EA install logs
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  What:     Read EA install log files (__Installer/InstallLog.txt).
+  Why:      To extract the game's official name and publisher. EA games
+            store this information in a UTF-16 encoded log file.
+  Scope:    Only reads files in game directories you have added.
+  Examples: Reading "EA Games\Battlefield 2042\__Installer\InstallLog.txt"
+            to find the game name "Battlefield 2042" and studio "DICE".
+
+
+PERMISSION 6: Read shortcut files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  What:     Read Windows shortcut files (.lnk) to find game executables.
+  Why:      Some games are installed via shortcuts rather than direct
+            .exe files. GamingCommander reads the shortcut target to
+            find the actual game executable.
+  Scope:    Only reads .lnk files in game directories you have added.
+  Examples: Reading "Games\MyGame.lnk" to find the target is
+            "C:\Games\MyGame\MyGame.exe".
+
+
+PERMISSION 7: Read game configuration files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  What:     Read game-specific config files for detection (read-only).
+  Why:      To detect game types. For example, reading "steam_appid.txt"
+            confirms a game is from Steam. Reading "title.rgl" detects
+            Rockstar games. Reading "default-metadata.json" detects
+            Xbox games.
+  Scope:    Only reads specific well-known files in game directories.
+  Examples: Reading "GameName\steam_appid.txt" containing "292030" to
+            confirm this is a Steam game.
+
+
+PERMISSION 8: Write to application data folder
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  What:     Write files to GamingCommander's own data/ directory.
+  Why:      To save your settings, game database, and diagnostic logs.
+            This is the ONLY folder GamingCommander writes to.
+  Scope:    Only the data/ folder inside GamingCommander's installation
+            directory. No other folders are written to.
+  Files:    settings.json    — Your preferences and library roots
+            games.json       — Discovered games database
+            startup.log      — Diagnostic log (can be disabled)
+            blacklist.json   — Noise filter patterns (shipped with app)
+
+
+PERMISSION 9: Launch games
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  What:     Start game executables or open Steam URIs.
+  Why:      To launch games when you press Enter. For Steam games, it
+            opens a steam:// URI which tells Steam to start the game.
+            For standalone games, it runs the .exe directly.
+  Scope:    Only launches games you have in your library. No other
+            programs are started.
+  Examples: Opening "steam://rungameid/292030" to launch The Witcher 3
+            via Steam, or running "D:\Games\Witcher3\witcher3.exe".
+
+
+PERMISSION 10 (FUTURE): Internet access for metadata
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  What:     Connect to PCGamingWiki, Epic Games Store, and Steam Store
+            APIs to fetch game metadata (developer, publisher, engine,
+            cover art, ratings).
+  Why:      To enrich your game library with information from the web.
+            This is opt-in and controlled by the "Enable Online
+            Metadata" setting.
+  Scope:    Only fetches data for games in your library. No personal
+            data is sent. Results are cached locally.
+  Status:   NOT YET IMPLEMENTED — planned for a future version.
+
+
+What files does GamingCommander generate?
+-----------------------------------------
+
+  data/settings.json
+    Your application settings. Contains which folders you have added
+    as library roots, your display preferences, and the last version
+    you ran. Created on first launch, updated when you change settings.
+
+  data/games.json
+    The game database. Contains all discovered games with their names,
+    types, executable paths, tags, and platform metadata. Updated when
+    you scan your libraries or edit games via F4.
+
+  data/blacklist.json
+    Reference file shipped with the application. Contains patterns for
+    filtering out non-game executables (installers, redists, tools).
+    Read-only — not modified by the application.
+
+  data/startup.log
+    Diagnostic log written during application startup. Contains timing
+    information and error messages for troubleshooting. Can be disabled
+    by setting the GC_STARTUP_LOGGING environment variable to "0".
+
+  No other files are created. GamingCommander does NOT create files in
+  your game directories, Windows registry entries, Start Menu shortcuts,
+  or any other system locations.
+
+
+What does GamingCommander NOT do?
+----------------------------------
+
+  - It does NOT modify, move, or delete your game files.
+  - It does NOT access your personal documents, photos, or other files.
+  - It does NOT scan your entire hard drive — only folders you add.
+  - It does NOT send data to the internet (currently offline-only).
+  - It does NOT install any background services or drivers.
+  - It does NOT require administrator privileges to run.
+  - It does NOT modify the Windows registry.
+  - It does NOT inject code into games or other processes.
+
+
+License
+-------
+
+GamingCommander is licensed under the Creative Commons Attribution-
+NonCommercial 4.0 International License (CC BY-NC 4.0).
+
+  You are free to:
+    — Share: Copy and redistribute the material in any format.
+    — Adapt: Remix, transform, and build upon the material.
+
+  Under the following terms:
+    — Attribution: You must give appropriate credit to GamingCommander,
+      provide a link to the license, and indicate if changes were made.
+    — NonCommercial: You may NOT use the material for commercial purposes.
+
+  Full license text: https://creativecommons.org/licenses/by-nc/4.0/
+
+Dependencies
+~~~~~~~~~~~~
+
+GamingCommander uses the following open-source libraries:
+
+  — Avalonia UI 11.x (https://avaloniaui.net)
+    License: MIT — a permissive license that allows commercial use,
+    modification, and distribution. No copyleft restrictions.
+
+  — .NET 8 Runtime (https://dotnet.microsoft.com)
+    License: MIT — same permissive terms as Avalonia.
+
+The MIT licenses on these dependencies do NOT impose any restrictions
+on how you license your own application that uses them. You are free
+to apply CC BY-NC 4.0 (or any other license) to GamingCommander while
+using MIT-licensed dependencies.
+
+If you distribute a modified version of GamingCommander, you must
+comply with both:
+  1. CC BY-NC 4.0 for GamingCommander itself (attribution, non-commercial)
+  2. MIT license terms for Avalonia and .NET (include copyright notices)
+
+In practice, this means: include the CC BY-NC notice for GamingCommander
+and the MIT copyright notices for Avalonia/.NET in any distribution.
+
+
+Third-party data
+~~~~~~~~~~~~~~~~
+
+Game metadata (names, developers, publishers, ratings) may be fetched
+from:
+  — PCGamingWiki (https://pcgamingwiki.com) — CC BY-NC-SA 4.0
+  — Steam Store API (https://store.steampowered.com) — Valve API Terms
+  — Epic Games Store API (https://store.epicgames.com) — Epic Terms
+
+These services have their own terms of use. Metadata fetched from them
+is cached locally and attributed in the application where applicable.
+
+
+Contact
+-------
+
+For questions about this license or permissions, please refer to the
+project repository or open an issue.
