@@ -5,6 +5,7 @@
 **/[Oo]bj/
 artifacts/
 out/
+publish/
 
 # Test / coverage
 TestResults/

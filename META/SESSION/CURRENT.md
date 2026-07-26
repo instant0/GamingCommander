@@ -6,21 +6,23 @@
 ---
 
 ## Phase
-**MVP track active** — Plan [`planning/100-mvp-next-steps.md`](../../planning/100-mvp-next-steps.md).  
-Code quality Phases D–G largely done (T58–T60 complete; T48–T57 deferred until MVP gate).
+**Post-MVP** — MVP complete. Plan [`planning/100-mvp-next-steps.md`](../../planning/100-mvp-next-steps.md) ✅ COMPLETE.
+Code quality Phases D–G largely done (T58–T60 complete; T48–T57 deferred).
 
 ## Priority Roadmap
 1. ~~**P0 — Fix Battle.net detection**~~ ✅ **FIXED** — `"blizzard"` and `"battle.net"` removed from noise filters
 2. ~~**P1 — Unify setup screens**~~ ✅ **IMPLEMENTED** — Wizard + F2 merged into single `LibrarySetupWindow`; WizardWindow, WizardViewModel, WizardLibraryEntry deleted.
 3. ~~**P2 — Steam status messages**~~ ✅ **IMPLEMENTED** — Orphaned/Missing/Moved detail messages now explain what each state means, why it happened, and how to fix it.
-4. **Phase G quality (P2)** — T48–T57 tests/constants after MVP
-5. **Tags + Metadata Display (P2)** — User tags, PCGW scraping, engine/store badges → see Plan 102, Plan 110 (Phase 1: user tags + override protection)
-6. **detect.py port completion (P2)** — Remaining gaps → see Plan 103
-7. **detect.py module split (P3)** — Break into 8 modules → see Plan 104
-8. ~~**PE Metadata Scoring (P2)**~~ ✅ **IMPLEMENTED** — `ScoreExecutable()` reads PE Description/InternalName for noise filtering
-9. ~~**EA InstallLog.txt Parsing (P2)**~~ ✅ **IMPLEMENTED** — `EaInstallLogParser` extracts authoritative game name, display name, studio
-10. **Epic Manifest Enrichment (P2)** — Parse `.item` files from ProgramData for authoritative game names → see Plan 109 (full implementation plan)
-11. **EA/Ubisoft Registry Fallback (P2)** — Check registry keys for games when filesystem signals fail
+4. ~~**P2 — PE Metadata Scoring**~~ ✅ **IMPLEMENTED** — `ScoreExecutable()` reads PE Description/InternalName for noise filtering
+5. ~~**P2 — EA InstallLog.txt Parsing**~~ ✅ **IMPLEMENTED** — `EaInstallLogParser` extracts authoritative game name, display name, studio
+6. ~~**P2 — User Tags + Override Protection (Phase 1)**~~ ✅ **IMPLEMENTED** — Tags field, UserOverrides dictionary, F4 tag editing, TagNormalizer utility. Plan 110 Phase 1 complete.
+7. **P2 — Epic Manifest Enrichment** ✅ **COMPLETE** — Fixed 3 bugs (#17, #18, #19): local .mancpn/.item parsing + global .item cross-ref → Plan 109 COMPLETE
+   - **Result:** `EpicManifestParser` class with `ParseItemFile`, `ParseMancpnFile`, `ExtractLocalIdentifiers`, `CrossReferenceGlobalManifests`, `ResolveLaunchExecutable`. `FolderScanner` integration enriches Epic games with marketing names and catalog IDs. 17 new tests. 289 total tests passing.
+   - **Deferred:** Epic GraphQL API lookup — future plan.
+8. **P2 — EA/Ubisoft Registry Fallback** — Check registry keys for games when filesystem signals fail
+9. **Phase G quality (P2)** — T48–T57 tests/constants after MVP
+10. **detect.py port completion (P2)** — Remaining gaps → see Plan 103
+11. **detect.py module split (P3)** — Break into 8 modules → see Plan 104
 
 ## Objectives Achieved
 1. ✅ Game detection overhaul — Phase 1+2 complete
@@ -493,7 +495,7 @@ All hardcoded colors and font sizes centralized to `App.axaml` Application.Resou
 - All 154 tests passing (33 Core + 1 Migration + 120 App). Build clean.
 
 ## Test Status
-**227 tests passing** (33 Core + 1 Migration + 193 App). Build clean, 0 errors, 0 warnings.
+**289 tests passing** (73 Core + 1 Migration + 215 App). Build clean, 0 errors, 0 warnings.
 
 ## Documentation Review (Current Session)
 - Created `docs/EPIC-MANIFEST-ENRICHMENT.md` — complete analysis of Epic Games Store detection and metadata enrichment: .item file format, .mancpn identifiers, global ProgramData cross-reference, Epic GraphQL searchStore API, GUID-based identification, C# gap analysis (FindEpicManifest searches *.json not *.item, no global cross-ref, no API client), proposed implementation pipeline (EpicManifestParser + EpicStoreApiClient), test plan with 13 test cases

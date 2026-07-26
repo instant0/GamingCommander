@@ -18,7 +18,7 @@
 | WP-4 | Launch UX polish — T69 ✅, T71 ✅ | **P1 COMPLETE** |
 | WP-5 | Windows smoke gate — T70 ✅, T75 ✅, T76 ✅, T77 ✅ | **P0+P1 COMPLETE** |
 
-**227 tests passing. Build clean.**
+**289 tests passing. Build clean.**
 
 **Post-MVP backlog (ordered by priority):**
 
@@ -27,15 +27,16 @@
 3. ~~**P2 — Steam status messages**~~ ✅ **IMPLEMENTED** — Orphaned/Missing/Moved detail messages now explain what each state means, why it happened, and how to fix it. Added `FolderName`, `LibraryRoot`, `AcfExpectedPath` to PlatformMetadata.
 4. ~~**P2 — PE Metadata Scoring**~~ ✅ **IMPLEMENTED** — `ScoreExecutable()` reads `FileVersionInfo.GetVersionInfo()` for noise filtering by Description/InternalName
 5. ~~**P2 — EA InstallLog.txt Parsing**~~ ✅ **IMPLEMENTED** — `EaInstallLogParser` extracts authoritative game name, display name, studio from `__Installer/InstallLog.txt`
-6. **P2 — User Tags + Override Protection (Phase 1)** — Tags field, UserOverrides dictionary, F4 tag editing → see `planning/110-user-tags-source-tagging.md`
-7. **P2 — Epic Manifest Enrichment** — 3-strategy pipeline: local .mancpn/.item, global .item cross-ref, GraphQL API → see `planning/109-epic-manifest-enrichment.md`
-8. **P2 — EA/Ubisoft Registry Fallback** — Port `parse_registry.py` logic to C# for install path detection
-9. Phase G T48–T57 (tests/quality polish) — harden what shipped
-10. Steam SyncMove repair (backup + ACF path fix) — from `planning/04-phase-2-syncmove.md`
-11. PCGamingWiki metadata + Tags system (Phase 3) — see `planning/102-tags-metadata-display.md`
-12. Port remaining detect.py edges — see `planning/103-detect-py-port-status.md`
-13. Split detect.py into modules — see `planning/104-detect-py-module-split.md`
-14. Category browse / search (F8, S key) — see `planning/101-top-level-modes-and-filter.md`
+6. ~~**P2 — User Tags + Override Protection (Phase 1)**~~ ✅ **IMPLEMENTED** — Tags field, UserOverrides dictionary, F4 tag editing, TagNormalizer utility. Plan 110 Phase 1 complete. 272 tests passing.
+7. ~~**P2 — Epic Manifest Enrichment**~~ ✅ **COMPLETE** — Fixed 3 bugs (#17, #18, #19): `EpicManifestParser` class with local .mancpn/.item parsing + global .item cross-ref. 17 new tests, 289 total. **Deferred:** Epic GraphQL API lookup — future plan.
+8. **P1 — Scan Perf + Display Names + Ubisoft Signals** — Plan 112: PE FileDescription for display names, `uplay_download/` + `*_UPP*` Ubisoft signals, `support/Readme` metadata, file read investigation, candidate reduction
+9. **P2 — EA/Ubisoft Registry Fallback** — Port `parse_registry.py` logic to C# for install path detection
+10. Phase G T48–T57 (tests/quality polish) — harden what shipped
+11. Steam SyncMove repair (backup + ACF path fix) — from `planning/04-phase-2-syncmove.md`
+12. PCGamingWiki metadata + Tags system (Phase 3) — see `planning/102-tags-metadata-display.md`
+13. Port remaining detect.py edges — see `planning/103-detect-py-port-status.md`
+14. Split detect.py into modules — see `planning/104-detect-py-module-split.md`
+15. Category browse / search (F8, S key) — see `planning/101-top-level-modes-and-filter.md`
 
 ---
 

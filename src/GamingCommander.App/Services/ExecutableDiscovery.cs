@@ -358,7 +358,8 @@ internal static class ExecutableDiscovery
     }
 
     /// <summary>
-    /// Searches for an Epic Games Store manifest file (.egsstore/manifests/*.json or .egstore/manifests/*.json).
+    /// Searches for an Epic Games Store manifest file in .egsstore/manifests/ or .egstore/manifests/.
+    /// Searches .item first (richer schema), then .mancpn, then .json (legacy).
     /// Returns the full path to the first manifest found, or empty string.
     /// </summary>
     internal static string FindEpicManifest(DirectoryInfo dir)
@@ -376,9 +377,13 @@ internal static class ExecutableDiscovery
 
             try
             {
-                foreach (FileInfo jsonFile in new DirectoryInfo(manifestsDir).GetFiles("*.json"))
+                // .item preferred (richest schema), then .mancpn, then .json (legacy)
+                foreach (string pattern in new[] { "*.item", "*.mancpn", "*.json" })
                 {
-                    return jsonFile.FullName;
+                    foreach (FileInfo file in new DirectoryInfo(manifestsDir).GetFiles(pattern))
+                    {
+                        return file.FullName;
+                    }
                 }
             }
             catch { }

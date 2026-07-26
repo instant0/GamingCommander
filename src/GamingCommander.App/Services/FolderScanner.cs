@@ -198,7 +198,6 @@ public sealed class FolderScanner
         }
 
         string? launcherPath = ExecutableDiscovery.FindLauncherExecutable(subDir, exePath, _launcherPatterns);
-        string manifestPath = ExecutableDiscovery.FindEpicManifest(subDir);
         string displayName = FileSystemHelper.NormalizeDisplayName(subDir.Name);
         string id = GameEntryId.ComputeId(rootPath, subDir.Name);
         var platformMetadata = new Dictionary<string, string>();
@@ -260,6 +259,55 @@ public sealed class FolderScanner
             }
         }
 
+        // Epic enrichment: extract metadata from .mancpn/.item files, cross-reference global manifests
+        if (resolvedType == GameSourceKind.Epic)
+        {
+            // Strategy 1: Local identifier extraction from .egstore/ or .egsstore/
+            var localIds = EpicManifestParser.ExtractLocalIdentifiers(subDir);
+
+            // Strategy 2: Global .item cross-reference from ProgramData
+            var globalItem = EpicManifestParser.CrossReferenceGlobalManifests(subDir);
+            if (globalItem is not null && !string.IsNullOrEmpty(globalItem.DisplayName))
+            {
+                platformMetadata["AutoDetectedTitle"] = displayName;
+                displayName = globalItem.DisplayName;
+                platformMetadata["TitleSource"] = "EpicItemManifest";
+
+                // Override local namespace with correct public namespace from global .item
+                localIds = new EpicManifestParser.EpicIdentifiers(
+                    CatalogNamespace: globalItem.CatalogNamespace,
+                    CatalogItemId: globalItem.CatalogItemId,
+                    AppName: globalItem.AppName,
+                    DisplayName: globalItem.DisplayName,
+                    LaunchExecutable: globalItem.LaunchExecutable);
+            }
+
+            // Store GUID identifiers in platform metadata
+            if (localIds is not null)
+            {
+                if (!string.IsNullOrEmpty(localIds.CatalogItemId))
+                    platformMetadata["EpicCatalogItemId"] = localIds.CatalogItemId;
+                if (!string.IsNullOrEmpty(localIds.CatalogNamespace))
+                    platformMetadata["EpicCatalogNamespace"] = localIds.CatalogNamespace;
+                if (!string.IsNullOrEmpty(localIds.AppName))
+                    platformMetadata["EpicAppName"] = localIds.AppName;
+            }
+
+            // Resolve LaunchExecutable from .item if available (and no exe found yet)
+            if (globalItem is not null
+                && !string.IsNullOrEmpty(globalItem.LaunchExecutable)
+                && !string.IsNullOrEmpty(globalItem.InstallLocation)
+                && string.IsNullOrEmpty(exePath))
+            {
+                string resolvedExe = EpicManifestParser.ResolveLaunchExecutable(
+                    globalItem.InstallLocation, globalItem.LaunchExecutable);
+                if (!string.IsNullOrEmpty(resolvedExe))
+                {
+                    exePath = resolvedExe;
+                }
+            }
+        }
+
         entries.Add(new GameEntry(
             Id: id,
             FolderName: subDir.Name,
@@ -269,7 +317,7 @@ public sealed class FolderScanner
             ExecutablePath: exePath ?? string.Empty,
             LauncherPath: launcherPath ?? string.Empty,
             CommandLineArguments: commandLineArgs,
-            ManifestPath: manifestPath,
+            ManifestPath: string.Empty,
             LastScanned: DateTimeOffset.UtcNow,
             LastModified: FileSystemHelper.GetLastWriteTimeSafe(subDir),
             PlatformMetadata: platformMetadata,

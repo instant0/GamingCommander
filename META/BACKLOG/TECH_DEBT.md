@@ -1,7 +1,7 @@
 # META/BACKLOG/TECH_DEBT.md — Technical Debt & Known Issues
 
 **Nature:** Mutable. Entries appended by Builder/Reviewer, moved to PLANNING/ when prioritized.
-**Last verified:** 2026-07-19
+**Last verified:** 2026-07-26
 
 ---
 
@@ -204,3 +204,30 @@
 - **Impact:** MEDIUM — confusing for users who manage their data folder.
 - **Suggested fix:** Move `blacklist.json` loading to `AppContext.BaseDirectory`. Keep `data/` directory for user-only data (settings, games DB).
 - **Status:** Open
+
+### Bug 17: FindEpicManifest searches wrong file extension
+- **Discovered:** 2026-07-26
+- **Where:** `ExecutableDiscovery.FindEpicManifest()` line 379
+- **Issue:** Searches `*.json` but Epic uses `.item` and `.mancpn` extensions. The `.json` search returns no results for most Epic games.
+- **Impact:** HIGH — Epic manifest path is never populated; no metadata can be extracted.
+- **Suggested fix:** Change `GetFiles("*.json")` to search `*.item`, `*.mancpn`, and `*.json` in that order of preference.
+- **Status:** ✅ Fixed — Plan 109 Phase 1. `FindEpicManifest()` now searches `*.item`, `*.mancpn`, `*.json` in preference order.
+- **Verified:** 2026-07-26 — ExecutableDiscovery.cs lines 364-392
+
+### Bug 18: Epic manifest data never extracted
+- **Discovered:** 2026-07-26
+- **Where:** `FolderScanner.AddGameEntry()` line 201
+- **Issue:** `FindEpicManifest()` returns a file path, but no data is parsed from it. `ManifestPath` is stored on `GameEntry` but `DisplayName`, `CatalogItemId`, `CatalogNamespace`, `LaunchExecutable` are never extracted.
+- **Impact:** HIGH — Epic games show codename/folder names instead of marketing names. No store IDs available for cross-referencing.
+- **Suggested fix:** Implement `EpicManifestParser` (Plan 109 Phase 2) to parse `.item`/`.mancpn` files and extract metadata; integrate into FolderScanner (Phase 4).
+- **Status:** ✅ Fixed — Plan 109 Phases 2+4. `EpicManifestParser.ExtractLocalIdentifiers()` + `FolderScanner` integration. `EpicCatalogItemId`, `EpicCatalogNamespace`, `EpicAppName` stored in `PlatformMetadata`.
+- **Verified:** 2026-07-26 — FolderScanner.cs lines 263-313
+
+### Bug 19: No global .item cross-reference
+- **Discovered:** 2026-07-26
+- **Where:** Not implemented
+- **Issue:** The authoritative `.item` manifests live in `C:\ProgramData\Epic\EpicGamesLauncher\Data\Manifests\`, separate from game folders. The Python tool `lookup_metadata.py` implements `epic_crossref_item_manifests()` but no C# equivalent exists.
+- **Impact:** MEDIUM — local `.mancpn` may have dev namespace; global `.item` always has correct public namespace and marketing name.
+- **Suggested fix:** Implement `EpicManifestParser.CrossReferenceGlobalManifests()` (Plan 109 Phase 3).
+- **Status:** ✅ Fixed — Plan 109 Phase 3. `EpicManifestParser.CrossReferenceGlobalManifests()` with case-insensitive path normalization and trailing separator stripping.
+- **Verified:** 2026-07-26 — EpicManifestParser.cs lines 210-260
