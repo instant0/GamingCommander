@@ -11,15 +11,15 @@ Code quality Phases D–G largely done (T58–T60 complete; T48–T57 deferred u
 
 ## Priority Roadmap
 1. ~~**P0 — Fix Battle.net detection**~~ ✅ **FIXED** — `"blizzard"` and `"battle.net"` removed from noise filters
-2. **P1 — Unify setup screens** — Merge Wizard + F2 into single LibrarySetupWindow → see `planning/106-unified-setup-screen.md`
-3. **P2 — Steam status messages** — Actionable guidance for Orphaned/Missing/Moved → see `planning/108-steam-status-messages.md`
+2. ~~**P1 — Unify setup screens**~~ ✅ **IMPLEMENTED** — Wizard + F2 merged into single `LibrarySetupWindow`; WizardWindow, WizardViewModel, WizardLibraryEntry deleted.
+3. ~~**P2 — Steam status messages**~~ ✅ **IMPLEMENTED** — Orphaned/Missing/Moved detail messages now explain what each state means, why it happened, and how to fix it.
 4. **Phase G quality (P2)** — T48–T57 tests/constants after MVP
-5. **Tags + Metadata Display (P2)** — User tags, PCGW scraping, engine/store badges → see Plan 102
+5. **Tags + Metadata Display (P2)** — User tags, PCGW scraping, engine/store badges → see Plan 102, Plan 110 (Phase 1: user tags + override protection)
 6. **detect.py port completion (P2)** — Remaining gaps → see Plan 103
 7. **detect.py module split (P3)** — Break into 8 modules → see Plan 104
 8. ~~**PE Metadata Scoring (P2)**~~ ✅ **IMPLEMENTED** — `ScoreExecutable()` reads PE Description/InternalName for noise filtering
 9. ~~**EA InstallLog.txt Parsing (P2)**~~ ✅ **IMPLEMENTED** — `EaInstallLogParser` extracts authoritative game name, display name, studio
-10. **Epic Manifest Enrichment (P2)** — Parse `.item` files from ProgramData for authoritative game names → see `docs/GAME-DETECTION-LOGIC.md` Store Manifest Systems section
+10. **Epic Manifest Enrichment (P2)** — Parse `.item` files from ProgramData for authoritative game names → see Plan 109 (full implementation plan)
 11. **EA/Ubisoft Registry Fallback (P2)** — Check registry keys for games when filesystem signals fail
 
 ## Objectives Achieved
@@ -54,6 +54,50 @@ Code quality Phases D–G largely done (T58–T60 complete; T48–T57 deferred u
 - `JsonConfigService` — zero tests (settings persistence)
 
 ## Completed This Session
+
+### Plan 106: Unified Setup Screen (P1 — Complete)
+Merged the first-run Wizard and F2 Library Setup into a single `LibrarySetupWindow`:
+
+| Step | File | Change |
+|------|------|--------|
+| 1 | `LibraryRootEntry.cs` | Added `IsScanning` and `IsScanned` reactive properties |
+| 2 | `LibrarySetupViewModel.cs` | Added `EnableOnlineMetadata`, welcome/subtitle/tip text, scan progress tracking, `isFirstRun` constructor parameter, metadata toggle persistence on Close |
+| 3 | `LibrarySetupWindow.axaml` | Conditional title (Welcome vs Library Root Setup), online metadata checkbox, tip text |
+| 4 | `LibrarySetupWindow.axaml.cs` | Scan progress badges (⏳ Scanning.../✓ N games/Not scanned), enhanced entry rows |
+| 5 | `App.axaml.cs` | Replaced WizardWindow with LibrarySetupWindow (passes `isFirstRun: true`); preserved `needsWizard` condition |
+| 6 | Deleted | `WizardWindow.axaml`, `WizardWindow.axaml.cs`, `ViewModels/WizardViewModel.cs`, `ViewModels/WizardLibraryEntry.cs` |
+| 7 | `GameSourceParser.cs` | Removed stale WizardViewModel reference from XML doc |
+
+**Result:** Single setup screen handles both first-run onboarding and ongoing F2 root management. All features from both screens preserved. Build clean, 227 tests passing.
+
+### Plan 108: Steam Status Messages (P2 — Complete)
+Added actionable guidance for Steam status states (Orphaned/Missing/Moved):
+
+| Step | File | Change |
+|------|------|--------|
+| 1 | `SteamLibraryScanner.cs` | Added `FolderName` to all statuses; `LibraryRoot` to Orphaned; `AcfExpectedPath` + `ActualLibraryRoot` + `AcfFilePath` to Moved; `AcfExpectedPath` to Missing |
+| 2 | `ShellViewModel.cs` | Replaced 3 inline status detail strings with `FormatOrphanedDetail()`, `FormatMissingDetail()`, `FormatMovedDetail()` helper methods |
+
+**Result:** Status messages now explain what each state means, why it happened, and how to fix it. Moved message includes specific ACF file move path (from D: to E:). Missing message suggests checking for unconfigured libraries. Build clean, 227 tests passing.
+
+### Plan 108 Status Message Refinement (Multi-Library Context)
+Updated Plan 108 to account for multi-library Steam setups. Key insight: most users have multiple Steam libraries (D:\, E:\, F:\). When a game is "Moved", the fix is a simple ACF file move — not reinstallation:
+
+| File | Change |
+|------|--------|
+| `SteamLibraryScanner.cs` | Added `ActualLibraryRoot` and `AcfFilePath` to Moved entries (enables computing target ACF path) |
+| `ShellViewModel.cs` | Moved message now shows: "Move ACF to {actualLibrary}\steamapps\{acfFileName}" — specific, actionable fix |
+| `ShellViewModel.cs` | Missing message now suggests: "game might be in an unconfigured library — add it via F2" |
+| `planning/108-steam-status-messages.md` | Rewritten with multi-library context, ACF move workflow, why ACF move is instant (1KB file) |
+
+### Documentation Review — P2 Task Analysis (Complete)
+Created formal task plans for three P2 priorities:
+
+| Plan | File | Content |
+|------|------|---------|
+| Plan 109 | `planning/109-epic-manifest-enrichment.md` | Epic Manifest Enrichment: 3-strategy pipeline (local .mancpn/.item, global .item cross-ref, GraphQL API), `EpicManifestParser` + `EpicStoreApiClient` classes, 14 test cases, ~12 hours effort |
+| Plan 110 | `planning/110-user-tags-source-tagging.md` | User Tags + Override Protection: `Tags` field, `UserOverrides` dictionary, tag merge strategy, source attribution, 8 test cases |
+| Plan 108 | `planning/108-steam-status-messages.md` | Updated: removed delete guidance, added ACF re-linking future work |
 
 ### Battle.net Detection Fix (P0 — Complete)
 Fixed the critical BattleNet detection regression by removing `"blizzard"` and `"battle.net"` from noise filters:
@@ -449,7 +493,7 @@ All hardcoded colors and font sizes centralized to `App.axaml` Application.Resou
 - All 154 tests passing (33 Core + 1 Migration + 120 App). Build clean.
 
 ## Test Status
-**219 tests passing** (33 Core + 1 Migration + 185 App). Build clean, 0 errors, 0 warnings.
+**227 tests passing** (33 Core + 1 Migration + 193 App). Build clean, 0 errors, 0 warnings.
 
 ## Documentation Review (Current Session)
 - Created `docs/EPIC-MANIFEST-ENRICHMENT.md` — complete analysis of Epic Games Store detection and metadata enrichment: .item file format, .mancpn identifiers, global ProgramData cross-reference, Epic GraphQL searchStore API, GUID-based identification, C# gap analysis (FindEpicManifest searches *.json not *.item, no global cross-ref, no API client), proposed implementation pipeline (EpicManifestParser + EpicStoreApiClient), test plan with 13 test cases

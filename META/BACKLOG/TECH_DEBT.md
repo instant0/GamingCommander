@@ -187,7 +187,7 @@
 - **Issue:** Two separate setup screens with ~60-70% overlapping logic. Wizard bypasses `ILibraryManager` — creates its own `FolderScanner` directly. F2 uses `ILibraryManager` properly. Wizard has online metadata toggle, scan progress badges. F2 has existing-root loading and empty-state messaging. User correctly asks: "Why do we have two different setup screens that are supposed to do the same thing?"
 - **Impact:** MEDIUM — maintenance burden, inconsistent behavior, confused users.
 - **Suggested fix:** Merge into single `LibrarySetupWindow` (F2). Add Wizard's missing features (metadata toggle, scan progress badges) to F2. Delete Wizard.
-- **Status:** Open — **Plan 106: `planning/106-unified-setup-screen.md`**
+- **Status:** ✅ Fixed — Plan 106 implemented. Wizard + F2 merged into single `LibrarySetupWindow`. WizardWindow, WizardViewModel, WizardLibraryEntry deleted.
 
 ### Bug 15: Orphaned vs Missing status semantics not documented in UI
 - **Discovered:** 2026-07-26

@@ -123,13 +123,13 @@ public partial class App : Application
 
                 if (needsWizard)
                 {
-                    Log("Opening WizardWindow...");
-                    var wizardWindow = new WizardWindow(configService, dbService);
+                    Log("Opening LibrarySetupWindow (auto-open)...");
+                    var setupWindow = new LibrarySetupWindow(configService, dbService, libraryManager, isFirstRun: true);
                     mainWindow.Show();
-                    wizardWindow.ShowDialog(mainWindow);
-                    Log("  WizardWindow opened");
+                    setupWindow.ShowDialog(mainWindow);
+                    Log("  LibrarySetupWindow opened");
 
-                    wizardWindow.Closed += (_, _) =>
+                    setupWindow.Closed += (_, _) =>
                     {
                         config = configService.Load();
                         config = config with { LastSeenVersion = currentVersion };

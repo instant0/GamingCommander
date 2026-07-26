@@ -26,4 +26,20 @@ public sealed class LibraryRootEntry : GamingCommander.UI.ViewModels.ReactiveObj
         set => SetProperty(ref _defaultType, value);
     }
     private string _defaultType = string.Empty;
+
+    /// <summary>True while this root is being scanned.</summary>
+    public bool IsScanning
+    {
+        get => _isScanning;
+        set => SetProperty(ref _isScanning, value);
+    }
+    private bool _isScanning;
+
+    /// <summary>True if scanning has completed for this entry (at least once).</summary>
+    public bool IsScanned
+    {
+        get => _isScanned;
+        set => SetProperty(ref _isScanned, value);
+    }
+    private bool _isScanned;
 }

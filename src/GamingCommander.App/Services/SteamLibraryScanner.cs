@@ -234,12 +234,15 @@ public sealed class SteamLibraryScanner
             ["AcfSizeOnDisk"] = acf.SizeOnDisk,
             ["AcfBuildId"] = acf.BuildId,
             ["AcfStateFlags"] = acf.StateFlags,
+            ["FolderName"] = folderName,
         };
 
         // For Moved games, store the expected path so the UI can show cross-library context
         if (status == "Moved")
         {
             extra["AcfExpectedPath"] = Path.Combine(acf.LibraryPath, "steamapps", "common", folderName);
+            extra["ActualLibraryRoot"] = libraryRoot;
+            extra["AcfFilePath"] = acf.AcfFilePath;
         }
 
         return new GameEntry(
@@ -281,6 +284,8 @@ public sealed class SteamLibraryScanner
             {
                 ["SteamStatus"] = "Orphaned",
                 ["SteamAppId"] = string.Empty,
+                ["FolderName"] = folderName,
+                ["LibraryRoot"] = libraryRoot,
             });
     }
 
@@ -313,6 +318,9 @@ public sealed class SteamLibraryScanner
                 ["AcfSizeOnDisk"] = acf.SizeOnDisk,
                 ["AcfBuildId"] = acf.BuildId,
                 ["AcfStateFlags"] = acf.StateFlags,
+                ["FolderName"] = acf.Installdir,
+                ["AcfExpectedPath"] = Path.Combine(
+                    acf.LibraryPath, "steamapps", "common", acf.Installdir),
             });
     }
 

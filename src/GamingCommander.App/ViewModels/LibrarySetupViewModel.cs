@@ -8,7 +8,8 @@ using GamingCommander.Core.Models;
 namespace GamingCommander.App.ViewModels;
 
 /// <summary>
-/// ViewModel for the F2 Library Setup dialog. Manages adding, removing, and rescanning library roots.
+/// ViewModel for the unified Library Setup dialog (F2). Manages adding, removing,
+/// and rescanning library roots. Handles both first-run onboarding and ongoing management.
 /// </summary>
 public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.ReactiveObject
 {
@@ -21,17 +22,69 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
         IConfigService configService,
         IGamesDatabaseService dbService,
         ILibraryManager libraryManager,
-        Window window)
+        Window window,
+        bool isFirstRun = false)
     {
         _configService = configService;
         _dbService = dbService;
         _libraryManager = libraryManager;
         _window = window;
+
+        // Load metadata toggle from config
+        AppConfig config = _configService.Load();
+        _enableOnlineMetadata = config.EnableOnlineMetadata;
+
+        // Set title/subtitle based on context
+        if (isFirstRun && config.LibraryRoots.Count == 0)
+        {
+            _titleText = "Welcome to GamingCommander";
+            _subtitleText = "Add your game library folders below. For each folder, GamingCommander will scan it and find your games. Select the platform type for each folder — this sets the default for all games inside it.";
+            _tipText = "Tip: Steam library roots should point to the folder containing steamapps/, not the steamapps/ itself.";
+        }
+        else
+        {
+            _titleText = "Library Root Setup";
+            _subtitleText = "Add, remove, or rescan library roots. Changes apply immediately.";
+            _tipText = string.Empty;
+        }
+
         LoadRoots();
     }
 
     /// <summary>Library root entries displayed in the setup dialog.</summary>
     public ObservableCollection<LibraryRootEntry> Entries { get; } = [];
+
+    /// <summary>Title text shown in the dialog header.</summary>
+    public string TitleText
+    {
+        get => _titleText;
+        private set => SetProperty(ref _titleText, value);
+    }
+    private string _titleText = string.Empty;
+
+    /// <summary>Subtitle text shown below the title.</summary>
+    public string SubtitleText
+    {
+        get => _subtitleText;
+        private set => SetProperty(ref _subtitleText, value);
+    }
+    private string _subtitleText = string.Empty;
+
+    /// <summary>Tip text shown below the subtitle (empty when not applicable).</summary>
+    public string TipText
+    {
+        get => _tipText;
+        private set => SetProperty(ref _tipText, value);
+    }
+    private string _tipText = string.Empty;
+
+    /// <summary>Whether to enable online metadata lookups (PCGW, Steam).</summary>
+    public bool EnableOnlineMetadata
+    {
+        get => _enableOnlineMetadata;
+        set => SetProperty(ref _enableOnlineMetadata, value);
+    }
+    private bool _enableOnlineMetadata;
 
     private void LoadRoots()
     {
@@ -40,7 +93,10 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
         foreach (LibraryRoot root in config.LibraryRoots)
         {
             IReadOnlyList<GameEntry> games = _dbService.GetGamesForRoot(root.RootPath);
-            Entries.Add(new LibraryRootEntry(root.RootPath, root.DefaultType.ToString(), games.Count));
+            Entries.Add(new LibraryRootEntry(root.RootPath, root.DefaultType.ToString(), games.Count)
+            {
+                IsScanned = true
+            });
         }
     }
 
@@ -78,14 +134,14 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
         }
 
         GameSourceKind defaultType = GameSourceParser.InferFromPath(path);
-        Entries.Add(new LibraryRootEntry(path, defaultType.ToString(), 0));
+        var entry = new LibraryRootEntry(path, defaultType.ToString(), 0);
+        Entries.Add(entry);
 
-        bool added = await ScanAndSaveAsync(path, defaultType);
+        bool added = await ScanAndSaveAsync(path, defaultType, entry);
         if (!added)
         {
             // Remove the entry if no games were found
-            var entry = Entries.FirstOrDefault(e => e.Path.Equals(path, StringComparison.OrdinalIgnoreCase));
-            if (entry != null) Entries.Remove(entry);
+            Entries.Remove(entry);
         }
     }
 
@@ -93,9 +149,7 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
     public async Task RescanAsync(LibraryRootEntry entry)
     {
         GameSourceKind type = GameSourceParser.ParseFromString(entry.DefaultType);
-        await ScanAndSaveAsync(entry.Path, type);
-        IReadOnlyList<GameEntry> games = _dbService.GetGamesForRoot(entry.Path);
-        entry.GameCount = games.Count;
+        await ScanAndSaveAsync(entry.Path, type, entry);
     }
 
     /// <summary>Removes a library root from the database, config, and UI.</summary>
@@ -111,9 +165,16 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
         _configService.Save(config with { LibraryRoots = newRoots });
     }
 
-    /// <summary>Closes the setup dialog.</summary>
+    /// <summary>Closes the setup dialog and persists the metadata toggle.</summary>
     public void Close()
     {
+        // Persist the online metadata toggle
+        AppConfig config = _configService.Load();
+        if (config.EnableOnlineMetadata != _enableOnlineMetadata)
+        {
+            _configService.Save(config with { EnableOnlineMetadata = _enableOnlineMetadata });
+        }
+
         _window.Close();
     }
 
@@ -128,16 +189,19 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
     /// <summary>
     /// Scans a folder and saves it as a library root.
     /// Returns true if the root was added, false if the folder was empty.
+    /// Updates entry scan progress badges.
     /// </summary>
-    private async Task<bool> ScanAndSaveAsync(string path, GameSourceKind defaultType)
+    private async Task<bool> ScanAndSaveAsync(string path, GameSourceKind defaultType, LibraryRootEntry entry)
     {
+        entry.IsScanning = true;
+
         // LibraryManager handles scanner routing (FolderScanner vs SteamLibraryScanner)
         bool added = await Task.Run(() => _libraryManager.AddRoot(path, defaultType, []));
 
         IReadOnlyList<GameEntry> games = _dbService.GetGamesForRoot(path);
-
-        var entry = Entries.FirstOrDefault(e => e.Path.Equals(path, StringComparison.OrdinalIgnoreCase));
-        if (entry != null) entry.GameCount = games.Count;
+        entry.GameCount = games.Count;
+        entry.IsScanning = false;
+        entry.IsScanned = true;
 
         return added;
     }

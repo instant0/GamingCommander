@@ -14,121 +14,180 @@ The current Steam status messages are technically accurate but not actionable:
 
 | Status | Current Display | Current Detail |
 |--------|----------------|----------------|
-| **Orphaned** | "Orphaned" (red) | "Orphaned -- game folder has no ACF registration" |
-| **Missing** | "Missing" (red) | "Missing -- ACF exists but game files not found" |
-| **Moved** | "Moved" (yellow) | "Moved -- ACF expects: D:\..." |
+| **Orphaned** | "Orphaned" (red) | "Orphaned — game folder has no ACF registration" |
+| **Missing** | "Missing" (red) | "Missing — ACF exists but game files not found" |
+| **Moved** | "Moved" (yellow) | "Moved — ACF expects: D:\..." |
 
 **User feedback:** "Orphaned" is confusing — users don't know what it means or what to do. The distinction between Orphaned and Missing is unclear. No actionable guidance is provided.
 
+**Key insight:** Most users have multiple Steam libraries (e.g., `D:\SteamLibrary`, `E:\SteamLibrary`). When a game is "Moved", the fix is trivial: **move the ACF file** to the correct library's `steamapps` folder. Steam then finds the files automatically. Our VFS database already knows where the game files actually are.
+
 ---
 
-## 1. Proposed Status Messages
+## 1. Steam Multi-Library Context
+
+### How Steam Libraries Work
+
+Steam supports multiple library folders:
+```
+D:\SteamLibrary\steamapps\
+  ├─ appmanifest_292030.acf    ← The Witcher 3 ACF (expects installdir here)
+  └─ common\
+      └─ The Witcher 3\        ← Game files
+
+E:\SteamLibrary\steamapps\
+  └─ common\
+      └─ The Witcher 3\        ← Game was moved here (ACF still on D:)
+```
+
+### How Moved Detection Works
+
+In `SteamLibraryScanner.Scan()`:
+1. ACFs are collected from ALL configured libraries
+2. For each game folder in `libraryRoot/steamapps/common/`:
+   - If ACF found and `acf.LibraryPath == libraryRoot` → **Installed**
+   - If ACF found but `acf.LibraryPath != libraryRoot` → **Moved**
+   - If no ACF found → **Orphaned**
+
+### The Simple Fix for Moved
+
+For Moved games, the fix is:
+```
+Move: D:\SteamLibrary\steamapps\appmanifest_292030.acf
+  To: E:\SteamLibrary\steamapps\appmanifest_292030.acf
+```
+
+After the move, Steam reads the ACF from E:, finds the game folder in E:\steamapps\common\, and the game registers correctly.
+
+### What Data We Have
+
+For a Moved game, `PlatformMetadata` contains:
+| Key | Value | Source |
+|-----|-------|--------|
+| `AcfLibraryPath` | `D:\SteamLibrary` | Where ACF currently lives |
+| `AcfExpectedPath` | `D:\SteamLibrary\steamapps\common\The Witcher 3` | Where ACF expects files |
+| `AcfFilePath` | `D:\SteamLibrary\steamapps\appmanifest_292030.acf` | Full ACF path |
+| `FolderName` | `The Witcher 3` | Game folder name |
+| `SteamAppId` | `292030` | Steam App ID |
+
+The game's actual location is the `libraryRoot` parameter (where we found the game folder during scan). We can compute:
+- **Source ACF path:** `acfFilePath` (already stored)
+- **Target ACF path:** `{actualLibraryRoot}\steamapps\{acfFileName}`
+
+---
+
+## 2. Proposed Status Messages
+
+Concise, actionable messages (2-3 lines) for the details panel.
+
+### Installed (ACF and game in same library)
+
+**No message needed** — status is "Installed", detail is empty.
 
 ### Orphaned (game folder exists, no ACF anywhere)
 
-**Current:** `"Orphaned -- game folder has no ACF registration"`
+**Current:** `"Orphaned — game folder has no ACF registration"`
 
 **Proposed:**
 ```
-Status: Orphaned (red)
-Detail: "No Steam manifest found for this game folder.
-         The folder '{folderName}' exists in {libraryRoot} but is not registered with Steam.
-         
-         Possible causes:
-         • Game was installed outside Steam (manual copy, backup restore)
-         • Steam manifest was deleted or moved
-         • Game was removed from Steam library but files remain
-         
-         To fix: Right-click in Steam → Properties → Local Files → Verify integrity"
+Orphaned — no Steam manifest for '{folderName}'.
+This folder exists in {libraryRoot} but is not registered with Steam.
+To fix: Use ACF Generate to create a manifest, or re-install via Steam.
 ```
 
-**What data is available:**
-- `folderName` — the orphaned game folder name
-- `libraryRoot` — the Steam library where the folder lives
-- No ACF data (by definition — no ACF exists)
+### Missing (ACF exists, no game folder in any library)
 
-### Missing (ACF exists, no game folder)
-
-**Current:** `"Missing -- ACF exists but game files not found"`
+**Current:** `"Missing — ACF exists but game files not found"`
 
 **Proposed:**
 ```
-Status: Missing (red)
-Detail: "Steam manifest exists but game files are missing.
-         ACF '{acfName}' (AppID: {appId}) at {acfPath} expects files at {expectedPath}, 
-         but the game folder was not found in any library.
-         
-         Possible causes:
-         • Game was uninstalled but the manifest was not cleaned up
-         • Game files were moved or deleted manually
-         • Game is installed in a library that is not configured
-         
-         To fix: Re-install from Steam, or delete the orphaned ACF"
+Missing — Steam manifest at {acfPath} expects files at {expectedPath}.
+Game folder not found in any configured library.
+Possible: game is in an unconfigured library, or was uninstalled.
+To fix: Add the correct Steam library, or delete the orphaned ACF.
 ```
 
-**What data is available:**
-- `acfName` — from ACF metadata
-- `appId` — from ACF metadata
-- `acfPath` — full path to the `.acf` file
-- `expectedPath` — where the ACF expects the game to be (not currently stored, but computable)
+**Note for Missing:** The game files might exist in a library that isn't configured in GamingCommander. The user should check their Steam library folders or add the missing library via F2.
 
 ### Moved (ACF in library A, game folder in library B)
 
-**Current:** `"Moved -- ACF expects: D:\..."`
+**Current:** `"Moved — ACF expects: D:\..."`
 
 **Proposed:**
 ```
-Status: Moved (yellow)
-Detail: "Game files found in a different library than expected.
-         ACF '{acfName}' (AppID: {appId}) is in {acfLibraryPath} but 
-         the game folder is in {actualLibraryPath}.
-         
-         This usually happens when you move a game between Steam libraries.
-         The ACF was not updated to reflect the new location.
-         
-         To fix: Re-install from Steam, or move the game folder back to {expectedPath}"
+Moved — game files found in {actualLibrary} instead of {acfLibrary}.
+ACF at: {acfFilePath}
+To fix: Move the ACF file to {actualLibrary}\steamapps\ and restart Steam.
 ```
+
+**The fix is a simple file move:**
+```
+From: {acfFilePath}
+  To: {actualLibrary}\steamapps\{acfFileName}
+```
+
+After moving, Steam reads the ACF from the correct library and the game registers automatically.
 
 ---
 
-## 2. Data Availability
+## 3. Data Availability
 
 All needed data is already collected during scan but not all is stored in `PlatformMetadata`:
 
 | Data Point | Currently Stored | Needs Adding |
 |------------|-----------------|--------------|
 | `SteamStatus` | ✅ All statuses | — |
-| `SteamAppId` | ✅ Installed/Moved/Missing | — |
+| `SteamAppId` | ✅ All statuses | — |
 | `AcfLibraryPath` | ✅ Installed/Moved/Missing | — |
 | `AcfExpectedPath` | ✅ Moved only | Add to Missing |
 | `AcfFilePath` | ✅ Missing only | Add to Installed/Moved |
-| `FolderName` | ❌ Not stored | Add (available at scan time) |
+| `FolderName` | ❌ Not in PlatformMetadata | Add (available at scan time) |
 | `LibraryRoot` | ❌ Not stored for Orphaned | Add (the `rootPath` parameter) |
-| `AcfName` | ❌ Not stored | Add (from ACF metadata) |
+| `ActualLibraryRoot` | ❌ Not stored | Add to Moved (the `libraryRoot` where game was found) |
+| `DisplayName` | ✅ Already on GameEntry | Use directly |
+
+### Key Addition for Moved: `ActualLibraryRoot`
+
+For Moved games, we need to store the actual library where the game folder was found. This is the `libraryRoot` parameter passed to `CreateEntry()`. Combined with `AcfLibraryPath` (where the ACF currently is), we can compute both the source and target ACF paths.
+
+```csharp
+// In CreateEntry(), for Moved games:
+if (status == "Moved")
+{
+    extra["AcfExpectedPath"] = Path.Combine(acf.LibraryPath, "steamapps", "common", folderName);
+    extra["ActualLibraryRoot"] = libraryRoot;  // Where game folder actually is
+    extra["AcfFilePath"] = acf.AcfFilePath;    // Full path to ACF file
+}
+```
 
 ---
 
-## 3. Code Changes
+## 4. Code Changes
 
 ### SteamLibraryScanner.cs
 
-**Add to `PlatformMetadata` in `CreateEntry()`:**
+**Add to `CreateEntry()` (all statuses):**
 ```csharp
-entry.PlatformMetadata["FolderName"] = folderName;
-entry.PlatformMetadata["AcfName"] = acf.Name;
+extra["FolderName"] = folderName;
+```
+
+**Add to `CreateEntry()` (Moved only):**
+```csharp
+extra["ActualLibraryRoot"] = libraryRoot;
+extra["AcfFilePath"] = acf.AcfFilePath;
 ```
 
 **Add to `CreateOrphanedEntry()`:**
 ```csharp
-entry.PlatformMetadata["FolderName"] = folderName;
-entry.PlatformMetadata["LibraryRoot"] = rootPath;
+["FolderName"] = folderName,
+["LibraryRoot"] = libraryRoot,
 ```
 
 **Add to `CreateMissingAcfEntry()`:**
 ```csharp
-entry.PlatformMetadata["AcfExpectedPath"] = Path.Combine(
-    acf.LibraryPath, "steamapps", "common", acf.Installdir);
-entry.PlatformMetadata["FolderName"] = acf.Installdir;
+["FolderName"] = acf.Installdir,
+["AcfExpectedPath"] = Path.Combine(
+    acf.LibraryPath, "steamapps", "common", acf.Installdir),
 ```
 
 ### ShellViewModel.cs — LoadGamesForRoot()
@@ -136,65 +195,108 @@ entry.PlatformMetadata["FolderName"] = acf.Installdir;
 **Replace status detail logic with richer messages:**
 
 ```csharp
-case "Orphaned":
-    string folderName = game.PlatformMetadata.GetValueOrDefault("FolderName", "");
-    string libRoot = game.PlatformMetadata.GetValueOrDefault("LibraryRoot", "");
-    platformStatusDetail = $"No Steam manifest found for '{folderName}' in {libRoot}. " +
-        "Game folder is not registered with Steam. " +
-        "To fix: Right-click in Steam → Properties → Local Files → Verify integrity of game files.";
-    break;
+"Orphaned" => FormatOrphanedDetail(game),
+"Missing" => FormatMissingDetail(game),
+"Moved" => FormatMovedDetail(game),
+```
 
-case "Missing":
-    string acfName = game.PlatformMetadata.GetValueOrDefault("AcfName", "");
+**New helper methods:**
+```csharp
+private static string FormatOrphanedDetail(GameEntry game)
+{
+    string folder = game.PlatformMetadata.GetValueOrDefault("FolderName", game.FolderName);
+    string libRoot = game.PlatformMetadata.GetValueOrDefault("LibraryRoot", "unknown library");
+    return $"Orphaned — no Steam manifest for '{folder}'. " +
+           $"This folder exists in {libRoot} but is not registered with Steam. " +
+           "To fix: Use ACF Generate to create a manifest, or re-install via Steam.";
+}
+
+private static string FormatMissingDetail(GameEntry game)
+{
     string acfPath = game.PlatformMetadata.GetValueOrDefault("AcfFilePath", "");
-    string expectedPath = game.PlatformMetadata.GetValueOrDefault("AcfExpectedPath", "");
-    platformStatusDetail = $"Steam manifest '{acfName}' at {acfPath} expects files at {expectedPath}, " +
-        "but the game folder was not found in any library. " +
-        "To fix: Re-install from Steam, or delete the orphaned manifest.";
-    break;
+    string expected = game.PlatformMetadata.GetValueOrDefault("AcfExpectedPath", "");
+    return $"Missing — Steam manifest at {acfPath} expects files at {expected}. " +
+           "Game folder not found in any configured library. " +
+           "Possible: game is in an unconfigured library, or was uninstalled. " +
+           "To fix: Add the correct Steam library via F2, or delete the orphaned ACF.";
+}
 
-case "Moved":
-    // Keep existing logic but enrich
-    string movedExpected = game.PlatformMetadata.GetValueOrDefault("AcfExpectedPath", "");
-    platformStatusDetail = $"Game files found in a different library than expected. " +
-        $"ACF expects: {movedExpected}. " +
-        "To fix: Re-install from Steam, or move the game folder back.";
-    break;
+private static string FormatMovedDetail(GameEntry game)
+{
+    string acfPath = game.PlatformMetadata.GetValueOrDefault("AcfFilePath", "unknown");
+    string acfLib = game.PlatformMetadata.GetValueOrDefault("AcfLibraryPath", "unknown");
+    string actualLib = game.PlatformMetadata.GetValueOrDefault("ActualLibraryRoot", "unknown");
+    string folder = game.PlatformMetadata.GetValueOrDefault("FolderName", game.FolderName);
+    string acfFileName = Path.GetFileName(acfPath);
+    string targetPath = Path.Combine(actualLib, "steamapps", acfFileName);
+    return $"Moved — game '{folder}' found in {actualLib} but ACF is in {acfLib}. " +
+           $"To fix: Move ACF to {targetPath} and restart Steam.";
+}
 ```
 
 ---
 
-## 4. Files Changed
+## 5. Files Changed
 
 | File | Change |
 |------|--------|
-| `SteamLibraryScanner.cs` | Add `FolderName`, `AcfName`, `LibraryRoot`, `AcfExpectedPath` to PlatformMetadata |
-| `ShellViewModel.cs` | Replace status detail strings with actionable guidance |
+| `SteamLibraryScanner.cs` | Add `FolderName` to all statuses; add `LibraryRoot` to Orphaned; add `AcfExpectedPath` to Missing; add `ActualLibraryRoot` + `AcfFilePath` to Moved |
+| `ShellViewModel.cs` | Replace 3 status detail strings with `FormatXxxDetail()` helper methods |
 
 ---
 
-## 5. Tests
+## 6. Tests
 
-- `SteamLibraryScannerTests.cs`: Verify new metadata keys are present for all 4 statuses
-- `ShellViewModelTests.cs`: Verify status detail text includes actionable guidance
+- `SteamLibraryScannerTests.cs`: Verify new metadata keys (`FolderName`, `LibraryRoot`, `AcfExpectedPath`, `ActualLibraryRoot`, `AcfFilePath`) are present for all 4 statuses
+- `ShellViewModelTests.cs`: Verify status detail text includes actionable guidance and correct paths
 
 ---
 
-## 6. Success Criteria
+## 7. Success Criteria
 
 - [ ] Orphaned status shows: what it means, why it happened, how to fix
-- [ ] Missing status shows: which ACF, where it is, what's missing, how to fix
-- [ ] Moved status shows: where ACF is, where files are, how to fix
-- [ ] All status details include the game name/ID for clarity
+- [ ] Missing status shows: which ACF, where it expects files, that game might be in unconfigured library
+- [ ] Moved status shows: where ACF is, where game is, exact target path for ACF move
+- [ ] All status details are concise (2-3 lines max)
+- [ ] Moved fix is a simple file move — no reinstallation needed
 - [ ] Build clean, all tests pass
 
 ---
 
-## 7. Future: Repair/Move/Generate Manifest
+## 8. Future: ACF Re-Linking (Core Feature)
 
-The user mentioned "repair/move/generate manifest" as proposed solutions. These are Phase 3 features:
-- **Repair:** Re-scan a specific game folder and update its metadata
-- **Move:** Relocate a game folder and update the ACF to match
-- **Generate Manifest:** Create a minimal ACF for an orphaned game folder (requires knowing the Steam AppID)
+The status messages reference ACF Move and ACF Generate as fix actions. These are core features of GamingCommander — the application's purpose includes re-linking installed games to their game stores:
 
-These are out of scope for this plan but should be added to the backlog.
+- **ACF Move:** Move the ACF file from one library's `steamapps/` to another. For Moved games, this is the primary fix — Steam then finds the files automatically. No content is moved, just the 1KB manifest file.
+- **ACF Generate:** Create a minimal ACF for an orphaned game folder. Requires knowing the Steam AppID (can be discovered via Steam API or user input). Registers the game with Steam so it appears in the library.
+- **ACF Edit:** Modify ACF fields (name, AppID, installdir, state flags). Useful for fixing corrupted manifests or updating metadata.
+
+### Why ACF Move Is Simple
+
+Unlike moving game files (which can be hundreds of GB), moving an ACF is instant:
+- ACF files are ~1KB JSON-like text files
+- They live in `{library}\steamapps\appmanifest_{appid}.acf`
+- Moving one from `D:\steamapps\` to `E:\steamapps\` takes milliseconds
+- Steam re-reads the ACF on next launch and finds the game in the new library
+
+### Multi-Library Scenario
+
+```
+User has 3 Steam libraries:
+  D:\SteamLibrary (200GB, mostly full)
+  E:\SteamLibrary (500GB, lots of space)
+  F:\SteamLibrary (1TB, backup)
+
+User moves "The Witcher 3" from D: to E: via Windows Explorer.
+Steam still has ACF on D: → game shows as "Moved"
+
+Fix: Move ACF from D:\steamapps\appmanifest_292030.acf
+         To: E:\steamapps\appmanifest_292030.acf
+
+Steam now finds ACF on E:, reads installdir, finds game folder on E:. Done.
+```
+
+---
+
+**Last updated:** 2026-07-26  
+**Related:** `docs/GAME-DETECTION-LOGIC.md` (Steam Library System section), `planning/110-user-tags-source-tagging.md`

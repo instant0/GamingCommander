@@ -110,8 +110,7 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 | `FileSystemHelper` | `FileSystemHelper.cs` | Shared filesystem utilities: GetDirectoriesSafe, GetFilesSafe, GetLastWriteTimeSafe, NormalizeDisplayName, NoiseSubDirNames |
 | `JsonFileHelper` | `JsonFileHelper.cs` | Shared JSON read/write: ReadFromFile\<T\>, WriteToFile\<T\>, DefaultOptions |
 | `HelpDialogBuilder` | `HelpDialogBuilder.cs` | Builds and shows the help dialog with keyboard shortcuts |
-| `WizardViewModel` | `.App/ViewModels/WizardViewModel.cs` | First-run wizard dialog logic |
-| `LibrarySetupViewModel` | `.App/ViewModels/LibrarySetupViewModel.cs` | F2 settings dialog logic |
+| `LibrarySetupViewModel` | `.App/ViewModels/LibrarySetupViewModel.cs` | Library root setup dialog logic (F2 + first-run) |
 
 ### FolderScanner Key Logic
 
@@ -138,8 +137,7 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 | Window | AXAML (lines) | Code-behind (lines) | Purpose |
 |--------|--------------|---------------------|---------|
 | `MainWindow` | 135 L | ~550 L | Dual-pane shell, keyboard handlers, command bar, details panel |
-| `WizardWindow` | 43 L | 132 L | First-run wizard |
-| `LibrarySetupWindow` | 31 L | 140 L | F2 settings |
+| `LibrarySetupWindow` | 31 L | 140 L | Library root setup (F2 + first-run onboarding) |
 | `GameSetupWindow` | 19 L | ~225 L | F4 game editing |
 
 ### MainWindow Key Handlers (in `OnKeyDown`)

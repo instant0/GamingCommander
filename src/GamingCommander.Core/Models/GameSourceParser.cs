@@ -2,7 +2,7 @@ namespace GamingCommander.Core.Models;
 
 /// <summary>
 /// Shared logic for inferring GameSourceKind from folder paths and parsing display names.
-/// Used by WizardViewModel, LibrarySetupViewModel, and GameSetupWindow.
+/// Used by LibrarySetupViewModel and GameSetupWindow.
 /// </summary>
 public static class GameSourceParser
 {

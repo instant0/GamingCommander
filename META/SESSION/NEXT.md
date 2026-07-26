@@ -18,29 +18,33 @@
 | WP-4 | Launch UX polish — T69 ✅, T71 ✅ | **P1 COMPLETE** |
 | WP-5 | Windows smoke gate — T70 ✅, T75 ✅, T76 ✅, T77 ✅ | **P0+P1 COMPLETE** |
 
-**219 tests passing. Build clean.**
+**227 tests passing. Build clean.**
 
 **Post-MVP backlog (ordered by priority):**
 
 1. ~~**P0 — Fix Battle.net detection**~~ ✅ **FIXED** — `"blizzard"` and `"battle.net"` removed from noise filters
-2. **P1 — Unify setup screens** (Wizard + F2 merge) → see `planning/106-unified-setup-screen.md`
-3. **P2 — Steam status messages** — actionable guidance for Orphaned/Missing/Moved → see `planning/108-steam-status-messages.md`
+2. ~~**P1 — Unify setup screens**~~ ✅ **IMPLEMENTED** — Wizard + F2 merged into single `LibrarySetupWindow`; WizardWindow, WizardViewModel, WizardLibraryEntry deleted. `App.axaml.cs` auto-opens LibrarySetupWindow on first run with `isFirstRun` flag.
+3. ~~**P2 — Steam status messages**~~ ✅ **IMPLEMENTED** — Orphaned/Missing/Moved detail messages now explain what each state means, why it happened, and how to fix it. Added `FolderName`, `LibraryRoot`, `AcfExpectedPath` to PlatformMetadata.
 4. ~~**P2 — PE Metadata Scoring**~~ ✅ **IMPLEMENTED** — `ScoreExecutable()` reads `FileVersionInfo.GetVersionInfo()` for noise filtering by Description/InternalName
 5. ~~**P2 — EA InstallLog.txt Parsing**~~ ✅ **IMPLEMENTED** — `EaInstallLogParser` extracts authoritative game name, display name, studio from `__Installer/InstallLog.txt`
-6. **P2 — Game Name Enrichment (PCGW)** — PCGW lookup for old games with empty PE metadata (non-EA) → see `planning/102-tags-metadata-display.md` Phase 3
-7. **P2 — Epic Manifest Enrichment** — Port `lookup_metadata.py`'s `epic_crossref_item_manifests()` to C# for authoritative game names → see `docs/GAME-DETECTION-LOGIC.md` Store Manifest Systems section
+6. **P2 — User Tags + Override Protection (Phase 1)** — Tags field, UserOverrides dictionary, F4 tag editing → see `planning/110-user-tags-source-tagging.md`
+7. **P2 — Epic Manifest Enrichment** — 3-strategy pipeline: local .mancpn/.item, global .item cross-ref, GraphQL API → see `planning/109-epic-manifest-enrichment.md`
 8. **P2 — EA/Ubisoft Registry Fallback** — Port `parse_registry.py` logic to C# for install path detection
-8. Phase G T48–T57 (tests/quality polish) — harden what shipped
-9. Steam SyncMove repair (backup + ACF path fix) — from `planning/04-phase-2-syncmove.md`
-10. PCGamingWiki metadata + Tags system — see `planning/102-tags-metadata-display.md`
-11. Port remaining detect.py edges — see `planning/103-detect-py-port-status.md`
-12. Split detect.py into modules — see `planning/104-detect-py-module-split.md`
-13. Category browse / search (F8, S key) — see `planning/101-top-level-modes-and-filter.md`
+9. Phase G T48–T57 (tests/quality polish) — harden what shipped
+10. Steam SyncMove repair (backup + ACF path fix) — from `planning/04-phase-2-syncmove.md`
+11. PCGamingWiki metadata + Tags system (Phase 3) — see `planning/102-tags-metadata-display.md`
+12. Port remaining detect.py edges — see `planning/103-detect-py-port-status.md`
+13. Split detect.py into modules — see `planning/104-detect-py-module-split.md`
+14. Category browse / search (F8, S key) — see `planning/101-top-level-modes-and-filter.md`
 
 ---
 
 ## Recently completed (context only)
 
+- **Plan 108 Status Message Refinement ✅ COMPLETE** — Removed "delete ACF" guidance, added ACF re-linking future work references.
+- **Documentation Review — P2 Task Analysis ✅ COMPLETE** — Created Plan 109 (Epic Manifest Enrichment), Plan 110 (User Tags + Override Protection), updated Plan 108.
+- **Plan 106 (Unified Setup Screen) ✅ COMPLETE** — Wizard + F2 merged into single `LibrarySetupWindow`; 4 Wizard files deleted; `App.axaml.cs` auto-opens with `isFirstRun` flag; 227 tests passing.
+- **Plan 108 (Steam Status Messages) ✅ COMPLETE** — Orphaned/Missing/Moved detail messages now explain what each state means, why it happened, and how to fix it. Added `FolderName`, `LibraryRoot`, `AcfExpectedPath` to PlatformMetadata. 227 tests passing.
 - **Battle.net Detection Fix (P0) ✅ COMPLETE** — Removed `"blizzard"` and `"battle.net"` from `NoiseSubDirNames` and `s_nonGameFolderNames`. Build clean, 219 tests passing.
 - **PE Metadata Analysis ✅ COMPLETE** — Analyzed 276 executables with PE metadata. Key findings: InternalName more reliable than Description, 93% divergence, file size thresholds. Updated docs and planning.
 - Plan 105 (F6 Crash Fix + F5 Rescan) ✅ COMPLETE — 5 crash fixes, F6→F5 rebinding, 2 new tests, 219 tests passing

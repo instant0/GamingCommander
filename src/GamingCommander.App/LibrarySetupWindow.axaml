@@ -10,9 +10,10 @@
         WindowStartupLocation="CenterScreen">
   <Grid RowDefinitions="Auto,*,Auto" Margin="20">
     <StackPanel Grid.Row="0" Spacing="4" Margin="0,0,0,16">
-      <TextBlock Text="Library Root Setup" FontWeight="Bold" FontSize="{DynamicResource FontSizeTitle}" Foreground="{DynamicResource TextAccent}" />
-      <TextBlock Text="Add, remove, or rescan library roots. Changes apply immediately."
-                 Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeBody}" />
+      <TextBlock Text="{Binding TitleText}" FontWeight="Bold" FontSize="{DynamicResource FontSizeAppTitle}" Foreground="{DynamicResource TextAccent}" />
+      <TextBlock Text="{Binding SubtitleText}" TextWrapping="Wrap" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeBody}" />
+      <TextBlock Text="{Binding TipText}" TextWrapping="Wrap" Foreground="{DynamicResource TextSuccess}" FontSize="{DynamicResource FontSizeLabel}"
+                 IsVisible="{Binding TipText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
     </StackPanel>
 
     <Border Grid.Row="1" BorderBrush="{DynamicResource AccentBorder}" BorderThickness="1" Background="{DynamicResource PaneBg}" Padding="12">
@@ -25,11 +26,19 @@
       </Grid>
     </Border>
 
-    <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right" Margin="0,16,0,0">
-      <Button x:Name="AddRootButton" Content="+ Add Root" Background="{DynamicResource ButtonBgAction}" Foreground="{DynamicResource TextAccent}"
-              Padding="16,8" />
-      <Button x:Name="CloseButton" Content="Close" Background="{DynamicResource ButtonBgSecondary}" Foreground="{DynamicResource TextAccent}"
-              Padding="20,8" />
-    </StackPanel>
+    <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,16,0,0">
+      <CheckBox Grid.Column="0" IsChecked="{Binding EnableOnlineMetadata}" VerticalAlignment="Center"
+                Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}">
+        <TextBlock TextWrapping="Wrap">
+          Enable online metadata lookups <Run Foreground="{DynamicResource TextAccent}" FontSize="{DynamicResource FontSizeSmall}">(game covers, descriptions)</Run>
+        </TextBlock>
+      </CheckBox>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12">
+        <Button x:Name="AddRootButton" Content="+ Add Root" Background="{DynamicResource ButtonBgAction}" Foreground="{DynamicResource TextAccent}"
+                Padding="16,8" />
+        <Button x:Name="CloseButton" Content="Close" Background="{DynamicResource ButtonBgSecondary}" Foreground="{DynamicResource TextAccent}"
+                Padding="20,8" />
+      </StackPanel>
+    </Grid>
   </Grid>
 </Window>

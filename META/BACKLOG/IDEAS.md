@@ -61,6 +61,7 @@
 
 ### Two setup screens is confusing
 - **Observation:** "Why do we have two different setup screens that are supposed to do the same thing?" — Wizard vs F2. See Plan 106 for unification.
+- **Status:** ✅ Resolved — Plan 106 implemented. Single LibrarySetupWindow handles both.
 
 ### F5 should be refresh/rescan
 - **Observation:** Every application uses F5 for refresh. GamingCommander should too.

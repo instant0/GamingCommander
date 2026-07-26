@@ -314,11 +314,9 @@ public sealed class ShellViewModel : ReactiveObject
             // Richer status detail for the details panel
             string platformStatusDetail = platformStatus switch
             {
-                "Moved" => game.PlatformMetadata.TryGetValue("AcfExpectedPath", out var expectedPath)
-                    ? $"Moved — ACF expects: {expectedPath}"
-                    : "Moved — ACF is in a different library",
-                "Missing" => "Missing — ACF exists but game files not found",
-                "Orphaned" => "Orphaned — game folder has no ACF registration",
+                "Moved" => FormatMovedDetail(game),
+                "Missing" => FormatMissingDetail(game),
+                "Orphaned" => FormatOrphanedDetail(game),
                 _ => string.Empty,
             };
 
@@ -384,5 +382,39 @@ public sealed class ShellViewModel : ReactiveObject
     {
         if (!timestamp.HasValue || timestamp.Value == default) return "—";
         return timestamp.Value.ToString("yyyy-MM-dd HH:mm");
+    }
+
+    /// <summary>Formats actionable detail text for Orphaned Steam games (folder exists, no ACF).</summary>
+    private static string FormatOrphanedDetail(GameEntry game)
+    {
+        string folder = game.PlatformMetadata.GetValueOrDefault("FolderName", game.FolderName);
+        string libRoot = game.PlatformMetadata.GetValueOrDefault("LibraryRoot", "unknown library");
+        return $"Orphaned — no Steam manifest for '{folder}'. " +
+               $"This folder exists in {libRoot} but is not registered with Steam. " +
+               "To fix: Use ACF Generate to create a manifest, or re-install via Steam.";
+    }
+
+    /// <summary>Formats actionable detail text for Missing Steam games (ACF exists, no game folder).</summary>
+    private static string FormatMissingDetail(GameEntry game)
+    {
+        string acfPath = game.PlatformMetadata.GetValueOrDefault("AcfFilePath", "");
+        string expected = game.PlatformMetadata.GetValueOrDefault("AcfExpectedPath", "");
+        return $"Missing — Steam manifest at {acfPath} expects files at {expected}. " +
+               "Game folder not found in any configured library. " +
+               "Possible: game is in an unconfigured library, or was uninstalled. " +
+               "To fix: Add the correct Steam library via F2, or delete the orphaned ACF.";
+    }
+
+    /// <summary>Formats actionable detail text for Moved Steam games (game in different library than ACF).</summary>
+    private static string FormatMovedDetail(GameEntry game)
+    {
+        string acfPath = game.PlatformMetadata.GetValueOrDefault("AcfFilePath", "unknown");
+        string acfLib = game.PlatformMetadata.GetValueOrDefault("AcfLibraryPath", "unknown");
+        string actualLib = game.PlatformMetadata.GetValueOrDefault("ActualLibraryRoot", "unknown");
+        string folder = game.PlatformMetadata.GetValueOrDefault("FolderName", game.FolderName);
+        string acfFileName = Path.GetFileName(acfPath);
+        string targetPath = Path.Combine(actualLib, "steamapps", acfFileName);
+        return $"Moved — game '{folder}' found in {actualLib} but ACF is in {acfLib}. " +
+               $"To fix: Move ACF to {targetPath} and restart Steam.";
     }
 }

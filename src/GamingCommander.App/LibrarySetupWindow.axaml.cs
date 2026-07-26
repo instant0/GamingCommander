@@ -2,7 +2,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
-using Avalonia.Platform.Storage;
 using GamingCommander.App.ViewModels;
 using GamingCommander.Core;
 using GamingCommander.Core.Models;
@@ -13,15 +12,16 @@ public partial class LibrarySetupWindow : Window
 {
     private readonly LibrarySetupViewModel _vm;
 
-    /// <summary>F2 library setup window. Allows user to manage library roots and folder overrides.</summary>
+    /// <summary>Unified library setup window. Handles first-run onboarding and ongoing root management.</summary>
     public LibrarySetupWindow(
         IConfigService configService,
         IGamesDatabaseService dbService,
-        ILibraryManager libraryManager)
+        ILibraryManager libraryManager,
+        bool isFirstRun = false)
     {
         InitializeComponent();
 
-        _vm = new LibrarySetupViewModel(configService, dbService, libraryManager, this);
+        _vm = new LibrarySetupViewModel(configService, dbService, libraryManager, this, isFirstRun);
         DataContext = _vm;
 
         var addBtn = this.FindControl<Button>("AddRootButton")!;
@@ -63,6 +63,8 @@ public partial class LibrarySetupWindow : Window
             };
             rescanBtn.Click += async (_, _) =>
             {
+                rescanBtn.IsEnabled = false;
+                rescanBtn.Content = "...";
                 await _vm.RescanAsync(captured);
                 RenderRoots();
             };
@@ -85,7 +87,7 @@ public partial class LibrarySetupWindow : Window
             {
                 ItemsSource = GameSourceParser.SourceDisplayNames,
                 SelectedItem = entry.DefaultType,
-                MinWidth = 100,
+                MinWidth = 120,
             };
             combo.SelectionChanged += (_, _) => entry.DefaultType = combo.SelectedItem?.ToString() ?? "Standalone";
 
@@ -95,10 +97,21 @@ public partial class LibrarySetupWindow : Window
                 FontWeight = FontWeight.Bold,
                 FontSize = AppTheme.FontSizeItem,
             };
+
+            // Scan progress badge: "Scanning..." / "✓ N games" / "0 games" / "Not scanned"
+            string statusBadge = entry.IsScanning ? "⏳ Scanning..."
+                : entry.GameCount > 0 ? $"✓ {entry.GameCount} games"
+                : entry.IsScanned ? "0 games"
+                : "Not scanned";
+
+            var statusColor = entry.IsScanning ? AppTheme.TextSuccess
+                : entry.GameCount > 0 ? AppTheme.TextSuccess
+                : AppTheme.TextMuted;
+
             var countBlock = new TextBlock
             {
-                Text = $"{entry.GameCount} game(s) — {entry.DefaultType}",
-                Foreground = AppTheme.TextMuted,
+                Text = statusBadge,
+                Foreground = statusColor,
                 FontSize = AppTheme.FontSizeLabel,
             };
 
@@ -108,7 +121,7 @@ public partial class LibrarySetupWindow : Window
                 ColumnDefinitions =
                 [
                     new ColumnDefinition(1, GridUnitType.Star),
-                    new ColumnDefinition(110, GridUnitType.Pixel),
+                    new ColumnDefinition(120, GridUnitType.Pixel),
                 ],
                 Children =
                 {
