@@ -399,11 +399,247 @@ public static bool ShouldApplyEnrichment(
 | Phase 2 | Engine detection + auto-tagging | Phase 1 (Tags field) |
 | Phase 3 | Metadata scraping (PCGW, Steam, Epic) | Phase 1 + Plan 109 (Epic manifests) |
 | Phase 4 | Display system (right pane badges) | Phase 1 + 2 + 3 |
-| Phase 5 | Filter system (by tag, engine, store) | Phase 1 + 4 |
+| Phase 5 | Filter system (by tag, engine, store, developer) | Phase 1 + 4 |
+| Phase 6 | Favourites + Completed flags | Phase 1 (Tags field) |
+| Phase 7 | "Start a random game" (context-aware) | Phase 5 + 6 |
+| Phase 8 | Metadata enrichment UI (PE scan, PCGW lookup buttons) | Phase 1 + 3 |
 
 ---
 
-## 9. Overlap with Other Plans
+## 9. TitleSource = "User" on F4 Edit
+
+### 9.1 Problem
+
+When the user edits a game title via F4, `DisplayName` is updated but `PlatformMetadata["TitleSource"]` is not set to `"User"`. This means:
+- A GOG game edited by the user still shows `TitleSource = "GogInfo"`
+- A Steam game edited by the user has no `TitleSource`
+- If online metadata is later enabled, it could try to "restore" the original title over the user's edit
+
+### 9.2 Fix (Phase 1)
+
+In `GameSetupWindow.axaml.cs SaveAndClose()`, detect if the user changed the title and record it:
+
+```csharp
+// After line 219 (DisplayName = DisplayName):
+bool titleChanged = !_originalGame.DisplayName.Equals(DisplayName, StringComparison.Ordinal);
+var meta = new Dictionary<string, string>(_originalGame.PlatformMetadata);
+if (titleChanged)
+{
+    meta["TitleSource"] = "User";
+}
+
+var updated = _originalGame with
+{
+    DisplayName = DisplayName,
+    GameSource = newType,
+    IsSourceOverridden = newType != rootDefault,
+    ExecutablePath = ExecutablePath,
+    LauncherPath = LauncherPath,
+    CommandLineArguments = CommandLineArguments,
+    ManifestPath = ManifestPath,
+    PlatformMetadata = meta,
+};
+```
+
+### 9.3 Also: Steam TitleSource
+
+Add `platformMetadata["TitleSource"] = "AcfName"` in `SteamLibraryScanner.cs` after line ~227 where `displayName` is set from ACF. This completes the pattern started by GOG (`"GogInfo"`) and EA (`"EaInstallLog"`).
+
+### 9.4 Interaction with UserOverrides
+
+Once `UserOverrides` is implemented, the `TitleSource = "User"` entry is redundant — `UserOverrides["DisplayName"]` already signals that the user set the title. However, keeping both is harmless and useful for debugging:
+- `UserOverrides["DisplayName"]` = "2026-07-26T14:30:00Z" (when)
+- `PlatformMetadata["TitleSource"]` = "User" (what source)
+
+The enrichment system checks `UserOverrides` first (authoritative), and can fall back to `TitleSource` for display purposes.
+
+---
+
+## 10. Developer Field (Future — Phase 3+)
+
+### 10.1 Concept
+
+Add a `Developer` field to `GameEntry` so users can filter/browse by developer (e.g., "Games from Activision").
+
+### 10.2 Data Model
+
+```csharp
+public sealed record GameEntry(
+    // ... existing fields ...
+    string? Developer,     // e.g., "CD Projekt Red", "id Software"
+    string? Publisher,     // e.g., "Activision", "Electronic Arts"
+);
+```
+
+### 10.3 Sources
+
+| Source | Field | Priority |
+|--------|-------|----------|
+| Steam Store API | `developers[]` | High |
+| PCGW Cargo API | `Developers`, `Publishers` | High |
+| IGDB | `involved_companies` | Medium |
+| PE metadata | `CompanyName` (PE header) | Low |
+| EA install log | Studio name from log | Low |
+| GOG .info | Developer field | Low |
+
+### 10.4 User Override Protection
+
+- `Developer` and `Publisher` are in `UserOverrides` — if the user manually sets them, automated enrichment skips them.
+- The F4 edit dialog should have fields for Developer and Publisher (editable, optional).
+
+### 10.5 Use Cases
+
+- Filter games by developer: "Show me all Ubisoft games"
+- Filter games by publisher: "Show me all Activision games"
+- Display in right pane: "Developer: CD Projekt Red"
+- Group by developer in list view (future)
+
+---
+
+## 11. Favourites + Completed Flags (Future — Phase 6)
+
+### 11.1 Concept
+
+Users should be able to flag games as:
+- **Favourite** — Games they love, want quick access to
+- **Completed** — Games they've finished, excluded from "random game" suggestions
+
+### 11.2 Data Model
+
+```csharp
+public sealed record GameEntry(
+    // ... existing fields ...
+    bool IsFavourite,
+    bool IsCompleted,
+);
+```
+
+### 11.3 F4 UI
+
+The F4 edit dialog gets two new checkboxes:
+
+```
+[ ] Favourite
+[ ] Completed
+```
+
+These are simple booleans, not tags. They're stored directly on `GameEntry` because they're user-level signals, not metadata.
+
+### 11.4 Display
+
+- Favourite games get a star badge in the list view
+- Completed games get a checkmark badge
+- Both are filterable (Phase 5 filter system)
+
+### 11.5 Interaction with Random Game
+
+- Completed games are **excluded** from "Start a random game" (Phase 7)
+- Favourite games are **included** (and optionally weighted higher)
+
+---
+
+## 12. "Start a Random Game" (Future — Phase 7)
+
+### 12.1 Concept
+
+A command (keyboard shortcut or menu) that picks a random game from the current filtered view and launches it. This helps users play games they've been avoiding or forgetting about.
+
+### 12.2 Behavior
+
+- **Context-aware**: Only picks from games currently visible in the list (after filters are applied)
+- **Excludes completed games**: Games flagged as `IsCompleted` are never picked
+- **Weighted by inactivity**: Games not launched recently are weighted higher
+- **Confirmation prompt**: Shows the selected game name before launching, with option to re-roll
+
+### 12.3 Example Flow
+
+```
+User filters: Tags = "Co-op"
+Visible games: [It Takes Two, Overcooked 2, Deep Rock Galactic, Lethal Company]
+Random pick: "Deep Rock Galactic"
+Prompt: "🎲 Random game: Deep Rock Galactic — Launch? [Yes] [Re-roll] [Cancel]"
+```
+
+### 12.4 Implementation Notes
+
+- Use `Random.Shared` for thread-safe random selection
+- Track `LastLaunched` timestamp on `GameEntry` for weighting
+- Weight formula: `1 / (daysSinceLastLaunch + 1)` — never-launched games get weight 1, games launched yesterday get weight 0.5
+- Re-roll picks again from the same filtered set (excluding the previous pick)
+
+### 12.5 Keyboard Shortcut
+
+- `F7` — "Random game" (contextual, respects current filter)
+- If no filter active: picks from entire library (excluding completed)
+
+---
+
+## 13. Metadata Enrichment UI (Future — Phase 8)
+
+### 13.1 Problem
+
+Some games are detected with ambiguous names. Example:
+- Folder: `bfme2`, EXE: `lotrbfme2.exe`
+- PE scan finds no title in the executable metadata
+- The game is detected as "Lotrbfme2" (normalized folder name) — not human-readable
+
+### 13.2 Solution: Enrichment Buttons in F4
+
+The F4 edit dialog gets a row of enrichment buttons below the name field:
+
+```
+Display Name: [lotrbfme2                          ]
+               [🔍 PCGW Lookup] [🔎 PE Scan] [🌐 Steam Search]
+```
+
+**PCGW Lookup** (requires online metadata enabled):
+- Takes the exe name (without extension) as search key
+- Queries PCGW OpenSearch API: `https://www.pcgamingwiki.com/w/api.php?action=opensearch&search={query}`
+- Shows results in a dropdown list for the user to pick
+- Auto-fills: DisplayName, Developer, Publisher, Engine
+
+**PE Scan**:
+- Reads the PE header of the executable
+- Extracts `FileDescription` and `ProductName` fields
+- If either contains a meaningful name (not a UE default), suggests it as DisplayName
+- Shows in a tooltip for user confirmation
+
+**Steam Search** (requires online metadata enabled):
+- Takes the exe name as search key
+- Queries Steam Store API search: `https://store.steampowered.com/api/storesearch/?term={query}`
+- Shows matching games in a dropdown
+- Auto-fills: DisplayName, Steam App ID
+
+### 13.3 Design Principle
+
+These are **manual, user-initiated** actions — not automatic. The user clicks a button, sees results, and confirms which one to apply. This avoids incorrect auto-fills and keeps the user in control.
+
+### 13.4 Interaction with UserOverrides
+
+When the user picks a result from any enrichment button:
+- `DisplayName` is set to the chosen name
+- `UserOverrides["DisplayName"]` is set (timestamp)
+- `PlatformMetadata["TitleSource"]` = "PCGW" / "PE" / "Steam"
+- This protects the enriched name from being overwritten by later automated metadata
+
+---
+
+## 14. Summary: All Phases
+
+| Phase | Feature | Status | Depends On |
+|-------|---------|--------|------------|
+| 1 | Tags + UserOverrides + TitleSource fix | DRAFT | — |
+| 2 | Engine detection + auto-tagging | PLANNED | Phase 1 |
+| 3 | Metadata scraping (PCGW, Steam, Epic) + Developer field | PLANNED | Phase 1 + Plan 109 |
+| 4 | Display system (right pane badges) | PLANNED | Phase 1 + 2 + 3 |
+| 5 | Filter system (by tag, engine, store, developer) | PLANNED | Phase 1 + 4 |
+| 6 | Favourites + Completed flags | PLANNED | Phase 1 |
+| 7 | "Start a random game" (context-aware) | PLANNED | Phase 5 + 6 |
+| 8 | Metadata enrichment UI (PE scan, PCGW, Steam lookup) | PLANNED | Phase 1 + 3 |
+
+---
+
+## 15. Overlap with Other Plans
 
 | Plan | Overlap | Notes |
 |------|---------|-------|
@@ -414,7 +650,7 @@ public static bool ShouldApplyEnrichment(
 
 ---
 
-## 10. Key Design Decisions
+## 16. Key Design Decisions
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
@@ -427,5 +663,5 @@ public static bool ShouldApplyEnrichment(
 
 ---
 
-**Last updated:** 2026-07-26
-**Related:** `planning/102-tags-metadata-display.md`, `planning/109-epic-manifest-enrichment.md`
+**Last updated:** 2026-07-26 (added §9-14: TitleSource fix, Developer field, Favourites/Completed, Random game, Metadata enrichment UI, Phase summary)
+**Related:** `planning/102-tags-metadata-display.md`, `planning/109-epic-manifest-enrichment.md`, `planning/111-logging-toggle-readme-metadata.md`
