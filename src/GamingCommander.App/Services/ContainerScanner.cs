@@ -40,6 +40,7 @@ internal static class ContainerScanner
     /// <param name="hiddenFolderNames">Folder names to skip.</param>
     /// <param name="noiseExePatterns">Executable noise patterns for signal detection.</param>
     /// <param name="depth">Current recursion depth (0-based, max 1).</param>
+    /// <param name="ct">Cancellation token.</param>
     internal static void ScanContainerChildren(
         List<GameEntry> entries,
         DirectoryInfo containerDir,
@@ -48,7 +49,8 @@ internal static class ContainerScanner
         Action<List<GameEntry>, DirectoryInfo, string, GameSourceKind> addGameEntry,
         IReadOnlySet<string> hiddenFolderNames,
         IReadOnlyList<string> noiseExePatterns,
-        int depth = 0)
+        int depth = 0,
+        CancellationToken ct = default)
     {
         if (depth > 1) return; // Bounded: max 2 levels
 
@@ -69,6 +71,8 @@ internal static class ContainerScanner
 
         foreach (DirectoryInfo child in children)
         {
+            ct.ThrowIfCancellationRequested();
+
             if (hiddenFolderNames.Contains(child.Name))
                 continue;
             if (IsNonGameFolder(child))
@@ -96,7 +100,7 @@ internal static class ContainerScanner
                 if (gameSignalCount >= 2)
                 {
                     ScanContainerChildren(entries, child, rootPath, defaultType,
-                        addGameEntry, hiddenFolderNames, noiseExePatterns, depth + 1);
+                        addGameEntry, hiddenFolderNames, noiseExePatterns, depth + 1, ct);
                 }
                 continue;
             }
@@ -107,7 +111,7 @@ internal static class ContainerScanner
             if (files.Length == 0 && dirs.Length > 0)
             {
                 ScanContainerChildren(entries, child, rootPath, defaultType,
-                    addGameEntry, hiddenFolderNames, noiseExePatterns, depth + 1);
+                    addGameEntry, hiddenFolderNames, noiseExePatterns, depth + 1, ct);
             }
         }
     }

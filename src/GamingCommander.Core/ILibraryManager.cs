@@ -23,7 +23,7 @@ public interface ILibraryManager
     void RemoveRoot(string rootPath);
 
     /// <summary>Reloads all library roots from config and refreshes the database cache.</summary>
-    void Refresh();
+    void Refresh(CancellationToken ct = default);
 
     /// <summary>Rescans a root using the provided scanner results, updating the database.</summary>
     void RescanRoot(string rootPath, IReadOnlyList<GameEntry> games);
@@ -36,4 +36,12 @@ public interface ILibraryManager
 
     /// <summary>Retags a game entry with a new source type.</summary>
     void RetagGame(string rootPath, string gameId, GameSourceKind newType);
+
+    /// <summary>
+    /// Selects the appropriate scanner for the given root and runs a scan.
+    /// Returns the discovered game entries.
+    /// </summary>
+    IReadOnlyList<GameEntry> SelectScannerAndScan(
+        string rootPath, GameSourceKind defaultType,
+        CancellationToken ct = default);
 }

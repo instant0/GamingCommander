@@ -21,6 +21,7 @@ public partial class MainWindow : Window
 
     private LibraryManager? _libraryManager;
     private CancellationTokenSource? _statusClearCts;
+    private CancellationTokenSource? _scanCts;
     private bool _isRefreshing;
 
     /// <summary>Primary application window. Manages dual-pane navigation, keyboard shortcuts, and game launching.</summary>
@@ -348,31 +349,73 @@ public partial class MainWindow : Window
         _viewModel.Reload();
     }
 
-    private Task RefreshCurrentRootAsync()
+    private async Task RefreshCurrentRootAsync()
     {
-        if (_viewModel is null || _libraryManager is null) return Task.CompletedTask;
-        if (_isRefreshing) return Task.CompletedTask;
+        if (_viewModel is null || _libraryManager is null) return;
+
+        // If already scanning, cancel it (F5 toggle behavior)
+        if (_scanCts is not null)
+        {
+            _scanCts.Cancel();
+            _scanCts.Dispose();
+            _scanCts = null;
+            _viewModel.ClearScanning();
+            _isRefreshing = false;
+            SetStatusWithAutoClear("Scan cancelled.");
+            return;
+        }
+
+        if (_isRefreshing) return;
 
         _isRefreshing = true;
+        _scanCts = new CancellationTokenSource();
+        CancellationToken ct = _scanCts.Token;
+
         try
         {
-            // At root level: rescan all configured roots
+            _viewModel.IsScanning = true;
+
+            // At root level: rescan all configured roots sequentially
             if (_viewModel.IsAtRootLevel)
             {
                 var config = GetConfigService().Load();
                 if (config.LibraryRoots.Count == 0)
                 {
                     SetStatusWithAutoClear("No roots configured. Press F2 to add folders.");
-                    return Task.CompletedTask;
+                    return;
                 }
 
-                SetStatusWithAutoClear("Scanning all roots...", 0); // Don't auto-clear scanning message
-                _libraryManager.Refresh();
+                SetStatusWithAutoClear("Scanning all roots...", 0);
+
+                foreach (LibraryRoot root in config.LibraryRoots)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        _viewModel.SetScanning(root.RootPath);
+                        SetStatusWithAutoClear($"Scanning {Path.GetFileName(root.RootPath)}...", 0);
+                    });
+
+                    await Task.Run(() =>
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        IReadOnlyList<Core.Models.GameEntry> games =
+                            _libraryManager.SelectScannerAndScan(root.RootPath, root.DefaultType, ct);
+                        _libraryManager.RescanRoot(root.RootPath, games);
+                    }, ct);
+                }
+
                 int totalGames = config.LibraryRoots.Sum(
                     r => _libraryManager.GetGamesForRoot(r.RootPath).Count);
-                _viewModel.Reload();
-                SetStatusWithAutoClear($"Rescanned {config.LibraryRoots.Count} root(s), found {totalGames} game(s).");
-                return Task.CompletedTask;
+
+                Dispatcher.UIThread.Post(() =>
+                {
+                    _viewModel.Reload();
+                    SetStatusWithAutoClear(
+                        $"Rescanned {config.LibraryRoots.Count} root(s), found {totalGames} game(s).");
+                });
+                return;
             }
 
             // Drilled into a root: rescan that root only
@@ -380,24 +423,47 @@ public partial class MainWindow : Window
             var cfg = GetConfigService().Load();
             var matchedRoot = cfg.LibraryRoots.FirstOrDefault(r =>
                 r.RootPath.Equals(rootPath, StringComparison.OrdinalIgnoreCase));
-            if (matchedRoot is null) return Task.CompletedTask;
+            if (matchedRoot is null) return;
 
-            SetStatusWithAutoClear($"Scanning {Path.GetFileName(rootPath)}...", 0);
-            var scannedGames = _libraryManager.SelectScannerAndScan(rootPath, matchedRoot.DefaultType);
-            _viewModel.ApplyRescannedGames(scannedGames);
-            if (scannedGames.Count == 0)
-                SetStatusWithAutoClear("Rescan complete — no games found in this root.");
-            else
-                SetStatusWithAutoClear($"Rescan complete — found {scannedGames.Count} game(s).");
-            return Task.CompletedTask;
+            Dispatcher.UIThread.Post(() =>
+            {
+                _viewModel.SetScanning(rootPath);
+                SetStatusWithAutoClear($"Scanning {Path.GetFileName(rootPath)}...", 0);
+            });
+
+            IReadOnlyList<Core.Models.GameEntry> scannedGames = await Task.Run(() =>
+            {
+                ct.ThrowIfCancellationRequested();
+                return _libraryManager.SelectScannerAndScan(
+                    rootPath, matchedRoot.DefaultType, ct);
+            }, ct);
+
+            Dispatcher.UIThread.Post(() =>
+            {
+                _viewModel.ApplyRescannedGames(scannedGames);
+                if (scannedGames.Count == 0)
+                    SetStatusWithAutoClear("Rescan complete — no games found in this root.");
+                else
+                    SetStatusWithAutoClear($"Rescan complete — found {scannedGames.Count} game(s).");
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            Dispatcher.UIThread.Post(() => SetStatusWithAutoClear("Scan cancelled."));
         }
         catch (Exception ex)
         {
-            SetStatusWithAutoClear($"Rescan failed: {ex.Message}");
-            return Task.CompletedTask;
+            Dispatcher.UIThread.Post(() => SetStatusWithAutoClear($"Rescan failed: {ex.Message}"));
         }
         finally
         {
+            Dispatcher.UIThread.Post(() =>
+            {
+                _viewModel?.ClearScanning();
+                _viewModel.IsScanning = false;
+            });
+            _scanCts?.Dispose();
+            _scanCts = null;
             _isRefreshing = false;
         }
     }

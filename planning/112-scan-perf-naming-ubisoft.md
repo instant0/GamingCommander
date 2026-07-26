@@ -1,6 +1,6 @@
 # Plan 112 — Scan Performance, Display Names, and Ubisoft Signals
 
-**Status:** DRAFT
+**Status:** COMPLETE
 **Audience:** Builder
 **Priority:** P1 (user-facing bugs + performance)
 **Depends on:** None
@@ -170,11 +170,11 @@ If profiling later shows `FileVersionInfo` itself is slow (unlikely — it's jus
 - After exe discovery and enrichment, for games where `displayName` still equals `NormalizeDisplayName(folderName)`:
   - If `FileDescription` from PE is non-empty and doesn't match the exe name → use it
   - Store original folder name in `PlatformMetadata["AutoDetectedTitle"]` and `"TitleSource" = "PeFileDescription"`
-- Guard conditions (don't override if):
-  - `FileDescription` is empty
-  - `FileDescription` equals the exe filename (e.g., `"DOOM"` for `DOOM.exe` when folder is `doom6` — actually this IS useful)
-  - `FileDescription` is a noise string (e.g., `"Setup/Uninstall"`, `"Microsoft Visual C++"`)
-  - The display name was already enriched by GOG/EA/Epic
+- Guard conditions (don't override if any of these are true):
+  1. `FileDescription` is null or whitespace
+  2. `FileDescription.Length <= 2` (reject single/double-char noise strings)
+  3. `FileDescription` matches a generic placeholder in `pe_metadata_blacklist` (e.g., `"Application"`, `"AppName"`, `"Setup/Uninstall"`, `"Microsoft Visual C++"`)
+  4. The display name was already enriched by GOG, EA, or Epic store parsers
 
 **Expected results:**
 | Folder | PE FileDescription | New Display Name |
@@ -247,7 +247,7 @@ if (resolvedType == GameSourceKind.UbisoftConnect)
 - If the exe name already matches a high-severity noise pattern (Tier 1-4, penalty -30), skip the `FileVersionInfo.GetVersionInfo()` call entirely. The PE data won't rescue a -30 penalty to a winning score.
 - **Note:** Tiers 5-12 are currently not loaded correctly due to JSON/C# DTO mismatch (Section 8). Until that bug is fixed, only tiers 1-4 are reliable for this optimization. Consider fixing the tier bug as a prerequisite or part of this plan.
 
-### Step 5: Async Scanning with Progress Feedback
+### Step 5 (DEFERRED): Async Scanning with Progress Feedback
 
 **Goal:** Scan library roots in the background without freezing the UI. Show per-root scanning status. Allow navigation to other libraries while one is scanning.
 
@@ -324,16 +324,21 @@ if (resolvedType == GameSourceKind.UbisoftConnect)
 | `StoreSignalDetector.cs` | Add `uplay_download/` directory signal AND `*_UPP*` exe signal to `HasUbisoftSignal()` |
 | `UbisoftReadmeParser.cs` | **New** — parse `Support/Readme/` text files for publisher and game title |
 | `BlacklistLoader.cs` | **Fix** — rename C# DTO properties and `[JsonPropertyName]` attributes to match current JSON tier key names; add test for `_upp`/`crash` loading |
-| `LibraryManager.cs` | Add `RefreshAsync(IProgress<ScanProgress>?)` method — runs root scans on thread pool |
-| `ILibraryManager.cs` | Add `Task RefreshAsync(...)` to interface |
-| `ShellViewModel.cs` | Add per-root scanning state dictionary for left-pane badge display |
-| `MainWindow.axaml.cs` | Make `RefreshCurrentRootAsync()` truly async with `await` |
-| `MainWindow.axaml` | Bind left-pane scanning badge to ViewModel state |
 | `FileSystemHelper.cs` | (possibly) Add FileDescription noise filter helper |
 | `data/blacklist.json` | No change needed — JSON is correct, C# DTO needs updating |
 | `docs/GAME-DETECTION-LOGIC.md` | Document new signals and enrichment |
 | `tests/App.Tests/UbisoftReadmeParserTests.cs` | **New** — tests for readme parsing |
 | `tests/App.Tests/StoreSignalDetectorTests.cs` | Add tests for `uplay_download/` and `*_UPP*` signals |
+
+**Deferred (Step 5) — not in scope for this plan:**
+
+| File | Change |
+|------|--------|
+| `LibraryManager.cs` | Add `RefreshAsync(IProgress<ScanProgress>?)` method |
+| `ILibraryManager.cs` | Add `Task RefreshAsync(...)` to interface |
+| `ShellViewModel.cs` | Add per-root scanning state dictionary |
+| `MainWindow.axaml.cs` | Make `RefreshCurrentRootAsync()` truly async |
+| `MainWindow.axaml` | Bind left-pane scanning badge |
 
 ---
 
@@ -356,6 +361,11 @@ if (resolvedType == GameSourceKind.UbisoftConnect)
 | `ExecutableDiscovery_ScoreExecutable_SkipsPeReadForTier1Noise` | Tier 1-4 noise exe → no PE read (fast path) |
 | `FolderScanner_AddGameEntry_UsesPeDescriptionForDisplayName` | Non-store game with PE FileDescription → display name from PE |
 | `FolderScanner_AddGameEntry_PeDescriptionEmpty_KeepsFolderName` | Empty FileDescription → folder name unchanged |
+
+**Deferred (Step 5) — not in scope for this plan:**
+
+| Test | Description |
+|------|-------------|
 | `LibraryManager_RefreshAsync_RunsInBackground` | RefreshAsync completes without blocking, progress callback invoked per root |
 | `FolderScanner_Scan_ReportsProgress` | Scan with IProgress reports folder names as they're processed |
 
@@ -363,19 +373,21 @@ if (resolvedType == GameSourceKind.UbisoftConnect)
 
 ## 5. Success Criteria
 
-- [ ] All 20 blacklist tiers correctly loaded (JSON/C# DTO key names match)
-- [ ] Display names resolved from PE `FileDescription` for non-store-enriched games
-- [ ] `uplay_download/` folder detected as Ubisoft signal
-- [ ] `*_UPP*` executables detected as Ubisoft signal (distinct from noise filtering for exe picking)
-- [ ] Ubisoft `support/Readme` metadata extracted for display name
-- [ ] `FileInfo.Length` called once per exe (not twice)
-- [ ] PE read skipped for confirmed-noise candidates (Tier 1-4)
+- [x] All 20 blacklist tiers correctly loaded (JSON/C# DTO key names match)
+- [x] Display names resolved from PE `FileDescription` for non-store-enriched games
+- [x] `uplay_download/` folder detected as Ubisoft signal
+- [x] `*_UPP*` executables detected as Ubisoft signal (distinct from noise filtering for exe picking)
+- [x] Ubisoft `support/Readme` metadata extracted for display name
+- [x] `FileInfo.Length` called once per exe (not twice)
+- [x] PE read skipped for confirmed-noise candidates (Tier 1-4)
+- [x] Build clean, all tests pass
+- [x] Documentation updated
+
+**Deferred (Step 5):**
 - [ ] Scanning runs on background thread — UI remains responsive
 - [ ] Left pane shows "⏳ Scanning..." badge on root being scanned
 - [ ] User can navigate to other roots while scan is in progress
 - [ ] Status bar shows current folder being scanned
-- [ ] Build clean, all tests pass
-- [ ] Documentation updated
 
 ---
 
@@ -403,6 +415,17 @@ if (resolvedType == GameSourceKind.UbisoftConnect)
 ---
 
 ## 8. Review Findings (2026-07-26)
+
+### Step Approval Summary
+
+| Step | Status | Notes |
+|------|--------|-------|
+| Step 1 — Fix Blacklist DTO Mismatch | **APPROVED (Mandatory)** | Pre-existing bug silently drops ~40 noise patterns. Must be fixed before Step 4C can work correctly. |
+| Step 2 — PE FileDescription Display Name | **APPROVED with Refinement** | Guard conditions refined: reject Length ≤ 2, check `pe_metadata_blacklist` for generic placeholders, confirm no prior store enrichment. |
+| Step 3 — Ubisoft Signals & Readme Parsing | **APPROVED** | `uplay_download/` and `*_UPP*` correctly belong in `HasUbisoftSignal()`. `*_UPP*` acts as detection signal even if filtered during exe candidate selection. |
+| Step 4 — Candidate Count & PE Read Optimization | **APPROVED (4B + 4C only)** | Step 4A (early exit) DEFERRED — high risk of missing valid UE binaries. Step 4B (FileInfo.Length dedup) and 4C (skip PE for Tier 1–4 noise) approved. |
+| Step 5 — Async Scanning with Progress | **DEFERRED** | Correctly scoped out — keep Plan 112 focused on detection/naming fixes. |
+| Step 6 — Documentation Updates | **APPROVED** | Per standard workflow. |
 
 ### CRITICAL: Blacklist JSON/C# DTO Tier Name Mismatch (Bug)
 
@@ -466,8 +489,8 @@ if (resolvedType == GameSourceKind.UbisoftConnect)
    - PE skip optimization behavior
    - FileInfo.Length deduplication correctness
 
-4. **Step 5 (progress feedback):** Correctly identified as lower-priority UI work. Should be explicitly marked DEFERRED from this plan.
+4. **Step 5 (progress feedback):** Formally DEFERRED from this plan. Lower-priority UI work — keep Plan 112 scoped to detection/naming/performance fixes.
 
 ---
 
-**Last updated:** 2026-07-26
+**Last updated:** 2026-07-26 (implementation complete)

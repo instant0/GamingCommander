@@ -146,7 +146,8 @@
   1. Remove `"blizzard"` from `NoiseSubDirNames` — it's a publisher container, not noise.
   2. Remove `"blizzard"` from `ContainerScanner.s_nonGameFolderNames`.
   3. Add name-based BattleNet detection fallback (parent folder name matches known store names).
-- **Status:** Open — **P0 blocker**
+- **Status:** ✅ Fixed — `"blizzard"` and `"battle.net"` removed from `NoiseSubDirNames` and `ContainerScanner.s_nonGameFolderNames`.
+- **Verified:** 2026-07-26
 
 ### Bug 10: "Steam Controller Config" listed as a game (Orphaned)
 - **Discovered:** 2026-07-26
@@ -231,3 +232,138 @@
 - **Suggested fix:** Implement `EpicManifestParser.CrossReferenceGlobalManifests()` (Plan 109 Phase 3).
 - **Status:** ✅ Fixed — Plan 109 Phase 3. `EpicManifestParser.CrossReferenceGlobalManifests()` with case-insensitive path normalization and trailing separator stripping.
 - **Verified:** 2026-07-26 — EpicManifestParser.cs lines 210-260
+
+---
+
+## Plan 112 Fixes (2026-07-26)
+
+### Bug 20: Blacklist JSON/C# DTO Tier Name Mismatch
+- **Discovered:** 2026-07-26
+- **Where:** `BlacklistLoader.cs` — `ExeNamePatternsDto` properties
+- **Issue:** Tiers 5-20 in `blacklist.json` use key names (e.g., `tier_5_error_crash_reporting`) that don't match the C# DTO `[JsonPropertyName]` attributes (e.g., `tier_5_unreal_build_debug`). This silently drops ~40 noise patterns from the tiered list.
+- **Impact:** HIGH — `_upp`, `trial`, `crash`, `error`, `xlive`, `autorun`, `7za`, `dedicatedserver`, `editor`, `debug`, `install`, `unrealpak`, `patch`, `winscp` not loaded.
+- **Status:** ✅ Fixed — Plan 112 Step 1. Renamed C# DTO properties and `[JsonPropertyName]` attributes to match current JSON keys. Removed stale Tier 21 property.
+- **Verified:** 2026-07-26 — BlacklistLoader.cs, 4 new regression tests
+
+### Bug 21: Display names use folder names instead of game titles
+- **Discovered:** 2026-07-26
+- **Where:** `FolderScanner.AddGameEntry()` — display name pipeline
+- **Issue:** Non-store-enriched games (Standalone, Ubisoft, SteamEmu) use `NormalizeDisplayName(folderName)` which produces abbreviated names like `arx`, `doom6`, `galciv4`. PE `FileDescription` has the correct title but is discarded after scoring.
+- **Impact:** MEDIUM — user-facing display name quality.
+- **Status:** ✅ Fixed — Plan 112 Step 2. `ScoreExecutable()` now returns `ExeScoreResult` with `FileDescription`. `FindPrimaryExecutable()` returns `PrimaryExeResult` with `FileDescription`. `FolderScanner.AddGameEntry()` uses PE `FileDescription` as display name with guard conditions (length > 2, not a placeholder, no prior store enrichment).
+- **Verified:** 2026-07-26 — ExecutableDiscovery.cs, FolderScanner.cs, 2 new tests
+
+### Bug 22: Modern Ubisoft Connect games not detected
+- **Discovered:** 2026-07-26
+- **Where:** `StoreSignalDetector.HasUbisoftSignal()`
+- **Issue:** Modern Ubisoft titles (e.g., Ghost Recon Breakpoint) lack older signals (`uplay_install.manifest`, loader DLLs) but contain `uplay_download/` directory and `*_UPP*.exe` subscription variants.
+- **Impact:** MEDIUM — Ubisoft games misclassified as Standalone.
+- **Status:** ✅ Fixed — Plan 112 Step 3. Added `uplay_download/` directory check and `*_UPP*.exe` pattern check to `HasUbisoftSignal()`. Added `UbisoftReadmeParser` for `Support/Readme/` metadata enrichment.
+- **Verified:** 2026-07-26 — StoreSignalDetector.cs, UbisoftReadmeParser.cs, 11 new tests
+
+---
+
+## Detection Bugs (2026-07-26 — Live Build)
+
+### Bug 23: Ubisoft readme enrichment returns publisher name as display name
+- **Discovered:** 2026-07-26
+- **Where:** `UbisoftReadmeParser.cs` line 68, `FolderScanner.cs` lines 349-361
+- **Evidence:** `d:\games\Assassins Creed III\assassinscreed3.exe` displays as "Ubisoft Entertainment" instead of "Assassin's Creed III"
+- **Issue:** `UbisoftReadmeParser` reads `Support/Readme/*.txt` and blindly assigns `lines[1]` as `GameTitle` with no validation. Some Ubisoft readme files have the publisher name on line 2 instead of the game title. Since `assassinscreed3.exe` has no valid PE `FileDescription` (or it's filtered by pe_metadata_blacklist), `storeEnrichedDisplayName` stays `false`, and the readme enrichment runs unchecked.
+- **Impact:** MEDIUM — wrong display name for Ubisoft games with non-standard readme format.
+- **Suggested fix:** Add validation in `UbisoftReadmeParser.TryParse()` or `FolderScanner.AddGameEntry()` to reject known publisher strings ("Ubisoft Entertainment", "Ubisoft", "Ubisoft SAS") from `GameTitle`. Alternatively, add a deny-list of publisher-like values.
+- **Status:** Open
+
+### Bug 24: ARC Game Store/Launcher not filtered as noise
+- **Discovered:** 2026-07-26
+- **Where:** `FileSystemHelper.NoiseSubDirNames`, `blacklist.json`
+- **Evidence:** `d:\games\arc\arc.exe` listed as "ARC" game (Standalone) — this is the ARC game store/launcher, not a game
+- **Issue:** `"arc"` is missing from both `NoiseSubDirNames` (so the `arc\` directory is scanned) and `blacklist.json` tiers (so `arc.exe` passes all noise filters). `FallbackSignalDetector.HasRootExecutableSignal` finds `arc.exe` as a valid root executable and classifies the folder as Standalone.
+- **Impact:** MEDIUM — launcher/store detected as a game.
+- **Suggested fix:** Add `"arc"` to `FileSystemHelper.NoiseSubDirNames` alongside other store launcher directories. Also add `"arc"` to `blacklist.json` `tier_3_store_bootstraps` as a scoring penalty. Verify no legitimate game exe contains "arc" as a substring (e.g., "ArcaniA.exe") — if so, use a more targeted approach.
+- **Status:** Open
+
+### Bug 25: battle.net launcher folder detected as a game
+- **Discovered:** 2026-07-26
+- **Where:** `FileSystemHelper.NoiseSubDirNames`, `ContainerScanner.s_nonGameFolderNames`
+- **Evidence:** `d:\games\blizzard\battle.net\battle.net.exe` shows up as a game entry
+- **Issue:** When `"blizzard"` and `"battle.net"` were removed from `NoiseSubDirNames` (to fix BattleNet game detection), the `battle.net\` launcher folder itself became scannable. `FallbackSignalDetector.HasRootExecutableSignal` finds `battle.net.exe` as a non-noise root exe and classifies the folder as Standalone. The fix for Bug 9 (allowing blizzard game detection) inadvertently exposed the launcher folder.
+- **Impact:** MEDIUM — launcher directory appears as a game entry.
+- **Suggested fix:** Add `"battle.net"` back to `NoiseSubDirNames` (keep `"blizzard"` removed). The `blizzard` folder is the publisher container with game children; the `battle.net` folder is the launcher executable directory. Also add `"battle.net"` to `ContainerScanner.s_nonGameFolderNames` and `blacklist.json` `tier_3_store_bootstraps`.
+- **Status:** Open
+
+### Bug 26: Diablo III RETAIL classified as Standalone instead of BattleNet
+- **Discovered:** 2026-07-26
+- **Where:** `ContainerScanner.ScanContainerChildren()` lines 77-84, `FolderScanner.Scan()` lines 112-125
+- **Evidence:** `d:\games\blizzard\Diablo III RETAIL\` shows as "Standalone" instead of "BattleNet"
+- **Issue:** `HasBattleNetGameSignal()` exists and correctly identifies BattleNet games by folder name/exe pattern, but it's only called in the **top-level loop** of `FolderScanner.Scan()` (line 121) when the parent directory has a BattleNet signal. Diablo III RETAIL is a grandchild of `d:\games\` (inside `blizzard\`), so it's discovered by `ContainerScanner`, which has no BattleNet-aware logic. The container scanner only checks `StoreSignalDetector.DetectType` (needs `.battle.net/` in the game folder) and `FallbackSignalDetector.HasRootExecutableSignal` (picks up `DiabloIII.exe` → Standalone).
+- **Impact:** MEDIUM — BattleNet games misclassified as Standalone when inside a publisher container.
+- **Suggested fix:** In `ContainerScanner.ScanContainerChildren()`, after `StoreSignalDetector.DetectType(child)` returns `Unknown`, check if a sibling directory named `"battle.net"` exists in the same parent (indicating a Blizzard container), and if so, call `StoreSignalDetector.HasBattleNetGameSignal(child)`. If true, classify as BattleNet instead of Standalone.
+- **Status:** Open
+
+---
+
+## Live Testing Bugs (2026-07-26 — Plan 114)
+
+### Bug 27: bme2 selects Worldbuilder.exe instead of lotrbfme2.exe
+- **Discovered:** 2026-07-26
+- **Where:** `ExecutableDiscovery.ScoreExecutable()`, `data/blacklist.json`
+- **Evidence:** `d:\games\bme2\` shows "The Battle for Middle-earth™ II World Builder" as display name
+- **Issue:** `Worldbuilder.exe` (33MB) is NOT in `blacklist.json` noise patterns. The `DefaultNoiseExePatterns` includes `"builder"` but production uses blacklist-loaded patterns which lack it. Worldbuilder passes all noise filters. Meanwhile `lotrbfme2.exe` (495KB) has empty PE Description, so its display name comes from folder name normalization.
+- **Impact:** HIGH — wrong primary exe selected, wrong display name.
+- **Suggested fix:** Add `"builder"` and `"worldbuilder"` to `blacklist.json` `tier_10_dev_editor_tools`.
+- **Status:** Open
+
+### Bug 28: Divine Divinity selects ConfigTool.exe instead of div.exe
+- **Discovered:** 2026-07-26
+- **Where:** `ExecutableDiscovery.ScoreExecutable()`, `data/blacklist.json`
+- **Evidence:** `d:\games\Divine Divinity\Run\` — ConfigTool.exe (188KB) selected over div.exe (2.6MB)
+- **Issue:** `configtool.exe` is not in any noise tier. Both exes are in `Run/` subdirectory. ConfigTool has PE Description "configtool MFC Application" which doesn't match any noise filter. The scoring may be picking ConfigTool due to directory traversal order or size heuristics.
+- **Impact:** HIGH — wrong primary exe selected.
+- **Suggested fix:** Add `"configtool"` to `blacklist.json` `tier_10_dev_editor_tools`.
+- **Status:** Open
+
+### Bug 29: Endless Legends displayed twice (Win32/Win64)
+- **Discovered:** 2026-07-26
+- **Where:** `ContainerScanner.ScanContainerChildren()` lines 55-68
+- **Evidence:** `d:\games\ENdlessLegend\` shows two entries: "Win32" and "Win64"
+- **Issue:** `ENdlessLegend/` has `Win32/` and `Win64/` subdirectories, each containing `EndlessLegend.exe`. Container scanner treats these as separate children with game signals, creating two game entries.
+- **Impact:** MEDIUM — duplicate game entries.
+- **Suggested fix:** Add `"win32"`, `"win64"`, `"x86"`, `"x64"` to `ContainerScanner.s_nonGameFolderNames`.
+- **Status:** Open
+
+### Bug 30: Diablo III listed twice (x64 + x64 - Copy)
+- **Discovered:** 2026-07-26
+- **Where:** `ExecutableDiscovery.FindExecutablesDeep()`, `FileSystemHelper.NoiseSubDirNames`
+- **Evidence:** `d:\games\Diablo III\` has `x64\Diablo III64.exe` and `x64 - Copy\Diablo III64.exe`
+- **Issue:** `x64 - Copy` is a backup directory that passes all noise filters. Exe discovery finds `Diablo III64.exe` in both directories.
+- **Impact:** MEDIUM — duplicate game entries.
+- **Suggested fix:** Add `"x64 - copy"`, `"x86 - copy"`, `" - copy"` to `FileSystemHelper.NoiseSubDirNames` or `ContainerScanner.s_nonGameFolderNames`.
+- **Status:** Open
+
+### Bug 31: Diablo III RETAIL classified as Standalone (duplicate of Bug 26)
+- **Discovered:** 2026-07-26
+- **Where:** Same as Bug 26
+- **Evidence:** `d:\games\Diablo III\` classified as Standalone instead of BattleNet
+- **Issue:** Same root cause as Bug 26 — `ContainerScanner` lacks BattleNet-aware logic.
+- **Impact:** MEDIUM — BattleNet games misclassified.
+- **Suggested fix:** Same as Bug 26.
+- **Status:** Open (same fix as Bug 26)
+
+### Bug 32: Library roots show duplicate "Games" names
+- **Discovered:** 2026-07-26
+- **Where:** `ShellViewModel.JumpToLibraryRoots()` line 162
+- **Evidence:** `d:\games`, `e:\games`, `f:\games` all show as "Games" in the root list
+- **Issue:** `Path.GetFileName(root.RootPath)` returns "Games" for all three roots.
+- **Impact:** LOW — confusing but not broken.
+- **Suggested fix:** Display full path (or drive letter + folder name) instead of just folder name.
+- **Status:** Open
+
+### Bug 33: Tags not displayed in left lister or details pane
+- **Discovered:** 2026-07-26
+- **Where:** `ShellViewModel.LoadGamesForRoot()`, `MainWindow.axaml`
+- **Evidence:** Tags field exists (Plan 110) but not rendered in UI
+- **Issue:** `ShellPaneItemViewModel` doesn't have a `Tags` property. `LoadGamesForRoot()` doesn't read `game.Tags`. UI templates don't display tags.
+- **Impact:** LOW — feature incomplete.
+- **Suggested fix:** Add `Tags` to `ShellPaneItemViewModel`, populate in `LoadGamesForRoot()`, add to left-pane item template and right-pane details panel.
+- **Status:** Open

@@ -360,6 +360,125 @@ public sealed class StoreSignalDetectorTests : IDisposable
     }
 
     // ════════════════════════════════════════════════════════════════
+    //  Ubisoft New Signals (Plan 112 Step 3)
+    // ════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void DetectType_UplayDownloadDir_ReturnsUbisoftConnect()
+    {
+        CreateDir("uplay_download");
+
+        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
+
+        Assert.Equal(GameSourceKind.UbisoftConnect, result);
+    }
+
+    [Fact]
+    public void DetectType_UppExe_ReturnsUbisoftConnect()
+    {
+        CreateFile("GRB_UPP.exe");
+
+        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
+
+        Assert.Equal(GameSourceKind.UbisoftConnect, result);
+    }
+
+    [Fact]
+    public void DetectType_UppVulkanExe_ReturnsUbisoftConnect()
+    {
+        CreateFile("GRB_UPP_vulkan.exe");
+
+        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
+
+        Assert.Equal(GameSourceKind.UbisoftConnect, result);
+    }
+
+    [Fact]
+    public void HasUbisoftSignal_UplayDownloadDir_ReturnsTrue()
+    {
+        CreateDir("uplay_download");
+
+        Assert.True(StoreSignalDetector.HasUbisoftSignal(AsDirInfo(_tempDir)));
+    }
+
+    [Fact]
+    public void HasUbisoftSignal_UppExe_ReturnsTrue()
+    {
+        CreateFile("GRB_UPP.exe");
+
+        Assert.True(StoreSignalDetector.HasUbisoftSignal(AsDirInfo(_tempDir)));
+    }
+
+    [Fact]
+    public void HasUbisoftSignal_NoSignals_ReturnsFalse()
+    {
+        Assert.False(StoreSignalDetector.HasUbisoftSignal(AsDirInfo(_tempDir)));
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    //  UbisoftReadmeParser (Plan 112 Step 3B)
+    // ════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void UbisoftReadmeParser_StandardFormat_ParsesTitle()
+    {
+        string readmeDir = CreateDir("Support", "Readme");
+        File.WriteAllText(Path.Combine(readmeDir, "Readme.txt"),
+            "Ubisoft\r\nGhost Recon Breakpoint\r\n© 2019 Ubisoft Entertainment\r\n");
+
+        var result = UbisoftReadmeParser.TryParse(AsDirInfo(_tempDir));
+
+        Assert.NotNull(result);
+        Assert.Equal("Ubisoft", result.Publisher);
+        Assert.Equal("Ghost Recon Breakpoint", result.GameTitle);
+    }
+
+    [Fact]
+    public void UbisoftReadmeParser_CaseInsensitive_Works()
+    {
+        string readmeDir = CreateDir("support", "readme");
+        File.WriteAllText(Path.Combine(readmeDir, "game.txt"),
+            "Publisher\r\nGame Title\r\n");
+
+        var result = UbisoftReadmeParser.TryParse(AsDirInfo(_tempDir));
+
+        Assert.NotNull(result);
+        Assert.Equal("Game Title", result.GameTitle);
+    }
+
+    [Fact]
+    public void UbisoftReadmeParser_NoReadmeDir_ReturnsNull()
+    {
+        var result = UbisoftReadmeParser.TryParse(AsDirInfo(_tempDir));
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void UbisoftReadmeParser_EmptyFile_ReturnsNull()
+    {
+        string readmeDir = CreateDir("Support", "Readme");
+        File.WriteAllText(Path.Combine(readmeDir, "Readme.txt"), "");
+
+        var result = UbisoftReadmeParser.TryParse(AsDirInfo(_tempDir));
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void UbisoftReadmeParser_SingleLine_ReturnsPublisherOnly()
+    {
+        string readmeDir = CreateDir("Support", "Readme");
+        File.WriteAllText(Path.Combine(readmeDir, "Readme.txt"), "Ubisoft\r\n");
+
+        var result = UbisoftReadmeParser.TryParse(AsDirInfo(_tempDir));
+
+        Assert.NotNull(result);
+        Assert.Equal("Ubisoft", result.Publisher);
+        Assert.Null(result.GameTitle);
+    }
+
+    // ════════════════════════════════════════════════════════════════
     //  Helpers
     // ════════════════════════════════════════════════════════════════
 

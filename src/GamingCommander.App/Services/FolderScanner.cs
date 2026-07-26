@@ -10,6 +10,7 @@ public sealed class FolderScanner
     private readonly IReadOnlySet<string> _noiseDirectoryPatterns;
     private readonly IReadOnlyList<string> _launcherPatterns;
     private readonly IReadOnlyList<BlacklistTierEntry> _tieredNoiseExePatterns;
+    private readonly IReadOnlyList<string> _peMetadataBlacklist;
 
     /// <summary>
     /// Default hardcoded patterns for backward compatibility (tests, etc.).
@@ -35,13 +36,13 @@ public sealed class FolderScanner
 
     /// <summary>Creates a scanner with default hardcoded noise patterns (for tests and simple cases).</summary>
     public FolderScanner()
-        : this([], DefaultNoiseExePatterns, [], DefaultLauncherPatterns, [])
+        : this([], DefaultNoiseExePatterns, [], DefaultLauncherPatterns, [], [])
     {
     }
 
     /// <summary>Creates a scanner with custom hidden folder names and default noise patterns.</summary>
     public FolderScanner(IEnumerable<string> hiddenFolderNames)
-        : this(hiddenFolderNames, DefaultNoiseExePatterns, [], DefaultLauncherPatterns, [])
+        : this(hiddenFolderNames, DefaultNoiseExePatterns, [], DefaultLauncherPatterns, [], [])
     {
     }
 
@@ -54,7 +55,8 @@ public sealed class FolderScanner
             blacklist.ExeNamePatterns.Count > 0 ? blacklist.ExeNamePatterns : DefaultNoiseExePatterns,
             blacklist.DirectoryPatterns,
             DefaultLauncherPatterns,
-            blacklist.TieredExePatterns)
+            blacklist.TieredExePatterns,
+            blacklist.PeMetadataPatterns)
     {
     }
 
@@ -63,13 +65,15 @@ public sealed class FolderScanner
         IReadOnlyList<string> noiseExePatterns,
         IReadOnlyList<string> noiseDirectoryPatterns,
         IReadOnlyList<string> launcherPatterns,
-        IReadOnlyList<BlacklistTierEntry> tieredNoiseExePatterns)
+        IReadOnlyList<BlacklistTierEntry> tieredNoiseExePatterns,
+        IReadOnlyList<string> peMetadataBlacklist)
     {
         _hiddenFolderNames = new HashSet<string>(hiddenFolderNames, StringComparer.OrdinalIgnoreCase);
         _noiseExePatterns = noiseExePatterns;
         _noiseDirectoryPatterns = new HashSet<string>(noiseDirectoryPatterns, StringComparer.OrdinalIgnoreCase);
         _launcherPatterns = launcherPatterns;
         _tieredNoiseExePatterns = tieredNoiseExePatterns;
+        _peMetadataBlacklist = peMetadataBlacklist;
     }
 
     // ════════════════════════════════════════════════════════════════
@@ -80,7 +84,7 @@ public sealed class FolderScanner
     /// Scans a library root for game folders using a 10-signal priority-ordered detection chain.
     /// Returns game entries with detected source types, executables, and metadata.
     /// </summary>
-    public IReadOnlyList<GameEntry> Scan(string rootPath, GameSourceKind defaultType)
+    public IReadOnlyList<GameEntry> Scan(string rootPath, GameSourceKind defaultType, CancellationToken ct = default)
     {
         if (!Directory.Exists(rootPath))
             return [];
@@ -89,6 +93,7 @@ public sealed class FolderScanner
 
         foreach (DirectoryInfo subDir in FileSystemHelper.GetDirectoriesSafe(rootPath))
         {
+            ct.ThrowIfCancellationRequested();
             if (_hiddenFolderNames.Count > 0 && _hiddenFolderNames.Contains(subDir.Name))
                 continue;
 
@@ -141,7 +146,7 @@ public sealed class FolderScanner
             ContainerScanner.ScanContainerChildren(
                 entries, subDir, rootPath, defaultType,
                 (e, dir, rp, type) => AddGameEntry(e, dir, rp, type, defaultType),
-                _hiddenFolderNames, _noiseExePatterns);
+                _hiddenFolderNames, _noiseExePatterns, ct: ct);
         }
 
         return entries;
@@ -188,8 +193,9 @@ public sealed class FolderScanner
     {
         bool isOverride = resolvedType != rootDefault;
         string[] exeFiles = FileSystemHelper.GetFilesSafe(subDir, "*.exe");
-        string? exePath = ExecutableDiscovery.FindPrimaryExecutable(
+        var primaryExe = ExecutableDiscovery.FindPrimaryExecutable(
             subDir, exeFiles, _noiseExePatterns, _noiseDirectoryPatterns, _launcherPatterns, GetExePatternTier);
+        string? exePath = primaryExe.ExePath;
 
         // LNK fallback — if no exe found, try resolving from .lnk shortcuts
         if (string.IsNullOrEmpty(exePath))
@@ -203,6 +209,9 @@ public sealed class FolderScanner
         var platformMetadata = new Dictionary<string, string>();
         string commandLineArgs = string.Empty;
 
+        // Track whether display name was enriched by a store parser (used for PE FileDescription guard)
+        bool storeEnrichedDisplayName = false;
+
         // GOG enrichment: parse goggame-*.info for title, exe, args, and game ID
         if (resolvedType == GameSourceKind.Gog
             && GogInfoParser.TryParse(subDir, _noiseDirectoryPatterns, out var gogInfo)
@@ -214,6 +223,7 @@ public sealed class FolderScanner
                 platformMetadata["AutoDetectedTitle"] = displayName;
                 displayName = gogInfo.Title;
                 platformMetadata["TitleSource"] = "GogInfo";
+                storeEnrichedDisplayName = true;
             }
 
             // Exe: GOG .info is a fallback when ExecutableDiscovery finds nothing
@@ -244,6 +254,7 @@ public sealed class FolderScanner
                 platformMetadata["AutoDetectedTitle"] = displayName;
                 displayName = eaInfo.DisplayName;
                 platformMetadata["TitleSource"] = "EaInstallLog";
+                storeEnrichedDisplayName = true;
             }
 
             // Studio metadata
@@ -272,6 +283,7 @@ public sealed class FolderScanner
                 platformMetadata["AutoDetectedTitle"] = displayName;
                 displayName = globalItem.DisplayName;
                 platformMetadata["TitleSource"] = "EpicItemManifest";
+                storeEnrichedDisplayName = true;
 
                 // Override local namespace with correct public namespace from global .item
                 localIds = new EpicManifestParser.EpicIdentifiers(
@@ -305,6 +317,47 @@ public sealed class FolderScanner
                 {
                     exePath = resolvedExe;
                 }
+            }
+        }
+
+        // PE FileDescription enrichment for non-store-enriched games (Plan 112 Step 2).
+        // Uses FileDescription from the primary exe's PE metadata as the display name
+        // when no store parser has provided one and the PE data passes guard conditions.
+        if (!storeEnrichedDisplayName && !string.IsNullOrWhiteSpace(primaryExe.FileDescription))
+        {
+            string peDesc = primaryExe.FileDescription;
+
+            // Guard: reject short strings (likely noise like single/double chars)
+            bool lengthOk = peDesc.Length > 2;
+
+            // Guard: reject generic placeholders from pe_metadata_blacklist
+            bool notPlaceholder = true;
+            if (_peMetadataBlacklist.Count > 0)
+            {
+                string peDescLower = peDesc.ToLowerInvariant();
+                notPlaceholder = !_peMetadataBlacklist.Any(p => peDescLower.Contains(p));
+            }
+
+            if (lengthOk && notPlaceholder)
+            {
+                platformMetadata["AutoDetectedTitle"] = displayName;
+                displayName = peDesc;
+                platformMetadata["TitleSource"] = "PeFileDescription";
+                storeEnrichedDisplayName = true;
+            }
+        }
+
+        // Ubisoft Support/Readme enrichment (Plan 112 Step 3B).
+        // Ubisoft games ship Support/Readme/ with publisher and game title on lines 1-2.
+        // Applied only for Ubisoft Connect games and only when no store/PE enrichment was used.
+        if (!storeEnrichedDisplayName && resolvedType == GameSourceKind.UbisoftConnect)
+        {
+            var ubiInfo = UbisoftReadmeParser.TryParse(subDir);
+            if (ubiInfo?.GameTitle is not null)
+            {
+                platformMetadata["AutoDetectedTitle"] = displayName;
+                displayName = ubiInfo.GameTitle;
+                platformMetadata["TitleSource"] = "UbisoftReadme";
             }
         }
 

@@ -169,8 +169,8 @@ public sealed class BlacklistLoaderTests : IDisposable
             {
                 "exe_name_patterns": {
                     "tier_1_universal_noise": ["unins"],
-                    "tier_10_distribution_tools": ["tool"],
-                    "tier_21_utility_tools": ["util"]
+                    "tier_10_dev_editor_tools": ["tool"],
+                    "tier_20_utility_tools": ["util"]
                 }
             }
             """;
@@ -181,7 +181,7 @@ public sealed class BlacklistLoaderTests : IDisposable
 
         foreach (var entry in data.TieredExePatterns)
         {
-            Assert.InRange(entry.Tier, 1, 21);
+            Assert.InRange(entry.Tier, 1, 20);
         }
     }
 
@@ -250,6 +250,116 @@ public sealed class BlacklistLoaderTests : IDisposable
 
         // Should not throw, returns defaults
         Assert.Empty(data.ExeNamePatterns);
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    //  Tier Name Mismatch Regression (Plan 112 Step 1)
+    // ════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void Load_WithAllTiers_AllJsonKeysDeserialized()
+    {
+        // Uses the real blacklist.json to verify all 20 tiers deserialize correctly.
+        // This catches JsonPropertyName mismatches between C# DTO and JSON keys.
+        string json = """
+            {
+                "exe_name_patterns": {
+                    "tier_1_universal_noise": ["unins", "setup"],
+                    "tier_2_launcher_stubs": ["launcher"],
+                    "tier_3_store_bootstraps": ["galaxy", "epic"],
+                    "tier_4_anticheat_drm": ["easyanticheat", "battleye"],
+                    "tier_5_error_crash_reporting": ["crash", "error"],
+                    "tier_6_drm_wrappers": ["xlive"],
+                    "tier_7_installer_utilities": ["autorun", "7za"],
+                    "tier_8_server_loader_stub": ["dedicatedserver", "stub"],
+                    "tier_9_distribution_tools": ["sdcr", "tachyon"],
+                    "tier_10_dev_editor_tools": ["editor", "modmanager"],
+                    "tier_11_utilities_debug": ["install", "debug"],
+                    "tier_12_trial_demo_stub": ["trial", "_upp"],
+                    "tier_13_media_codec_tools": ["ffmpeg"],
+                    "tier_14_installer_frameworks": ["squirrel"],
+                    "tier_15_runtime_interpreters": ["python"],
+                    "tier_16_web_ui_overlay": ["coherentui", "cefhost"],
+                    "tier_17_repair_service_helper": ["repair", "service"],
+                    "tier_18_unreal_build_tools": ["unrealpak"],
+                    "tier_19_patch_update": ["patch"],
+                    "tier_20_utility_tools": ["winscp"]
+                }
+            }
+            """;
+        WriteBlacklistJson(json);
+
+        var loader = new BlacklistLoader(_tempDir);
+        var data = loader.Load();
+
+        // All 20 tiers should produce tiered entries
+        Assert.Equal(20, data.TieredExePatterns.Select(t => t.Tier).Distinct().Count());
+    }
+
+    [Fact]
+    public void Load_Tier5_IsErrorCrashReporting_NotUnrealBuildDebug()
+    {
+        // Regression: Tier 5 JSON key is "tier_5_error_crash_reporting" — C# must match.
+        string json = """
+            {
+                "exe_name_patterns": {
+                    "tier_5_error_crash_reporting": ["crash", "error", "bugsplat"]
+                }
+            }
+            """;
+        WriteBlacklistJson(json);
+
+        var loader = new BlacklistLoader(_tempDir);
+        var data = loader.Load();
+
+        Assert.NotEmpty(data.TieredExePatterns);
+        Assert.Equal(5, data.TieredExePatterns[0].Tier);
+        Assert.Contains("crash", data.ExeNamePatterns);
+        Assert.Contains("error", data.ExeNamePatterns);
+        Assert.Contains("bugsplat", data.ExeNamePatterns);
+    }
+
+    [Fact]
+    public void Load_Tier12_ContainsTrialAndUpp()
+    {
+        // Regression: Tier 12 JSON key is "tier_12_trial_demo_stub" — contains _upp pattern.
+        string json = """
+            {
+                "exe_name_patterns": {
+                    "tier_12_trial_demo_stub": ["trial", "_upp"]
+                }
+            }
+            """;
+        WriteBlacklistJson(json);
+
+        var loader = new BlacklistLoader(_tempDir);
+        var data = loader.Load();
+
+        Assert.NotEmpty(data.TieredExePatterns);
+        Assert.Equal(12, data.TieredExePatterns[0].Tier);
+        Assert.Contains("_upp", data.ExeNamePatterns);
+        Assert.Contains("trial", data.ExeNamePatterns);
+    }
+
+    [Fact]
+    public void Load_Tier18_IsUnrealBuildTools_NotRepairServiceHelper()
+    {
+        // Regression: Tier 18 JSON key is "tier_18_unreal_build_tools" — C# must match.
+        string json = """
+            {
+                "exe_name_patterns": {
+                    "tier_18_unreal_build_tools": ["unrealpak"]
+                }
+            }
+            """;
+        WriteBlacklistJson(json);
+
+        var loader = new BlacklistLoader(_tempDir);
+        var data = loader.Load();
+
+        Assert.NotEmpty(data.TieredExePatterns);
+        Assert.Equal(18, data.TieredExePatterns[0].Tier);
+        Assert.Contains("unrealpak", data.ExeNamePatterns);
     }
 
     // ── Helpers ───────────────────────────────────────────────

@@ -29,14 +29,16 @@
 5. ~~**P2 — EA InstallLog.txt Parsing**~~ ✅ **IMPLEMENTED** — `EaInstallLogParser` extracts authoritative game name, display name, studio from `__Installer/InstallLog.txt`
 6. ~~**P2 — User Tags + Override Protection (Phase 1)**~~ ✅ **IMPLEMENTED** — Tags field, UserOverrides dictionary, F4 tag editing, TagNormalizer utility. Plan 110 Phase 1 complete. 272 tests passing.
 7. ~~**P2 — Epic Manifest Enrichment**~~ ✅ **COMPLETE** — Fixed 3 bugs (#17, #18, #19): `EpicManifestParser` class with local .mancpn/.item parsing + global .item cross-ref. 17 new tests, 289 total. **Deferred:** Epic GraphQL API lookup — future plan.
-8. **P1 — Scan Perf + Display Names + Ubisoft Signals** — Plan 112: PE FileDescription for display names, `uplay_download/` + `*_UPP*` Ubisoft signals, `support/Readme` metadata, file read investigation, candidate reduction
-9. **P2 — EA/Ubisoft Registry Fallback** — Port `parse_registry.py` logic to C# for install path detection
-10. Phase G T48–T57 (tests/quality polish) — harden what shipped
-11. Steam SyncMove repair (backup + ACF path fix) — from `planning/04-phase-2-syncmove.md`
-12. PCGamingWiki metadata + Tags system (Phase 3) — see `planning/102-tags-metadata-display.md`
-13. Port remaining detect.py edges — see `planning/103-detect-py-port-status.md`
-14. Split detect.py into modules — see `planning/104-detect-py-module-split.md`
-15. Category browse / search (F8, S key) — see `planning/101-top-level-modes-and-filter.md`
+8. ~~**P1 — Scan Perf + Display Names + Ubisoft Signals**~~ ✅ **COMPLETE** — Plan 112: Blacklist DTO mismatch fixed, PE FileDescription display names, `uplay_download/` + `*_UPP*` Ubisoft signals, `support/Readme` metadata, FileInfo.Length dedup, PE skip for noise. 306 tests passing.
+9. ~~**P1 — Async Background Scanning**~~ ✅ **COMPLETE** — Plan 113: CancellationToken pipeline, ShellViewModel scan state, per-root scanning badge, async F5 with cancellation toggle. 306 tests passing.
+10. **P1 — Detection Bug Fixes from Live Testing** — Plan 114: bme2 exe selection, Divine Divinity exe, Endless Legends duplication, Diablo III duplication + BattleNet classification, library root display, tags display. See `planning/114-detection-bugfixes.md`
+11. **P2 — EA/Ubisoft Registry Fallback** — Port `parse_registry.py` logic to C# for install path detection
+11. Phase G T48–T57 (tests/quality polish) — harden what shipped
+12. Steam SyncMove repair (backup + ACF path fix) — from `planning/04-phase-2-syncmove.md`
+13. PCGamingWiki metadata + Tags system (Phase 3) — see `planning/102-tags-metadata-display.md`
+14. Port remaining detect.py edges — see `planning/103-detect-py-port-status.md`
+15. Split detect.py into modules — see `planning/104-detect-py-module-split.md`
+16. Category browse / search (F8, S key) — see `planning/101-top-level-modes-and-filter.md`
 
 ---
 

@@ -1,0 +1,32 @@
+This is comments from testing. 
+
+Mark with X when added to a planning document/reviewed - this is not a task tracker for the actual code.
+
+===================
+07-26 18:56
+
+[X] - When on the main library view, you can have multiple entries like 'GAmes', 'GAmes' and 'Games' which were the folder names from d:\games, e:\games, f:\games. Perhaps the display should in fact show the full path in a weaker colour but highlight the "Libraryname" part (GAmes) so the 
+display would say something like d:\**GAMES**\. You list the path on the RIGHT side, which we can then remove for the LIBRARYROOT
+→ Plan 114 Step 3 (B32)
+
+[X] - Each game store should have its on 'badge' style look within the limitations of the display we are using, thse badges should be shown on the libraryRoot as well as the game list. So "StandAlone" would show BAttle.net, UPlay, EAAPP, etc badges on the libraryroot, whereas a pure STEAM one would just show  STEAM
+→ Future enhancement (not in Plan 114 — requires UI redesign)
+
+[X] - The detect logic still have issues, "d:\games\bme2" picked the WORLDBUILDER.EXE rather than the "lotrbfme2.exe" but at least it got the displayname right (for the Worldbuilder, not the Game Exe).
+→ Plan 114 Step 1 (B27) — add "builder"/"worldbuilder" to blacklist.json tier_10
+
+[X] - Diablo III REtail was listed twice, since there was a "copy of" inside the game folder, this was also incorrectly identified as Standalone rather than battle.net
+→ Plan 114 Step 1 (B30) + Step 2 (B31) — filter "x64 - Copy" dirs, add BattleNet container logic
+
+[X] - Tags are not displayed on the DETAILS pane, nore are they displayed on the "lister" on the left. The Tags should be displayed in a usefull manner after the GameName. The Right Side of the pane that currently list Storetype + Path could ignore the PATH and either just list the exename or omit that as well." 
+In fact, the user should have a F-key to customize the display to say what they want to show on the left-side lister (GAmename, STore, TAgs, PAth, Size, Version).  And similarly the DETAILS page should show all the details we have in the metadata for the game.
+→ Plan 114 Step 4 (B33) — tags display; F-key customization is future enhancement
+
+[X] Divine Divinity is detected with the maingame as  "Divine Divinity\Run\ConfigTool.exe" which probably break several blacklists. There is a "div.exe" in the same folder. 
+→ Plan 114 Step 1 (B28) — add "configtool" to blacklist.json tier_10
+
+[X] Endless Legends is displayed TWICE, as "Win32" and "Win64" due to the folder structure, and neither get the name right. 
+→ Plan 114 Step 1 (B29) — add "win32"/"win64"/"x86"/"x64" to ContainerScanner.s_nonGameFolderNames
+
+
+====================

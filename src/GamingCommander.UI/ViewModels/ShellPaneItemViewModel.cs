@@ -73,4 +73,11 @@ public sealed class ShellPaneItemViewModel
 
     /// <summary>Number of games in this root (only set for root-level entries).</summary>
     public int GameCount { get; init; }
+
+    /// <summary>
+    /// Suffix appended to the item's display for scanning state.
+    /// Set to "⏳ Scanning..." when this root is currently being scanned.
+    /// Empty when idle.
+    /// </summary>
+    public string ScanningBadge { get; init; } = string.Empty;
 }

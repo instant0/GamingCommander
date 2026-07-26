@@ -44,7 +44,7 @@
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="vm:ShellPaneItemViewModel">
                 <Border BorderBrush="{DynamicResource SeparatorBorder}" BorderThickness="0,0,0,1" Padding="4,3">
-                  <Grid ColumnDefinitions="1*,Auto,Auto">
+                  <Grid ColumnDefinitions="1*,Auto,Auto,Auto">
                     <TextBlock Grid.Column="0" Text="{Binding Title}" FontWeight="Bold" FontSize="{DynamicResource FontSizeItem}"
                                TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
                                Foreground="{Binding ItemStatusColor, Converter={StaticResource HexToBrush}}" />
@@ -53,6 +53,9 @@
                     <TextBlock Grid.Column="2" Text="{Binding PathSummary}"
                                Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" MaxWidth="200"
                                TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="3" Text="{Binding ScanningBadge}"
+                               Foreground="{DynamicResource TextHighlight}" FontSize="{DynamicResource FontSizeLabel}" Margin="6,0,0,0"
+                               VerticalAlignment="Center" />
                   </Grid>
                 </Border>
               </DataTemplate>

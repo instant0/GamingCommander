@@ -106,18 +106,31 @@ internal static class StoreSignalDetector
         return false;
     }
 
-    /// <summary>Ubisoft signal: uplay_install.manifest or uplay_r* loader DLLs.</summary>
+    /// <summary>Ubisoft signal: uplay_install.manifest, uplay_r* loader DLLs, uplay_download/ directory, or *_UPP*.exe subscription variants.</summary>
     internal static bool HasUbisoftSignal(DirectoryInfo dir)
     {
         try
         {
+            // Check for uplay_download/ directory (Plan 112 Step 3A)
+            if (Directory.Exists(Path.Combine(dir.FullName, "uplay_download")))
+                return true;
+
+            // Single enumeration for all file-based signals
             foreach (string file in Directory.EnumerateFiles(dir.FullName, "*", SearchOption.TopDirectoryOnly))
             {
                 string name = Path.GetFileName(file).ToLowerInvariant();
+
+                // Original signals: manifest and loader DLLs
                 if (name == "uplay_install.manifest" || name == "uplay_install.state")
                     return true;
                 if (name is "uplay_r1_loader64.dll" or "uplay_r2_loader64.dll"
                     or "uplay_r1_loader32.dll" or "uplay_r2_loader32.dll")
+                    return true;
+
+                // Plan 112 Step 3C: *_UPP*.exe subscription variants.
+                // Note: _upp is also a tier 12 noise pattern in blacklist.json (filtered during exe scoring).
+                // This is intentional — signal detection identifies the *store*, while noise scoring selects the best *exe*.
+                if (name.Contains("_upp") && name.EndsWith(".exe"))
                     return true;
             }
         }

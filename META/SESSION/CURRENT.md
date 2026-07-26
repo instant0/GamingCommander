@@ -48,6 +48,16 @@ Code quality Phases D–G largely done (T58–T60 complete; T48–T57 deferred).
 - **Steam Controller Config noise (LOW)** — Not in noise filter, appears as orphaned game → Plan 107
 - **Duplicate setup screens (MEDIUM)** — Wizard + F2 with 60-70% overlapping code → Plan 106
 - **blacklist.json in user data (MEDIUM)** — Should ship alongside exe, not in user data folder → Plan 107 / Bug 16
+- **Ubisoft readme enrichment returns publisher name (MEDIUM)** — AC3 shows "Ubisoft Entertainment" instead of "Assassin's Creed III" → Bug 23
+- **ARC Game Store not filtered as noise (MEDIUM)** — `d:\games\arc\arc.exe` classified as Standalone game → Bug 24
+- **battle.net launcher folder detected as game (MEDIUM)** — `d:\games\blizzard\battle.net\battle.net.exe` shows as game entry → Bug 25 (regression from Bug 9 fix)
+- **Diablo III RETAIL classified as Standalone (MEDIUM)** — Should be BattleNet, container scanner lacks BattleNet-aware logic → Bug 26
+- **bme2 selects Worldbuilder.exe (HIGH)** — "builder" not in blacklist.json, Worldbuilder passes all noise filters → Bug 27
+- **Divine Divinity selects ConfigTool.exe (HIGH)** — "configtool" not in blacklist.json → Bug 28
+- **Endless Legends displayed twice (MEDIUM)** — Win32/Win64 subdirs treated as separate games → Bug 29
+- **Diablo III listed twice (MEDIUM)** — "x64 - Copy" backup dir not filtered → Bug 30
+- **Library roots show duplicate "Games" (LOW)** — Path.GetFileName returns same name for all roots → Bug 32
+- **Tags not displayed (LOW)** — Tags field exists but not rendered in UI → Bug 33
 
 ### Test Coverage Gaps
 - `StoreSignalDetector` — zero tests (10 detection signals)
@@ -495,7 +505,30 @@ All hardcoded colors and font sizes centralized to `App.axaml` Application.Resou
 - All 154 tests passing (33 Core + 1 Migration + 120 App). Build clean.
 
 ## Test Status
-**289 tests passing** (73 Core + 1 Migration + 215 App). Build clean, 0 errors, 0 warnings.
+**306 tests passing** (73 Core + 1 Migration + 232 App). Build clean, 0 errors, 0 warnings.
+
+## Completed This Session
+
+### Plan 113: Async Background Scanning (P1 — Complete)
+F5 rescan no longer blocks the UI thread. Scanning runs on `Task.Run()` with full cancellation support:
+
+| Step | File | Change |
+|------|------|--------|
+| 1 | `ILibraryManager.cs` | Added `CancellationToken` to `Refresh()` and `SelectScannerAndScan()` |
+| 1 | `LibraryManager.cs` | Pass token through, check `ct.ThrowIfCancellationRequested()` per root |
+| 1 | `FolderScanner.cs` | Added `CancellationToken` to `Scan()`, check per subdirectory |
+| 1 | `ContainerScanner.cs` | Added `CancellationToken` parameter, check per child and on recursive calls |
+| 2 | `ShellViewModel.cs` | Added `IsScanning`, `ScanningRootPath` properties; `SetScanning()`, `ClearScanning()` methods |
+| 2 | `ShellPaneItemViewModel.cs` | Added `ScanningBadge` property |
+| 3 | `MainWindow.axaml` | Added 4th column in item template for `ScanningBadge` (TextHighlight color) |
+| 4 | `MainWindow.axaml.cs` | Converted `RefreshCurrentRootAsync()` to `async Task`, added `_scanCts` field, F5 toggle (start/cancel) |
+
+**Key behaviors:**
+- F5 at root level: scans each root sequentially on background thread, shows "⏳ Scanning..." badge per root
+- F5 inside a root: scans that root on background thread
+- F5 again during scan: cancels in-progress scan, shows "Scan cancelled."
+- Status bar shows current folder being scanned (e.g., "Scanning d:\games...")
+- UI remains responsive — navigation, F2 setup, F9 roots all work during scan
 
 ## Documentation Review (Current Session)
 - Created `docs/EPIC-MANIFEST-ENRICHMENT.md` — complete analysis of Epic Games Store detection and metadata enrichment: .item file format, .mancpn identifiers, global ProgramData cross-reference, Epic GraphQL searchStore API, GUID-based identification, C# gap analysis (FindEpicManifest searches *.json not *.item, no global cross-ref, no API client), proposed implementation pipeline (EpicManifestParser + EpicStoreApiClient), test plan with 13 test cases

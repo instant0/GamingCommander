@@ -191,7 +191,21 @@ GOG Games/
 - Contains game metadata, file parts, download URLs
 - **Complexity:** High — requires protobuf parsing + gzip decompression
 
-**Current detection:** `uplay_install.manifest` or `uplay_r*_loader*.dll` at root (signal only)
+**Current detection signals:**
+| Signal | Method | Status |
+|--------|--------|--------|
+| `uplay_install.manifest` at root | `HasUbisoftSignal()` | ✅ Older games |
+| `uplay_r*_loader*.dll` at root | `HasUbisoftSignal()` | ✅ Older games |
+| `uplay_download/` directory | `HasUbisoftSignal()` | ✅ Modern Ubisoft Connect (Plan 112) |
+| `*_UPP*.exe` subscription variants | `HasUbisoftSignal()` | ✅ Uplay Plus signals (Plan 112) |
+| `uplay_loader*` + INI with Username/AccountId | `HasUbisoftEmulatorSignal()` | ✅ Emulated |
+
+**Ubisoft `Support/Readme` enrichment (✅ Plan 112):** `UbisoftReadmeParser` reads `Support/Readme/*.txt` files to extract authoritative game metadata. Ubisoft games conventionally ship a `Support/Readme/` directory containing text files where the first 4 lines are: publisher, game title, copyright, blank.
+
+| Field | Example | Use |
+|-------|---------|-----|
+| Line 1 | `Ubisoft` | Publisher name |
+| Line 2 | `Ghost Recon Breakpoint` | Game title (used as display name) |
 
 **Enhancement opportunity:**
 - Parse manifest for game metadata (if protobuf parser available)
@@ -287,7 +301,7 @@ Both C# and Python check stores in **priority order** (first match wins). The C#
 | 1 | **GOG** | `goggame*` files at root (goggame.dll, goggame-*.info, gog_*) | `HasGogSignal` | `_check_gog` + `_scan_root` | File glob `goggame*` (C#); `goggame.dll` exact + prefix scan (Python) |
 | 2 | **EA** | `__Installer/` directory at root, or `Touchup.exe`/`ActivationUI.exe` at root | `HasEaSignal` | `_check_ea` | Directory existence + exe name check |
 | 3 | **Ubisoft Emulator** | `uplay_loader*` + `.ini` with `Username=` and `AccountId=` | `HasUbisoftEmulatorSignal` | `_check_ubisoft_emu` | Loader pattern + INI content scan |
-| 4 | **Ubisoft** | `uplay_install.manifest` or `uplay_r*_loader*.dll` at root | `HasUbisoftSignal` | `_check_ubisoft` | Exact file name + glob pattern |
+| 4 | **Ubisoft** | `uplay_install.manifest`, `uplay_r*_loader*.dll`, `uplay_download/` directory, or `*_UPP*.exe` at root | `HasUbisoftSignal` | `_check_ubisoft` | Exact file name + glob pattern + directory check + exe pattern |
 | 5 | **Epic** | `.egstore/` or `.egsstore/` directory at root | `HasEpicSignal` | `_check_epic` | Directory existence |
 | 6 | **Blizzard** | `.battle.net/` directory at root | `HasBlizzardSignal` | `_check_blizzard` | Directory existence |
 | 7 | **Xbox** | `default-metadata.json` at root | `HasXboxSignal` | `_check_xbox` | File existence |
@@ -1030,12 +1044,21 @@ START: Scan library root
   └─ For each AddGameEntry call:
       ├─ ExecutableDiscovery.FindPrimaryExecutable()
       │   ├─ FindExecutablesDeep() → root + children + UE paths + recursive
-      │   └─ ScoreExecutable() → pick best candidate
+      │   └─ ScoreExecutable() → pick best candidate, capture FileDescription
       ├─ LnkParser.ResolveExeFromLnk() (if no exe found)
       ├─ ExecutableDiscovery.FindLauncherExecutable()
       ├─ ExecutableDiscovery.FindEpicManifest()
       ├─ FileSystemHelper.NormalizeDisplayName()
       ├─ GogInfoParser.TryParse() (if GOG)
       │   ├─ Override title, exe (fallback), args, game ID
+      ├─ EaInstallLogParser.TryParse() (if EA App)
+      │   ├─ Override display name, studio, game name
+      ├─ EpicManifestParser (if Epic)
+      │   ├─ Override display name, catalog IDs
+      ├─ PE FileDescription enrichment (if no store enrichment)
+      │   ├─ Use primary exe's FileDescription as display name
+      │   ├─ Guard: reject short strings, generic placeholders
+      ├─ UbisoftReadmeParser.TryParse() (if Ubisoft, no prior enrichment)
+      │   ├─ Override display name from Support/Readme/ metadata
       └─ Create GameEntry with all metadata
 ```

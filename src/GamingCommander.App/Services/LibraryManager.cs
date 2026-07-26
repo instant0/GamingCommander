@@ -95,18 +95,24 @@ public sealed class LibraryManager : ILibraryManager
     /// Scanner selection uses SelectScannerAndScan (structural check + type hint).
     /// Called at startup (if roots exist) or on explicit refresh.
     /// </summary>
-    public void Refresh()
+    public void Refresh(CancellationToken ct = default)
     {
         AppConfig config = _configService.Load();
         foreach (LibraryRoot root in config.LibraryRoots)
         {
+            ct.ThrowIfCancellationRequested();
+
             try
             {
                 if (!Directory.Exists(root.RootPath))
                     continue;
 
-                IReadOnlyList<GameEntry> games = SelectScannerAndScan(root.RootPath, root.DefaultType);
+                IReadOnlyList<GameEntry> games = SelectScannerAndScan(root.RootPath, root.DefaultType, ct);
                 _databaseService.RescanRoot(root.RootPath, games);
+            }
+            catch (OperationCanceledException)
+            {
+                throw; // Propagate cancellation
             }
             catch
             {
@@ -153,12 +159,14 @@ public sealed class LibraryManager : ILibraryManager
     ///      (respects explicit user override).
     ///   3. Otherwise → FolderScanner.
     /// </summary>
-    public IReadOnlyList<GameEntry> SelectScannerAndScan(string rootPath, GameSourceKind configuredType)
+    public IReadOnlyList<GameEntry> SelectScannerAndScan(
+        string rootPath, GameSourceKind configuredType,
+        CancellationToken ct = default)
     {
         if (_steamScanner != null && (LooksLikeSteamLibrary(rootPath) || configuredType == GameSourceKind.Steam))
             return _steamScanner.Scan(rootPath);
 
-        return _scanner.Scan(rootPath, configuredType);
+        return _scanner.Scan(rootPath, configuredType, ct);
     }
 
     /// <summary>

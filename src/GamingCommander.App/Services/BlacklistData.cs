@@ -3,7 +3,7 @@ namespace GamingCommander.App.Services;
 /// <summary>
 /// A single exe name pattern with its severity tier.
 /// Tier 1 = highest severity (universal noise like uninstallers).
-/// Tier 21 = lowest severity (store bootstraps, rare edge cases).
+/// Tier 20 = lowest severity (utility tools, rare edge cases).
 /// </summary>
 public sealed record BlacklistTierEntry(string Pattern, int Tier);
 

@@ -17,6 +17,8 @@ public sealed class ShellViewModel : ReactiveObject
     private int _selectedIndex;
     private int _previousRootIndex;
     private string _statusText = string.Empty;
+    private bool _isScanning;
+    private string? _scanningRootPath;
 
     /// <summary>Raised after navigation completes. Subscribers should re-focus the left pane.</summary>
     public event Action? NavigationChanged;
@@ -121,6 +123,20 @@ public sealed class ShellViewModel : ReactiveObject
 
     /// <summary>Context-sensitive hint text shown below the item list.</summary>
     public string InteractionHint { get; private set; } = string.Empty;
+
+    /// <summary>True when a scan is in progress on any root.</summary>
+    public bool IsScanning
+    {
+        get => _isScanning;
+        set => SetProperty(ref _isScanning, value);
+    }
+
+    /// <summary>Root path currently being scanned, or null if idle. Used for badge display.</summary>
+    public string? ScanningRootPath
+    {
+        get => _scanningRootPath;
+        private set => SetProperty(ref _scanningRootPath, value);
+    }
 
     /// <summary>Hotkey-to-action mappings displayed in the bottom command bar.</summary>
     public ObservableCollection<ShellCommandViewModel> Commands { get; } =
@@ -255,6 +271,68 @@ public sealed class ShellViewModel : ReactiveObject
             JumpToLibraryRoots();
         else
             LoadGamesForRoot(_currentRootPath);
+    }
+
+    /// <summary>
+    /// Marks a root as currently being scanned. Updates the scanning badge on root entries.
+    /// Must be called from the UI thread.
+    /// </summary>
+    public void SetScanning(string rootPath)
+    {
+        ScanningRootPath = rootPath;
+        IsScanning = true;
+        UpdateScanningBadges();
+    }
+
+    /// <summary>
+    /// Clears scanning state and removes all scanning badges.
+    /// Must be called from the UI thread.
+    /// </summary>
+    public void ClearScanning()
+    {
+        ScanningRootPath = null;
+        IsScanning = false;
+        UpdateScanningBadges();
+    }
+
+    /// <summary>
+    /// Updates scanning badges on root-level items based on current ScanningRootPath.
+    /// </summary>
+    private void UpdateScanningBadges()
+    {
+        if (!IsAtRootLevel) return;
+
+        for (int i = 0; i < Items.Count; i++)
+        {
+            var item = Items[i];
+            string expectedBadge = string.Equals(item.PathSummary, ScanningRootPath, StringComparison.OrdinalIgnoreCase)
+                ? "⏳ Scanning..."
+                : string.Empty;
+
+            if (item.ScanningBadge != expectedBadge)
+            {
+                Items[i] = new ShellPaneItemViewModel
+                {
+                    Title = item.Title,
+                    SourceLabel = item.SourceLabel,
+                    PathSummary = item.PathSummary,
+                    LaunchTarget = item.LaunchTarget,
+                    CommandLineArguments = item.CommandLineArguments,
+                    Kind = item.Kind,
+                    LastModified = item.LastModified,
+                    ResolvedType = item.ResolvedType,
+                    HasOverride = item.HasOverride,
+                    GameId = item.GameId,
+                    PlatformId = item.PlatformId,
+                    PlatformStatus = item.PlatformStatus,
+                    PlatformStatusColor = item.PlatformStatusColor,
+                    PlatformStatusDetail = item.PlatformStatusDetail,
+                    ItemStatusColor = item.ItemStatusColor,
+                    GameCount = item.GameCount,
+                    ScanningBadge = expectedBadge,
+                };
+            }
+        }
     }
 
     private void LoadGamesForRoot(string rootPath)

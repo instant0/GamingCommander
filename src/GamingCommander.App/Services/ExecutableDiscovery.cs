@@ -145,16 +145,22 @@ internal static class ExecutableDiscovery
     }
 
     /// <summary>
+    /// Result of scoring an executable for primary selection.
+    /// Contains the numeric score and the PE FileDescription (if read successfully).
+    /// </summary>
+    internal sealed record ExeScoreResult(int Score, string? FileDescription);
+
+    /// <summary>
     /// Scores an executable for primary selection. Higher score = more likely to be the real game.
     /// Considers folder-name token match, launcher penalty, noise pattern penalty (tier-based),
-    /// shipping/win64 bonus, and file size.
+    /// shipping/win64 bonus, file size, and PE metadata.
     /// </summary>
     /// <param name="exePath">Full path to the executable.</param>
     /// <param name="folderName">Name of the game folder (used for token matching).</param>
     /// <param name="launcherPatterns">Launcher/updater name substrings (used for penalty scoring).</param>
     /// <param name="noiseExePatterns">Full noise pattern list for tier-based penalty scoring.</param>
     /// <param name="tierLookup">Function to look up the severity tier for a noise pattern.</param>
-    internal static int ScoreExecutable(
+    internal static ExeScoreResult ScoreExecutable(
         string exePath,
         string folderName,
         IReadOnlyList<string> launcherPatterns,
@@ -193,16 +199,18 @@ internal static class ExecutableDiscovery
         else if (name.Contains("original"))
             score -= 15;
 
-        // Penalize tiny executables that are likely helpers/tools (-15)
+        // Cache FileInfo.Length — avoid redundant filesystem syscalls (Plan 112 Step 4B)
+        long fileSize = 0;
         try
         {
-            long size = new FileInfo(exePath).Length;
-            if (size < 100_000) // < 100KB
+            fileSize = new FileInfo(exePath).Length;
+            if (fileSize < 100_000) // < 100KB
                 score -= 15;
         }
         catch { }
 
         // Penalize known noise patterns with tier-based severity
+        bool isHighSeverityNoise = false;
         foreach (string pattern in noiseExePatterns)
         {
             if (name.Contains(pattern, StringComparison.OrdinalIgnoreCase))
@@ -220,6 +228,7 @@ internal static class ExecutableDiscovery
                     _ => -5
                 };
                 score += penalty;
+                isHighSeverityNoise = tier <= 4;
                 break; // Only penalize once (first match)
             }
         }
@@ -229,47 +238,58 @@ internal static class ExecutableDiscovery
             score += 5;
 
         // File size bonus: up to +5 for very large files (>= 100MB)
-        // Reduced weight to avoid favoring editor tools over game exes
-        try
+        // Uses cached fileSize from above (Plan 112 Step 4B)
+        score += (int)Math.Min(fileSize / 20_000_000, 5);
+
+        // PE metadata: skip read for confirmed-noise candidates (Plan 112 Step 4C).
+        // A -30 penalty from Tier 1-4 noise cannot be rescued by PE metadata bonuses.
+        string? fileDescription = null;
+        if (!isHighSeverityNoise)
         {
-            long size = new FileInfo(exePath).Length;
-            score += (int)Math.Min(size / 20_000_000, 5);
+            // PE metadata scoring: penalize noise patterns in Description/InternalName.
+            // Uses System.Diagnostics.FileVersionInfo — built into .NET, no external dependencies.
+            // Gracefully degrades on read failure (old/broken PE headers).
+            try
+            {
+                var peInfo = System.Diagnostics.FileVersionInfo.GetVersionInfo(exePath);
+                string desc = (peInfo.FileDescription ?? "").ToLowerInvariant();
+                string internalName = (peInfo.InternalName ?? "").ToLowerInvariant();
+
+                // Capture FileDescription for display name enrichment (Plan 112 Step 2)
+                string? rawDescription = peInfo.FileDescription;
+                if (!string.IsNullOrWhiteSpace(rawDescription))
+                    fileDescription = rawDescription;
+
+                // Penalize noise in FileDescription (-25)
+                if (desc.Contains("setup") || desc.Contains("microsoft") ||
+                    desc.Contains("uninstall") || desc.Contains("redistributable") ||
+                    desc.Contains("directx") || desc.Contains("cabinet"))
+                    score -= 25;
+
+                // Penalize noise in InternalName (-20)
+                if (internalName == "setup" || internalName.Contains("launcher") ||
+                    internalName.Contains("uninstall") || internalName.Contains("crash") ||
+                    internalName.Contains("error"))
+                    score -= 20;
+
+                // Bonus for game-like descriptions (+10)
+                if (desc.Contains("retail") || desc.Contains("client") ||
+                    desc.Contains("shipping"))
+                    score += 10;
+            }
+            catch
+            {
+                // PE read failed (broken header, old exe, etc.) — continue with existing score
+            }
         }
-        catch { }
 
-        // PE metadata scoring: penalize noise patterns in Description/InternalName.
-        // Uses System.Diagnostics.FileVersionInfo — built into .NET, no external dependencies.
-        // Gracefully degrades on read failure (old/broken PE headers).
-        try
-        {
-            var peInfo = System.Diagnostics.FileVersionInfo.GetVersionInfo(exePath);
-            string desc = (peInfo.FileDescription ?? "").ToLowerInvariant();
-            string internalName = (peInfo.InternalName ?? "").ToLowerInvariant();
-
-            // Penalize noise in FileDescription (-25)
-            if (desc.Contains("setup") || desc.Contains("microsoft") ||
-                desc.Contains("uninstall") || desc.Contains("redistributable") ||
-                desc.Contains("directx") || desc.Contains("cabinet"))
-                score -= 25;
-
-            // Penalize noise in InternalName (-20)
-            if (internalName == "setup" || internalName.Contains("launcher") ||
-                internalName.Contains("uninstall") || internalName.Contains("crash") ||
-                internalName.Contains("error"))
-                score -= 20;
-
-            // Bonus for game-like descriptions (+10)
-            if (desc.Contains("retail") || desc.Contains("client") ||
-                desc.Contains("shipping"))
-                score += 10;
-        }
-        catch
-        {
-            // PE read failed (broken header, old exe, etc.) — continue with existing score
-        }
-
-        return score;
+        return new ExeScoreResult(score, fileDescription);
     }
+
+    /// <summary>
+    /// Result of finding the primary executable in a game directory.
+    /// </summary>
+    internal sealed record PrimaryExeResult(string? ExePath, string? FileDescription);
 
     /// <summary>
     /// Finds the primary executable in a game directory by deep-searching and scoring candidates.
@@ -281,7 +301,7 @@ internal static class ExecutableDiscovery
     /// <param name="noiseDirectoryPatterns">Directory name substrings to exclude.</param>
     /// <param name="launcherPatterns">Launcher name substrings for scoring penalty.</param>
     /// <param name="tierLookup">Function to look up the severity tier for a noise pattern.</param>
-    internal static string? FindPrimaryExecutable(
+    internal static PrimaryExeResult FindPrimaryExecutable(
         DirectoryInfo dir,
         string[] topLevelExes,
         IReadOnlyList<string> noiseExePatterns,
@@ -293,22 +313,31 @@ internal static class ExecutableDiscovery
         if (candidates.Count == 0)
         {
             // Fallback: if even deep search found nothing, try top-level exes
-            if (topLevelExes.Length == 0) return null;
-            return topLevelExes
-                .OrderByDescending(f => new FileInfo(f).Length)
+            if (topLevelExes.Length == 0) return new PrimaryExeResult(null, null);
+            // Cache FileInfo.Length to avoid redundant syscalls (Plan 112 Step 4B)
+            string best = topLevelExes
+                .OrderByDescending(f => { try { return new FileInfo(f).Length; } catch { return 0; } })
                 .First();
+            return new PrimaryExeResult(best, null);
         }
 
         if (candidates.Count == 1)
-            return candidates[0];
+        {
+            // Read PE metadata for single candidate to capture FileDescription
+            string folderName = dir.Name;
+            Func<string, int> singleLookup = tierLookup ?? (_ => 999);
+            var result = ScoreExecutable(candidates[0], folderName, launcherPatterns, noiseExePatterns, singleLookup);
+            return new PrimaryExeResult(candidates[0], result.FileDescription);
+        }
 
         // Score all candidates and pick the best
-        string folderName = dir.Name;
+        string folderNameForScoring = dir.Name;
         Func<string, int> lookup = tierLookup ?? (_ => 999);
-        return candidates
-            .Select(exe => (Exe: exe, Score: ScoreExecutable(exe, folderName, launcherPatterns, noiseExePatterns, lookup)))
-            .OrderByDescending(x => x.Score)
-            .First().Exe;
+        var scored = candidates
+            .Select(exe => (Exe: exe, Result: ScoreExecutable(exe, folderNameForScoring, launcherPatterns, noiseExePatterns, lookup)))
+            .OrderByDescending(x => x.Result.Score)
+            .First();
+        return new PrimaryExeResult(scored.Exe, scored.Result.FileDescription);
     }
 
     /// <summary>
