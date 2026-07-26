@@ -97,28 +97,65 @@ displayName = FileSystemHelper.NormalizeDisplayName(subDir.Name)
 
 **Ghost Recon Breakpoint has NONE of the current signals.** It falls through to Pass 2 → `HasRootExecutableSignal()` → Standalone. This is wrong — it should be `UbisoftConnect`.
 
-**Note on GRB noise filtering:** `_upp` is already in `blacklist.json` Tier 13. So `GRB_UPP.exe` and `GRB_UPP_vulkan.exe` are already filtered as noise during `FindExecutablesDeep()`. The actual candidates scored are `GRB.exe` (536MB) and `GRB_vulkan.exe` (519MB) — 2 candidates, not 4. Both have empty FileDescription and empty InternalName in the PE data.
+**Note on GRB noise filtering:** `_upp` is in `blacklist.json` at `tier_12_trial_demo_stub`. However, due to a C# DTO property name mismatch (see Section 8 Finding #1), `_upp` is **NOT currently loaded** by the C# code. Regardless, the signal detection for `*_UPP*` (Step 3C) is independent of noise filtering. If the tier bug is fixed, `GRB_UPP.exe` and `GRB_UPP_vulkan.exe` would be filtered as noise during `FindExecutablesDeep()`. The actual candidates would then be `GRB.exe` (536MB) and `GRB_vulkan.exe` (519MB) — 2 candidates, not 4. Both have empty FileDescription and empty InternalName in the PE data.
 
 ---
 
 ## 2. Implementation Plan
 
-### Step 1: Investigate Full File Read Behavior
+### Step 1 (DEFERRED): Investigate Full File Read Behavior
 
 **Goal:** Identify which file-touching operation causes the I/O RESMON attributes to GamingCommander.
 
-**Approach:**
-- Add `Stopwatch`-based timing around the three file-touching operations in `ScoreExecutable()`:
-  1. First `new FileInfo(exePath).Length` (line 199)
-  2. Second `new FileInfo(exePath).Length` (line 235) 
-  3. `FileVersionInfo.GetVersionInfo(exePath)` (line 245)
-- Log: exe path, file size, time per operation
-- Run on Windows against Ghost Recon Breakpoint (2 candidates at ~500MB each)
-- Correlate timing data with RESMON I/O observations
+**Status: DEFERRED.** The root cause is suspected to be external (runtime/file system filter driver), and all known code paths have been ruled out. Instrumentation can be added later if needed. The remaining detection/performance fixes provide more immediate value.
 
-**File:** `ExecutableDiscovery.cs` — add Stopwatch around lines 199, 235, and 245
+### PE Metadata Reading — Evaluation
 
-**Note:** This is a diagnostic step. The timing data will determine whether further investigation is needed or if the issue is external to the application code.
+**Current approach:** `System.Diagnostics.FileVersionInfo.GetVersionInfo(exePath)` — built into .NET, no external dependencies.
+
+**How it works on Windows:** Calls Win32 `GetFileVersionInfoEx` which reads the `VERSIONINFO` resource from the PE file. This reads only the resource section (typically a few KB), not the entire exe. The I/O is disk-seek-intensive (one seek per file), not CPU-intensive.
+
+**Alternatives evaluated:**
+
+| Approach | Pros | Cons | Verdict |
+|----------|------|------|---------|
+| `FileVersionInfo.GetVersionInfo()` (current) | Built-in, well-tested, returns rich object (FileDescription, InternalName, ProductName, etc.) | I/O-bound on HDDs (seek per file), no control over read pattern | **Keep** — sufficient for our use case |
+| `PEReader` (System.Reflection.PortableExecutable) | Built-in, `PrefetchMetadata` option reads only metadata section, more I/O control | Returns raw PE headers — must manually parse VERSIONINFO resource for FileDescription; more complex code | **Future optimization** — if profiling shows FileVersionInfo is a bottleneck |
+| PeNet (third-party) | Full PE parser, easy API | External dependency, overkill for FileDescription only | **Not needed** |
+| Direct PE header parsing | Maximum control, minimum I/O | Significant implementation effort, fragile | **Not needed** |
+
+**Recommendation:** Keep `FileVersionInfo.GetVersionInfo()`. The main performance wins come from:
+1. **Step 4C:** Skipping PE read entirely for noise candidates (most impactful)
+2. **Step 4B:** Caching FileInfo.Length to avoid redundant syscalls
+3. **Step 5:** Async scanning to move I/O off the UI thread
+
+If profiling later shows `FileVersionInfo` itself is slow (unlikely — it's just a resource read), `PEReader` with `PrefetchMetadata` is the upgrade path. No code change needed now.
+
+### Step 1: Fix Blacklist JSON/C# DTO Tier Name Mismatch
+
+**Goal:** Make the C# `BlacklistLoader` correctly deserialize all 20 tiers from `blacklist.json`.
+
+**Problem:** Tiers 5-12 in `blacklist.json` use key names like `tier_5_error_crash_reporting` but the C# DTO properties expect `tier_5_unreal_build_debug`. This silently drops ~40 noise patterns from the tiered list.
+
+**File:** `BlacklistLoader.cs` — rename `[JsonPropertyName]` attributes to match current JSON keys.
+
+| Current Property Name | Current JsonPropertyName | Correct JsonPropertyName |
+|----------------------|-------------------------|-------------------------|
+| `Tier5UnrealBuildDebug` | `tier_5_unreal_build_debug` | `tier_5_error_crash_reporting` |
+| `Tier6CrashReporting` | `tier_6_crash_reporting` | `tier_6_drm_wrappers` |
+| `Tier7DrmWrappers` | `tier_7_drm_wrappers` | `tier_7_installer_utilities` |
+| `Tier8InstallerUtilities` | `tier_8_installer_utilities` | `tier_8_server_loader_stub` |
+| `Tier9ServerLoaderStub` | `tier_9_server_loader_stub` | `tier_9_distribution_tools` |
+| `Tier10DistributionTools` | `tier_10_distribution_tools` | `tier_10_dev_editor_tools` |
+| `Tier11DevEditorTools` | `tier_11_dev_editor_tools` | `tier_11_utilities_debug` |
+| `Tier12UtilitiesDebug` | `tier_12_utilities_debug` | `tier_12_trial_demo_stub` |
+| `Tier13TrialDemoStub` | `tier_13_trial_demo_stub` | `tier_13_media_codec_tools` |
+
+**Also rename the C# property names** to match the content (e.g., `Tier5ErrorCrashReporting`) for clarity. Update `GetTieredTiers()` yield statements accordingly. This is a rename-only change — no logic changes.
+
+**Risk:** Low. Deserialization uses `[JsonPropertyName]` which is just string matching. Renaming properties + updating JSON key references is mechanical.
+
+**Test:** Existing `BlacklistLoaderTests` should continue passing. Add a test that verifies `_upp` and `crash` are present in the loaded `TieredExePatterns`.
 
 ### Step 2: Use PE FileDescription for Display Name
 
@@ -187,19 +224,19 @@ if (resolvedType == GameSourceKind.UbisoftConnect)
 ```
 
 **3C. UPLAY PLUS executables as Ubisoft signal:**
-- `_upp` is already present in `blacklist.json` Tier 13 for **exe picking** noise filtering (confirmed working — `GRB_UPP.exe` and `GRB_UPP_vulkan.exe` are already filtered as non-primary candidates).
-- **However, `*_UPP*` executables in a folder are also SIGNAL for Ubisoft Connect detection.** The presence of Uplay Plus subscription variants indicates a Ubisoft Connect installation. This should be added as a detection signal in `StoreSignalDetector.HasUbisoftSignal()` by checking for `*_UPP*.exe` files at root.
+- `_upp` is in `blacklist.json` at `tier_12_trial_demo_stub` (see Section 8 for the loading bug). If/when the tier bug is fixed, `GRB_UPP.exe` and `GRB_UPP_vulkan.exe` would be filtered as noise during `FindExecutablesDeep()`.
+- **Regardless of noise filtering, `*_UPP*` executables in a folder are a SIGNAL for Ubisoft Connect detection.** The presence of Uplay Plus subscription variants indicates a Ubisoft Connect installation. This should be added as a detection signal in `StoreSignalDetector.HasUbisoftSignal()` by checking for `*_UPP*.exe` files at root.
 - The distinction: `_upp` is noise when picking which exe to launch, but signal when detecting which store platform the game belongs to.
 
 ### Step 4: Reduce Candidate Count
 
 **Goal:** Fewer `.exe` files opened = fewer PE reads = faster scan + less I/O.
 
-**4A. Early exit in `FindExecutablesDeep` (CAUTION — needs testing):**
-- After collecting root-level exes, if we have ≥3 candidates, skip child directory scan for UE Binaries paths.
-- **Risk:** For UE games where root exes are launchers/setup and the real game is in `Binaries/Win64/`, early exit would miss the correct exe. Scoring might compensate, but this is not guaranteed.
-- **Safer alternative:** Only skip if root candidates already include a Shipping/build exe (name contains "shipping" or "win64"). This indicates the real game exe is at root.
-- For GRB specifically: both candidates (GRB.exe, GRB_vulkan.exe) are at root level — early exit wouldn't change the candidate count.
+**4A. ~~Early exit in `FindExecutablesDeep`~~ DEFERRED:**
+- **Risk: HIGH.** Early exit when ≥3 root candidates could miss the real game exe in UE Binaries paths.
+- Even the "safer alternative" (skip only if root already has a Shipping exe) doesn't help for GRB where both candidates are at root.
+- Performance gain is marginal vs. risk of missing valid exes.
+- **Recommendation:** DEFER to a future performance plan after profiling confirms this is a bottleneck.
 
 **4B. Deduplicate `FileInfo.Length` calls:**
 - `ScoreExecutable()` calls `new FileInfo(exePath).Length` twice (lines 199 and 235)
@@ -207,17 +244,63 @@ if (resolvedType == GameSourceKind.UbisoftConnect)
 - Also change `FindPrimaryExecutable()` fallback (line 298) to avoid `OrderByDescending(f => new FileInfo(f).Length)` which creates FileInfo for every candidate
 
 **4C. Skip PE read for obviously-noise candidates:**
-- If the exe name already matches a high-severity noise pattern (Tier 1-5, penalty -30), skip the `FileVersionInfo.GetVersionInfo()` call entirely. The PE data won't rescue a -30 penalty to a winning score.
+- If the exe name already matches a high-severity noise pattern (Tier 1-4, penalty -30), skip the `FileVersionInfo.GetVersionInfo()` call entirely. The PE data won't rescue a -30 penalty to a winning score.
+- **Note:** Tiers 5-12 are currently not loaded correctly due to JSON/C# DTO mismatch (Section 8). Until that bug is fixed, only tiers 1-4 are reliable for this optimization. Consider fixing the tier bug as a prerequisite or part of this plan.
 
-### Step 5: Scan Progress Feedback
+### Step 5: Async Scanning with Progress Feedback
 
-**Goal:** Show the user what's happening during scan.
+**Goal:** Scan library roots in the background without freezing the UI. Show per-root scanning status. Allow navigation to other libraries while one is scanning.
 
-**Approach:**
-- `LibraryManager.Refresh()` reports progress via a callback or event
-- `FolderScanner.Scan()` logs each folder as it's processed
-- UI shows: "Scanning {folderName}..." in status bar
-- This is UI work — lower priority than the detection fixes
+**Current behavior:** `RefreshCurrentRootAsync()` is synchronous — blocks the UI thread during `_libraryManager.Refresh()` and `SelectScannerAndScan()`. The user sees "Scanning..." in the status bar but cannot interact with the app.
+
+**Target behavior:**
+- Scanning runs on a background thread via `Task.Run()`
+- Status bar shows "Scanning {rootName}..." while in progress
+- Left pane shows "⏳ Scanning..." badge on the root being scanned (reuse `LibraryRootEntry.IsScanning`)
+- User can navigate to other roots and view their games while scan is in progress
+- When scan completes, the root's game list refreshes and badge updates to "✓ N games"
+
+**Changes to `LibraryManager.cs`:**
+- Add `RefreshAsync(IProgress<ScanProgress>? progress = null)` method
+- `ScanProgress` record: `(string RootPath, string CurrentFolder, int FoldersCompleted, int TotalFolders)`
+- Each root scan wrapped in `Task.Run()` to offload from UI thread
+- Progress callback invoked per-folder during `FolderScanner.Scan()`
+
+**Changes to `ILibraryManager.cs`:**
+- Add `Task RefreshAsync(IProgress<ScanProgress>? progress = null)` to interface
+
+**Changes to `FolderScanner.cs`:**
+- `Scan()` accepts optional `IProgress<string>?` — reports each folder name as it's scanned
+- Alternatively: `Scan()` returns `IAsyncEnumerable<string>` yielding folder names (more idiomatic but requires C# 8+ async streams)
+
+**Changes to `MainWindow.axaml.cs`:**
+- `RefreshCurrentRootAsync()` becomes truly async:
+  ```csharp
+  private async Task RefreshCurrentRootAsync()
+  {
+      if (_isRefreshing) return;
+      _isRefreshing = true;
+      try
+      {
+          var progress = new Progress<ScanProgress>(p => 
+              SetStatusWithAutoClear($"Scanning {Path.GetFileName(p.RootPath)} — {p.CurrentFolder}..."));
+          await _libraryManager.RefreshAsync(progress);
+          _viewModel.Reload();
+      }
+      finally { _isRefreshing = false; }
+  }
+  ```
+
+**Changes to `ShellViewModel.cs`:**
+- `LoadGamesForRoot()` reads from database (already does this) — no change needed for background scan
+- Add per-root scanning state: `Dictionary<string, bool> RootScanningStatus`
+- Left pane badge shows "⏳ Scanning..." when `RootScanningStatus[root]` is true
+
+**Changes to `MainWindow.axaml`:**
+- Left pane already has status badge infrastructure (from LibrarySetupWindow pattern)
+- Bind badge to scanning state from ViewModel
+
+**Note:** This step does NOT change `FolderScanner.Scan()` logic — it adds an `IProgress<string>` parameter. The scanning itself remains synchronous internally; the async wrapper in `LibraryManager` runs it on a thread pool thread.
 
 ### Step 6: Documentation Updates
 
@@ -236,15 +319,21 @@ if (resolvedType == GameSourceKind.UbisoftConnect)
 
 | File | Change |
 |------|--------|
-| `ExecutableDiscovery.cs` | Cache FileInfo.Length, skip PE read for Tier 1-5 noise, propagate FileDescription from ScoreExecutable, conditional early exit in FindExecutablesDeep |
-| `FolderScanner.cs` | Use PE FileDescription for display name enrichment (standalone/Ubisoft/SteamEmu), add Ubisoft readme enrichment |
+| `ExecutableDiscovery.cs` | Cache FileInfo.Length, skip PE read for Tier 1-4 noise, propagate FileDescription from ScoreExecutable |
+| `FolderScanner.cs` | Use PE FileDescription for display name enrichment (standalone/Ubisoft/SteamEmu), add Ubisoft readme enrichment, add `IProgress<string>` parameter to `Scan()` |
 | `StoreSignalDetector.cs` | Add `uplay_download/` directory signal AND `*_UPP*` exe signal to `HasUbisoftSignal()` |
 | `UbisoftReadmeParser.cs` | **New** — parse `Support/Readme/` text files for publisher and game title |
+| `BlacklistLoader.cs` | **Fix** — rename C# DTO properties and `[JsonPropertyName]` attributes to match current JSON tier key names; add test for `_upp`/`crash` loading |
+| `LibraryManager.cs` | Add `RefreshAsync(IProgress<ScanProgress>?)` method — runs root scans on thread pool |
+| `ILibraryManager.cs` | Add `Task RefreshAsync(...)` to interface |
+| `ShellViewModel.cs` | Add per-root scanning state dictionary for left-pane badge display |
+| `MainWindow.axaml.cs` | Make `RefreshCurrentRootAsync()` truly async with `await` |
+| `MainWindow.axaml` | Bind left-pane scanning badge to ViewModel state |
 | `FileSystemHelper.cs` | (possibly) Add FileDescription noise filter helper |
-| `data/blacklist.json` | No change needed — `_upp` already at Tier 13 |
+| `data/blacklist.json` | No change needed — JSON is correct, C# DTO needs updating |
 | `docs/GAME-DETECTION-LOGIC.md` | Document new signals and enrichment |
 | `tests/App.Tests/UbisoftReadmeParserTests.cs` | **New** — tests for readme parsing |
-| `tests/App.Tests/StoreSignalDetectorTests.cs` | Add tests for `uplay_download/` signal |
+| `tests/App.Tests/StoreSignalDetectorTests.cs` | Add tests for `uplay_download/` and `*_UPP*` signals |
 
 ---
 
@@ -252,26 +341,39 @@ if (resolvedType == GameSourceKind.UbisoftConnect)
 
 | Test | Description |
 |------|-------------|
+| `BlacklistLoader_AllTiersLoaded` | All 20 JSON tiers deserialize correctly; `_upp` and `crash` present in TieredExePatterns |
+| `BlacklistLoader_UppTierNumberCorrect` | `_upp` has correct tier number (12) in TieredExePatterns |
 | `UbisoftReadmeParser_ParsesStandardFormat` | First 4 lines: publisher, title, copyright, blank → returns title |
 | `UbisoftReadmeParser_MissingFile` | No Support/Readme/ dir → returns null |
 | `UbisoftReadmeParser_EmptyFile` | Empty readme → returns null |
 | `UbisoftReadmeParser_CaseInsensitive` | `support/readme/` works same as `Support/Readme/` |
+| `UbisoftReadmeParser_NonStandardFormat` | Readme with fewer than 4 lines → returns what's available |
 | `StoreSignalDetector_DetectsUplayDownload` | Folder with `uplay_download/` → UbisoftConnect |
 | `StoreSignalDetector_UplayDownloadWithManifest` | Folder with both → still UbisoftConnect (no conflict) |
 | `StoreSignalDetector_DetectsUppExe` | Folder with `*_UPP*.exe` → UbisoftConnect |
 | `StoreSignalDetector_UppIsNoiseButSignal` | `*_UPP*.exe` is noise for exe picking but signal for Ubisoft detection |
+| `ExecutableDiscovery_ScoreExecutable_ReturnsFileDescription` | PE FileDescription returned alongside score |
+| `ExecutableDiscovery_ScoreExecutable_SkipsPeReadForTier1Noise` | Tier 1-4 noise exe → no PE read (fast path) |
+| `FolderScanner_AddGameEntry_UsesPeDescriptionForDisplayName` | Non-store game with PE FileDescription → display name from PE |
+| `FolderScanner_AddGameEntry_PeDescriptionEmpty_KeepsFolderName` | Empty FileDescription → folder name unchanged |
+| `LibraryManager_RefreshAsync_RunsInBackground` | RefreshAsync completes without blocking, progress callback invoked per root |
+| `FolderScanner_Scan_ReportsProgress` | Scan with IProgress reports folder names as they're processed |
 
 ---
 
 ## 5. Success Criteria
 
+- [ ] All 20 blacklist tiers correctly loaded (JSON/C# DTO key names match)
 - [ ] Display names resolved from PE `FileDescription` for non-store-enriched games
 - [ ] `uplay_download/` folder detected as Ubisoft signal
 - [ ] `*_UPP*` executables detected as Ubisoft signal (distinct from noise filtering for exe picking)
 - [ ] Ubisoft `support/Readme` metadata extracted for display name
 - [ ] `FileInfo.Length` called once per exe (not twice)
-- [ ] PE read skipped for confirmed-noise candidates (Tier 1-5)
-- [ ] Full file read behavior instrumented with timing data (root cause TBD)
+- [ ] PE read skipped for confirmed-noise candidates (Tier 1-4)
+- [ ] Scanning runs on background thread — UI remains responsive
+- [ ] Left pane shows "⏳ Scanning..." badge on root being scanned
+- [ ] User can navigate to other roots while scan is in progress
+- [ ] Status bar shows current folder being scanned
 - [ ] Build clean, all tests pass
 - [ ] Documentation updated
 
@@ -279,16 +381,11 @@ if (resolvedType == GameSourceKind.UbisoftConnect)
 
 ## 6. Investigation Required
 
-### Full File Read Mystery (Needs Windows profiling)
+### Full File Read Mystery — DEFERRED
 
 `FileVersionInfo.GetVersionInfo()` has been **ruled out** by the user testing the same .NET API in PowerShell with no full-file reads observed. The full-file reads reported by RESMON with GamingCommander as the source remain unexplained.
 
-**Next step:** Add `Stopwatch`-based timing instrumentation around all file-touching operations in `ScoreExecutable()`:
-1. `new FileInfo(exePath).Length` (first call, line 199)
-2. `new FileInfo(exePath).Length` (second call, line 235)  
-3. `FileVersionInfo.GetVersionInfo(exePath)` (line 245)
-
-Run against Ghost Recon Breakpoint (2 candidates at ~500MB each) on Windows. Compare wall-clock time and check if RESMON I/O correlates with any specific operation. This will narrow down the cause without guessing.
+**Status: DEFERRED from this plan.** All known code paths have been verified. The issue may be external (runtime or file system filter driver). Instrumentation can be added as a follow-up if needed.
 
 ---
 
@@ -298,8 +395,78 @@ Run against Ghost Recon Breakpoint (2 candidates at ~500MB each) on Windows. Com
 |------|---------|-------|
 | Plan 109 (Epic Manifest) | None | Different store |
 | Plan 110 (User Tags) | None | Different feature |
-| `META/SESSION/NEXT.md` item 8 | Direct match | "P2 — EA/Ubisoft Registry Fallback" — this plan partially addresses Ubisoft detection |
+| `META/SESSION/NEXT.md` item 8 | Direct match | "P1 — EA/Ubisoft Registry Fallback" — this plan partially addresses Ubisoft detection |
+| `META/SESSION/NEXT.md` item 9 | Related | "P2 — EA/Ubisoft Registry Fallback" — separate concern (registry vs filesystem signals) |
 | `docs/GAME-DETECTION-LOGIC.md` | Documentation update | Existing doc needs new signals added |
+| TECH_DEBT "Blacklist tier flattening" | Pre-existing bug | Tier 5-12 JSON keys don't match C# DTO — fixed as Step 1 of this plan |
+
+---
+
+## 8. Review Findings (2026-07-26)
+
+### CRITICAL: Blacklist JSON/C# DTO Tier Name Mismatch (Bug)
+
+**Finding:** The plan states "`_upp` is already in `blacklist.json` Tier 13". This is **partially correct** — the pattern exists in the JSON but **is NOT being loaded by the C# code** due to a key name mismatch.
+
+**Evidence:**
+- JSON key: `"tier_12_trial_demo_stub": ["trial", "_upp"]` (blacklist.json line 49)
+- C# DTO property: `[JsonPropertyName("tier_13_trial_demo_stub")] Tier13TrialDemoStub` (BlacklistLoader.cs line 123)
+- Result: `_upp` (and `trial`) are **silently dropped** — never loaded into the tiered patterns list
+
+**Scope:** Tiers 5–12 in JSON have key names that don't match ANY C# property:
+| JSON Key | C# Property (stale) | Pattern Impact |
+|----------|---------------------|----------------|
+| `tier_5_error_crash_reporting` | `Tier5UnrealBuildDebug` (`tier_5_unreal_build_debug`) | `crash`, `error`, `crs-`, `bugsplat` NOT loaded |
+| `tier_6_drm_wrappers` | `Tier6CrashReporting` (`tier_6_crash_reporting`) | `xlive` NOT loaded |
+| `tier_7_installer_utilities` | `Tier7DrmWrappers` (`tier_7_drm_wrappers`) | `autorun`, `7za`, `xdelta` NOT loaded |
+| `tier_8_server_loader_stub` | `Tier8InstallerUtilities` (`tier_8_installer_utilities`) | `dedicatedserver`, `stub`, `update`, `loader`, `browser`, `dowser` NOT loaded |
+| `tier_9_distribution_tools` | `Tier9ServerLoaderStub` (`tier_9_server_loader_stub`) | `sdcr`, `tachyon`, `movie`, `intro` NOT loaded |
+| `tier_10_dev_editor_tools` | `Tier10DistributionTools` (`tier_10_distribution_tools`) | `editor`, `modmanager`, `packagemanager` NOT loaded |
+| `tier_11_utilities_debug` | `Tier11DevEditorTools` (`tier_11_dev_editor_tools`) | `install`, `debug`, `utils`, `sndrpt` NOT loaded |
+| `tier_12_trial_demo_stub` | `Tier12UtilitiesDebug` (`tier_12_utilities_debug`) | `trial`, `_upp` NOT loaded |
+
+**Impact on Plan 112:**
+- Step 3C (`_UPP*` as signal) — works fine (signal detection, not scoring-dependent)
+- Step 4C (skip PE read for Tier 1-5) — CANNOT work as described because tiers 5-12 don't load correctly
+- The flat `ExeNamePatterns` list only contains patterns from tiers 1-4 and 13-20 (skipping 5-12 entirely)
+
+**Resolution:** This is a pre-existing bug, not introduced by Plan 112. It should be logged as a separate P1 bug in TECH_DEBT and fixed as part of Plan 112 or separately. Fix: rename C# DTO property names to match the current JSON keys, or renumber the JSON to match C# properties.
+
+### Verified Claims
+
+| Claim | Status | Notes |
+|-------|--------|-------|
+| `FileVersionInfo.GetVersionInfo()` reads full files | ✅ Confirmed NOT the cause | Code path verified — built-in .NET API uses PE header parsing, not full reads |
+| `ScoreExecutable()` calls `FileInfo.Length` twice | ✅ Verified | Lines 199 and 235 — both in try-catch, no caching |
+| `FindPrimaryExecutable()` fallback creates FileInfo per candidate | ✅ Verified | Line 298: `OrderByDescending(f => new FileInfo(f).Length)` — allocates FileInfo for every candidate |
+| `_upp` in blacklist.json | ⚠️ Present but not loaded | See CRITICAL finding above |
+| `uplay_download/` not checked anywhere | ✅ Verified | No reference in any source file |
+| Ubisoft `support/Readme` not parsed | ✅ Verified | "support" is in `NoiseSubDirNames` (skipped during exe search, but Readme parser is metadata — separate concern) |
+| `Support/Readme/` case sensitivity | ℹ️ Windows-only target | Filesystem is case-insensitive on Windows; code should use `OrdinalIgnoreCase` for robustness |
+| `NormalizeDisplayName` already strips "Edition" | ✅ Verified | FileSystemHelper.cs line 131 — strips "Remastered", "Definitive Edition", etc. |
+
+### Step 4A Risk Assessment
+
+**Plan proposes:** Early exit in `FindExecutablesDeep()` when ≥3 root candidates found.
+
+**Risk: HIGH.** The safer alternative (skip only if root already contains a Shipping exe) is recommended. However, for the specific GRB case, both candidates are at root — early exit doesn't help. **Recommendation: DEFER Step 4A** — the performance benefit is marginal and the risk of missing valid exes is real.
+
+### Additional Observations
+
+1. **Step 2 guard conditions incomplete:** Plan lists when NOT to use PE FileDescription but misses:
+   - FileDescription equals current displayName (no change needed)
+   - FileDescription is ≤2 characters (likely noise)
+   - FileDescription matches exe filename stem when folder name is already descriptive
+
+2. **Step 4C implementation detail:** The `ScoreExecutable()` method applies the noise penalty BEFORE the PE section (line 222), and the PE section is at the end (lines 240-269). The skip check should go between the noise loop and the PE section. The current `break` on first noise match (line 223) means only one penalty is applied — the method doesn't accumulate penalties.
+
+3. **Missing test coverage:** Plan's test list doesn't include:
+   - `ScoreExecutable` returning FileDescription
+   - `FindPrimaryExecutable` propagating FileDescription
+   - PE skip optimization behavior
+   - FileInfo.Length deduplication correctness
+
+4. **Step 5 (progress feedback):** Correctly identified as lower-priority UI work. Should be explicitly marked DEFERRED from this plan.
 
 ---
 

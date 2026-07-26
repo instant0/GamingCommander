@@ -47,7 +47,7 @@ For each implementation task:
 4. Refactor: keep files focused, avoid duplicated logic, extract complex responsibilities.
 5. Build and test.
 
-**Documentation-only sessions:** When only editing `.md` files, do NOT run `dotnet build` or `dotnet test`. Documentation has no code to verify.
+**Documentation-only sessions:** When the session is documentation-only (planning, TECH_DEBT, IDEAS, README, docs, AGENTS, META files, planning files), do NOT run `dotnet build` or `dotnet test`. Documentation has no code to verify. Do not waste tokens confirming documentation correctness with a build.
 
 ## Safety Rules
 

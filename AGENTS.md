@@ -2,7 +2,9 @@
 
 **Read this file before making any repository changes.**
 
-This file defines the operating system for autonomous AI agents. Project progress, current tasks, and changing decisions belong in `META/` and `PLANNING/`.
+This file defines the operating system for autonomous AI agents. 
+
+Project progress, current tasks, and changing decisions belong in `META/` and `PLANNING/`.
 
 ---
 
@@ -21,14 +23,12 @@ Build clean, continuing with <next task>
 Do not provide large summaries unless explicitly requested.
 
 ### Documentation-Only Changes
-When the session is documentation-only (plans, TECH_DEBT, IDEAS, README, docs, AGENTS, META session files, planning files):
-- **Do NOT build or run tests.** There is no code to verify.
-- **Do NOT waste tokens on `dotnet build` or `dotnet test`.** These confirm code correctness, not documentation correctness.
+- DO NOT build or run tests when working with documentation.
 - Update the session files and stop.
 
 ### Plan Writing
 When writing plans:
-- **Do NOT include effort estimates or time estimates.** They are guesswork, add noise, and "sell" the plan instead of describing it.
+- **Do NOT include effort estimates or time estimates.** 
 - Focus on: what changes, why, what files are affected, what the success criteria are.
 - Do not pad plans with unnecessary sections to make them look thorough.
 
