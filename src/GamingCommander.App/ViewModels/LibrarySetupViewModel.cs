@@ -47,6 +47,8 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
     /// <summary>Opens a folder picker, scans the folder, and adds it as a library root.</summary>
     public async Task AddRootAsync()
     {
+        ScanStatus = string.Empty;
+
         var folders = await _window.StorageProvider.OpenFolderPickerAsync(
             new FolderPickerOpenOptions { Title = "Select Library Root", AllowMultiple = false });
 
@@ -55,6 +57,25 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
         string path = LibraryManager.NormalizeLibraryRoot(rawPath);
 
         if (Entries.Any(e => e.Path.Equals(path, StringComparison.OrdinalIgnoreCase))) return;
+
+        // Nesting check: reject if this path is inside an existing root or contains one
+        foreach (var existing in Entries)
+        {
+            if (LibraryManager.IsChildOf(path, existing.Path))
+            {
+                string existingName = Path.GetFileName(existing.Path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+                ScanStatus = $"This folder is inside an existing library root ({existingName}). Pick one or the other.";
+                OnPropertyChanged(nameof(ScanStatus));
+                return;
+            }
+            if (LibraryManager.IsChildOf(existing.Path, path))
+            {
+                string existingName = Path.GetFileName(existing.Path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+                ScanStatus = $"An existing library root ({existingName}) is inside this folder. Remove it first if you want to add the parent.";
+                OnPropertyChanged(nameof(ScanStatus));
+                return;
+            }
+        }
 
         GameSourceKind defaultType = GameSourceParser.InferFromPath(path);
         Entries.Add(new LibraryRootEntry(path, defaultType.ToString(), 0));
@@ -95,6 +116,14 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
     {
         _window.Close();
     }
+
+    /// <summary>Status message shown in the dialog (e.g., rejection reason).</summary>
+    public string ScanStatus
+    {
+        get => _scanStatus;
+        private set => SetProperty(ref _scanStatus, value);
+    }
+    private string _scanStatus = string.Empty;
 
     /// <summary>
     /// Scans a folder and saves it as a library root.

@@ -129,7 +129,7 @@ public sealed class ShellViewModel : ReactiveObject
         new ShellCommandViewModel { Hotkey = "F2", Label = "Setup" },
         new ShellCommandViewModel { Hotkey = "F3", Label = "Info" },
         new ShellCommandViewModel { Hotkey = "F4", Label = "Edit" },
-        new ShellCommandViewModel { Hotkey = "F6", Label = "Rescan" },
+        new ShellCommandViewModel { Hotkey = "F5", Label = "Rescan" },
         new ShellCommandViewModel { Hotkey = "F8", Label = "Filter" },
         new ShellCommandViewModel { Hotkey = "F9", Label = "Library Roots" },
         new ShellCommandViewModel { Hotkey = "F10", Label = "Quit" },
@@ -238,7 +238,7 @@ public sealed class ShellViewModel : ReactiveObject
 
     /// <summary>
     /// Replaces the current root's game entries with freshly scanned data.
-    /// Called from MainWindow after F6 rescans the folder.
+    /// Called from MainWindow after F5 rescans the folder.
     /// </summary>
     public void ApplyRescannedGames(IReadOnlyList<GameEntry> games)
     {

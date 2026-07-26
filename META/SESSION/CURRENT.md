@@ -10,11 +10,13 @@
 Code quality Phases D–G largely done (T58–T60 complete; T48–T57 deferred until MVP gate).
 
 ## Priority Roadmap
-1. **MVP ship gate (P0)** — Fix launch pipeline, first-run defaults, C# detection parity, Windows smoke → see Plan 100
-2. **Standalone & Steam completion (P1)** — remaining container/launcher edges after MVP
-3. **Phase G quality (P2)** — T48–T57 tests/constants after MVP
-4. **PCGamingWiki Metadata (P2)** — Research complete, C# 0%
-5. **Multi-Theme / .NET 9 (P3)** — Nice-to-have
+1. **P0 — Fix Battle.net detection** — `blizzard` in noise filter blocks all BattleNet games → see `planning/107-battle-net-detection-fix.md`
+2. **P1 — Unify setup screens** — Merge Wizard + F2 into single LibrarySetupWindow → see `planning/106-unified-setup-screen.md`
+3. **P2 — Steam status messages** — Actionable guidance for Orphaned/Missing/Moved → see `planning/108-steam-status-messages.md`
+4. **Phase G quality (P2)** — T48–T57 tests/constants after MVP
+5. **Tags + Metadata Display (P2)** — User tags, PCGW scraping, engine/store badges → see Plan 102
+6. **detect.py port completion (P2)** — Remaining gaps → see Plan 103
+7. **detect.py module split (P3)** — Break into 8 modules → see Plan 104
 
 ## Objectives Achieved
 1. ✅ Game detection overhaul — Phase 1+2 complete
@@ -31,10 +33,15 @@ Code quality Phases D–G largely done (T58–T60 complete; T48–T57 deferred u
 ## Known Issues Found During Investigation
 
 ### Bugs
-- ~~**Static vs instance noise check divergence (HIGH)**~~ ✅ Fixed by T21 — dead `IsNoiseExePattern()` deleted; all callers use `IsNoiseExeName`/`IsNoiseExeByPath` backed by full JSON blacklist.
+- ~~**Static vs instance noise check divergence (HIGH)**~~ ✅ Fixed by T21
 - **Blacklist tier flattening (MEDIUM)** — 21 tiers reduced to flat list at load; can't apply per-tier severity.
 - **Scoring ignores JSON blacklist (MEDIUM)** — Only ~10 hardcoded launcher patterns penalized.
 - **Stale TECH_DEBT entries** — Bugs 1-4 appear fixed in code but entries never closed.
+- **F6 Rescan crashes (CRITICAL)** — `ContainerScanner` permission errors, no top-level try-catch, no re-entrancy guard, duplicate ID crash → Plan 105
+- **Battle.net detection fails (HIGH)** — `"blizzard"` in `NoiseSubDirNames` skips entire publisher folder → Plan 107
+- **Steam Controller Config noise (LOW)** — Not in noise filter, appears as orphaned game → Plan 107
+- **Duplicate setup screens (MEDIUM)** — Wizard + F2 with 60-70% overlapping code → Plan 106
+- **blacklist.json in user data (MEDIUM)** — Should ship alongside exe, not in user data folder → Plan 107 / Bug 16
 
 ### Test Coverage Gaps
 - `StoreSignalDetector` — zero tests (10 detection signals)
@@ -43,6 +50,21 @@ Code quality Phases D–G largely done (T58–T60 complete; T48–T57 deferred u
 - `JsonConfigService` — zero tests (settings persistence)
 
 ## Completed This Session
+
+### F6 Crash Fix + F5 Rescan Rebinding (Plan 105 — Complete)
+Fixed 5 crash paths in the rescan pipeline and moved F6→F5:
+
+| Fix | File | Change |
+|-----|------|--------|
+| Safe file enumeration | `FileSystemHelper.cs` | Added `GetFilesSafe(DirectoryInfo)` method |
+| ContainerScanner crash | `ContainerScanner.cs` | Lines 104-105 now use `FileSystemHelper.GetFilesSafe` + `GetDirectoriesSafe` |
+| Duplicate ID crash | `GamesDatabaseService.cs` | `RescanRoot` uses manual dictionary loop instead of `ToDictionary` |
+| Per-root error handling | `LibraryManager.cs` | `Refresh()` wrapped each root iteration in try-catch |
+| Re-entrancy + top-level catch | `MainWindow.axaml.cs` | Added `_isRefreshing` guard + try-catch in `RefreshCurrentRootAsync` |
+| F6→F5 keybind | 5 files | `OnKeyDown`, `CommandButtonPressed`, `ShellViewModel.Commands`, `HelpDialogBuilder`, comment |
+
+**Tests added:** 2 (duplicate ID handling in `GamesDatabaseServiceTests`)
+**Total:** 219 tests passing (33 Core + 1 Migration + 185 App). Build clean.
 
 ### MVP — T75: Windows Smoke Bugfixes (Complete)
 Fixed 11 of 12 bugs from T70 Windows smoke gate. Build clean, 209 tests passing.
@@ -72,11 +94,14 @@ Fixed 11 of 12 bugs from T70 Windows smoke gate. Build clean, 209 tests passing.
 - Rationale: F7 was a strict subset of F2 (Library Setup) with worse type detection (Steam-only vs 10-store inference), no type override, no remove/rescan
 - Build clean, 209 tests passing
 
-### MVP — T76: Library Root Nesting Prevention (Pending)
-- Task written: prevent duplicate games from nested library roots
-- Two scenarios: Reject child-of-existing, Absorb parent-of-existing
-- Touches LibraryManager, ILibraryManager, WizardViewModel, LibrarySetupViewModel, MainWindow
-- Awaiting implementation
+### MVP — T76: Library Root Nesting Prevention (Complete)
+- Added `LibraryManager.IsChildOf()` static method — checks if one path is inside another
+- Added nesting check in `LibrarySetupViewModel.AddRootAsync()` and `WizardViewModel.AddEntryAsync()`
+- Both reject with a message if the new path conflicts with an existing entry (child-of or parent-of)
+- Sibling directories (e.g., `d:\games\EPIC` and `d:\games\blizzard`) are allowed
+- Created `LibraryManagerTests.cs` — 8 tests for `IsChildOf` edge cases
+- ~40 lines added total, no interfaces changed, no existing code modified
+- Build clean, 217 tests passing
 
 ### MVP — T71: Remove F5 Launch Keybind (Complete)
 - Removed `case Key.F5:` keyboard handler and `case "F5":` command dispatcher from `MainWindow.axaml.cs`
@@ -327,7 +352,22 @@ All hardcoded colors and font sizes centralized to `App.axaml` Application.Resou
 - All 154 tests passing (33 Core + 1 Migration + 120 App). Build clean.
 
 ## Test Status
-**209 tests passing** (33 Core + 1 Migration + 175 App). Build clean, 0 errors, 0 warnings.
+**219 tests passing** (33 Core + 1 Migration + 185 App). Build clean, 0 errors, 0 warnings.
+
+## Documentation Review (Current Session)
+- Fixed stale test count in CODE_MAP.md (99→217, App.Tests 65→183)
+- Removed F5/F7 from CODE_MAP.md MainWindow handler list
+- Removed stale "Critical bug" section from NEXT.md (bug fixed in T61/T62)
+- Updated NEXT.md recently completed list with full task history
+- Marked TECH_DEBT default settings entry as fixed (T64), updated UI button stale info
+- Added MVP milestone to ROADMAP.md
+- Updated README.md with MVP-complete status and feature summary
+- Updated plan 100 status to COMPLETE with checkboxes filled
+- Fixed stale test counts in T61/T75 completion notes
+- Removed .NET 9 from active backlog (deferred indefinitely)
+- Created Plan 102: Tags + Metadata Display System (user tags, PCGW scraping, engine/store badges, metadata display)
+- Created Plan 103: detect.py Port Status (detailed C# parity analysis, ~75% complete)
+- Created Plan 104: detect.py Module Split (8 modules, ~3.5 hours, backward-compatible)
 
 ## Next Session Notes
 - **MVP plan written** — `planning/100-mvp-next-steps.md`; session NEXT re-aimed

@@ -316,4 +316,49 @@ public sealed class GamesDatabaseServiceTests : IDisposable
         var dGames = svc.GetGamesForRoot(@"D:\Games");
         Assert.Empty(dGames);
     }
+
+    // ════════════════════════════════════════════════════════════════
+    //  Crash Prevention
+    // ════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void RescanRoot_DuplicateIds_DoesNotCrash()
+    {
+        var svc = CreateService();
+        // Add root with a single game
+        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone, [MakeGame("g1")]);
+
+        // Rescan with duplicate IDs in the scan results — should not throw
+        var duplicate1 = MakeGame("g1", "Game1", "First");
+        var duplicate2 = MakeGame("g1", "Game1", "Second");
+        svc.RescanRoot(@"D:\Games", [duplicate1, duplicate2]);
+
+        var games = svc.GetGamesForRoot(@"D:\Games");
+        // First duplicate merges with existing, second is treated as new — no crash
+        Assert.Equal(2, games.Count);
+    }
+
+    [Fact]
+    public void RescanRoot_DuplicateExistingIds_DoesNotCrash()
+    {
+        var svc = CreateService();
+        // Manually create a database with duplicate IDs (corruption scenario)
+        // by adding the same game ID twice via raw operations
+        var game1 = MakeGame("g1", "Game1", "First");
+        var game2 = MakeGame("g1", "Game1", "Second");
+        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone, [game1]);
+
+        // Directly corrupt the database by saving duplicate IDs
+        var db = svc.Load();
+        var root = db.Roots[0];
+        var corruptedRoot = root with { Games = [game1, game2] };
+        svc.Save(new GamesDatabase([corruptedRoot]));
+
+        // Rescan should not crash on duplicate IDs
+        var svc2 = CreateService();
+        svc2.RescanRoot(@"D:\Games", [MakeGame("g1", "Game1", "Third")]);
+
+        var games = svc2.GetGamesForRoot(@"D:\Games");
+        Assert.Single(games); // Duplicates collapsed
+    }
 }

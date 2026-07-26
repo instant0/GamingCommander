@@ -74,6 +74,23 @@ internal static class FileSystemHelper
     }
 
     /// <summary>
+    /// Returns all files in a directory (top-level only), or an empty array if access fails.
+    /// Catches UnauthorizedAccessException, IOException, and other filesystem errors
+    /// common on Windows when scanning game libraries.
+    /// </summary>
+    internal static FileInfo[] GetFilesSafe(DirectoryInfo dir)
+    {
+        try
+        {
+            return dir.GetFiles("*", SearchOption.TopDirectoryOnly);
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    /// <summary>
     /// Checks if an executable name (without extension) matches any noise pattern.
     /// Used by FolderScanner, ExecutableDiscovery, and SteamLibraryScanner to filter
     /// non-game executables (installers, redistributables, launchers, etc.).

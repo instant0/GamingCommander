@@ -100,11 +100,18 @@ public sealed class LibraryManager : ILibraryManager
         AppConfig config = _configService.Load();
         foreach (LibraryRoot root in config.LibraryRoots)
         {
-            if (!Directory.Exists(root.RootPath))
-                continue;
+            try
+            {
+                if (!Directory.Exists(root.RootPath))
+                    continue;
 
-            IReadOnlyList<GameEntry> games = SelectScannerAndScan(root.RootPath, root.DefaultType);
-            _databaseService.RescanRoot(root.RootPath, games);
+                IReadOnlyList<GameEntry> games = SelectScannerAndScan(root.RootPath, root.DefaultType);
+                _databaseService.RescanRoot(root.RootPath, games);
+            }
+            catch
+            {
+                // Continue with next root — don't let one failing root skip the rest
+            }
         }
     }
 
@@ -177,5 +184,25 @@ public sealed class LibraryManager : ILibraryManager
             candidate = Path.GetDirectoryName(candidate);
         }
         return selectedPath;
+    }
+
+    /// <summary>Returns true if <paramref name="childPath"/> is inside <paramref name="parentPath"/>.</summary>
+    public static bool IsChildOf(string childPath, string parentPath)
+    {
+        string child = childPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar, '\\');
+        string parent = parentPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar, '\\');
+
+        if (!child.StartsWith(parent, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        // Exact match is not a child
+        if (child.Length == parent.Length)
+            return false;
+
+        // Must be followed by a separator (not a partial directory name match like "games2" vs "games")
+        char next = child[parent.Length];
+        return next == Path.DirectorySeparatorChar
+            || next == Path.AltDirectorySeparatorChar
+            || next == '\\';
     }
 }

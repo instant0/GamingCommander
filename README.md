@@ -6,14 +6,17 @@ The visual goal is inspired by classic commander-style tools, but the UI should 
 
 ## Current State
 
-The repository is in Phase 2: Steam & Standalone Games.
+The repository is in Phase 2: Steam & Standalone Games. **MVP is declared complete.**
 
-Current work focuses on:
+Current status:
 
-- standalone game detection and metadata collection,
-- Steam library scanning and ACF cross-referencing,
-- executable scoring and noise filtering,
-- UI polish and theme system.
+- ✅ Steam library scanning, ACF cross-referencing, Installed/Moved/Orphaned/Missing detection
+- ✅ Standalone game detection for 10 platforms (GOG, EA, Ubisoft, Epic, Blizzard, Xbox, Rockstar, Steam Emu)
+- ✅ Executable scoring and noise filtering (21-tier blacklist, 320+ patterns)
+- ✅ Game launching: `steam://` URI for Steam, direct `.exe` with args for standalone
+- ✅ GOG metadata extraction, UE-aware exe discovery, `.lnk` shortcut resolution, container detection
+- ✅ Dual-pane NC UI, first-run wizard, F2/F4/F6/F9 workflows, theme centralization
+- 217 tests passing across Core, Detection, Migration, and App test projects
 
 ## Development Environment
 

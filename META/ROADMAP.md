@@ -56,4 +56,5 @@ GamingCommander is a C# Windows-native game management and launcher application 
 | 2025-Q3 | Phase 1.1 | First-run wizard, virtual FS navigation, F2/T keys, details panel enhanced |
 | 2025-Q4 | Phase 1.1a | Navigation/mouse fixes, 17 tests, mock data, Python validation tools |
 | 2026-Q1 | Phase 1.2 | Research docs for Steam ACF/VDF, Epic, standalone, GOG, EA, Ubisoft |
-| 2026-Q2 | Phases D+E | Code quality: complexity reduction (T16-T29), stabilization + test coverage (T31-T40): 99 tests, 0 bugs, 5 files extracted |
+| 2026-Q2 | Phases D+E | Code quality: complexity reduction (T16–T29), stabilization + test coverage (T31–T40): 99 tests |
+| 2026-Q2 | **MVP (Phase H)** | Launch pipeline fixed, GOG/UE/lnk/container detection, 217 tests, Windows smoke gate passed |

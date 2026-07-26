@@ -38,3 +38,30 @@
 - Windows registry abstraction layer for testability
 - Integration test framework using mock data in data/mock/
 - **Configurable detection signals** — Move UE platform names, non-game folder patterns, and noise exe patterns to `data/blacklist.json` (or new `data/signals.json`). This allows updating detection logic without recompiling. Currently hardcoded in: `ExecutableDiscovery.s_uePlatformNames`, `FolderScanner.s_nonGameFolderNames`, `FileSystemHelper.NoiseSubDirNames`, `FolderScanner.DefaultNoiseExePatterns`.
+
+---
+
+## User Testing Feedback (2026-07-26)
+
+### blackist.json should not ship with user data
+- **Observation:** `blacklist.json` is a shipped reference file, not user data. When the user deleted their `data/` folder to reset, they had to re-copy `blacklist.json` back. Consider shipping `blacklist.json` alongside the exe (in the publish output) and loading from `AppContext.BaseDirectory` rather than the user's data directory.
+- **Impact:** MEDIUM — confusing for users who manage their data folder.
+
+### Orphaned vs Missing status distinction
+- **Observation:** "Orphaned" means physical folder exists but no ACF references it. "Missing" means ACF exists but game files not found. The distinction is not explained in the UI.
+- **Impact:** LOW — UX confusion. Consider adding tooltip or status detail text.
+
+### Library type ComboBox too narrow
+- **Observation:** ComboBox for library type (Standalone, Battle.net, etc.) is too small to show the full text.
+- **Impact:** LOW — cosmetic. Set `MinWidth` on ComboBox.
+
+### Steam Controller Configs should be noise-filtered
+- **Observation:** `Steam Controller Configs` folder in Steam library appears as an "Orphaned" game entry. This is a Steam internal folder, not a game.
+- **Impact:** LOW — noise entry. Add to skip list.
+
+### Two setup screens is confusing
+- **Observation:** "Why do we have two different setup screens that are supposed to do the same thing?" — Wizard vs F2. See Plan 106 for unification.
+
+### F5 should be refresh/rescan
+- **Observation:** Every application uses F5 for refresh. GamingCommander should too.
+- **Impact:** MEDIUM — UX convention mismatch. See Plan 105.

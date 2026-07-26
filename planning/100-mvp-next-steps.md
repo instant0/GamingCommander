@@ -1,6 +1,6 @@
 # Plan 100 — MVP Next Steps (Minimum Viable Working Product)
 
-**Status:** ACTIVE — execute this plan next  
+**Status:** COMPLETE — all work packages delivered  
 **Audience:** OpenCode / BigConda ZEN / any Builder agent  
 **Priority:** P0 product completeness (not more code-quality churn)  
 **Estimated effort:** ~2–3 focused sessions  
@@ -335,13 +335,13 @@ python tools/detect.py /path/to/games --log detect.log
 ## 8. One-page agent checklist
 
 ```
-[ ] WP-0  Session points at this plan
-[ ] WP-1  LaunchTarget + args + steam://   ← DO THIS FIRST
-[ ] WP-2  Default settings/games.json
-[ ] WP-3  GOG info, UE paths, lnk?, containers
-[ ] WP-4  Clickable F-keys / accurate help
-[ ] WP-5  Windows smoke gate
-[ ] Update CURRENT.md: MVP READY or blockers
+[x] WP-0  Session points at this plan
+[x] WP-1  LaunchTarget + args + steam://   ← DONE (T61, T62)
+[x] WP-2  Default settings/games.json      ← DONE (T64)
+[x] WP-3  GOG info, UE paths, lnk, containers ← DONE (T65, T66, T67, T68, T68C)
+[x] WP-4  Clickable F-keys / accurate help ← DONE (T69, T71)
+[x] WP-5  Windows smoke gate              ← DONE (T70, T75, T76, T77)
+[x] Update CURRENT.md: MVP READY          ← DONE
 [ ] Only then: stretch or Phase G
 ```
 

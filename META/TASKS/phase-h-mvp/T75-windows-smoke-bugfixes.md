@@ -263,5 +263,5 @@ BUG-1 (P0: rescan) → BUG-2 (P1: colors) → BUG-3 (P1: status) → BUG-4 (P1: 
 
 - **Completed:** 2026-07-26
 - **What was done:** Fixed 11 of 12 bugs (BUG-11 deferred to ExeCandidateSelector feature). Code changes across 11 files, 4 new tests added (209 total).
-- **Verification:** Build clean, 209 tests passing. Manual verification deferred to Windows smoke re-test.
+- **Verification:** Build clean, 217 tests passing. Manual verification deferred to Windows smoke re-test.
 - **Issues encountered:** BUG-11 (Browse start location) deferred — Avalonia `SuggestedStartLocation` API unavailable; design direction is ExeCandidateSelector instead.

@@ -101,8 +101,9 @@ internal static class ContainerScanner
             }
 
             // Publisher folder pattern: root has only dirs, no game children → recurse
-            FileInfo[] files = child.GetFiles("*", SearchOption.TopDirectoryOnly);
-            if (files.Length == 0 && child.GetDirectories().Length > 0)
+            FileInfo[] files = FileSystemHelper.GetFilesSafe(child);
+            DirectoryInfo[] dirs = FileSystemHelper.GetDirectoriesSafe(child.FullName);
+            if (files.Length == 0 && dirs.Length > 0)
             {
                 ScanContainerChildren(entries, child, rootPath, defaultType,
                     addGameEntry, hiddenFolderNames, noiseExePatterns, depth + 1);

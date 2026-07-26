@@ -134,7 +134,12 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
         if (rootIndex < 0) return;
 
         var existing = roots[rootIndex];
-        var existingGamesLookup = existing.Games.ToDictionary(g => g.Id);
+        // Build lookup manually to handle duplicate IDs gracefully (last-write-wins)
+        var existingGamesLookup = new Dictionary<string, GameEntry>();
+        foreach (GameEntry game in existing.Games)
+        {
+            existingGamesLookup[game.Id] = game;
+        }
         var newScannedGames = games.ToList();
         var mergedGames = new List<GameEntry>();
 

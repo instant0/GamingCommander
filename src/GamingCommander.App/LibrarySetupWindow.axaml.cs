@@ -32,7 +32,10 @@ public partial class LibrarySetupWindow : Window
             addBtn.IsEnabled = false;
             statusText.Text = "Opening folder picker...";
             await _vm.AddRootAsync();
-            statusText.Text = "Scanning complete.";
+            // Show rejection reason if set, otherwise default message
+            statusText.Text = string.IsNullOrEmpty(_vm.ScanStatus)
+                ? "Scanning complete."
+                : _vm.ScanStatus;
             RenderRoots();
             addBtn.IsEnabled = true;
         };

@@ -91,6 +91,31 @@ Both C# and Python check stores in **priority order** (first match wins). The C#
 | `uplay_install.state` | ✅ Detected (Python deep scan `_match_markers`) | ✅ Detected in `HasUbisoftSignal` | Parity |
 | Deep signal: `steam_emu.ini` | Phase 2 deep scan | `HasSteamEmuDeepSignal` in Pass 2 | Parity |
 | Deep signal: `steamapps/` dir or `.acf` files outside Steam library | ✅ `_has_steam_app_manifest` | ❌ Not implemented | **Gap** — standalone games mimicking Steam layout not detected as SteamEmu |
+| **`"blizzard"` in skip lists** | **Not in any skip list** | **In `NoiseSubDirNames` + `s_nonGameFolderNames`** | **CRITICAL GAP — C# skips the entire Blizzard publisher folder; Python processes it. C# has richer BattleNet detection (parent propagation, name heuristics, exe heuristics) but it's unreachable because the folder is skipped before detection runs.** |
+
+#### BattleNet Skip-List Regression (Detailed)
+
+This is the most significant divergence between the two systems. The C# implementation has **richer** BattleNet detection than Python:
+- `HasBattleNetGameSignal()` checks folder names (`warcraft`, `diablo`, `overwatch`, etc.)
+- `HasBattleNetGameSignal()` checks exe names (`DiabloIII.exe`, `Warcraft III.exe`, etc.)
+- Parent propagation checks if a child's parent has BattleNet signals
+
+**None of this code is ever reached** because:
+1. `FileSystemHelper.NoiseSubDirNames` (line 22) contains `"blizzard"` → `FolderScanner.Scan()` skips the entire directory
+2. `ContainerScanner.s_nonGameFolderNames` (line 26) contains `"blizzard"` → container recursion also skips it
+
+In `detect.py`, `"blizzard"` is absent from both `SKIP_NAMES` and `_NON_GAME_DIR_NAMES`. The publisher folder is processed normally as a container, and its children (game folders) are scanned for `.battle.net/` signals.
+
+**Scenario:** Library root is `d:\games\`, contains `d:\games\blizzard\Diablo III\` with `.battle.net/` directory.
+
+| Step | Python | C# |
+|------|--------|-----|
+| 1 | Scan `d:\games\` → find `blizzard/` | Scan `d:\games\` → find `blizzard/` |
+| 2 | `blizzard` not in `SKIP_NAMES` → proceed | `blizzard` in `NoiseSubDirNames` → **SKIP entire folder** |
+| 3 | Check children: `Diablo III/` has `.battle.net/` → BattleNet | Never reached |
+| 4 | Result: **Diablo III detected as BattleNet** | Result: **Diablo III never discovered** |
+
+**Fix:** Remove `"blizzard"` from both `NoiseSubDirNames` and `s_nonGameFolderNames`. Keep `"battle.net"` in skip lists (it's the launcher executable directory, not a game container).
 
 ### Key Design Notes
 
@@ -277,15 +302,20 @@ When scanning a library root's immediate children, these directories are **skipp
 FileSystemHelper.NoiseSubDirNames (hardcoded in C#):
   __redist, _commonredist, commonredist, redist, directx, vcredist, dotnet,
   physx, support, _installer, install, installer, easyanticheat, devtools,
-  docs, licenses, steam controller configs, steamworks shared
+  docs, licenses, steam controller configs, steamworks shared,
+  battle.net, blizzard    ← CRITICAL: "blizzard" blocks BattleNet detection
+```
 
 Python SKIP_NAMES (additional entries not in C#):
+```
   epiclauncher, launcher, battle.net, ubisoft game launcher, origin,
   ea desktop, gog galaxy, wiiu, reshade, sweetfx, enbseries, enb,
   nexus mod manager, vortex, mod organizer, uninstall
 ```
 
 **Note:** The Python `SKIP_NAMES` includes known launcher directories (Epic, Battle.net, etc.) and non-game tools (reshade, enb, mod managers). Some of these are handled by the C# `s_nonGameFolderNames` set in container recursion instead of at top-level scan.
+
+**CRITICAL BUG:** `"blizzard"` is in the C# skip list but NOT in Python's `SKIP_NAMES`. This means the entire `blizzard/` publisher folder (containing game subdirectories like `Diablo III/`, `World of Warcraft/`) is silently skipped by C# but processed normally by Python. The C# implementation has richer BattleNet detection (parent propagation, name heuristics, exe heuristics) but it's unreachable because the folder is skipped before detection runs. See "BattleNet Skip-List Regression" in the Divergences section above.
 
 #### Layer 2: Noise Directory Patterns (JSON-sourced)
 
@@ -361,7 +391,8 @@ s_nonGameFolderNames (C#):
   dotnet, directx, physx, installer, _installer, install,
   easyanticheat, devtools, docs, licenses,
   steam controller configs, steamworks shared,
-  dlc, program files, windowsapps, squirreltemp, portable, uninstall
+  dlc, program files, windowsapps, squirreltemp, portable, uninstall,
+  battle.net, blizzard    ← CRITICAL: "blizzard" blocks BattleNet container detection
 ```
 
 Python's `_NON_GAME_DIR_NAMES` includes additional entries:
@@ -371,6 +402,8 @@ nexus mod manager, vortex, mod organizer,
 dotnet35, dotnetfx35, msvc2012, msvc2012_x64, msvc2013, msvc2013_x64,
 uninstall
 ```
+
+**Note:** Python does NOT include `"blizzard"` in `_NON_GAME_DIR_NAMES`. The `blizzard/` folder is treated as a legitimate container (publisher folder) and its children are scanned for game signals. The C# inclusion of `"blizzard"` in `s_nonGameFolderNames` is a regression that blocks BattleNet game detection.
 
 ---
 
@@ -520,6 +553,7 @@ Distinguishing emulated Steam games from real Steam games:
 
 | Gap | Severity | Python Feature | C# Status | Notes |
 |-----|----------|---------------|-----------|-------|
+| **BattleNet skip-list regression** | **CRITICAL** | Container detection of `blizzard/` publisher folder | **❌ REGRESSION** | C# has richer detection than Python (parent propagation, name heuristics, exe heuristics) but `"blizzard"` in `NoiseSubDirNames` + `s_nonGameFolderNames` blocks the entire folder. Python has no such skip. See BattleNet section above. |
 | EA `touchup.exe` / `ActivationUI.exe` signals | — | Root-level EA signal detection | ✅ Implemented | Parity achieved |
 | `gog.ico` as GOG signal | Low | GOG signal detection | ❌ Not implemented | All GOG games have `goggame*` files too |
 | `steamapps/` dir outside Steam library | Low | Steam emulator detection | ❌ Not implemented | Edge case for pirated/cracked games |

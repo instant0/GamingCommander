@@ -150,10 +150,8 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 - `F1` → Help dialog
 - `F2` → LibrarySetup dialog
 - `F3` → "Not yet implemented" (placeholder)
-- `F4` → GameSetup dialog (retag)
-- `F5` → Launch selected game
+- `F4` → GameSetup dialog (configure name, type, exe, args)
 - `F6` → Rescan current root or all roots
-- `F7` → Add a library root
 - `F8` → "Category view not yet implemented" (placeholder)
 - `F9` → JumpToLibraryRoots
 - `F10` → Close()
@@ -224,13 +222,13 @@ data/mock/
 
 ---
 
-## Test Coverage (99 tests total)
+## Test Coverage (217 tests total)
 
 | Project | Tests | What |
 |---------|-------|------|
 | `Core.Tests` | 33 | VdfParser (20), GameEntryId (8), GameRecord (1), FileSystemEntryKind (4) |
 | `Migration.Tests` | 1 | DesignTimeMigrationPlanner dry-run plan |
-| `App.Tests` | 65 | GamesDatabaseService (16), SteamLibraryScanner (14), BlacklistLoader (11), ExecutableScoring (10), ScannerFilter (9), MockDataIntegration (5) |
+| `App.Tests` | 183 | GamesDatabaseService (20), SteamLibraryScanner (14), BlacklistLoader (11), ExecutableScoring (10), ScannerFilter (12), ExecutableDiscovery (15), GogInfoParser (10), LnkParser (13), FolderScannerContainer (13), LibraryManager (8), JsonConfigService (3), MockDataIntegration (5), RescanMerge (4), GameSetupWindow/HelpDialog/Theme (65) |
 
 ---
 

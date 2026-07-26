@@ -61,6 +61,25 @@ public sealed class WizardViewModel : GamingCommander.UI.ViewModels.ReactiveObje
         string path = LibraryManager.NormalizeLibraryRoot(rawPath);
         if (Entries.Any(e => e.Path.Equals(path, StringComparison.OrdinalIgnoreCase))) return;
 
+        // Nesting check: reject if this path is inside an existing entry or contains one
+        foreach (var existing in Entries)
+        {
+            if (LibraryManager.IsChildOf(path, existing.Path))
+            {
+                string existingName = Path.GetFileName(existing.Path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+                ScanStatus = $"This folder is inside an existing library root ({existingName}). Pick one or the other.";
+                OnPropertyChanged(nameof(ScanStatus));
+                return;
+            }
+            if (LibraryManager.IsChildOf(existing.Path, path))
+            {
+                string existingName = Path.GetFileName(existing.Path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+                ScanStatus = $"An existing library root ({existingName}) is inside this folder. Remove it first if you want to add the parent.";
+                OnPropertyChanged(nameof(ScanStatus));
+                return;
+            }
+        }
+
         GameSourceKind defaultType = GameSourceParser.InferFromPath(path);
         var entry = new WizardLibraryEntry(path, defaultType.ToString());
         Entries.Add(entry);

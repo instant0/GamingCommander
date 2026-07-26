@@ -73,5 +73,5 @@ Steam games store `CommandLineArguments = "steam://rungameid/{appid}"` but `Shel
   - Added `CommandLineArguments` property to `ShellPaneItemViewModel` (line 23)
   - Updated `LoadGamesForRoot()` to resolve `LaunchTarget` — prefers `steam://` URI when `CommandLineArguments` starts with it; falls back to `ExecutablePath`
   - Updated `LaunchSelectedGameAsync()` to pass `CommandLineArguments` as `ProcessStartInfo.Arguments` for non-URI launches (guard prevents passing URI as args)
-- **Verification:** Build clean (0 errors), 99 tests passing (0 regressions)
+- **Verification:** Build clean (0 errors), 99→217 tests passing over session (0 regressions)
 - **Issues encountered:** None

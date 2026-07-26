@@ -21,6 +21,7 @@ public partial class MainWindow : Window
 
     private LibraryManager? _libraryManager;
     private CancellationTokenSource? _statusClearCts;
+    private bool _isRefreshing;
 
     /// <summary>Primary application window. Manages dual-pane navigation, keyboard shortcuts, and game launching.</summary>
     public MainWindow(ShellViewModel shellViewModel, IGamesDatabaseService dbService)
@@ -201,8 +202,8 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 break;
 
-            case Key.F6:
-                await RefreshCurrentRootAsync();
+            case Key.F5:
+                _ = RefreshCurrentRootAsync();
                 e.Handled = true;
                 break;
 
@@ -350,41 +351,55 @@ public partial class MainWindow : Window
     private Task RefreshCurrentRootAsync()
     {
         if (_viewModel is null || _libraryManager is null) return Task.CompletedTask;
+        if (_isRefreshing) return Task.CompletedTask;
 
-        // At root level: rescan all configured roots
-        if (_viewModel.IsAtRootLevel)
+        _isRefreshing = true;
+        try
         {
-            var config = GetConfigService().Load();
-            if (config.LibraryRoots.Count == 0)
+            // At root level: rescan all configured roots
+            if (_viewModel.IsAtRootLevel)
             {
-                SetStatusWithAutoClear("No roots configured. Press F2 to add folders.");
+                var config = GetConfigService().Load();
+                if (config.LibraryRoots.Count == 0)
+                {
+                    SetStatusWithAutoClear("No roots configured. Press F2 to add folders.");
+                    return Task.CompletedTask;
+                }
+
+                SetStatusWithAutoClear("Scanning all roots...", 0); // Don't auto-clear scanning message
+                _libraryManager.Refresh();
+                int totalGames = config.LibraryRoots.Sum(
+                    r => _libraryManager.GetGamesForRoot(r.RootPath).Count);
+                _viewModel.Reload();
+                SetStatusWithAutoClear($"Rescanned {config.LibraryRoots.Count} root(s), found {totalGames} game(s).");
                 return Task.CompletedTask;
             }
 
-            SetStatusWithAutoClear("Scanning all roots...", 0); // Don't auto-clear scanning message
-            _libraryManager.Refresh();
-            int totalGames = config.LibraryRoots.Sum(
-                r => _libraryManager.GetGamesForRoot(r.RootPath).Count);
-            _viewModel.Reload();
-            SetStatusWithAutoClear($"Rescanned {config.LibraryRoots.Count} root(s), found {totalGames} game(s).");
+            // Drilled into a root: rescan that root only
+            string rootPath = _viewModel.CurrentRootPath;
+            var cfg = GetConfigService().Load();
+            var matchedRoot = cfg.LibraryRoots.FirstOrDefault(r =>
+                r.RootPath.Equals(rootPath, StringComparison.OrdinalIgnoreCase));
+            if (matchedRoot is null) return Task.CompletedTask;
+
+            SetStatusWithAutoClear($"Scanning {Path.GetFileName(rootPath)}...", 0);
+            var scannedGames = _libraryManager.SelectScannerAndScan(rootPath, matchedRoot.DefaultType);
+            _viewModel.ApplyRescannedGames(scannedGames);
+            if (scannedGames.Count == 0)
+                SetStatusWithAutoClear("Rescan complete — no games found in this root.");
+            else
+                SetStatusWithAutoClear($"Rescan complete — found {scannedGames.Count} game(s).");
             return Task.CompletedTask;
         }
-
-        // Drilled into a root: rescan that root only
-        string rootPath = _viewModel.CurrentRootPath;
-        var cfg = GetConfigService().Load();
-        var matchedRoot = cfg.LibraryRoots.FirstOrDefault(r =>
-            r.RootPath.Equals(rootPath, StringComparison.OrdinalIgnoreCase));
-        if (matchedRoot is null) return Task.CompletedTask;
-
-        SetStatusWithAutoClear($"Scanning {Path.GetFileName(rootPath)}...", 0);
-        var scannedGames = _libraryManager.SelectScannerAndScan(rootPath, matchedRoot.DefaultType);
-        _viewModel.ApplyRescannedGames(scannedGames);
-        if (scannedGames.Count == 0)
-            SetStatusWithAutoClear("Rescan complete — no games found in this root.");
-        else
-            SetStatusWithAutoClear($"Rescan complete — found {scannedGames.Count} game(s).");
-        return Task.CompletedTask;
+        catch (Exception ex)
+        {
+            SetStatusWithAutoClear($"Rescan failed: {ex.Message}");
+            return Task.CompletedTask;
+        }
+        finally
+        {
+            _isRefreshing = false;
+        }
     }
 
     private void LeftListBox_DoubleTapped(object? sender, Avalonia.Input.TappedEventArgs e)
@@ -419,7 +434,7 @@ public partial class MainWindow : Window
             case "F4":
                 _ = OpenGameSetupAsync();
                 break;
-            case "F6":
+            case "F5":
                 _ = RefreshCurrentRootAsync();
                 break;
             case "F8":
