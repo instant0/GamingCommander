@@ -272,7 +272,9 @@ public sealed class FolderScanner
             ManifestPath: manifestPath,
             LastScanned: DateTimeOffset.UtcNow,
             LastModified: FileSystemHelper.GetLastWriteTimeSafe(subDir),
-            PlatformMetadata: platformMetadata));
+            PlatformMetadata: platformMetadata,
+            Tags: [],
+            UserOverrides: []));
     }
 
 }

@@ -51,7 +51,9 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
                             g.ManifestPath,
                             g.LastScanned,
                             g.LastModified,
-                            g.Extra ?? []))
+                            g.Extra ?? [],
+                            g.Tags ?? [],
+                            g.UserOverrides ?? []))
                         .ToList() ?? []))
                 .ToList() ?? []);
         return _cachedDb;
@@ -83,6 +85,8 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
                     LastScanned = g.LastScanned,
                     LastModified = g.LastModified,
                     Extra = g.PlatformMetadata,
+                    Tags = g.Tags,
+                    UserOverrides = g.UserOverrides,
                 }).ToList(),
             }).ToList(),
         };
@@ -210,6 +214,8 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
             CommandLineArguments = commandLineArgs,
             LauncherPath = launcherPath,
             ManifestPath = manifestPath,
+            Tags = existing.Tags.Count > 0 ? existing.Tags : scanned.Tags,
+            UserOverrides = existing.UserOverrides.Count > 0 ? existing.UserOverrides : scanned.UserOverrides,
             LastScanned = DateTimeOffset.UtcNow,
         };
     }
@@ -288,5 +294,7 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
         public DateTimeOffset LastScanned { get; set; }
         public DateTimeOffset LastModified { get; set; }
         public Dictionary<string, string> Extra { get; set; } = [];
+        public List<string>? Tags { get; set; }
+        public Dictionary<string, string>? UserOverrides { get; set; }
     }
 }

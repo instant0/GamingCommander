@@ -32,7 +32,7 @@ public sealed class GamesDatabaseServiceTests : IDisposable
     private static GameEntry MakeGame(string id, string folder = "GameFolder", string display = "Test Game") =>
         new(id, folder, display, GameSourceKind.Standalone, false,
             $@"C:\Games\{folder}\game.exe", "", "", "",
-            DateTimeOffset.Now, DateTimeOffset.Now, []);
+            DateTimeOffset.Now, DateTimeOffset.Now, [], [], []);
 
     // ════════════════════════════════════════════════════════════════
     //  Load/Save
@@ -360,5 +360,127 @@ public sealed class GamesDatabaseServiceTests : IDisposable
 
         var games = svc2.GetGamesForRoot(@"D:\Games");
         Assert.Single(games); // Duplicates collapsed
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    //  Tags Persistence
+    // ════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void Tags_SurviveSaveLoad()
+    {
+        var svc = CreateService();
+        var game = MakeGame("g1") with
+        {
+            Tags = ["RPG", "Co-op", "Story Rich"],
+        };
+        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone, [game]);
+        svc.Save(svc.Load());
+
+        var svc2 = CreateService();
+        var db = svc2.Load();
+        var loaded = db.Roots[0].Games[0];
+
+        Assert.Equal(3, loaded.Tags.Count);
+        Assert.Equal("RPG", loaded.Tags[0]);
+        Assert.Equal("Co-op", loaded.Tags[1]);
+        Assert.Equal("Story Rich", loaded.Tags[2]);
+    }
+
+    [Fact]
+    public void UserOverrides_SurviveSaveLoad()
+    {
+        var svc = CreateService();
+        var overrides = new Dictionary<string, string>
+        {
+            ["DisplayName"] = "2026-07-26T14:30:00Z",
+            ["Tags"] = "2026-07-26T14:30:00Z",
+        };
+        var game = MakeGame("g1") with
+        {
+            UserOverrides = overrides,
+        };
+        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone, [game]);
+        svc.Save(svc.Load());
+
+        var svc2 = CreateService();
+        var db = svc2.Load();
+        var loaded = db.Roots[0].Games[0];
+
+        Assert.Equal(2, loaded.UserOverrides.Count);
+        Assert.Equal("2026-07-26T14:30:00Z", loaded.UserOverrides["DisplayName"]);
+        Assert.Equal("2026-07-26T14:30:00Z", loaded.UserOverrides["Tags"]);
+    }
+
+    [Fact]
+    public void EmptyTags_DefaultsOnLoad_OldJson()
+    {
+        // Simulate old games.json without Tags/UserOverrides fields
+        var svc = CreateService();
+        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone, [MakeGame("g1")]);
+        svc.Save(svc.Load());
+
+        var svc2 = CreateService();
+        var db = svc2.Load();
+        var loaded = db.Roots[0].Games[0];
+
+        Assert.NotNull(loaded.Tags);
+        Assert.Empty(loaded.Tags);
+        Assert.NotNull(loaded.UserOverrides);
+        Assert.Empty(loaded.UserOverrides);
+    }
+
+    [Fact]
+    public void RescanRoot_PreservesTags()
+    {
+        var svc = CreateService();
+        var game = MakeGame("g1") with
+        {
+            Tags = ["RPG", "Co-op"],
+        };
+        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone, [game]);
+        svc.Save(svc.Load());
+
+        // Rescan with new scan results
+        var scannedGame = MakeGame("g1") with
+        {
+            DisplayName = "Updated Name",
+            Tags = [],
+        };
+        svc.RescanRoot(@"D:\Games", [scannedGame]);
+
+        var games = svc.GetGamesForRoot(@"D:\Games");
+        Assert.Single(games);
+        Assert.Equal(2, games[0].Tags.Count); // User tags preserved
+        Assert.Equal("RPG", games[0].Tags[0]);
+    }
+
+    [Fact]
+    public void RescanRoot_PreservesUserOverrides()
+    {
+        var svc = CreateService();
+        var overrides = new Dictionary<string, string>
+        {
+            ["DisplayName"] = "2026-07-26T14:30:00Z",
+        };
+        var game = MakeGame("g1") with
+        {
+            DisplayName = "My Custom Name",
+            UserOverrides = overrides,
+        };
+        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone, [game]);
+        svc.Save(svc.Load());
+
+        // Rescan with different display name
+        var scannedGame = MakeGame("g1") with
+        {
+            DisplayName = "Auto Detected Name",
+        };
+        svc.RescanRoot(@"D:\Games", [scannedGame]);
+
+        var games = svc.GetGamesForRoot(@"D:\Games");
+        Assert.Single(games);
+        Assert.Equal("My Custom Name", games[0].DisplayName); // User override preserved
+        Assert.True(games[0].UserOverrides.ContainsKey("DisplayName"));
     }
 }

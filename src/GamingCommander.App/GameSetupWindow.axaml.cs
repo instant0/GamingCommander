@@ -5,6 +5,7 @@ using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using GamingCommander.Core;
 using GamingCommander.Core.Models;
+using GamingCommander.Core.Services;
 
 namespace GamingCommander.App;
 
@@ -28,8 +29,12 @@ public partial class GameSetupWindow : Window
     public string CommandLineArguments { get; set; }
     /// <summary>The path to the game's store manifest file (Epic .item, etc.).</summary>
     public string ManifestPath { get; set; }
+    /// <summary>User-defined tags (comma-separated input).</summary>
+    public string TagsInput { get; set; }
+    /// <summary>The current tags list (for display).</summary>
+    private List<string> _currentTags;
 
-    /// <summary>F4 game editing dialog. Allows user to modify game metadata (name, type, executable, launcher, args).</summary>
+    /// <summary>F4 game editing dialog. Allows user to modify game metadata (name, type, executable, launcher, args, tags).</summary>
     public GameSetupWindow(
         GameEntry game,
         string rootPath,
@@ -54,6 +59,8 @@ public partial class GameSetupWindow : Window
         LauncherPath = game.LauncherPath;
         CommandLineArguments = game.CommandLineArguments;
         ManifestPath = game.ManifestPath;
+        _currentTags = new List<string>(game.Tags);
+        TagsInput = TagNormalizer.ToCommaSeparated(_currentTags);
 
         this.FindControl<TextBlock>("TitleText")!.Text = $"Configure: {game.DisplayName}";
         this.FindControl<TextBlock>("SubtitleText")!.Text = game.ExecutablePath;
@@ -75,6 +82,9 @@ public partial class GameSetupWindow : Window
         // Only show Epic Manifest field for Epic games (BUG-7)
         if (SelectedType == "Epic")
             panel.Children.Add(MakeFieldRow("Epic Manifest", ManifestPath, 5, false, true, "Browse..."));
+
+        // Tags field (comma-separated)
+        panel.Children.Add(MakeTagsRow("Tags (comma-separated)", TagsInput, 6));
 
         // Folder field removed — redundant with path shown at top (BUG-8)
 
@@ -202,6 +212,36 @@ public partial class GameSetupWindow : Window
         return panel;
     }
 
+    private StackPanel MakeTagsRow(string label, string value, int fieldIndex)
+    {
+        var panel = new StackPanel { Spacing = 4 };
+        panel.Children.Add(new TextBlock { Text = label, Foreground = AppTheme.TextMuted, FontSize = AppTheme.FontSizeLabel });
+
+        var textBox = new TextBox
+        {
+            Text = value,
+            Background = AppTheme.PaneBg,
+            Foreground = AppTheme.TextPrimary,
+            Watermark = "e.g., RPG, Co-op, Story Rich",
+        };
+        textBox.TextChanged += (_, _) => TagsInput = textBox.Text ?? "";
+        panel.Children.Add(textBox);
+
+        // Show current tags as a summary below the input
+        if (_currentTags.Count > 0)
+        {
+            panel.Children.Add(new TextBlock
+            {
+                Text = $"Current: {TagNormalizer.ToCommaSeparated(_currentTags)}",
+                Foreground = AppTheme.TextDimmed,
+                FontSize = AppTheme.FontSizeLabel - 1,
+                Margin = new Thickness(0, 2, 0, 0),
+            });
+        }
+
+        return panel;
+    }
+
     /// <summary>
     /// Saves the edited game entry to the database and closes the dialog.
     /// </summary>
@@ -214,6 +254,55 @@ public partial class GameSetupWindow : Window
             .FirstOrDefault(r => r.RootPath.Equals(_rootPath, StringComparison.OrdinalIgnoreCase))?
             .DefaultType ?? GameSourceKind.Standalone;
 
+        // Parse tags from input
+        List<string> newTags = TagNormalizer.ParseFromCommaSeparated(TagsInput);
+
+        // Build UserOverrides — track fields the user manually changed
+        var userOverrides = new Dictionary<string, string>(_originalGame.UserOverrides);
+        string now = DateTimeOffset.UtcNow.ToString("O");
+
+        // Check if display name changed
+        if (!_originalGame.DisplayName.Equals(DisplayName, StringComparison.Ordinal))
+        {
+            userOverrides[GameEntryFields.DisplayName] = now;
+        }
+
+        // Check if executable path changed
+        if (!_originalGame.ExecutablePath.Equals(ExecutablePath, StringComparison.Ordinal))
+        {
+            userOverrides[GameEntryFields.ExecutablePath] = now;
+        }
+
+        // Check if launcher path changed
+        if (!_originalGame.LauncherPath.Equals(LauncherPath, StringComparison.Ordinal))
+        {
+            userOverrides[GameEntryFields.LauncherPath] = now;
+        }
+
+        // Check if command line args changed
+        if (!_originalGame.CommandLineArguments.Equals(CommandLineArguments, StringComparison.Ordinal))
+        {
+            userOverrides[GameEntryFields.CommandLineArguments] = now;
+        }
+
+        // Check if manifest path changed
+        if (!_originalGame.ManifestPath.Equals(ManifestPath, StringComparison.Ordinal))
+        {
+            userOverrides[GameEntryFields.ManifestPath] = now;
+        }
+
+        // Check if source type changed
+        if (_originalGame.GameSource != newType)
+        {
+            userOverrides[GameEntryFields.GameSource] = now;
+        }
+
+        // Check if tags changed
+        if (!_currentTags.SequenceEqual(newTags, StringComparer.OrdinalIgnoreCase))
+        {
+            userOverrides[GameEntryFields.Tags] = now;
+        }
+
         var updated = _originalGame with
         {
             DisplayName = DisplayName,
@@ -223,6 +312,8 @@ public partial class GameSetupWindow : Window
             LauncherPath = LauncherPath,
             CommandLineArguments = CommandLineArguments,
             ManifestPath = ManifestPath,
+            Tags = newTags,
+            UserOverrides = userOverrides,
         };
 
         _dbService.UpdateGameEntry(_rootPath, updated);

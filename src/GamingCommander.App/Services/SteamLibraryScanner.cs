@@ -257,7 +257,9 @@ public sealed class SteamLibraryScanner
             ManifestPath: acf.AcfFilePath,
             LastScanned: DateTimeOffset.UtcNow,
             LastModified: FileSystemHelper.GetLastWriteTimeSafe(gameDir),
-            PlatformMetadata: extra);
+            PlatformMetadata: extra,
+            Tags: [],
+            UserOverrides: []);
     }
 
     /// <summary>
@@ -286,7 +288,9 @@ public sealed class SteamLibraryScanner
                 ["SteamAppId"] = string.Empty,
                 ["FolderName"] = folderName,
                 ["LibraryRoot"] = libraryRoot,
-            });
+            },
+            Tags: [],
+            UserOverrides: []);
     }
 
     /// <summary>
@@ -321,7 +325,9 @@ public sealed class SteamLibraryScanner
                 ["FolderName"] = acf.Installdir,
                 ["AcfExpectedPath"] = Path.Combine(
                     acf.LibraryPath, "steamapps", "common", acf.Installdir),
-            });
+            },
+            Tags: [],
+            UserOverrides: []);
     }
 
     // ════════════════════════════════════════════════════════════════

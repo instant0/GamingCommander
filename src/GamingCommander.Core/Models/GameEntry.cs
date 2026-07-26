@@ -30,4 +30,16 @@ public sealed record GameEntry(
     /// Platform-specific metadata. Common keys: SteamStatus, SteamAppId,
     /// AcfExpectedPath, AcfLibraryPath.
     /// </summary>
-    Dictionary<string, string> PlatformMetadata);
+    Dictionary<string, string> PlatformMetadata,
+    /// <summary>
+    /// User-defined tags (e.g., "RPG", "Co-op", "Story Rich").
+    /// Managed via F4 dialog. Additive merge with metadata tags.
+    /// </summary>
+    List<string> Tags,
+    /// <summary>
+    /// Fields manually set by the user via F4. Keys are field names
+    /// (e.g., "DisplayName", "ExecutablePath", "Tags"). Automated
+    /// enrichment skips fields present in this dictionary.
+    /// Values are ISO timestamps of when the override was set.
+    /// </summary>
+    Dictionary<string, string> UserOverrides);
