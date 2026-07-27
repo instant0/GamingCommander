@@ -60,10 +60,27 @@ internal static class StoreSignalDetector
 
     // ── Signal check helpers ────────────────────────────────────
 
-    /// <summary>GOG signal: goggame* files at folder root.</summary>
+    /// <summary>GOG signal: goggame* files at folder root, or "Launch *.lnk" shortcut.</summary>
     internal static bool HasGogSignal(DirectoryInfo dir)
     {
-        return FileSystemHelper.GetFilesSafe(dir, "goggame*").Length > 0;
+        // Primary: goggame* files (goggame.dll, goggame-*.info, gog_*)
+        if (FileSystemHelper.GetFilesSafe(dir, "goggame*").Length > 0)
+            return true;
+
+        // Secondary: "Launch <gamename>.lnk" shortcut (strong GOG signal)
+        // GOG installers place a single .lnk file with "Launch" prefix in each game root
+        try
+        {
+            foreach (string lnk in Directory.EnumerateFiles(dir.FullName, "*.lnk", SearchOption.TopDirectoryOnly))
+            {
+                string name = Path.GetFileName(lnk);
+                if (name.StartsWith("Launch ", StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+        }
+        catch { }
+
+        return false;
     }
 
     /// <summary>EA signal: __Installer/ directory, Touchup.exe, or ActivationUI.exe at folder root.</summary>

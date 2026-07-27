@@ -835,26 +835,139 @@ public record ShellPaneItemViewModel
 }
 ```
 
-### 6.6 Theme Resources for Tags
+### 6.6 Configurable Tag Color System
+
+Tag colors are **not hardcoded** in the application. They are read from a user-editable configuration file (`data/tag_colors.json`). This allows users to customize colors for their preferred store branding and engine identification.
+
+#### Tag Types and Colors
+
+| Tag Type | Color Source | Example |
+|----------|-------------|---------|
+| **User-added tags** | Neutral default (gray) | `RPG`, `Co-op`, `Story Rich` |
+| **Game store tags** | Config file (store-specific) | `Steam` (blue), `GOG` (purple), `Battle.net` (blue) |
+| **Game engine tags** | Config file (engine-specific) | `Unreal Engine` (dark blue), `Unity` (gray) |
+
+#### Configuration File Format
+
+```json
+// data/tag_colors.json
+{
+  "default": {
+    "background": "#2A3A4A",
+    "foreground": "#B8C8D8"
+  },
+  "stores": {
+    "Steam": { "background": "#1B2838", "foreground": "#B8C8D8" },
+    "GOG": { "background": "#86328A", "foreground": "#FFFFFF" },
+    "Epic": { "background": "#0078F2", "foreground": "#FFFFFF" },
+    "BattleNet": { "background": "#00AEEF", "foreground": "#FFFFFF" },
+    "EA": { "background": "#F5F5F5", "foreground": "#000000" },
+    "Ubisoft": { "background": "#000000", "foreground": "#FFFFFF" },
+    "Rockstar": { "background": "#FFC107", "foreground": "#000000" },
+    "Xbox": { "background": "#107C10", "foreground": "#FFFFFF" },
+    "Standalone": { "background": "#2A3A4A", "foreground": "#B8C8D8" }
+  },
+  "engines": {
+    "Unreal Engine": { "background": "#1A1A2E", "foreground": "#E94560" },
+    "Unity": { "background": "#222222", "foreground": "#FFFFFF" },
+    "RAGE": { "background": "#1A1A1A", "foreground": "#FFD700" },
+    "Frostbite": { "background": "#0D1B2A", "foreground": "#1B9AAA" },
+    "Source": { "background": "#FF6600", "foreground": "#FFFFFF" },
+    "Godot": { "background": "#478CBF", "foreground": "#FFFFFF" },
+    "CryEngine": { "background": "#003366", "foreground": "#FFFFFF" }
+  }
+}
+```
+
+#### Loading and Fallback Logic
+
+```csharp
+// GamingCommander.App/Services/TagColorService.cs (NEW)
+public class TagColorService
+{
+    private readonly TagColorConfig _config;
+    
+    public TagColorService(string configPath)
+    {
+        _config = LoadConfig(configPath);
+    }
+    
+    /// <summary>
+    /// Get color for a tag. Checks stores → engines → default.
+    /// </summary>
+    public TagColor GetColor(string tag, TagType type)
+    {
+        return type switch
+        {
+            TagType.Store => _config.stores.GetValueOrDefault(tag, _config.default),
+            TagType.Engine => _config.engines.GetValueOrDefault(tag, _config.default),
+            TagType.User => _config.default,  // User tags always neutral
+            _ => _config.default
+        };
+    }
+    
+    private static TagColorConfig LoadConfig(string path)
+    {
+        if (!File.Exists(path))
+            return CreateDefaultConfig();
+        
+        string json = File.ReadAllText(path);
+        return JsonSerializer.Deserialize<TagColorConfig>(json) ?? CreateDefaultConfig();
+    }
+}
+
+public enum TagType { User, Store, Engine }
+
+public record TagColor(string background, string foreground);
+```
+
+#### Tag Type Detection
+
+The tag type is determined by the tag source:
+
+```csharp
+public static TagType GetTagType(string tag)
+{
+    // Store tags are known game sources
+    if (KnownStoreTags.Contains(tag)) return TagType.Store;
+    // Engine tags are known game engines
+    if (KnownEngineTags.Contains(tag)) return TagType.Engine;
+    // Everything else is a user tag
+    return TagType.User;
+}
+
+private static readonly HashSet<string> KnownStoreTags = new(StringComparer.OrdinalIgnoreCase)
+{
+    "Steam", "GOG", "Epic", "BattleNet", "EA", "Ubisoft", "Rockstar", "Xbox", "Standalone"
+};
+
+private static readonly HashSet<string> KnownEngineTags = new(StringComparer.OrdinalIgnoreCase)
+{
+    "Unreal Engine", "Unity", "RAGE", "Frostbite", "Source", "Godot", "CryEngine"
+};
+```
+
+#### XAML Rendering
 
 ```xml
-<!-- App.axaml — tag badge theme resources -->
-<SolidColorBrush x:Key="TagBadgeBg" Color="#2A3A4A" />
-<SolidColorBrush x:Key="TagBadgeText" Color="#B8C8D8" />
-<SolidColorBrush x:Key="TagBadgeBorder" Color="#4A5A6A" />
-
-<!-- Engine badge (distinct color) -->
-<SolidColorBrush x:Key="EngineBadgeBg" Color="#1A3A2A" />
-<SolidColorBrush x:Key="EngineBadgeText" Color="#88CC88" />
-
-<!-- Store badge (distinct color) -->
-<SolidColorBrush x:Key="StoreBadgeBg" Color="#3A2A1A" />
-<SolidColorBrush x:Key="StoreBadgeText" Color="#CCAA88" />
-
-<!-- Metacritic colors -->
-<SolidColorBrush x:Key="MetacriticGreen" Color="#66CC66" />  <!-- 75+ -->
-<SolidColorBrush x:Key="MetacriticYellow" Color="#CCCC66" /> <!-- 50-74 -->
-<SolidColorBrush x:Key="MetacriticRed" Color="#CC6666" />    <!-- <50 -->
+<!-- MainWindow.axaml — tag badges with dynamic colors -->
+<ItemsControl ItemsSource="{Binding SelectedGame.Tags}">
+    <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+            <WrapPanel />
+        </ItemsPanelTemplate>
+    </ItemsControl.ItemsPanel>
+    <ItemsControl.ItemTemplate>
+        <DataTemplate>
+            <Border Background="{Binding TagColor.Background, Converter={StaticResource HexToBrushConverter}}"
+                    CornerRadius="4" Padding="6,2" Margin="2">
+                <TextBlock Text="{Binding TagName}"
+                           Foreground="{Binding TagColor.Foreground, Converter={StaticResource HexToBrushConverter}}"
+                           FontSize="11" />
+            </Border>
+        </DataTemplate>
+    </ItemsControl.ItemTemplate>
+</ItemsControl>
 ```
 
 ### 6.7 Tests

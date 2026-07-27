@@ -90,7 +90,7 @@ Extract metadata from **all** `goggame-*.info` files and merge the results.
 In addition to markers, GOG game folders commonly contain:
 - `gog.ico` — GOG icon
 - `goglog.ini` — Log file (contains `[LOG]`, `FileListPath`, etc.)
-- `.lnk` shortcuts — Windows shortcut to launch the game (e.g., `Launch The Witcher 3 - Wild Hunt - Game of the Year Edition.lnk`)
+- `Launch <gamename>.lnk` — Windows shortcut to launch the game (e.g., `Launch The Witcher 3 - Wild Hunt - Game of the Year Edition.lnk`). This is a **strong GOG signal** — every GOG-installed game has exactly one `.lnk` file with the "Launch" prefix. Generic `.lnk` files (without the "Launch" prefix) are NOT a GOG signal.
 - `_dls/` — DLC directory
 - `dlc/` — DLC content
 - `content/` — Main game content
@@ -100,7 +100,7 @@ In addition to markers, GOG game folders commonly contain:
 
 Primary executables are found via:
 1. `goggame-*.info` → `playTasks[].path` (most reliable)
-2. Root `.lnk` shortcuts (may point to game exe)
+2. `Launch <gamename>.lnk` shortcuts (strong GOG signal, may point to game exe)
 3. Standard depth-limited walk (max 4 levels) as fallback
 4. Common subdirectories: `bin/`, `bin/x64/`, `Binaries/`, `Binaries/Win64/`
 

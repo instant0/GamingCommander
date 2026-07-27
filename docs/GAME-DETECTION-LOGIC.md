@@ -108,7 +108,9 @@ SteamLibrary/
 
 #### 2. GOG (Fully Implemented)
 
-**Manifest files:** `goggame-*.info` in game folders
+**Manifest files:** `goggame-*.info` in game folders, `Launch *.lnk` shortcuts
+
+**Detection:** `HasGogSignal()` checks for `goggame*` files at root (primary) or `Launch <gamename>.lnk` shortcuts (secondary — strong GOG signal).
 
 **Structure:**
 ```
@@ -214,13 +216,14 @@ GOG Games/
 
 #### 6. Battle.net (Fully Implemented)
 
-**Manifest files:** `.battle.net/` directory at game root
+**Manifest files:** `.build.info`, `.product.db`, `.battle.net/` directory at game root
 
-**Detection:** `HasBattleNetGameSignal()` checks:
-- `.battle.net/` directory existence
-- `Agent.exe` / `Launch.exe` presence
-- Folder name matching (warcraft, diablo, overwatch, etc.)
-- Parent propagation from `blizzard/` publisher folder
+**Detection:** `HasBlizzardSignal()` checks:
+- `.battle.net/` directory existence (Agent runtime data)
+- `.build.info` file existence (pipe-delimited, contains CDN path and version)
+- `.product.db` file existence (binary/protobuf, contains install path)
+
+**Note:** Path-based detection (checking if parent is named "blizzard") was removed in Plan 116. Detection is based on signal files inside the folder, not path names.
 
 #### 7. Rockstar (Fully Implemented)
 
@@ -298,7 +301,7 @@ Both C# and Python check stores in **priority order** (first match wins). The C#
 
 | Priority | Platform | Signal | C# Code | Python Code | Match Type |
 |----------|----------|--------|---------|-------------|------------|
-| 1 | **GOG** | `goggame*` files at root (goggame.dll, goggame-*.info, gog_*) | `HasGogSignal` | `_check_gog` + `_scan_root` | File glob `goggame*` (C#); `goggame.dll` exact + prefix scan (Python) |
+| 1 | **GOG** | `goggame*` files at root (goggame.dll, goggame-*.info, gog_*) OR `Launch *.lnk` shortcut | `HasGogSignal` | `_check_gog` + `_scan_root` | File glob `goggame*` (C#); `goggame.dll` exact + prefix scan (Python); `Launch *.lnk` prefix check (C# only) |
 | 2 | **EA** | `__Installer/` directory at root, or `Touchup.exe`/`ActivationUI.exe` at root | `HasEaSignal` | `_check_ea` | Directory existence + exe name check |
 | 3 | **Ubisoft Emulator** | `uplay_loader*` + `.ini` with `Username=` and `AccountId=` | `HasUbisoftEmulatorSignal` | `_check_ubisoft_emu` | Loader pattern + INI content scan |
 | 4 | **Ubisoft** | `uplay_install.manifest`, `uplay_r*_loader*.dll`, `uplay_download/` directory, or `*_UPP*.exe` at root | `HasUbisoftSignal` | `_check_ubisoft` | Exact file name + glob pattern + directory check + exe pattern |
@@ -308,6 +311,8 @@ Both C# and Python check stores in **priority order** (first match wins). The C#
 | 8 | **Rockstar** | `title.rgl` at root | `HasRockstarSignal` | `_check_rockstar` | File existence |
 | 9 | **Steam Emulator** (strong) | `steam_api64.dll` or `steam_api.dll` at root | `HasSteamEmulatorSignal` | `_check_steam_emu` | File existence |
 | 10 | **Steam Emulator** (weak) | `steam_appid.txt` alone (only in `StoreSignalDetector`, not in Python Phase 1) | `HasSteamSignal` | N/A in Phase 1 | File existence |
+
+**Note on `.lnk` files and GOG:** GOG installers place a single `.lnk` shortcut in each game's root directory with the naming pattern `Launch <gamename>.lnk` (e.g., `Launch The Witcher 3 - Wild Hunt - Game of the Year Edition.lnk`). This is a **strong GOG signal** — during testing, every GOG-installed game had exactly one `.lnk` file with the "Launch" prefix, and no games from other platforms had this pattern. Generic `.lnk` files (e.g., `GameName.exe.lnk` without the "Launch" prefix) are NOT a GOG signal and should only be treated as a fallback for exe discovery.
 
 ### Divergences: Python vs C#
 
@@ -319,27 +324,27 @@ Both C# and Python check stores in **priority order** (first match wins). The C#
 | `uplay_install.state` | ✅ Detected (Python deep scan `_match_markers`) | ✅ Detected in `HasUbisoftSignal` | Parity |
 | Deep signal: `steam_emu.ini` | Phase 2 deep scan | `HasSteamEmuDeepSignal` in Pass 2 | Parity |
 | Deep signal: `steamapps/` dir or `.acf` files outside Steam library | ✅ `_has_steam_app_manifest` | ❌ Not implemented | **Gap** — standalone games mimicking Steam layout not detected as SteamEmu |
-| **`"blizzard"` in skip lists** | **Not in any skip list** | **In `NoiseSubDirNames` + `s_nonGameFolderNames`** | **CRITICAL GAP — C# skips the entire Blizzard publisher folder; Python processes it. C# has richer BattleNet detection (parent propagation, name heuristics, exe heuristics) but it's unreachable because the folder is skipped before detection runs.** |
+| **`"blizzard"` in skip lists** | **Not in any skip list** | **FIXED** — removed from skip lists | ✅ BattleNet games now detected correctly via signal files |
 
 #### BattleNet Skip-List Regression (FIXED)
 
 **Status:** ✅ FIXED — `"blizzard"` and `"battle.net"` removed from `NoiseSubDirNames` and `s_nonGameFolderNames`.
 
-The C# implementation has **richer** BattleNet detection than Python:
-- `HasBattleNetGameSignal()` checks folder names (`warcraft`, `diablo`, `overwatch`, etc.)
-- `HasBattleNetGameSignal()` checks exe names (`DiabloIII.exe`, `Warcraft III.exe`, etc.)
-- Parent propagation checks if a child's parent has BattleNet signals
+BattleNet detection is based on **signal files inside the game folder**, not path names:
+- `.build.info` — pipe-delimited file with CDN path (e.g., `tpr/diablo3`), version, branch
+- `.product.db` — binary/protobuf file with install path and product code
+- `.battle.net/` — BattleNet Agent runtime data directory
 
-**Before fix:** None of this code was reached because `"blizzard"` in skip lists blocked the entire publisher folder.
+**Key principle:** A game can be installed ANYWHERE. Only SteamLibrary has a fixed path. Detection must be based on signal files inside the folder, not on path names.
 
-**After fix:** BattleNet games are detected correctly. The C# detection is now superior to Python's.
+| Step | What Happens |
+|------|--------------|
+| 1 | Scan root → find game directory (e.g., `Diablo III/`, `Blizzard/Diablo III/`, or `Q:\random\Diablo III\`) |
+| 2 | Check for signal files: `.build.info`, `.product.db`, `.battle.net/` |
+| 3 | If any signal file exists → classify as BattleNet |
+| 4 | Extract metadata from `.build.info` (CDN path, version, branch) |
 
-| Step | Python | C# (after fix) |
-|------|--------|----------------|
-| 1 | Scan root → find `blizzard/` | Scan root → find `blizzard/` |
-| 2 | `blizzard` not in `SKIP_NAMES` → proceed | `blizzard` not in `NoiseSubDirNames` → proceed |
-| 3 | Check children: `Diablo III/` has `.battle.net/` → BattleNet | Check children: `Diablo III/` has `.battle.net/` → BattleNet |
-| 4 | Result: **Diablo III detected as BattleNet** | Result: **Diablo III detected as BattleNet** |
+**Note:** Path-based detection (checking if parent is named "blizzard") was removed in Plan 116 because it was incorrect — games can be installed in any directory.
 
 ### Key Design Notes
 
@@ -362,6 +367,8 @@ When Pass 1 finds no store signal, `DetectFallbackType()` in C# (or `_deep_signa
 | 3 | **Unreal Engine layout** | `Engine/` dir present + child with `Binaries/{Win64,Win32,WinGDK,Steam}/*.exe` (UE4-5); OR `Binaries/{platform}/*.exe` at root (UE3 fast path) | `Standalone` |
 | 4 | **Root executable** | Any non-noise `.exe` at root level | `Standalone` |
 | 5 | **Root .lnk shortcut** | Any `.lnk` file at root level | `Standalone` |
+
+**Note:** `.lnk` files with the "Launch" prefix (e.g., `Launch GameName.lnk`) are a **strong GOG signal** — see GOG section above. Generic `.lnk` files (without the "Launch" prefix) are treated as a fallback for exe discovery only.
 
 ### Python Deep Signal Scan
 
@@ -427,6 +434,8 @@ When no primary exe is found, the C# code falls back to `.lnk` file parsing:
    - Backup rename: `copy of Game.exe` → matches `Game.exe`
    - Fuzzy: filename contains the exe stem
 6. Exact match preferred over fuzzy
+
+**GOG Association:** GOG installers place a `.lnk` shortcut in each game's root directory with the naming pattern `Launch <gamename>.lnk`. This is a **strong GOG signal** — every GOG-installed game has exactly one `.lnk` file with the "Launch" prefix, and no games from other platforms have this pattern. The `.lnk` file contains the path to the game executable and may include launch arguments. Generic `.lnk` files (without the "Launch" prefix) are NOT a GOG signal and should only be treated as a fallback for exe discovery.
 
 Python implements the same logic in `_find_exe_via_lnk()` and `_parse_lnk_exe_name()`.
 
@@ -638,7 +647,7 @@ Python SKIP_NAMES (additional entries not in C#):
 
 **Note:** The Python `SKIP_NAMES` includes known launcher directories (Epic, Battle.net, etc.) and non-game tools (reshade, enb, mod managers). Some of these are handled by the C# `s_nonGameFolderNames` set in container recursion instead of at top-level scan.
 
-**FIXED:** `"blizzard"` and `"battle.net"` have been **removed** from `NoiseSubDirNames` and `s_nonGameFolderNames`. BattleNet games are now detected correctly. The C# implementation has richer BattleNet detection than Python (parent propagation, name heuristics, exe heuristics) and it now works as intended.
+**FIXED:** `"blizzard"` and `"battle.net"` have been **removed** from `NoiseSubDirNames` and `s_nonGameFolderNames`. BattleNet games are now detected correctly via signal files (`.build.info`, `.product.db`, `.battle.net/`).
 
 #### Layer 2: Noise Directory Patterns (JSON-sourced)
 

@@ -1,20 +1,33 @@
-GamingCommander — Readme & Permissions Guide
-=============================================
+GamingCommander — Application Guide
+====================================
 
 Version: 0.3.x (MVP)
 License: CC BY-NC 4.0 (see below)
+
 
 What is GamingCommander?
 ------------------------
 
 GamingCommander is a game library manager and launcher for Windows. It scans
-your hard drives for installed games, collects metadata, and lets you launch
-them from a single interface. Think of it as a "commander" for your game
-collection — similar to how file managers organize your documents.
+the folders you configure to discover installed games, collects metadata, and
+lets you launch them from a single interface. Think of it as a "commander"
+for your game collection — similar to how file managers organize documents.
 
-GamingCommander does NOT modify, move, or delete any game files. It only
-reads game directories to discover what is installed, and writes to its own
-small data folder to remember what it found.
+GamingCommander supports games from multiple platforms:
+
+  — Steam (library scanning, ACF cross-referencing, status detection)
+  — GOG (game metadata extraction from .info files)
+  — Epic Games Store (manifest parsing, codename resolution)
+  — EA App / Origin (install log parsing, registry fallback)
+  — Ubisoft Connect (manifest detection, registry fallback)
+  — BattleNet / Blizzard (signal file detection, .build.info parsing)
+  — Xbox (metadata detection)
+  — Rockstar Games (title.rgl detection, registry fallback)
+  — Standalone games (executable discovery and scoring)
+
+The application does NOT modify, move, or delete any game files. It reads
+game directories to discover what is installed, and writes only to its own
+data folder to remember what it found.
 
 
 What does GamingCommander do?
@@ -33,27 +46,28 @@ What does GamingCommander do?
                For standalone games, it runs the .exe directly.
 
 
-What permissions does GamingCommander need?
--------------------------------------------
+What access does GamingCommander need?
+--------------------------------------
 
 GamingCommander needs the following access on your Windows system. Each
-permission is explained with why it is needed.
+type of access is explained with why it is needed.
 
 
-PERMISSION 1: Read game directories
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ACCESS 1: Read game directories
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   What:     Read files and folders inside the game directories you add.
   Why:      To discover which games are installed. GamingCommander looks
-            for .exe files, store manifest files (.acf, .item, .info),
-            and metadata files to identify games and their types.
+            for .exe files, store manifest files (.acf, .item, .info,
+            .build.info), and metadata files to identify games and
+            their types.
   Scope:    ONLY the folders you explicitly add via the setup screen.
             GamingCommander does not scan your entire hard drive.
   Examples: Reading "C:\Program Files\Steam\steamapps\common\GameName\"
             to find GameName.exe and detect it as a Steam game.
 
 
-PERMISSION 2: Read Steam library files
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ACCESS 2: Read Steam library files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   What:     Read Steam ACF manifest files (appmanifest_*.acf) and
             library configuration (libraryfolders.vdf).
   Why:      To detect which Steam games are installed, their App IDs,
@@ -65,8 +79,8 @@ PERMISSION 2: Read Steam library files
             to find that The Witcher 3 is installed with AppID 292030.
 
 
-PERMISSION 3: Read Epic Games manifest files
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ACCESS 3: Read Epic Games manifest files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   What:     Read Epic Games Store manifest files (.item, .mancpn) from
             game directories and from the global ProgramData folder.
   Why:      To identify Epic games and their display names. Epic uses
@@ -78,8 +92,8 @@ PERMISSION 3: Read Epic Games manifest files
             display name "Fortnite" instead of the folder name.
 
 
-PERMISSION 4: Read GOG metadata files
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ACCESS 4: Read GOG metadata files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   What:     Read GOG game metadata files (goggame-*.info).
   Why:      To extract the game's real name, executable path, and
             launch arguments. GOG stores this information in JSON
@@ -89,8 +103,8 @@ PERMISSION 4: Read GOG metadata files
             the game name and launch command.
 
 
-PERMISSION 5: Read EA install logs
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ACCESS 5: Read EA install logs
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   What:     Read EA install log files (__Installer/InstallLog.txt).
   Why:      To extract the game's official name and publisher. EA games
             store this information in a UTF-16 encoded log file.
@@ -99,19 +113,54 @@ PERMISSION 5: Read EA install logs
             to find the game name "Battlefield 2042" and studio "DICE".
 
 
-PERMISSION 6: Read shortcut files
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  What:     Read Windows shortcut files (.lnk) to find game executables.
-  Why:      Some games are installed via shortcuts rather than direct
-            .exe files. GamingCommander reads the shortcut target to
-            find the actual game executable.
+ACCESS 6: Read BattleNet signal files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  What:     Read BattleNet/Blizzard game signal files (.build.info,
+            .product.db, .battle.net/ directory).
+  Why:      To identify BattleNet games and extract metadata. The
+            .build.info file contains the game's CDN path and version.
+            The .product.db file contains the install path and product
+            code. These files are unique to BattleNet games.
+  Scope:    Only reads files in game directories you have added.
+  Examples: Reading "Diablo III\.build.info" to find the CDN path
+            "tpr/diablo3" and identify this as a BattleNet game.
+
+
+ACCESS 7: Read Windows registry (game install paths)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  What:     Read registry keys that store game install locations.
+  Why:      To discover games when filesystem signals are missing. Some
+            launchers store install paths in the registry but do not
+            leave signal files in the game directory. Reading these
+            registry keys helps find games that would otherwise be
+            missed.
+  Scope:    Only reads specific well-known registry keys:
+            — HKLM\SOFTWARE\EA Games\{name}\Install Dir
+            — HKLM\SOFTWARE\Ubisoft\Launcher\Installs\{id}\InstallDir
+            — HKLM\SOFTWARE\GOG.com\Games\{id}\path
+            — HKLM\SOFTWARE\Rockstar Games\{name}\InstallFolder
+  Examples: Reading "HKLM\...\GOG.com\Games\12345\path" to find
+            "GOG Games\Witcher 3\" as an installed game.
+  Note:     GamingCommander only READS these keys. It does not create,
+            modify, or delete any registry entries.
+
+
+ACCESS 8: Read shortcut files (.lnk)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  What:     Read Windows shortcut files (.lnk) found inside game
+            directories to extract launch targets and arguments.
+  Why:      Some games include .lnk files that point to the actual
+            game executable and may contain launch arguments. These
+            are NOT Start Menu shortcuts — they are .lnk files placed
+            inside the game folder by the installer. GOG games
+            commonly include these files.
   Scope:    Only reads .lnk files in game directories you have added.
-  Examples: Reading "Games\MyGame.lnk" to find the target is
-            "C:\Games\MyGame\MyGame.exe".
+  Examples: Reading "GOG Games\Witcher 3\The Witcher 3 Wild Hunt.lnk"
+            to find the target executable and any launch arguments.
 
 
-PERMISSION 7: Read game configuration files
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ACCESS 9: Read game configuration files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   What:     Read game-specific config files for detection (read-only).
   Why:      To detect game types. For example, reading "steam_appid.txt"
             confirms a game is from Steam. Reading "title.rgl" detects
@@ -122,8 +171,8 @@ PERMISSION 7: Read game configuration files
             confirm this is a Steam game.
 
 
-PERMISSION 8: Write to application data folder
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ACCESS 10: Write to application data folder
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   What:     Write files to GamingCommander's own data/ directory.
   Why:      To save your settings, game database, and diagnostic logs.
             This is the ONLY folder GamingCommander writes to.
@@ -135,8 +184,8 @@ PERMISSION 8: Write to application data folder
             blacklist.json   — Noise filter patterns (shipped with app)
 
 
-PERMISSION 9: Launch games
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ACCESS 11: Launch games
+~~~~~~~~~~~~~~~~~~~~~~~~
   What:     Start game executables or open Steam URIs.
   Why:      To launch games when you press Enter. For Steam games, it
             opens a steam:// URI which tells Steam to start the game.
@@ -147,8 +196,8 @@ PERMISSION 9: Launch games
             via Steam, or running "D:\Games\Witcher3\witcher3.exe".
 
 
-PERMISSION 10 (FUTURE): Internet access for metadata
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ACCESS 12 (FUTURE): Internet access for metadata
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   What:     Connect to PCGamingWiki, Epic Games Store, and Steam Store
             APIs to fetch game metadata (developer, publisher, engine,
             cover art, ratings).
@@ -184,21 +233,21 @@ What files does GamingCommander generate?
     by setting the GC_STARTUP_LOGGING environment variable to "0".
 
   No other files are created. GamingCommander does NOT create files in
-  your game directories, Windows registry entries, Start Menu shortcuts,
-  or any other system locations.
+  your game directories, Start Menu shortcuts, or any other system
+  locations.
 
 
 What does GamingCommander NOT do?
 ----------------------------------
 
-  - It does NOT modify, move, or delete your game files.
-  - It does NOT access your personal documents, photos, or other files.
-  - It does NOT scan your entire hard drive — only folders you add.
-  - It does NOT send data to the internet (currently offline-only).
-  - It does NOT install any background services or drivers.
-  - It does NOT require administrator privileges to run.
-  - It does NOT modify the Windows registry.
-  - It does NOT inject code into games or other processes.
+  — It does NOT modify, move, or delete your game files.
+  — It does NOT access your personal documents, photos, or other files.
+  — It does NOT scan your entire hard drive — only folders you add.
+  — It does NOT send data to the internet (currently offline-only).
+  — It does NOT install any background services or drivers.
+  — It does NOT require administrator privileges to run.
+  — It does NOT modify the Windows registry (read-only access only).
+  — It does NOT inject code into games or other processes.
 
 
 License

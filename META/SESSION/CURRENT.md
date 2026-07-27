@@ -10,15 +10,19 @@
 Code quality Phases D–G largely done (T58–T60 complete; T48–T57 deferred).
 
 ## Priority Roadmap
-1. **P1 — Detection Bug Fixes from Live Testing** — Plan 114: ✅ **COMPLETE** — all 11 bugs fixed (B23-B33). 327 tests passing.
-2. **P2 — EA/Ubisoft Registry Fallback** — Plan 115: ✅ **COMPLETE** — `IRegistryReader` + `RegistryFallbackDetector` + Pass 1c in FolderScanner. EA/Ubisoft/GOG/Rockstar per-game registry keys detected. 353 tests passing (+26 new).
-3. **P2 — Phase G Quality (T48–T57)** — Test coverage gaps for StoreSignalDetector, LibraryManager, GameSourceParser, JsonConfigService
-4. **P2 — Tags Display in UI** — Render Tags field in left lister and details pane
-5. **P2 — Steam SyncMove Repair** — Backup + ACF path fix
-6. **P2 — PCGamingWiki Metadata + Tags System (Phase 3)** — See Plan 102
-7. **P2 — Port Remaining detect.py Edges** — See Plan 103
-8. **P3 — detect.py Module Split** — See Plan 104
-9. **P3 — Category Browse / Search (F8, S key)** — See Plan 101
+1. **P1 — Detection Bug Fixes from Live Testing** — Plan 114: ✅ **COMPLETE** — all 11 bugs fixed (B23-B33). 358 tests passing.
+2. **P2 — EA/Ubisoft Registry Fallback** — Plan 115: ✅ **COMPLETE** — `IRegistryReader` + `RegistryFallbackDetector` + Pass 1c in FolderScanner. EA/Ubisoft/GOG/Rockstar per-game registry keys detected. 358 tests passing (+26 new).
+3. **P2 — BattleNet Signal-File Detection** — Plan 116: ✅ **COMPLETE** — Removed path-based "blizzard" checks from ContainerScanner and FolderScanner. Detection based on signal files only. 358 tests passing.
+4. **P2 — GOG `.lnk` Signal + README Rewrite** — ✅ **COMPLETE** — `HasGogSignal()` now detects `Launch *.lnk` shortcuts. GamingCommander.Readme.txt rewritten per Plan 998 (registry permission, access sections, no test info). Detection docs updated.
+5. **P2 — Tags Display in UI** — Render tags in left lister and details pane with configurable colors. User tags = neutral color. Engine/store tags = config-file colors. See `planning/102-tags-metadata-display.md`
+6. **P2 — Steam SyncMove Repair** — Backup + ACF path fix
+7. **P2 — PCGamingWiki Metadata + Tags System (Phase 3)** — See Plan 102
+8. **P2 — Port Remaining detect.py Edges** — See Plan 103
+9. **P3 — detect.py Module Split** — See Plan 104
+10. **P3 — Category Browse / Search (F8, S key)** — See Plan 101
+
+### Deferred
+- **Phase G Quality (T48–T57)** — Test coverage gaps. **DEFERRED** — will not write special Linux-only tests. Either tests work cross-platform or they are omitted.
 
 ## Objectives Achieved
 1. ✅ Game detection overhaul — Phase 1+2 complete
@@ -592,12 +596,13 @@ F5 rescan no longer blocks the UI thread. Scanning runs on `Task.Run()` with ful
 - Created Plan 104: detect.py Module Split (8 modules, ~3.5 hours, backward-compatible)
 
 ## Next Session Notes
-- **MVP plan written** — `planning/100-mvp-next-steps.md`; session NEXT re-aimed
-- **P0 product bug FIXED (T61+T62):** `LaunchTarget` now resolves `steam://` URI when present in `CommandLineArguments`; standalone launch args passed to `Process.Start`; status bar shows args when present. T63 (tests) remains.
-- **detect.py** (~1829 LOC) is reference gold; C# needs GOG playTasks / UE paths / container parity before considering Python split
-- Phase G T48–T57 deferred until MVP acceptance criteria pass
+- **MVP complete** — 358 tests passing, all gate criteria satisfied
+- **Next task: Tags Display in UI** — Plan 102 updated with configurable tag color system (user-editable JSON config file)
+- **deferred items:** Test coverage gaps (T48-T57) — will not write special Linux-only tests
+- **deferred indefinitely:** .NET 9 upgrade
 
 ## Key Architecture Decisions
+- **Tag colors are user-configurable** — Read from `data/tag_colors.json`, not hardcoded. User-added tags get neutral default color; engine/store tags get configurable colors per-brand (e.g., Steam blue, GOG purple, Unreal dark blue).
 - **Theme centralized in App.axaml** — All 23 color brushes and 8 font sizes live as Application.Resources with semantic names (e.g. `TextAccent`, `ButtonBgAction`). `AppTheme.cs` provides static accessor for code-behind. To re-theme: swap the resources in App.axaml. `NortonCommander.axaml` retained as reference.
 - **AppTheme name (not Theme)** — Avoids collision with `Avalonia.Controls.Theme` which is a type in Avalonia's namespace.
 - **SolidColorBrush in resources (not Color)** — `DynamicResource` bindings for `Background`/`Foreground` require brush types, not plain `Color`.
