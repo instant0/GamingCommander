@@ -1,9 +1,36 @@
 Windows Registry Editor Version 5.00
 
-[HKEY_CURRENT_USER\Software\GOG.com]
-"GameInstalls"=str(2):"/home/malware/projects/gamingCommander/data/mock/gog\\Games"
+; GOG Galaxy — Per-game keys with rich metadata
+; Real export: HKLM\SOFTWARE\WOW6432Node\GOG.com\Games\{gameId}
 
-[HKEY_CURRENT_USER\Software\GOG.com\Galaxy]
-"InstallationPath"=str(2):"/home/malware/projects/gamingCommander/data/mock/gog\\GOG Galaxy"
-"LibraryPath"=str(2):"/home/malware/projects/gamingCommander/data/mock/gog\\Games"
-"ClientArgs"=str(2):""
+[HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\GOG.com\Games\1201963702]
+"path"=str(2):"PLACEHOLDER_GOG_BASE/Games/Blasphemous 2"
+"exe"=str(2):"\"PLACEHOLDER_GOG_BASE/Games/Blasphemous 2/Blasphemous2.exe\""
+"exeFile"=str(2):"Blasphemous2.exe"
+"gameName"=str(2):"Blasphemous 2"
+"gameID"=str(2):"1201963702"
+"launchCommand"=str(2):"\"PLACEHOLDER_GOG_BASE/Games/Blasphemous 2/Blasphemous2.exe\""
+"workingDir"=str(2):"PLACEHOLDER_GOG_BASE/Games/Blasphemous 2"
+"BUILDID"=str(2):"58798301257626864"
+"INSTALLDATE"=str(2):"1675700403406"
+"language"=str(2):"en"
+"lang_code"=str(2):"en"
+"ver"=str(2):"gog-2"
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\GOG.com\Games\1423041000]
+"path"=str(2):"PLACEHOLDER_GOG_BASE/Games/Celeste"
+"exe"=str(2):"\"PLACEHOLDER_GOG_BASE/Games/Celeste/Celeste.exe\""
+"exeFile"=str(2):"Celeste.exe"
+"gameName"=str(2):"Celeste"
+"gameID"=str(2):"1423041000"
+"launchCommand"=str(2):"\"PLACEHOLDER_GOG_BASE/Games/Celeste/Celeste.exe\""
+"workingDir"=str(2):"PLACEHOLDER_GOG_BASE/Games/Celeste"
+"language"=str(2):"en"
+
+; GOG Galaxy — Launcher path
+[HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\GOG.com\GalaxyClient\paths\client]
+@=str(2):"C:\\Program Files (x86)\\GOG Galaxy"
+
+; GOG — Default games path
+[HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\GOG.com]
+"DefaultPackPath"=str(2):"C:\\GOG Games"

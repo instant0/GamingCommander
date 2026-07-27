@@ -321,14 +321,24 @@ python tools/detect.py /path/to/games --log detect.log
 
 ---
 
-## 7. After MVP (ordered backlog)
+## 7. After MVP (current backlog — ordered by priority)
 
-1. Phase G remaining tests/quality (T48–T57) — harden what you shipped  
-2. Steam SyncMove real repair (backup + ACF path fix)  
-3. Port remaining detect.py edges; then split `detect.py` modules  
-4. PCGamingWiki metadata (`planning/04-phase-2-metadata-lookup.md`)  
-5. Category browse / search  
-6. Themes, .NET 9  
+### P1 — Active
+1. **Detection bug fixes from live testing** — Plan 114: bme2 exe selection, Divine Divinity exe, Endless Legends duplication, Diablo III duplication + BattleNet classification, library root display, tags display
+2. **Phase G quality (T48–T57)** — Harden what shipped: test coverage for StoreSignalDetector, LibraryManager, GameSourceParser, JsonConfigService
+
+### P2 — Planned
+3. **EA/Ubisoft registry fallback** — Port `parse_registry.py` logic for install path detection
+4. **Tags display in UI** — Render Tags field in left lister and details pane (Bug 33)
+5. **Steam SyncMove repair** — Backup + ACF path fix (from `planning/04-phase-2-syncmove.md`)
+6. **PCGamingWiki metadata + Tags system (Phase 3)** — See `planning/102-tags-metadata-display.md`
+7. **Port remaining detect.py edges** — See `planning/103-detect-py-port-status.md`
+8. **Split detect.py into modules** — See `planning/104-detect-py-module-split.md`
+
+### Deferred
+9. **Category browse / search (F8, S key)** — See `planning/101-top-level-modes-and-filter.md`
+10. **Themes** — Multi-theme runtime switch
+11. **.NET 9 upgrade** — Deferred indefinitely
 
 ---
 

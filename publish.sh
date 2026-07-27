@@ -4,13 +4,14 @@
 set -euo pipefail
 
 PUBDIR="${1:-publish}"
-VERSION="0.4.$(date +%Y%m%d.%H%M)"
+YYDDD=$(date +%y%j)  # e.g. 26207 (year + day-of-year, both fit in 16-bit)
+HHMM=$(date +%H%M)
 PROPS="Directory.Build.props"
 
-# Stamp version into props
-sed -i "s|<Version>.*</Version>|<Version>${VERSION}</Version>|" "$PROPS"
-sed -i "s|<FileVersion>.*</FileVersion>|<FileVersion>${VERSION}.0</FileVersion>|" "$PROPS"
+# Version (3-part, max 65535 per component) and FileVersion (4-part with time)
+sed -i "s|<Version>.*</Version>|<Version>0.4.${YYDDD}</Version>|" "$PROPS"
+sed -i "s|<FileVersion>.*</FileVersion>|<FileVersion>0.4.${YYDDD}.${HHMM}</FileVersion>|" "$PROPS"
 
-echo "Version: ${VERSION}"
+echo "Version: 0.4.${YYDDD}.${HHMM}"
 dotnet publish src/GamingCommander.App/GamingCommander.App.csproj -c Release -r win-x64 --self-contained -o "$PUBDIR"
-echo "Published to ${PUBDIR}/ (${VERSION})"
+echo "Published to ${PUBDIR}/ (0.4.${YYDDD}.${HHMM})"

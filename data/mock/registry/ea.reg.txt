@@ -1,8 +1,23 @@
 Windows Registry Editor Version 5.00
 
-[HKEY_CURRENT_USER\Software\Electronic Arts\EA Core]
-"InstallFolder"=str(2):"/home/malware/projects/gamingCommander/data/mock/ea"
-"GameInstallFolder"=str(2):"/home/malware/projects/gamingCommander/data/mock/ea\\Games"
+; EA App — Per-game keys under publisher subfolders
+; Real export: HKLM\SOFTWARE\WOW6432Node\EA Games\{gameName}\Install Dir
 
-[HKEY_CURRENT_USER\Software\Electronic Arts\EA Desktop]
-"AppManifestDirectory"=str(2):"/home/malware/projects/gamingCommander/data/mock/ea\\EA Desktop\\Manifests"
+[HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\EA Games\Dead Space 3]
+"GDFBinary"=str(2):"GDFBinary.dll"
+"DisplayName"=str(2):"Dead Space 3"
+"Install Dir"=str(2):"PLACEHOLDER_EA_BASE/Games/Dead Space 3"
+"Locale"=str(2):"en_US"
+"Product GUID"=str(2):"{dead-space-3-guid}"
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\EA Games\Mass Effect 3]
+"GDFBinary"=str(2):"GDFBinary.dll"
+"DisplayName"=str(2):"Mass Effect 3"
+"Install Dir"=str(2):"PLACEHOLDER_EA_BASE/Games/Mass Effect 3"
+"Locale"=str(2):"en_US"
+
+; EA Desktop — launcher path only (NOT game install path)
+[HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Electronic Arts\EA Desktop]
+"DesktopAppPath"=str(2):"C:\\Program Files\\Electronic Arts\\EA Desktop\\EADesktop.exe"
+"LauncherAppPath"=str(2):"C:\\Program Files\\Electronic Arts\\EA Desktop\\EALauncher.exe"
+"InstallLocation"=str(2):"C:\\Program Files\\Electronic Arts\\EA Desktop\\"

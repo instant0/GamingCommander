@@ -1,9 +1,10 @@
 Windows Registry Editor Version 5.00
 
-[HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Epic Games\EpicGamesLauncher]
-"AppDataPath"=str(2):"/home/malware/projects/gamingCommander/data/mock/epic\\EpicGamesLauncher\\Data"
-"InstallationPath"=str(2):"/home/malware/projects/gamingCommander/data/mock/epic\\Epic Games\\Launcher"
-"LaunchCmd"=str(2):""/home/malware/projects/gamingCommander/data/mock/epic\\Epic Games\\Launcher\\Portal\\Binaries\\Win32\\EpicGamesLauncher.exe" -OpenGL"
+; Epic Games Store — Launcher path only (NO per-game registry)
+; Real export: HKLM\SOFTWARE\Epic Games\EpicGamesLauncher
 
-[HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Epic Games\EpicGamesLauncher\Manifests]
-"ManifestRoot"=str(2):"/home/malware/projects/gamingCommander/data/mock/epic\\EpicGamesLauncher\\Data\\Manifests"
+[HKEY_LOCAL_MACHINE\SOFTWARE\Epic Games\EpicGamesLauncher]
+"AppDataPath"=str(2):"C:\\ProgramData\\Epic\\EpicGamesLauncher\\Data\\"
+
+[HKEY_CURRENT_USER\Software\Epic Games\EpicGamesLauncher]
+"DataPath"=str(2):"C:\\ProgramData\\Epic\\EpicGamesLauncher\\Data\\"

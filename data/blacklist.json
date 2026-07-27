@@ -40,7 +40,8 @@
     ],
     "tier_10_dev_editor_tools": [
       "datacompiler", "editor", "modmanager", "packagemanager", "reminder",
-      "contented", "leveled", "resourceed"
+      "contented", "leveled", "resourceed",
+      "builder", "worldbuilder", "configtool"
     ],
     "tier_11_utilities_debug": [
       "install", "debug", "utils", "sndrpt", "exception", "explorer",

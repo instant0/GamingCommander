@@ -10,19 +10,15 @@
 Code quality Phases D–G largely done (T58–T60 complete; T48–T57 deferred).
 
 ## Priority Roadmap
-1. ~~**P0 — Fix Battle.net detection**~~ ✅ **FIXED** — `"blizzard"` and `"battle.net"` removed from noise filters
-2. ~~**P1 — Unify setup screens**~~ ✅ **IMPLEMENTED** — Wizard + F2 merged into single `LibrarySetupWindow`; WizardWindow, WizardViewModel, WizardLibraryEntry deleted.
-3. ~~**P2 — Steam status messages**~~ ✅ **IMPLEMENTED** — Orphaned/Missing/Moved detail messages now explain what each state means, why it happened, and how to fix it.
-4. ~~**P2 — PE Metadata Scoring**~~ ✅ **IMPLEMENTED** — `ScoreExecutable()` reads PE Description/InternalName for noise filtering
-5. ~~**P2 — EA InstallLog.txt Parsing**~~ ✅ **IMPLEMENTED** — `EaInstallLogParser` extracts authoritative game name, display name, studio
-6. ~~**P2 — User Tags + Override Protection (Phase 1)**~~ ✅ **IMPLEMENTED** — Tags field, UserOverrides dictionary, F4 tag editing, TagNormalizer utility. Plan 110 Phase 1 complete.
-7. **P2 — Epic Manifest Enrichment** ✅ **COMPLETE** — Fixed 3 bugs (#17, #18, #19): local .mancpn/.item parsing + global .item cross-ref → Plan 109 COMPLETE
-   - **Result:** `EpicManifestParser` class with `ParseItemFile`, `ParseMancpnFile`, `ExtractLocalIdentifiers`, `CrossReferenceGlobalManifests`, `ResolveLaunchExecutable`. `FolderScanner` integration enriches Epic games with marketing names and catalog IDs. 17 new tests. 289 total tests passing.
-   - **Deferred:** Epic GraphQL API lookup — future plan.
-8. **P2 — EA/Ubisoft Registry Fallback** — Check registry keys for games when filesystem signals fail
-9. **Phase G quality (P2)** — T48–T57 tests/constants after MVP
-10. **detect.py port completion (P2)** — Remaining gaps → see Plan 103
-11. **detect.py module split (P3)** — Break into 8 modules → see Plan 104
+1. **P1 — Detection Bug Fixes from Live Testing** — Plan 114: ✅ **COMPLETE** — all 11 bugs fixed (B23-B33). 327 tests passing.
+2. **P2 — EA/Ubisoft Registry Fallback** — Plan 115: ✅ **COMPLETE** — `IRegistryReader` + `RegistryFallbackDetector` + Pass 1c in FolderScanner. EA/Ubisoft/GOG/Rockstar per-game registry keys detected. 353 tests passing (+26 new).
+3. **P2 — Phase G Quality (T48–T57)** — Test coverage gaps for StoreSignalDetector, LibraryManager, GameSourceParser, JsonConfigService
+4. **P2 — Tags Display in UI** — Render Tags field in left lister and details pane
+5. **P2 — Steam SyncMove Repair** — Backup + ACF path fix
+6. **P2 — PCGamingWiki Metadata + Tags System (Phase 3)** — See Plan 102
+7. **P2 — Port Remaining detect.py Edges** — See Plan 103
+8. **P3 — detect.py Module Split** — See Plan 104
+9. **P3 — Category Browse / Search (F8, S key)** — See Plan 101
 
 ## Objectives Achieved
 1. ✅ Game detection overhaul — Phase 1+2 complete
@@ -48,16 +44,16 @@ Code quality Phases D–G largely done (T58–T60 complete; T48–T57 deferred).
 - **Steam Controller Config noise (LOW)** — Not in noise filter, appears as orphaned game → Plan 107
 - **Duplicate setup screens (MEDIUM)** — Wizard + F2 with 60-70% overlapping code → Plan 106
 - **blacklist.json in user data (MEDIUM)** — Should ship alongside exe, not in user data folder → Plan 107 / Bug 16
-- **Ubisoft readme enrichment returns publisher name (MEDIUM)** — AC3 shows "Ubisoft Entertainment" instead of "Assassin's Creed III" → Bug 23
-- **ARC Game Store not filtered as noise (MEDIUM)** — `d:\games\arc\arc.exe` classified as Standalone game → Bug 24
-- **battle.net launcher folder detected as game (MEDIUM)** — `d:\games\blizzard\battle.net\battle.net.exe` shows as game entry → Bug 25 (regression from Bug 9 fix)
-- **Diablo III RETAIL classified as Standalone (MEDIUM)** — Should be BattleNet, container scanner lacks BattleNet-aware logic → Bug 26
-- **bme2 selects Worldbuilder.exe (HIGH)** — "builder" not in blacklist.json, Worldbuilder passes all noise filters → Bug 27
-- **Divine Divinity selects ConfigTool.exe (HIGH)** — "configtool" not in blacklist.json → Bug 28
-- **Endless Legends displayed twice (MEDIUM)** — Win32/Win64 subdirs treated as separate games → Bug 29
-- **Diablo III listed twice (MEDIUM)** — "x64 - Copy" backup dir not filtered → Bug 30
-- **Library roots show duplicate "Games" (LOW)** — Path.GetFileName returns same name for all roots → Bug 32
-- **Tags not displayed (LOW)** — Tags field exists but not rendered in UI → Bug 33
+- ~~**Ubisoft readme enrichment returns publisher name (MEDIUM)**~~ ✅ Fixed — publisher deny-list rejects known Ubisoft strings on line 2 → Bug 23
+- ~~**ARC Game Store not filtered as noise (MEDIUM)**~~ ✅ Fixed — `"arc"` added to NoiseSubDirNames → Bug 24
+- ~~**battle.net launcher folder detected as game (MEDIUM)**~~ ✅ Fixed — `"battle.net"` restored to NoiseSubDirNames → Bug 25
+- ~~**Diablo III RETAIL classified as Standalone (MEDIUM)**~~ ✅ Fixed — BattleNet sibling detection + .build.info signal → Bug 26
+- ~~**bme2 selects Worldbuilder.exe (HIGH)**~~ ✅ Fixed — `"builder"`, `"worldbuilder"` added to tier_10 → Bug 27
+- ~~**Divine Divinity selects ConfigTool.exe (HIGH)**~~ ✅ Fixed — `"configtool"` added to tier_10 → Bug 28
+- ~~**Endless Legends displayed twice (MEDIUM)**~~ ✅ Fixed — `"win32"`, `"win64"` added to nonGameFolderNames → Bug 29
+- ~~**Diablo III listed twice (MEDIUM)**~~ ✅ Fixed — `"x64 - copy"`, `"x86 - copy"` added to noise lists → Bug 30
+- ~~**Library roots show duplicate "Games" (LOW)**~~ ✅ Fixed — full root path displayed → Bug 32
+- ~~**Tags not displayed (LOW)**~~ ✅ Fixed — Tags property + XAML columns added → Bug 33
 
 ### Test Coverage Gaps
 - `StoreSignalDetector` — zero tests (10 detection signals)
@@ -505,9 +501,57 @@ All hardcoded colors and font sizes centralized to `App.axaml` Application.Resou
 - All 154 tests passing (33 Core + 1 Migration + 120 App). Build clean.
 
 ## Test Status
-**306 tests passing** (73 Core + 1 Migration + 232 App). Build clean, 0 errors, 0 warnings.
+**358 tests passing** (73 Core + 1 Migration + 284 App). Build clean, 0 errors, 0 warnings.
 
 ## Completed This Session
+
+### Plan 116: BattleNet Detection — Signal Files Only (P2 — Complete)
+Fixed path-based detection bugs in BattleNet game detection:
+
+| Step | File | Change |
+|------|------|--------|
+| 1 | `ContainerScanner.cs` | Removed path-based "blizzard" check (line 94-104) — detection now uses signal files only |
+| 2 | `FolderScanner.cs` | Removed Pass 1b parent propagation — detection now uses signal files only |
+| 3 | `StoreSignalDetector.cs` | Removed `HasBattleNetGameSignal()` (dead code) — was checking folder names, not signal files |
+
+**Core principle**: A game can be installed ANYWHERE. Only SteamLibrary has a fixed path. Detection must be based on **signal files inside the folder** (`.build.info`, `.product.db`, `.battle.net/`), not on path names.
+
+**Bug fixed**: `ContainerScanner` checked if parent was named "blizzard" and `FolderScanner` propagated parent BattleNet signals. Both were wrong — a game at `Q:\random\Diablo III\` with `.build.info` is BattleNet, regardless of path.
+
+**Results:** 358 tests passing (+5 new), build clean, 0 errors, 0 warnings.
+
+### Plan 115: Multi-Launcher Registry Fallback (P2 — Complete)
+Implemented registry-based game detection fallback for EA, Ubisoft, GOG, and Rockstar games:
+
+| Step | File | Change |
+|------|------|--------|
+| 1 | `IRegistryReader.cs` | **NEW** — Core interface: `ReadStringValue`, `ReadKeyValues`, `EnumerateSubKeyNames` |
+| 2 | `WindowsRegistryReader.cs` | **NEW** — Production implementation using `Microsoft.Win32.Registry` |
+| 3 | `RegistryFallbackDetector.cs` | **NEW** — Enumerates per-game registry keys, classifies games by path matching |
+| 4 | `FolderScanner.cs` | Added Pass 1c between Pass 1b and Pass 2; new constructor overload accepting `IRegistryReader?` |
+| 5 | `App.axaml.cs` | Wired `WindowsRegistryReader` on Windows, `null` on Linux |
+| 6 | `MainWindow.axaml.cs` | Same wiring for F2 setup scanner |
+| 7 | `MockRegistryReader.cs` | **NEW** — .reg file parser for tests (mirrors `parse_registry.py`) |
+| 8 | `RegistryFallbackDetectorTests.cs` | **NEW** — 13 tests: EA/Ubisoft/GOG/Rockstar detection, negative cases, path normalization |
+| 9 | `MockRegistryReaderTests.cs` | **NEW** — 13 tests: EA/Ubisoft/GOG parsing, DWORD, subkey enumeration, edge cases |
+| 10 | `data/mock/registry/*.reg.txt` | Rewritten with corrected per-game keys matching real exports |
+
+**Registry key corrections from real exports:**
+- EA: `HKLM\...\EA Games\{gameName}\Install Dir` (was incorrectly `HKCU\EA Core\GameInstallFolder`)
+- Ubisoft: `HKLM\...\Launcher\Installs\{gameId}\InstallDir` (was incorrectly `Launcher\GameInstallPath`)
+- GOG: `HKLM\...\GOG.com\Games\{gameId}\path` (richest per-game data)
+- Rockstar: `HKLM\...\Rockstar Games\{gameName}\InstallFolder` (new)
+
+**Detection chain:**
+```
+Pass 1:   StoreSignalDetector      (filesystem signals — highest confidence)
+Pass 1b:  BattleNet parent propagation (REMOVED — path-based, wrong)
+Pass 1c:  RegistryFallbackDetector (registry per-game keys — NEW, medium confidence)
+Pass 2:   FallbackSignalDetector   (deep filesystem — lower confidence)
+Pass 3:   ContainerScanner         (container patterns — lowest confidence)
+```
+
+**Results:** 353 tests passing (+26 new), build clean, 0 errors, 0 warnings.
 
 ### Plan 113: Async Background Scanning (P1 — Complete)
 F5 rescan no longer blocks the UI thread. Scanning runs on `Task.Run()` with full cancellation support:

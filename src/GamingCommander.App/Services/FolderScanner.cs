@@ -11,6 +11,7 @@ public sealed class FolderScanner
     private readonly IReadOnlyList<string> _launcherPatterns;
     private readonly IReadOnlyList<BlacklistTierEntry> _tieredNoiseExePatterns;
     private readonly IReadOnlyList<string> _peMetadataBlacklist;
+    private readonly RegistryFallbackDetector? _registryFallback;
 
     /// <summary>
     /// Default hardcoded patterns for backward compatibility (tests, etc.).
@@ -36,13 +37,13 @@ public sealed class FolderScanner
 
     /// <summary>Creates a scanner with default hardcoded noise patterns (for tests and simple cases).</summary>
     public FolderScanner()
-        : this([], DefaultNoiseExePatterns, [], DefaultLauncherPatterns, [], [])
+        : this([], DefaultNoiseExePatterns, [], DefaultLauncherPatterns, [], [], null)
     {
     }
 
     /// <summary>Creates a scanner with custom hidden folder names and default noise patterns.</summary>
     public FolderScanner(IEnumerable<string> hiddenFolderNames)
-        : this(hiddenFolderNames, DefaultNoiseExePatterns, [], DefaultLauncherPatterns, [], [])
+        : this(hiddenFolderNames, DefaultNoiseExePatterns, [], DefaultLauncherPatterns, [], [], null)
     {
     }
 
@@ -56,7 +57,28 @@ public sealed class FolderScanner
             blacklist.DirectoryPatterns,
             DefaultLauncherPatterns,
             blacklist.TieredExePatterns,
-            blacklist.PeMetadataPatterns)
+            blacklist.PeMetadataPatterns,
+            null)
+    {
+    }
+
+    /// <summary>
+    /// Creates a scanner with blacklist data and optional registry reader for fallback detection.
+    /// When a registry reader is provided, Pass 1c classifies games via registry per-game keys
+    /// when no filesystem signal is found (EA, Ubisoft, GOG, Rockstar).
+    /// </summary>
+    public FolderScanner(
+        IEnumerable<string> hiddenFolderNames,
+        BlacklistData blacklist,
+        IRegistryReader? registryReader)
+        : this(
+            hiddenFolderNames,
+            blacklist.ExeNamePatterns.Count > 0 ? blacklist.ExeNamePatterns : DefaultNoiseExePatterns,
+            blacklist.DirectoryPatterns,
+            DefaultLauncherPatterns,
+            blacklist.TieredExePatterns,
+            blacklist.PeMetadataPatterns,
+            registryReader)
     {
     }
 
@@ -66,7 +88,8 @@ public sealed class FolderScanner
         IReadOnlyList<string> noiseDirectoryPatterns,
         IReadOnlyList<string> launcherPatterns,
         IReadOnlyList<BlacklistTierEntry> tieredNoiseExePatterns,
-        IReadOnlyList<string> peMetadataBlacklist)
+        IReadOnlyList<string> peMetadataBlacklist,
+        IRegistryReader? registryReader)
     {
         _hiddenFolderNames = new HashSet<string>(hiddenFolderNames, StringComparer.OrdinalIgnoreCase);
         _noiseExePatterns = noiseExePatterns;
@@ -74,6 +97,9 @@ public sealed class FolderScanner
         _launcherPatterns = launcherPatterns;
         _tieredNoiseExePatterns = tieredNoiseExePatterns;
         _peMetadataBlacklist = peMetadataBlacklist;
+        _registryFallback = registryReader is not null
+            ? new RegistryFallbackDetector(registryReader)
+            : null;
     }
 
     // ════════════════════════════════════════════════════════════════
@@ -108,28 +134,27 @@ public sealed class FolderScanner
             // Pass 1: Check for launcher/store signals at this folder level
             GameSourceKind signalType = StoreSignalDetector.DetectType(subDir);
 
-            // Pass 1b: Check if parent folder has a store signal (e.g., blizzard/ → BattleNet)
-            // This handles games inside store launcher directories
-            if (signalType == GameSourceKind.Unknown)
-            {
-                DirectoryInfo? parent = subDir.Parent;
-                if (parent != null)
-                {
-                    GameSourceKind parentSignal = StoreSignalDetector.DetectType(parent);
-                    if (parentSignal == GameSourceKind.BattleNet)
-                    {
-                        // Parent is a BattleNet launcher dir — check if this child is a game
-                        if (StoreSignalDetector.HasBattleNetGameSignal(subDir))
-                            signalType = GameSourceKind.BattleNet;
-                    }
-                }
-            }
+            // NOTE: Pass 1b (parent propagation) REMOVED.
+            // Detection is based on signal files inside the game folder, NOT on parent directory signals.
+            // A game at Q:\random\Diablo III\ with .build.info is BattleNet — period.
+            // StoreSignalDetector.DetectType() already handles this correctly.
 
             if (signalType != GameSourceKind.Unknown)
             {
                 // Tier 1 — High confidence. Always create an entry.
                 AddGameEntry(entries, subDir, rootPath, signalType, defaultType);
                 continue;
+            }
+
+            // Pass 1c: Registry fallback (EA, Ubisoft, GOG, Rockstar per-game keys)
+            if (_registryFallback is not null)
+            {
+                GameSourceKind registryType = _registryFallback.DetectType(subDir);
+                if (registryType != GameSourceKind.Unknown)
+                {
+                    AddGameEntry(entries, subDir, rootPath, registryType, defaultType);
+                    continue;
+                }
             }
 
             // Pass 2: Check for standalone signals (root exe, unreal layout, etc.)
@@ -317,6 +342,16 @@ public sealed class FolderScanner
                 {
                     exePath = resolvedExe;
                 }
+            }
+        }
+
+        // BattleNet enrichment: extract product codename from .build.info
+        if (resolvedType == GameSourceKind.BattleNet)
+        {
+            string? product = StoreSignalDetector.ExtractBlizzardProduct(subDir);
+            if (!string.IsNullOrEmpty(product))
+            {
+                platformMetadata["BlizzardProduct"] = product;
             }
         }
 

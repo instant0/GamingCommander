@@ -145,10 +145,62 @@ internal static class StoreSignalDetector
             || Directory.Exists(Path.Combine(dir.FullName, ".egsstore"));
     }
 
-    /// <summary>Blizzard signal: .battle.net/ directory at folder root.</summary>
+    /// <summary>
+    /// Blizzard signal: checks for BattleNet-specific filesystem markers.
+    /// Primary: .battle.net/ directory (BattleNet Agent runtime data)
+    /// Secondary: .build.info file (created during game installation — unique to BattleNet games)
+    /// Tertiary: .product.db file (created during game installation)
+    /// </summary>
     internal static bool HasBlizzardSignal(DirectoryInfo dir)
     {
-        return Directory.Exists(Path.Combine(dir.FullName, ".battle.net"));
+        // Primary: .battle.net/ directory (BattleNet Agent runtime data)
+        if (Directory.Exists(Path.Combine(dir.FullName, ".battle.net")))
+            return true;
+
+        // Secondary: .build.info file (created during game installation)
+        // This is the most reliable signal — unique to BattleNet games
+        if (File.Exists(Path.Combine(dir.FullName, ".build.info")))
+            return true;
+
+        // Tertiary: .product.db file (created during game installation)
+        if (File.Exists(Path.Combine(dir.FullName, ".product.db")))
+            return true;
+
+        return false;
+    }
+
+    /// <summary>
+    /// Extracts the Blizzard product codename from a .build.info file.
+    /// The CDN Path field (index 6) contains values like "tpr/diablo3", "prometheus", "agent".
+    /// Returns the codename (e.g., "diablo3") or null if not found.
+    /// </summary>
+    internal static string? ExtractBlizzardProduct(DirectoryInfo dir)
+    {
+        string buildInfoPath = Path.Combine(dir.FullName, ".build.info");
+        if (!File.Exists(buildInfoPath))
+            return null;
+
+        try
+        {
+            string[] lines = File.ReadAllLines(buildInfoPath);
+            // Line 0 is headers, line 1+ is data
+            if (lines.Length < 2)
+                return null;
+
+            string[] fields = lines[1].Split('|');
+            // CDN Path field is at index 6, format: "tpr/diablo3"
+            if (fields.Length <= 6 || string.IsNullOrEmpty(fields[6]))
+                return null;
+
+            string cdnPath = fields[6];
+            // Extract product codename after the last "/"
+            int lastSlash = cdnPath.LastIndexOf('/');
+            return lastSlash >= 0 ? cdnPath[(lastSlash + 1)..] : cdnPath;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>Xbox signal: default-metadata.json at folder root.</summary>
@@ -176,38 +228,4 @@ internal static class StoreSignalDetector
             || File.Exists(Path.Combine(dir.FullName, "steam_api.dll"));
     }
 
-    /// <summary>
-    /// BattleNet game signal: checks for BattleNet-specific game folder names or executable patterns.
-    /// Used when parent folder has BattleNet signal (e.g., blizzard/diablo iii/).
-    /// </summary>
-    internal static bool HasBattleNetGameSignal(DirectoryInfo dir)
-    {
-        // Check for common BattleNet game folder names
-        string[] battleNetGameNames =
-        [
-            "warcraft", "diablo", "overwatch", "starcraft",
-            "hearthstone", "world of warcraft", "heroes of the storm",
-            "call of duty", "crash bandicoot", "spyro",
-        ];
-
-        string dirName = dir.Name.ToLowerInvariant();
-        if (battleNetGameNames.Any(name => dirName.Contains(name)))
-            return true;
-
-        // Check for BattleNet-specific executables
-        string[] battleNetExes =
-        [
-            "DiabloIII.exe", "Retail.x86_64.exe",
-            "Warcraft III.exe", "Frozen Throne.exe",
-            "Overwatch.exe", "SC2Switcher.exe",
-        ];
-
-        foreach (string exe in battleNetExes)
-        {
-            if (File.Exists(Path.Combine(dir.FullName, exe)))
-                return true;
-        }
-
-        return false;
-    }
 }

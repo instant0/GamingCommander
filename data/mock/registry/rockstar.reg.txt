@@ -1,0 +1,14 @@
+Windows Registry Editor Version 5.00
+
+; Rockstar Games — Per-game keys
+; Real export: HKLM\SOFTWARE\WOW6432Node\Rockstar Games\{gameName}\InstallFolder
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Rockstar Games\Grand Theft Auto V Enhanced]
+"InstallFolder"=str(2):"PLACEHOLDER_ROCKSTAR_BASE/Games/Grand Theft Auto V Enhanced"
+"GTAV"=str(2):"PLACEHOLDER_ROCKSTAR_BASE/Games/Grand Theft Auto V Enhanced/GTAV.exe"
+"GTAVLauncher"=str(2):"PLACEHOLDER_ROCKSTAR_BASE/Games/Grand Theft Auto V Enhanced/GTAVLauncher.exe"
+"Launcher"=str(2):"C:\\Program Files\\Rockstar Games\\Launcher\\Launcher.exe"
+
+; Rockstar Launcher — launcher path only
+[HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Rockstar Games\Launcher]
+"InstallFolder"=str(2):"C:\\Program Files\\Rockstar Games\\Launcher\\"

@@ -18,32 +18,26 @@
 | WP-4 | Launch UX polish — T69 ✅, T71 ✅ | **P1 COMPLETE** |
 | WP-5 | Windows smoke gate — T70 ✅, T75 ✅, T76 ✅, T77 ✅ | **P0+P1 COMPLETE** |
 
-**289 tests passing. Build clean.**
+**358 tests passing. Build clean.**
 
 **Post-MVP backlog (ordered by priority):**
 
-1. ~~**P0 — Fix Battle.net detection**~~ ✅ **FIXED** — `"blizzard"` and `"battle.net"` removed from noise filters
-2. ~~**P1 — Unify setup screens**~~ ✅ **IMPLEMENTED** — Wizard + F2 merged into single `LibrarySetupWindow`; WizardWindow, WizardViewModel, WizardLibraryEntry deleted. `App.axaml.cs` auto-opens LibrarySetupWindow on first run with `isFirstRun` flag.
-3. ~~**P2 — Steam status messages**~~ ✅ **IMPLEMENTED** — Orphaned/Missing/Moved detail messages now explain what each state means, why it happened, and how to fix it. Added `FolderName`, `LibraryRoot`, `AcfExpectedPath` to PlatformMetadata.
-4. ~~**P2 — PE Metadata Scoring**~~ ✅ **IMPLEMENTED** — `ScoreExecutable()` reads `FileVersionInfo.GetVersionInfo()` for noise filtering by Description/InternalName
-5. ~~**P2 — EA InstallLog.txt Parsing**~~ ✅ **IMPLEMENTED** — `EaInstallLogParser` extracts authoritative game name, display name, studio from `__Installer/InstallLog.txt`
-6. ~~**P2 — User Tags + Override Protection (Phase 1)**~~ ✅ **IMPLEMENTED** — Tags field, UserOverrides dictionary, F4 tag editing, TagNormalizer utility. Plan 110 Phase 1 complete. 272 tests passing.
-7. ~~**P2 — Epic Manifest Enrichment**~~ ✅ **COMPLETE** — Fixed 3 bugs (#17, #18, #19): `EpicManifestParser` class with local .mancpn/.item parsing + global .item cross-ref. 17 new tests, 289 total. **Deferred:** Epic GraphQL API lookup — future plan.
-8. ~~**P1 — Scan Perf + Display Names + Ubisoft Signals**~~ ✅ **COMPLETE** — Plan 112: Blacklist DTO mismatch fixed, PE FileDescription display names, `uplay_download/` + `*_UPP*` Ubisoft signals, `support/Readme` metadata, FileInfo.Length dedup, PE skip for noise. 306 tests passing.
-9. ~~**P1 — Async Background Scanning**~~ ✅ **COMPLETE** — Plan 113: CancellationToken pipeline, ShellViewModel scan state, per-root scanning badge, async F5 with cancellation toggle. 306 tests passing.
-10. **P1 — Detection Bug Fixes from Live Testing** — Plan 114: bme2 exe selection, Divine Divinity exe, Endless Legends duplication, Diablo III duplication + BattleNet classification, library root display, tags display. See `planning/114-detection-bugfixes.md`
-11. **P2 — EA/Ubisoft Registry Fallback** — Port `parse_registry.py` logic to C# for install path detection
-11. Phase G T48–T57 (tests/quality polish) — harden what shipped
-12. Steam SyncMove repair (backup + ACF path fix) — from `planning/04-phase-2-syncmove.md`
-13. PCGamingWiki metadata + Tags system (Phase 3) — see `planning/102-tags-metadata-display.md`
-14. Port remaining detect.py edges — see `planning/103-detect-py-port-status.md`
-15. Split detect.py into modules — see `planning/104-detect-py-module-split.md`
-16. Category browse / search (F8, S key) — see `planning/101-top-level-modes-and-filter.md`
+1. **P1 — Detection Bug Fixes from Live Testing** — Plan 114: ✅ **COMPLETE** — all 11 bugs fixed (B23-B33). See `planning/114-detection-bugfixes.md`
+2. **P2 — EA/Ubisoft Registry Fallback** — Plan 115: ✅ **COMPLETE** — `IRegistryReader` + `RegistryFallbackDetector` + Pass 1c. EA/Ubisoft/GOG/Rockstar per-game registry keys. 353 tests. See `planning/115-ea-ubisoft-registry-fallback.md`
+3. **P2 — BattleNet Signal-File Detection** — Plan 116: ✅ **COMPLETE** — Removed path-based "blizzard" checks from ContainerScanner and FolderScanner. Detection based on signal files only. 358 tests. See `planning/116-battlenet-detection-enhancement.md`
+4. **P2 — Phase G Quality (T48–T57)** — Test coverage gaps for StoreSignalDetector, LibraryManager, GameSourceParser, JsonConfigService
+5. **P2 — Tags Display in UI** — Render Tags field in left lister and details pane (Bug 33)
+6. **P2 — Steam SyncMove Repair** — Backup + ACF path fix (from `planning/04-phase-2-syncmove.md`)
+7. **P2 — PCGamingWiki Metadata + Tags System (Phase 3)** — See `planning/102-tags-metadata-display.md`
+8. **P2 — Port Remaining detect.py Edges** — See `planning/103-detect-py-port-status.md`
+9. **P3 — detect.py Module Split** — See `planning/104-detect-py-module-split.md`
+10. **P3 — Category Browse / Search (F8, S key)** — See `planning/101-top-level-modes-and-filter.md`
 
 ---
 
 ## Recently completed (context only)
 
+- **Plan 116 (BattleNet Signal-File Detection) ✅ COMPLETE** — Removed path-based "blizzard" checks from ContainerScanner and FolderScanner. Detection based on signal files only. 358 tests passing.
 - **Plan 108 Status Message Refinement ✅ COMPLETE** — Removed "delete ACF" guidance, added ACF re-linking future work references.
 - **Documentation Review — P2 Task Analysis ✅ COMPLETE** — Created Plan 109 (Epic Manifest Enrichment), Plan 110 (User Tags + Override Protection), updated Plan 108.
 - **Plan 106 (Unified Setup Screen) ✅ COMPLETE** — Wizard + F2 merged into single `LibrarySetupWindow`; 4 Wizard files deleted; `App.axaml.cs` auto-opens with `isFirstRun` flag; 227 tests passing.

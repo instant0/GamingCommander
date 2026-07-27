@@ -80,4 +80,7 @@ public sealed class ShellPaneItemViewModel
     /// Empty when idle.
     /// </summary>
     public string ScanningBadge { get; init; } = string.Empty;
+
+    /// <summary>Comma-separated user tags (e.g., "RPG, Open World"). Empty when no tags assigned.</summary>
+    public string Tags { get; init; } = string.Empty;
 }

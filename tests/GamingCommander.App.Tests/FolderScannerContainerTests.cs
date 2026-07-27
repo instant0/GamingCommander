@@ -237,6 +237,110 @@ public sealed class FolderScannerContainerTests : IDisposable
     }
 
     // ════════════════════════════════════════════════════════════════
+    //  Phase 1 — Plan 114 NonGameFolder Additions (B29, B30)
+    // ════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void Scan_Win32Win64Subdirs_NotTreatedAsSeparateGames()
+    {
+        // B29: Win32/ and Win64/ at game level are platform dirs, not separate games.
+        // Container scanner should skip them via s_nonGameFolderNames.
+        string publisherDir = CreateDir("Publisher");
+        string win32 = CreateDir("Publisher", "Win32");
+        string win64 = CreateDir("Publisher", "Win64");
+        CreateExe(win32, "SomeGame.exe");
+        CreateExe(win64, "SomeGame.exe");
+
+        // Publisher/ is a container (no signal, children have exes).
+        // Before fix: Win32 and Win64 each produce a game entry (2 total).
+        // After fix: Win32 and Win64 are non-game folders → skipped → 0 entries.
+        var entries = _scanner.Scan(_tempDir, GameSourceKind.Standalone);
+
+        Assert.DoesNotContain(entries, e =>
+            e.FolderName.Equals("Win32", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(entries, e =>
+            e.FolderName.Equals("Win64", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Scan_x86x64Subdirs_NotTreatedAsSeparateGames()
+    {
+        // B29: x86/ and x64/ at game level are platform dirs, not separate games.
+        string publisherDir = CreateDir("Publisher");
+        string x86 = CreateDir("Publisher", "x86");
+        string x64 = CreateDir("Publisher", "x64");
+        CreateExe(x86, "SomeGame.exe");
+        CreateExe(x64, "SomeGame.exe");
+
+        var entries = _scanner.Scan(_tempDir, GameSourceKind.Standalone);
+
+        Assert.DoesNotContain(entries, e =>
+            e.FolderName.Equals("x86", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(entries, e =>
+            e.FolderName.Equals("x64", StringComparison.OrdinalIgnoreCase));
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    //  Phase 2 — BattleNet Container Detection (B26/B31)
+    // ════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void Scan_BlizzardContainer_Diablo3_ClassifiedAsBattleNet()
+    {
+        // B26: Diablo III inside Blizzard/ container with .build.info → BattleNet
+        string blizzardDir = CreateDir("Blizzard");
+        string diabloDir = CreateDir("Blizzard", "Diablo III");
+        File.WriteAllText(Path.Combine(diabloDir, ".build.info"),
+            "Header\n" +
+            "eu|1|key|key2|||tpr/diablo3|host\n");
+        CreateExe(diabloDir, "Diablo III.exe");
+
+        var entries = _scanner.Scan(_tempDir, GameSourceKind.Standalone);
+
+        var diablo = entries.FirstOrDefault(e =>
+            e.FolderName.Contains("Diablo", StringComparison.OrdinalIgnoreCase));
+        Assert.NotNull(diablo);
+        Assert.Equal(GameSourceKind.BattleNet, diablo.GameSource);
+    }
+
+    [Fact]
+    public void Scan_BlizzardContainer_Warcraft_ClassifiedAsBattleNet()
+    {
+        // B26: World of Warcraft inside Blizzard/ container with .build.info → BattleNet
+        string blizzardDir = CreateDir("Blizzard");
+        string wowDir = CreateDir("Blizzard", "World of Warcraft");
+        File.WriteAllText(Path.Combine(wowDir, ".build.info"),
+            "Header\n" +
+            "eu|1|key|key2|||agent|host\n");
+        CreateExe(wowDir, "Wow.exe");
+
+        var entries = _scanner.Scan(_tempDir, GameSourceKind.Standalone);
+
+        var wow = entries.FirstOrDefault(e =>
+            e.FolderName.Contains("Warcraft", StringComparison.OrdinalIgnoreCase));
+        Assert.NotNull(wow);
+        Assert.Equal(GameSourceKind.BattleNet, wow.GameSource);
+    }
+
+    [Fact]
+    public void Scan_Diablo3_WithBuildInfo_DetectedAsBattleNet()
+    {
+        // B26: Standalone Diablo III with .build.info → BattleNet (no Blizzard/ container)
+        string diabloDir = CreateDir("Diablo III");
+        File.WriteAllText(Path.Combine(diabloDir, ".build.info"),
+            "Header\n" +
+            "eu|1|key|key2|||tpr/diablo3|host\n");
+        CreateExe(diabloDir, "Diablo III.exe");
+
+        var entries = _scanner.Scan(_tempDir, GameSourceKind.Standalone);
+
+        var diablo = entries.FirstOrDefault(e =>
+            e.FolderName.Contains("Diablo", StringComparison.OrdinalIgnoreCase));
+        Assert.NotNull(diablo);
+        Assert.Equal(GameSourceKind.BattleNet, diablo.GameSource);
+    }
+
+    // ════════════════════════════════════════════════════════════════
     //  Helpers
     // ════════════════════════════════════════════════════════════════
 

@@ -1,10 +1,20 @@
 Windows Registry Editor Version 5.00
 
-[HKEY_LOCAL_MACHINE\SOFTWARE\Ubisoft\Launcher]
-"InstallPath"=str(2):"/home/malware/projects/gamingCommander/data/mock/ubi\\Ubisoft Game Launcher"
-"GameInstallPath"=str(2):"/home/malware/projects/gamingCommander/data/mock/ubi\\Games"
-"CachePath"=str(2):"/home/malware/projects/gamingCommander/data/mock/ubi\\Ubisoft Game Launcher\\cache"
+; Ubisoft Connect — Per-game keys under Launcher\Installs\{gameId}
+; Real export: HKLM\SOFTWARE\WOW6432Node\Ubisoft\Launcher\Installs\{gameId}\InstallDir
 
+[HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Ubisoft\Launcher\Installs\11903]
+"InstallDir"=str(2):"PLACEHOLDER_UBI_BASE/Games/Ghost Recon Breakpoint"
+"Language"=str(2):"en_US"
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Ubisoft\Launcher\Installs\4932]
+"InstallDir"=str(2):"PLACEHOLDER_UBI_BASE/Games/The Division 2"
+"Language"=str(2):"en_US"
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Ubisoft\Launcher\Installs\5405]
+"InstallDir"=str(2):"PLACEHOLDER_UBI_BASE/Games/Riders Republic"
+"Language"=str(2):"en_US"
+
+; Ubisoft Launcher — launcher path only (NOT game install path)
 [HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Ubisoft\Launcher]
-"InstallPath"=str(2):"/home/malware/projects/gamingCommander/data/mock/ubi\\Ubisoft Game Launcher"
-"GameInstallPath"=str(2):"/home/malware/projects/gamingCommander/data/mock/ubi\\Games"
+"InstallDir"=str(2):"C:\\Program Files (x86)\\Ubisoft\\Ubisoft Game Launcher\\"

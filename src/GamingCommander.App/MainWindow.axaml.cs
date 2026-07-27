@@ -7,6 +7,7 @@ using Avalonia.Threading;
 using GamingCommander.App.Services;
 using GamingCommander.Core;
 using GamingCommander.Core.Models;
+using GamingCommander.Core.Services;
 using GamingCommander.UI.ViewModels;
 
 namespace GamingCommander.App;
@@ -46,7 +47,10 @@ public partial class MainWindow : Window
         // always has a blacklist-enabled scanner (not the null-fallback path).
         _configService = new JsonConfigService(GetConfigPath());
         var blacklist = new BlacklistLoader(AppDomain.CurrentDomain.BaseDirectory).Load();
-        _scanner = new FolderScanner(_configService.Load().HiddenFolders, blacklist);
+        IRegistryReader registryReader = OperatingSystem.IsWindows()
+            ? new WindowsRegistryReader()
+            : null!;
+        _scanner = new FolderScanner(_configService.Load().HiddenFolders, blacklist, registryReader);
 
         AppConfig config = _configService.Load();
         var steamPaths = config.LibraryRoots

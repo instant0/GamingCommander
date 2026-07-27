@@ -479,6 +479,142 @@ public sealed class StoreSignalDetectorTests : IDisposable
     }
 
     // ════════════════════════════════════════════════════════════════
+    //  UbisoftReadmeParser — Publisher Deny-List (B23)
+    // ════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void UbisoftReadmeParser_PublisherOnLine2_Rejected()
+    {
+        // B23: Some Ubisoft readmes have publisher name on line 2 instead of game title
+        string readmeDir = CreateDir("Support", "Readme");
+        File.WriteAllText(Path.Combine(readmeDir, "Readme.txt"),
+            "Ubisoft Entertainment\r\nUbisoft Entertainment\r\n© 2012 Ubisoft Entertainment\r\n");
+
+        var result = UbisoftReadmeParser.TryParse(AsDirInfo(_tempDir));
+
+        Assert.NotNull(result);
+        Assert.Equal("Ubisoft Entertainment", result.Publisher);
+        Assert.Null(result.GameTitle);
+    }
+
+    [Fact]
+    public void UbisoftReadmeParser_UbisoftSASOnLine2_Rejected()
+    {
+        string readmeDir = CreateDir("Support", "Readme");
+        File.WriteAllText(Path.Combine(readmeDir, "Readme.txt"),
+            "Ubisoft\r\nUbisoft SAS\r\n© 2019 Ubisoft\r\n");
+
+        var result = UbisoftReadmeParser.TryParse(AsDirInfo(_tempDir));
+
+        Assert.NotNull(result);
+        Assert.Equal("Ubisoft", result.Publisher);
+        Assert.Null(result.GameTitle);
+    }
+
+    [Fact]
+    public void UbisoftReadmeParser_ValidTitle_ReturnsCorrectly()
+    {
+        string readmeDir = CreateDir("Support", "Readme");
+        File.WriteAllText(Path.Combine(readmeDir, "Readme.txt"),
+            "Ubisoft\r\nAssassin's Creed Unity\r\n© 2014 Ubisoft Entertainment\r\n");
+
+        var result = UbisoftReadmeParser.TryParse(AsDirInfo(_tempDir));
+
+        Assert.NotNull(result);
+        Assert.Equal("Ubisoft", result.Publisher);
+        Assert.Equal("Assassin's Creed Unity", result.GameTitle);
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    //  Blizzard Signal — Enhanced Detection (B26)
+    // ════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void DetectType_BuildInfoFile_ReturnsBattleNet()
+    {
+        // B26: .build.info file is a strong Blizzard signal
+        File.WriteAllText(Path.Combine(_tempDir, ".build.info"),
+            "Branch!STRING:0|Active!DEC:1\neu|1|abc|||tpr/diablo3\n");
+
+        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
+
+        Assert.Equal(GameSourceKind.BattleNet, result);
+    }
+
+    [Fact]
+    public void DetectType_ProductDbFile_ReturnsBattleNet()
+    {
+        // B26: .product.db file is a strong Blizzard signal
+        File.WriteAllBytes(Path.Combine(_tempDir, ".product.db"), [0x0a, 0x07, 0x64, 0x69, 0x61, 0x62, 0x6c, 0x6f, 0x33]);
+
+        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
+
+        Assert.Equal(GameSourceKind.BattleNet, result);
+    }
+
+    [Fact]
+    public void HasBlizzardSignal_BuildInfoFile_ReturnsTrue()
+    {
+        // B26: .build.info file triggers Blizzard signal
+        File.WriteAllText(Path.Combine(_tempDir, ".build.info"), "header\ndata\n");
+
+        Assert.True(StoreSignalDetector.HasBlizzardSignal(AsDirInfo(_tempDir)));
+    }
+
+    [Fact]
+    public void HasBlizzardSignal_ProductDbFile_ReturnsTrue()
+    {
+        // B26: .product.db file triggers Blizzard signal
+        File.WriteAllBytes(Path.Combine(_tempDir, ".product.db"), [0x00]);
+
+        Assert.True(StoreSignalDetector.HasBlizzardSignal(AsDirInfo(_tempDir)));
+    }
+
+    [Fact]
+    public void ExtractBlizzardProduct_Diablo3_ReturnsCodename()
+    {
+        // B26: Extract product codename from .build.info CDN Path field
+        File.WriteAllText(Path.Combine(_tempDir, ".build.info"),
+            "Branch!STRING:0|Active!DEC:1|Build Key!HEX:16|CDN Key!HEX:16|Install Key!HEX:16|IM Size!DEC:4|CDN Path!STRING:0|CDN Hosts!STRING:0\n" +
+            "eu|1|e34fc3fb7831a77e0ad7def0bb399ac7|6547fc64ca796c7c1b25864145814ace|||tpr/diablo3|level3.blizzard.com\n");
+
+        string? product = StoreSignalDetector.ExtractBlizzardProduct(AsDirInfo(_tempDir));
+
+        Assert.Equal("diablo3", product);
+    }
+
+    [Fact]
+    public void ExtractBlizzardProduct_Prometheus_ReturnsCodename()
+    {
+        // B26: Diablo IV uses "prometheus" codename
+        File.WriteAllText(Path.Combine(_tempDir, ".build.info"),
+            "Header\n" +
+            "eu|1|key|key2|||prometheus|host\n");
+
+        string? product = StoreSignalDetector.ExtractBlizzardProduct(AsDirInfo(_tempDir));
+
+        Assert.Equal("prometheus", product);
+    }
+
+    [Fact]
+    public void ExtractBlizzardProduct_NoBuildInfo_ReturnsNull()
+    {
+        string? product = StoreSignalDetector.ExtractBlizzardProduct(AsDirInfo(_tempDir));
+
+        Assert.Null(product);
+    }
+
+    [Fact]
+    public void ExtractBlizzardProduct_EmptyFile_ReturnsNull()
+    {
+        File.WriteAllText(Path.Combine(_tempDir, ".build.info"), "");
+
+        string? product = StoreSignalDetector.ExtractBlizzardProduct(AsDirInfo(_tempDir));
+
+        Assert.Null(product);
+    }
+
+    // ════════════════════════════════════════════════════════════════
     //  Helpers
     // ════════════════════════════════════════════════════════════════
 

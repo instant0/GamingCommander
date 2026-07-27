@@ -245,4 +245,62 @@ public sealed class ScannerFilterTests
                 Directory.Delete(tempRoot, true);
         }
     }
+
+    // ════════════════════════════════════════════════════════════════
+    //  Phase 1 — Plan 114 NoiseSubDirNames (B24, B25, B30)
+    // ════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void NoiseSubDirNames_ContainsArc()
+    {
+        // B24: ARC game store/launcher directory should be skipped
+        Assert.Contains("arc", FileSystemHelper.NoiseSubDirNames);
+    }
+
+    [Fact]
+    public void NoiseSubDirNames_ContainsBattleDotNet()
+    {
+        // B25: Battle.net launcher directory should be skipped
+        Assert.Contains("battle.net", FileSystemHelper.NoiseSubDirNames);
+    }
+
+    [Fact]
+    public void NoiseSubDirNames_ContainsBackupDirectories()
+    {
+        // B30: Backup directory copies should be skipped
+        Assert.Contains("x64 - copy", FileSystemHelper.NoiseSubDirNames);
+        Assert.Contains("x86 - copy", FileSystemHelper.NoiseSubDirNames);
+    }
+
+    [Fact]
+    public void Scan_ArcDirectory_IsExcluded()
+    {
+        // B24: Full integration test — ARC folder with arc.exe is not a game
+        string tempRoot = Path.Combine(Path.GetTempPath(), "ArcTest_" + Guid.NewGuid().ToString("N")[..8]);
+        try
+        {
+            Directory.CreateDirectory(tempRoot);
+
+            string arcDir = Path.Combine(tempRoot, "arc");
+            Directory.CreateDirectory(arcDir);
+            File.WriteAllText(Path.Combine(arcDir, "arc.exe"), "");
+
+            string validDir = Path.Combine(tempRoot, "ValidGame");
+            Directory.CreateDirectory(validDir);
+            File.WriteAllText(Path.Combine(validDir, "ValidGame.exe"), "");
+
+            var scanner = new FolderScanner();
+            var results = scanner.Scan(tempRoot, GameSourceKind.Standalone);
+
+            Assert.DoesNotContain(results, g =>
+                g.FolderName.Equals("arc", StringComparison.OrdinalIgnoreCase));
+            Assert.Contains(results, g =>
+                g.FolderName.Equals("ValidGame", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+                Directory.Delete(tempRoot, true);
+        }
+    }
 }

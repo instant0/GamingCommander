@@ -9,6 +9,26 @@ namespace GamingCommander.App.Services;
 internal static class UbisoftReadmeParser
 {
     /// <summary>
+    /// Known Ubisoft publisher strings that may appear on line 2 of readme files
+    /// instead of the game title. Reject these as invalid game titles.
+    /// </summary>
+    private static readonly HashSet<string> s_publisherDenyList = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Ubisoft Entertainment",
+        "Ubisoft",
+        "Ubisoft SAS",
+        "Ubisoft SA",
+        "Ubisoft EMEA",
+        "Ubisoft Montreal",
+        "Ubisoft Paris",
+        "Ubisoft Milan",
+        "Ubisoft Shanghai",
+        "Ubisoft Singapore",
+        "Ubisoft Bucharest",
+        "Ubisoft Reflections",
+    };
+
+    /// <summary>
     /// Result of parsing a Ubisoft Support/Readme/ file.
     /// </summary>
     internal sealed record UbisoftReadmeInfo(string? Publisher, string? GameTitle);
@@ -71,6 +91,11 @@ internal static class UbisoftReadmeParser
             if (string.IsNullOrWhiteSpace(publisher))
                 publisher = null;
             if (string.IsNullOrWhiteSpace(gameTitle))
+                gameTitle = null;
+
+            // B23: Reject known publisher strings that appear on line 2 in some readmes
+            // (e.g., "Ubisoft Entertainment" instead of the game title)
+            if (gameTitle is not null && s_publisherDenyList.Contains(gameTitle))
                 gameTitle = null;
 
             // If we have no useful data, return null

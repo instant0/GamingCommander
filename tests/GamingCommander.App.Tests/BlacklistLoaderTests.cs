@@ -362,6 +362,37 @@ public sealed class BlacklistLoaderTests : IDisposable
         Assert.Contains("unrealpak", data.ExeNamePatterns);
     }
 
+    // ════════════════════════════════════════════════════════════════
+    //  Phase 1 — Plan 114 Blacklist Additions (B27, B28)
+    // ════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void Load_Tier10_ContainsBuilderAndWorldbuilderAndConfigtool()
+    {
+        // B27/B28: tier_10_dev_editor_tools should include builder, worldbuilder, configtool
+        string json = """
+            {
+                "exe_name_patterns": {
+                    "tier_10_dev_editor_tools": [
+                        "datacompiler", "editor", "modmanager", "packagemanager", "reminder",
+                        "contented", "leveled", "resourceed",
+                        "builder", "worldbuilder", "configtool"
+                    ]
+                }
+            }
+            """;
+        WriteBlacklistJson(json);
+
+        var loader = new BlacklistLoader(_tempDir);
+        var data = loader.Load();
+
+        Assert.NotEmpty(data.TieredExePatterns);
+        Assert.Equal(10, data.TieredExePatterns[0].Tier);
+        Assert.Contains("builder", data.ExeNamePatterns);
+        Assert.Contains("worldbuilder", data.ExeNamePatterns);
+        Assert.Contains("configtool", data.ExeNamePatterns);
+    }
+
     // ── Helpers ───────────────────────────────────────────────
 
     private void WriteBlacklistJson(string json)

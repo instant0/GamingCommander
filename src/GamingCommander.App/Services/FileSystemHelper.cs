@@ -20,7 +20,9 @@ internal static class FileSystemHelper
         // Store launcher directories — these are games stores, not games themselves
         // NOTE: "blizzard" and "battle.net" REMOVED — they are publisher containers with game subdirs
         "epic games", "origin", "uplay", "gog galaxy",
-        "ea app", "rockstar games",
+        "ea app", "rockstar games", "arc", "battle.net",
+        // Backup directory copies (e.g., "x64 - Copy")
+        "x64 - copy", "x86 - copy",
     ], StringComparer.OrdinalIgnoreCase);
 
     /// <summary>

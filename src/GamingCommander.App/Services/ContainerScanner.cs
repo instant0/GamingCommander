@@ -21,6 +21,10 @@ internal static class ContainerScanner
         "licenses", "steam controller configs", "steamworks shared",
         "dlc", "program files", "windowsapps", "squirreltemp",
         "portable", "uninstall",
+        // Platform-specific build directories (not games)
+        "win32", "win64", "x86", "x64",
+        // Backup directory copies
+        "x64 - copy", "x86 - copy",
         // Store launcher directories — these are game stores, not games
         // NOTE: "blizzard" and "battle.net" REMOVED — they are publisher containers with game subdirs
         "epic games", "origin", "uplay", "gog galaxy",
@@ -86,6 +90,11 @@ internal static class ContainerScanner
                 addGameEntry(entries, child, rootPath, childType);
                 continue;
             }
+
+            // NOTE: BattleNet path-based detection REMOVED.
+            // Detection is based on signal files inside the folder (.build.info, .product.db, .battle.net/),
+            // NOT on path names. A game at Q:\random\Diablo III\ with .build.info is BattleNet — period.
+            // StoreSignalDetector.DetectType() already handles this correctly.
 
             // Organization (≥2 game children) or single game child — promote standalone
             if (gameSignalCount >= 1)

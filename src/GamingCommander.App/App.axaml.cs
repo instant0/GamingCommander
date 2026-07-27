@@ -3,6 +3,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using GamingCommander.App.Services;
 using GamingCommander.Core.Models;
+using GamingCommander.Core.Services;
 using GamingCommander.Migration;
 using GamingCommander.UI.ViewModels;
 
@@ -86,7 +87,10 @@ public partial class App : Application
                 Log($"  Blacklist loaded: {blacklist.ExeNamePatterns.Count} exe patterns, {blacklist.DirectoryPatterns.Count} dir patterns");
 
                 Log("Creating FolderScanner with blacklist...");
-                var scanner = new FolderScanner(config.HiddenFolders, blacklist);
+                IRegistryReader registryReader = OperatingSystem.IsWindows()
+                    ? new WindowsRegistryReader()
+                    : null!;
+                var scanner = new FolderScanner(config.HiddenFolders, blacklist, registryReader);
 
                 Log("Creating SteamLibraryScanner...");
                 var steamPaths = config.LibraryRoots

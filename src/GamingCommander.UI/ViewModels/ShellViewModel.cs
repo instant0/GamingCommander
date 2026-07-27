@@ -113,6 +113,10 @@ public sealed class ShellViewModel : ReactiveObject
     public bool HasGameSelected => SelectedItem is { Kind: FileSystemEntryKind.File };
     /// <summary>True when the selected game has a user-defined folder override.</summary>
     public bool HasOverride => SelectedItem?.HasOverride == true;
+    /// <summary>Comma-separated tags for the selected game (e.g., "RPG, Open World").</summary>
+    public string DetailsTags => SelectedItem?.Tags ?? string.Empty;
+    /// <summary>True when the selected game has tags assigned.</summary>
+    public bool HasTags => !string.IsNullOrEmpty(SelectedItem?.Tags);
 
     /// <summary>Text shown in the bottom status bar.</summary>
     public string StatusText
@@ -175,7 +179,9 @@ public sealed class ShellViewModel : ReactiveObject
             IReadOnlyList<GameEntry> games = _libraryManager.GetGamesForRoot(root.RootPath);
             Items.Add(new ShellPaneItemViewModel
             {
-                Title = Path.GetFileName(root.RootPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)),
+                // B32: Show full root path instead of just folder name to avoid duplicates
+                // (e.g., D:\Games vs E:\Games both showed as "Games")
+                Title = root.RootPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
                 SourceLabel = root.DefaultType.ToString(),
                 PathSummary = root.RootPath,
                 LaunchTarget = $"[Enter to browse — {games.Count} game(s)]",
@@ -330,6 +336,7 @@ public sealed class ShellViewModel : ReactiveObject
                     ItemStatusColor = item.ItemStatusColor,
                     GameCount = item.GameCount,
                     ScanningBadge = expectedBadge,
+                    Tags = item.Tags,
                 };
             }
         }
@@ -421,6 +428,7 @@ public sealed class ShellViewModel : ReactiveObject
                 PlatformStatusDetail = platformStatusDetail,
                 ItemStatusColor = itemStatusColor,
                 GameCount = 0,
+                Tags = game.Tags.Count > 0 ? string.Join(", ", game.Tags) : string.Empty,
             });
         }
 
@@ -447,6 +455,8 @@ public sealed class ShellViewModel : ReactiveObject
         OnPropertyChanged(nameof(HasSelection));
         OnPropertyChanged(nameof(HasGameSelected));
         OnPropertyChanged(nameof(HasOverride));
+        OnPropertyChanged(nameof(DetailsTags));
+        OnPropertyChanged(nameof(HasTags));
     }
 
     private static string TruncatePath(string path)

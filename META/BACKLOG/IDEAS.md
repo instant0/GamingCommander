@@ -66,3 +66,14 @@
 ### F5 should be refresh/rescan
 - **Observation:** Every application uses F5 for refresh. GamingCommander should too.
 - **Impact:** MEDIUM — UX convention mismatch. See Plan 105.
+
+### Version-aware startup flow (not wizard on every version bump)
+- **Observation:** `App.axaml.cs` line 107 triggers `needsWizard` on any version change (`isNewerVersion`). This reopens the full LibrarySetupWindow on every version bump, even when the user already has a working config.
+- **Desired behavior:**
+  - **First run / no config:** Full LibrarySetupWindow (wizard)
+  - **Version bump with breaking changes:** LibrarySetupWindow with migration-focused message (flagged in code per version)
+  - **Version bump, no breaking changes:** Brief "What's New" dialog, then straight to library
+  - **Same version:** Straight to library, no dialog
+- **Implementation:** Add a `Dictionary<string, string[]>` mapping version numbers to breaking changes. On startup, check if any version between `LastSeenVersion` and `currentVersion` has entries. If yes → migration wizard. If no → "What's New" dialog. If none → skip.
+- **Impact:** LOW for internal testing, needed before public release.
+- **Where:** `App.axaml.cs` lines 104-110
