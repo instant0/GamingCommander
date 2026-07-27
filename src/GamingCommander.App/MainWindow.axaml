@@ -114,10 +114,25 @@
                        Margin="0,2,0,0" IsVisible="{Binding HasPlatformStatusDetail}" />
 
             <!-- B33: Tags -->
-            <StackPanel Orientation="Horizontal" Margin="0,12,0,0"
-                        IsVisible="{Binding HasTags}">
-              <TextBlock Text="Tags" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" />
-              <TextBlock Text="{Binding DetailsTags}" Foreground="{DynamicResource TextSuccess}" FontSize="{DynamicResource FontSizeBody}" Margin="6,0,0,0" />
+            <StackPanel IsVisible="{Binding HasTags}" Margin="0,12,0,0">
+              <TextBlock Text="Tags" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" Margin="0,0,0,4" />
+              <ItemsControl ItemsSource="{Binding SelectedItem.TagBadges}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <WrapPanel Orientation="Horizontal" />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:TagBadgeViewModel">
+                    <Border Background="{Binding Background, Converter={StaticResource HexToBrush}}"
+                            CornerRadius="4" Padding="6,2" Margin="2">
+                      <TextBlock Text="{Binding Name}"
+                                 Foreground="{Binding Foreground, Converter={StaticResource HexToBrush}}"
+                                 FontSize="11" />
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
             </StackPanel>
 
             <TextBlock Text="Executable" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" Margin="0,12,0,0" />

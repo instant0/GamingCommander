@@ -25,6 +25,7 @@
 
   <ItemGroup>
     <None Include="..\..\data\blacklist.json" Link="data\blacklist.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\data\tag_colors.json" Link="data\tag_colors.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

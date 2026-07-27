@@ -83,4 +83,7 @@ public sealed class ShellPaneItemViewModel
 
     /// <summary>Comma-separated user tags (e.g., "RPG, Open World"). Empty when no tags assigned.</summary>
     public string Tags { get; init; } = string.Empty;
+
+    /// <summary>Tag badges with configurable colors for rendering. Empty when no tags assigned.</summary>
+    public List<TagBadgeViewModel> TagBadges { get; init; } = [];
 }

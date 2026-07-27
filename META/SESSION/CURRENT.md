@@ -14,7 +14,7 @@ Code quality Phases D–G largely done (T58–T60 complete; T48–T57 deferred).
 2. **P2 — EA/Ubisoft Registry Fallback** — Plan 115: ✅ **COMPLETE** — `IRegistryReader` + `RegistryFallbackDetector` + Pass 1c in FolderScanner. EA/Ubisoft/GOG/Rockstar per-game registry keys detected. 358 tests passing (+26 new).
 3. **P2 — BattleNet Signal-File Detection** — Plan 116: ✅ **COMPLETE** — Removed path-based "blizzard" checks from ContainerScanner and FolderScanner. Detection based on signal files only. 358 tests passing.
 4. **P2 — GOG `.lnk` Signal + README Rewrite** — ✅ **COMPLETE** — `HasGogSignal()` now detects `Launch *.lnk` shortcuts. GamingCommander.Readme.txt rewritten per Plan 998 (registry permission, access sections, no test info). Detection docs updated.
-5. **P2 — Tags Display in UI** — Render tags in left lister and details pane with configurable colors. User tags = neutral color. Engine/store tags = config-file colors. See `planning/102-tags-metadata-display.md`
+5. **P2 — Tags Display in UI** — ✅ **COMPLETE** — Configurable tag color system: `TagColorService` reads from `data/tag_colors.json`, `TagBadgeViewModel` renders colored badges in right pane. User tags = neutral, store/engine tags = configurable. 358 tests.
 6. **P2 — Steam SyncMove Repair** — Backup + ACF path fix
 7. **P2 — PCGamingWiki Metadata + Tags System (Phase 3)** — See Plan 102
 8. **P2 — Port Remaining detect.py Edges** — See Plan 103
@@ -509,6 +509,27 @@ All hardcoded colors and font sizes centralized to `App.axaml` Application.Resou
 
 ## Completed This Session
 
+### Tags Display in UI — Configurable Tag Color System (Plan 102, Phase 4 — Complete)
+Implemented configurable tag color system with user-editable configuration:
+
+| Step | File | Change |
+|------|------|--------|
+| 1 | `data/tag_colors.json` | **NEW** — Default config with store/engine colors (Steam=blue, GOG=purple, Unreal=dark blue, etc.) |
+| 2 | `Core/Models/TagType.cs` | **NEW** — `TagType` enum (User, Store, Engine) |
+| 3 | `App/Services/TagColorService.cs` | **NEW** — Reads `tag_colors.json`, implements `ITagColorProvider`, maps tag→color by type |
+| 4 | `UI/ViewModels/ITagColorProvider.cs` | **NEW** — Interface for tag color lookup (decouples UI from App) |
+| 5 | `UI/ViewModels/TagBadgeViewModel.cs` | **NEW** — View model for colored tag badge (Name, Background, Foreground) |
+| 6 | `UI/ViewModels/ShellPaneItemViewModel.cs` | Added `List<TagBadgeViewModel> TagBadges` property |
+| 7 | `UI/ViewModels/ShellViewModel.cs` | Added `ITagColorProvider` parameter, `BuildTagBadges()`, `DetailsTagBadges` property |
+| 8 | `App/MainWindow.axaml` | Right pane tags: plain text → `ItemsControl` of colored `Border` badges |
+| 9 | `App/App.axaml` | Added `TagBadgeDefaultBg`/`TagBadgeDefaultFg` resources |
+| 10 | `App/App.axaml.cs` | Wired `TagColorService` → `ShellViewModel` |
+| 11 | `App/GamingCommander.App.csproj` | Added `tag_colors.json` to output copy |
+
+**Tag color hierarchy:** User tags → neutral gray, Store tags → brand colors, Engine tags → brand colors. All configurable via JSON.
+
+**Results:** Build clean, 358 tests passing.
+
 ### Plan 116: BattleNet Detection — Signal Files Only (P2 — Complete)
 Fixed path-based detection bugs in BattleNet game detection:
 
@@ -597,12 +618,12 @@ F5 rescan no longer blocks the UI thread. Scanning runs on `Task.Run()` with ful
 
 ## Next Session Notes
 - **MVP complete** — 358 tests passing, all gate criteria satisfied
-- **Next task: Tags Display in UI** — Plan 102 updated with configurable tag color system (user-editable JSON config file)
+- **Tags Display ✅ COMPLETE** — Configurable tag color system: `TagColorService` reads from `data/tag_colors.json`, `TagBadgeViewModel` renders colored badges in right pane. User tags = neutral, store/engine tags = configurable per-brand.
 - **deferred items:** Test coverage gaps (T48-T57) — will not write special Linux-only tests
 - **deferred indefinitely:** .NET 9 upgrade
 
 ## Key Architecture Decisions
-- **Tag colors are user-configurable** — Read from `data/tag_colors.json`, not hardcoded. User-added tags get neutral default color; engine/store tags get configurable colors per-brand (e.g., Steam blue, GOG purple, Unreal dark blue).
+- **Tag colors are user-configurable** — Read from `data/tag_colors.json`, not hardcoded. User-added tags get neutral default color; engine/store tags get configurable colors per-brand (e.g., Steam blue, GOG purple, Unreal dark blue). `TagColorService` implements `ITagColorProvider` interface in UI layer for clean decoupling.
 - **Theme centralized in App.axaml** — All 23 color brushes and 8 font sizes live as Application.Resources with semantic names (e.g. `TextAccent`, `ButtonBgAction`). `AppTheme.cs` provides static accessor for code-behind. To re-theme: swap the resources in App.axaml. `NortonCommander.axaml` retained as reference.
 - **AppTheme name (not Theme)** — Avoids collision with `Avalonia.Controls.Theme` which is a type in Avalonia's namespace.
 - **SolidColorBrush in resources (not Color)** — `DynamicResource` bindings for `Background`/`Foreground` require brush types, not plain `Color`.

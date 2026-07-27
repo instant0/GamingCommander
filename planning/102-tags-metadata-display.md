@@ -1,6 +1,6 @@
 # Plan 102 — Tags, Metadata, and Display System
 
-**Status:** DRAFT — awaiting approval  
+**Status:** Phase 1 ✅ COMPLETE, Phase 4 ✅ COMPLETE — Phase 2 and 3 pending  
 **Audience:** Planner / Builder  
 **Priority:** P2 (post-MVP)  
 **Effort:** ~6–10 sessions across 4 phases  
@@ -252,11 +252,11 @@ public static class TagNormalizer
 
 ### 3.6 Success Criteria
 
-- [ ] F4 dialog shows tag input field
-- [ ] Tags persist to `games.json` as `List<string>` array
-- [ ] Existing games load with empty tags (backward-compatible)
-- [ ] Tag normalization works (trim, collapse, dedup)
-- [ ] Build clean, all tests pass
+- [x] F4 dialog shows tag input field
+- [x] Tags persist to `games.json` as `List<string>` array
+- [x] Existing games load with empty tags (backward-compatible)
+- [x] Tag normalization works (trim, collapse, dedup)
+- [x] Build clean, all tests pass
 
 ---
 
@@ -978,13 +978,13 @@ private static readonly HashSet<string> KnownEngineTags = new(StringComparer.Ord
 
 ### 6.8 Success Criteria
 
-- [ ] Tags display as colored badges in right pane
-- [ ] Engine displayed as badge (colored distinctly from tags)
-- [ ] Store displayed as badge
+- [x] Tags display as colored badges in right pane
+- [x] Engine displayed as badge (colored distinctly from tags)
+- [x] Store displayed as badge
 - [ ] Metadata fields shown only when available
 - [ ] Metacritic score color-coded (green/yellow/red)
 - [ ] Empty state shows "No metadata" gracefully
-- [ ] Build clean, all tests pass
+- [x] Build clean, all tests pass
 
 ---
 
@@ -1043,14 +1043,24 @@ Level 4: Metadata scores (inline text, shown if available)
 
 ## 8. File Changes Summary
 
-### New Files
+### New Files (Phase 1 + Phase 4 — COMPLETE)
+
+| File | Purpose |
+|------|---------|
+| `Core/Models/TagType.cs` | Tag type enum (User, Store, Engine) |
+| `Core/Services/TagNormalizer.cs` | Tag normalization logic (trim, collapse, dedup) |
+| `UI/ViewModels/ITagColorProvider.cs` | Interface for tag color lookup (decouples UI from App) |
+| `UI/ViewModels/TagBadgeViewModel.cs` | View model for colored tag badge (Name, Background, Foreground) |
+| `App/Services/TagColorService.cs` | Reads tag_colors.json, maps tag→color by type, implements ITagColorProvider |
+| `data/tag_colors.json` | Default config with store/engine colors |
+
+### New Files (Phase 2 + Phase 3 — PENDING)
 
 | File | Purpose |
 |------|---------|
 | `Core/Models/GameEngineKind.cs` | Engine enum |
 | `Core/Models/GameMetadataRecord.cs` | Enriched metadata record |
 | `Core/Services/IMetadataProvider.cs` | Provider interface |
-| `Core/Services/TagNormalizer.cs` | Tag normalization logic |
 | `App/Services/EngineDetector.cs` | Engine detection from filesystem |
 | `App/Services/MetadataService.cs` | Orchestrator for metadata lookup |
 | `App/Services/GameMetadataDatabase.cs` | JSON persistence for metadata |
@@ -1061,18 +1071,26 @@ Level 4: Metadata scores (inline text, shown if available)
 | `App/FilterWindow.axaml.cs` | Filter dialog code-behind |
 | `App/Services/FilterService.cs` | Filter logic (from Plan 101) |
 
-### Modified Files
+### Modified Files (Phase 1 + Phase 4 — COMPLETE)
 
 | File | Change |
 |------|--------|
-| `Core/Models/GameEntry.cs` | Add `Tags`, `GameEngine` |
-| `Core/Models/AppConfig.cs` | Add `AutoTagEngine`, `AutoTagStore`, `EnableOnlineMetadata` |
-| `App/GameSetupWindow.axaml` | Add tag editing UI |
+| `Core/Models/GameEntry.cs` | Added `Tags` field (List\<string\>) |
+| `App/Services/GamesDatabaseService.cs` | Added `Tags` to DTO, merge logic |
+| `App/GameSetupWindow.axaml` | Added tag editing UI |
 | `App/GameSetupWindow.axaml.cs` | Handle tag input |
-| `App/Services/GamesDatabaseService.cs` | Add `Tags`, `GameEngine` to DTO |
-| `UI/ViewModels/ShellPaneItemViewModel.cs` | Add `Tags`, `EngineLabel`, `StoreLabel`, `Metadata` |
-| `UI/ViewModels/ShellViewModel.cs` | Map tags/metadata to view model |
-| `App/MainWindow.axaml` | Tag badges, metadata display in right pane |
+| `UI/ViewModels/ShellPaneItemViewModel.cs` | Added `Tags`, `TagBadges` properties |
+| `UI/ViewModels/ShellViewModel.cs` | Added `ITagColorProvider`, `BuildTagBadges()`, `DetailsTagBadges` |
+| `App/MainWindow.axaml` | Right pane: tag badges with dynamic colors |
+| `App/App.axaml` | Added `TagBadgeDefaultBg`/`TagBadgeDefaultFg` resources |
+| `App/App.axaml.cs` | Wired `TagColorService` → `ShellViewModel` |
+| `App/GamingCommander.App.csproj` | Added `tag_colors.json` to output copy |
+
+### Modified Files (Phase 2 + Phase 3 — PENDING)
+
+| File | Change |
+|------|--------|
+| `Core/Models/AppConfig.cs` | Add `AutoTagEngine`, `AutoTagStore`, `EnableOnlineMetadata` |
 | `App/Services/FolderScanner.cs` | Call `EngineDetector`, auto-tag |
 | `App/Services/HelpDialogBuilder.cs` | Update F5 description |
 

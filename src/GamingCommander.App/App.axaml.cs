@@ -115,7 +115,9 @@ public partial class App : Application
                 Log($"  CurrentVersion: {currentVersion}, LastSeen: {config.LastSeenVersion ?? "(null)"}, needsWizard: {needsWizard}, isNewerVersion: {isNewerVersion}");
 
                 Log("Creating ShellViewModel...");
-                var shellVm = new ShellViewModel(libraryManager, configService);
+                string tagColorsPath = Path.Combine(AppContext.BaseDirectory, "data", "tag_colors.json");
+                var tagColorService = new TagColorService(tagColorsPath);
+                var shellVm = new ShellViewModel(libraryManager, configService, tagColorService);
                 Log("  ShellViewModel created");
 
                 Log("Creating MainWindow...");

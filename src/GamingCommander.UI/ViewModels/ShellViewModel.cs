@@ -12,6 +12,7 @@ public sealed class ShellViewModel : ReactiveObject
 {
     private readonly ILibraryManager _libraryManager;
     private readonly IConfigService _configService;
+    private readonly ITagColorProvider? _tagColorProvider;
 
     private string _currentRootPath = string.Empty;
     private int _selectedIndex;
@@ -27,10 +28,11 @@ public sealed class ShellViewModel : ReactiveObject
     public event Action<ShellPaneItemViewModel>? RequestLaunch;
 
     /// <summary>Creates the shell ViewModel with navigation, selection, and details panel state.</summary>
-    public ShellViewModel(ILibraryManager libraryManager, IConfigService configService)
+    public ShellViewModel(ILibraryManager libraryManager, IConfigService configService, ITagColorProvider? tagColorProvider = null)
     {
         _libraryManager = libraryManager;
         _configService = configService;
+        _tagColorProvider = tagColorProvider;
 
         AppConfig config = _configService.Load();
         if (config.LibraryRoots.Count == 0)
@@ -117,6 +119,8 @@ public sealed class ShellViewModel : ReactiveObject
     public string DetailsTags => SelectedItem?.Tags ?? string.Empty;
     /// <summary>True when the selected game has tags assigned.</summary>
     public bool HasTags => !string.IsNullOrEmpty(SelectedItem?.Tags);
+    /// <summary>Tag badges with colors for the selected game.</summary>
+    public List<TagBadgeViewModel> DetailsTagBadges => SelectedItem?.TagBadges ?? [];
 
     /// <summary>Text shown in the bottom status bar.</summary>
     public string StatusText
@@ -337,6 +341,7 @@ public sealed class ShellViewModel : ReactiveObject
                     GameCount = item.GameCount,
                     ScanningBadge = expectedBadge,
                     Tags = item.Tags,
+                    TagBadges = item.TagBadges,
                 };
             }
         }
@@ -429,6 +434,7 @@ public sealed class ShellViewModel : ReactiveObject
                 ItemStatusColor = itemStatusColor,
                 GameCount = 0,
                 Tags = game.Tags.Count > 0 ? string.Join(", ", game.Tags) : string.Empty,
+                TagBadges = BuildTagBadges(game.Tags),
             });
         }
 
@@ -457,6 +463,7 @@ public sealed class ShellViewModel : ReactiveObject
         OnPropertyChanged(nameof(HasOverride));
         OnPropertyChanged(nameof(DetailsTags));
         OnPropertyChanged(nameof(HasTags));
+        OnPropertyChanged(nameof(DetailsTagBadges));
     }
 
     private static string TruncatePath(string path)
@@ -504,5 +511,22 @@ public sealed class ShellViewModel : ReactiveObject
         string targetPath = Path.Combine(actualLib, "steamapps", acfFileName);
         return $"Moved — game '{folder}' found in {actualLib} but ACF is in {acfLib}. " +
                $"To fix: Move ACF to {targetPath} and restart Steam.";
+    }
+
+    /// <summary>
+    /// Builds tag badge view models with configurable colors for each tag.
+    /// </summary>
+    private List<TagBadgeViewModel> BuildTagBadges(IReadOnlyList<string> tags)
+    {
+        if (tags.Count == 0) return [];
+
+        var badges = new List<TagBadgeViewModel>(tags.Count);
+        foreach (string tag in tags)
+        {
+            TagType tagType = _tagColorProvider?.GetTagType(tag) ?? Core.Models.TagType.User;
+            var (bg, fg) = _tagColorProvider?.GetColor(tag, tagType) ?? ("#2A3A4A", "#B8C8D8");
+            badges.Add(new TagBadgeViewModel { Name = tag, Background = bg, Foreground = fg });
+        }
+        return badges;
     }
 }

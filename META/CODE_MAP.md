@@ -44,8 +44,9 @@ GamingCommander.sln
 | `GameSourceKind` | enum | `Unknown=0, Standalone=1, Steam=2, Gog=3, Epic=4, EaApp=5, UbisoftConnect=6, BattleNet=7, Xbox=8, Rockstar=9, SteamEmu=10` |
 | `FileSystemEntryKind` | enum | `Directory=0, File=1, ParentDirectory=2` |
 | `MigrationMode` | enum | `MoveOnly=0, MoveAndLink=1 (deprecated), ManifestRepairOnly=2` |
+| `TagType` | enum | `User=0, Store=1, Engine=2` |
 | `GameRecord` | record (implements IGame) | Id, Title, Source, InstallPath, LaunchTarget, ExecutablePath, LastModified, SupportsPointerInteraction, SupportsKeyboardOnlyFlow |
-| `GameEntry` | record | Id, FolderName, DisplayName, GameSource, Override, ExecutablePath, LauncherPath, CmdlineArgs, ManifestPath, LastScanned, LastModified, Extra |
+| `GameEntry` | record | Id, FolderName, DisplayName, GameSource, Override, ExecutablePath, LauncherPath, CmdlineArgs, ManifestPath, LastScanned, LastModified, Extra, Tags |
 | `GameRoot` | record | RootPath, DefaultType, Games (List\<GameEntry\>) |
 | `GamesDatabase` | record | Roots (List\<GameRoot\>) |
 | `AppConfig` | record | LibraryRoots, FolderOverrides, HiddenFolders, IsFirstRun, LastSeenVersion, EnableOnlineMetadata |
@@ -71,8 +72,10 @@ GamingCommander.sln
 |-----------|------|---------|
 | `ReactiveObject` | `ReactiveObject.cs` (25 L) | Base INotifyPropertyChanged with `SetProperty<T>` |
 | `ShellViewModel` | `ShellViewModel.cs` | Dual-pane shell: navigation, details, status bar, command bar |
-| `ShellPaneItemViewModel` | `ShellPaneItemViewModel.cs` | Item model: Title, SourceLabel, PathSummary, Kind, IsBrowsable, GameId, PlatformId, PlatformStatus, PlatformStatusColor, PlatformStatusDetail, ItemStatusColor, HasGameSelected |
+| `ShellPaneItemViewModel` | `ShellPaneItemViewModel.cs` | Item model: Title, SourceLabel, PathSummary, Kind, IsBrowsable, GameId, PlatformId, PlatformStatus, PlatformStatusColor, PlatformStatusDetail, ItemStatusColor, HasGameSelected, Tags, TagBadges |
 | `ShellCommandViewModel` | `ShellCommandViewModel.cs` (8 L) | Hotkey + Label for command bar |
+| `TagBadgeViewModel` | `TagBadgeViewModel.cs` | Tag badge with configurable colors (Name, Background, Foreground) |
+| `ITagColorProvider` | `ITagColorProvider.cs` | Interface for tag color lookup (decouples UI from App) |
 
 ### ShellViewModel Key Methods
 
@@ -110,6 +113,7 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 | `FileSystemHelper` | `FileSystemHelper.cs` | Shared filesystem utilities: GetDirectoriesSafe, GetFilesSafe, GetLastWriteTimeSafe, NormalizeDisplayName, NoiseSubDirNames |
 | `JsonFileHelper` | `JsonFileHelper.cs` | Shared JSON read/write: ReadFromFile\<T\>, WriteToFile\<T\>, DefaultOptions |
 | `HelpDialogBuilder` | `HelpDialogBuilder.cs` | Builds and shows the help dialog with keyboard shortcuts |
+| `TagColorService` | `TagColorService.cs` | Reads tag_colors.json, maps tag→color by type (User/Store/Engine), implements ITagColorProvider |
 | `LibrarySetupViewModel` | `.App/ViewModels/LibrarySetupViewModel.cs` | Library root setup dialog logic (F2 + first-run) |
 
 ### FolderScanner Key Logic
@@ -168,6 +172,7 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 | File | Purpose |
 |------|---------|
 | `blacklist.json` | Aggregated noise patterns for exe names, directory names, PE metadata defaults, PCGW page title noise. Consumed by FolderScanner and SteamLibraryScanner. |
+| `tag_colors.json` | Configurable tag badge colors: default, store-specific (Steam, GOG, Epic, etc.), engine-specific (Unreal, Unity, etc.). Consumed by TagColorService. |
 
 ## Existing Python Tools (tools/)
 

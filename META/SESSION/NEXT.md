@@ -26,7 +26,7 @@
 2. **P2 — EA/Ubisoft Registry Fallback** — Plan 115: ✅ **COMPLETE** — `IRegistryReader` + `RegistryFallbackDetector` + Pass 1c. EA/Ubisoft/GOG/Rockstar per-game registry keys. 358 tests. See `planning/115-ea-ubisoft-registry-fallback.md`
 3. **P2 — BattleNet Signal-File Detection** — Plan 116: ✅ **COMPLETE** — Removed path-based "blizzard" checks from ContainerScanner and FolderScanner. Detection based on signal files only. 358 tests. See `planning/116-battlenet-detection-enhancement.md`
 4. **P2 — GOG `.lnk` Signal + README Rewrite** — ✅ **COMPLETE** — `HasGogSignal()` now detects `Launch *.lnk` shortcuts. GamingCommander.Readme.txt rewritten per Plan 998 (registry permission, access sections, no test info). Detection docs updated.
-5. **P2 — Tags Display in UI** — Render tags in left lister and details pane with configurable colors. See `planning/102-tags-metadata-display.md`
+5. **P2 — Tags Display in UI** — ✅ **COMPLETE** — Configurable tag color system: `TagColorService` reads from `data/tag_colors.json`, `TagBadgeViewModel` renders colored badges in right pane. User tags = neutral, store/engine tags = configurable. 358 tests. See `planning/102-tags-metadata-display.md`
 6. **P2 — Steam SyncMove Repair** — Backup + ACF path fix (from `planning/04-phase-2-syncmove.md`)
 7. **P2 — PCGamingWiki Metadata + Tags System (Phase 3)** — See `planning/102-tags-metadata-display.md`
 8. **P2 — Port Remaining detect.py Edges** — See `planning/103-detect-py-port-status.md`
@@ -40,6 +40,7 @@
 
 ## Recently completed (context only)
 
+- **Tags Display in UI ✅ COMPLETE** — Configurable tag color system: `TagColorService` reads from `data/tag_colors.json`, `TagBadgeViewModel` renders colored badges in right pane. User tags = neutral, store/engine tags = configurable per-brand. 358 tests passing.
 - **GOG `.lnk` Signal + README Rewrite ✅ COMPLETE** — `HasGogSignal()` now detects `Launch *.lnk` shortcuts (strong GOG signal). GamingCommander.Readme.txt rewritten per Plan 998 (registry permission, access sections, no test info). Detection docs updated with GOG `.lnk` distinction.
 - **Plan 116 (BattleNet Signal-File Detection) ✅ COMPLETE** — Removed path-based "blizzard" checks from ContainerScanner and FolderScanner. Detection based on signal files only. 358 tests passing.
 - **Plan 108 Status Message Refinement ✅ COMPLETE** — Removed "delete ACF" guidance, added ACF re-linking future work references.
