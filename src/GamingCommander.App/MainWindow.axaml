@@ -44,21 +44,34 @@
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="vm:ShellPaneItemViewModel">
                 <Border BorderBrush="{DynamicResource SeparatorBorder}" BorderThickness="0,0,0,1" Padding="4,3">
-                  <Grid ColumnDefinitions="1*,Auto,Auto,Auto,Auto">
-                    <TextBlock Grid.Column="0" Text="{Binding Title}" FontWeight="Bold" FontSize="{DynamicResource FontSizeItem}"
+                  <Grid ColumnDefinitions="1*,Auto,Auto">
+                    <!-- Col 0: Title + inline badge + subtitle (all left-aligned) -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Spacing="0">
+                      <TextBlock Text="{Binding Title}" FontWeight="Bold" FontSize="{DynamicResource FontSizeItem}"
+                                 TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                 Foreground="{Binding ItemStatusColor, Converter={StaticResource HexToBrush}}" />
+                      <!-- Store badge: inline after title -->
+                      <Border Background="{Binding StoreBadge.Background, Converter={StaticResource HexToBrush}}"
+                              CornerRadius="3" Padding="5,1" VerticalAlignment="Center" Margin="6,0,0,0"
+                              IsVisible="{Binding StoreBadge, Converter={x:Static ObjectConverters.IsNotNull}}">
+                        <TextBlock Text="{Binding StoreBadge.Name}"
+                                   Foreground="{Binding StoreBadge.Foreground, Converter={StaticResource HexToBrush}}"
+                                   FontSize="10" VerticalAlignment="Center" />
+                      </Border>
+                      <!-- Subtitle: tags or game count -->
+                      <TextBlock Text="{Binding Subtitle}" Foreground="{DynamicResource TextMuted}"
+                                 FontSize="{DynamicResource FontSizeItem}" VerticalAlignment="Center"
+                                 Margin="6,0,0,0" />
+                    </StackPanel>
+                    <!-- Col 1: Path (right-aligned) -->
+                    <TextBlock Grid.Column="1" Text="{Binding LeftPath}"
+                               Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}"
                                TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
-                               Foreground="{Binding ItemStatusColor, Converter={StaticResource HexToBrush}}" />
-                    <TextBlock Grid.Column="1" Text="{Binding SourceLabel}"
-                               Foreground="{DynamicResource TextAccent}" Margin="6,0" FontSize="{DynamicResource FontSizeLabel}" VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="2" Text="{Binding PathSummary}"
-                               Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" MaxWidth="200"
-                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="3" Text="{Binding ScanningBadge}"
-                               Foreground="{DynamicResource TextHighlight}" FontSize="{DynamicResource FontSizeLabel}" Margin="6,0,0,0"
-                               VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="4" Text="{Binding Tags}"
-                               Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeSmall}"
-                               Margin="6,0,0,0" MaxWidth="150" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                               MaxWidth="280" TextAlignment="Right" Margin="6,0" />
+                    <!-- Col 2: Scanning badge -->
+                    <TextBlock Grid.Column="2" Text="{Binding ScanningBadge}"
+                               Foreground="{DynamicResource TextHighlight}" FontSize="{DynamicResource FontSizeLabel}"
+                               VerticalAlignment="Center" Margin="6,0,0,0" />
                   </Grid>
                 </Border>
               </DataTemplate>

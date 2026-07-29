@@ -16,7 +16,7 @@ public sealed class TagColorService : ITagColorProvider
     /// <summary>Known store tag names (case-insensitive).</summary>
     private static readonly HashSet<string> KnownStoreTags = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Steam", "GOG", "Epic", "BattleNet", "EA", "Ubisoft", "Rockstar", "Xbox", "Standalone"
+        "Steam", "GOG", "Epic", "BattleNet", "EA", "Ubisoft", "Rockstar", "Xbox", "Standalone", "Steam Emu"
     };
 
     /// <summary>Known engine tag names (case-insensitive).</summary>

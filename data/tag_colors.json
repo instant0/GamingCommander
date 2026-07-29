@@ -12,7 +12,8 @@
     "Ubisoft": { "background": "#000000", "foreground": "#FFFFFF" },
     "Rockstar": { "background": "#FFC107", "foreground": "#000000" },
     "Xbox": { "background": "#107C10", "foreground": "#FFFFFF" },
-    "Standalone": { "background": "#2A3A4A", "foreground": "#B8C8D8" }
+    "Standalone": { "background": "#2A3A4A", "foreground": "#B8C8D8" },
+    "Steam Emu": { "background": "#1B2838", "foreground": "#7EB8DA" }
   },
   "engines": {
     "Unreal Engine": { "background": "#1A1A2E", "foreground": "#E94560" },

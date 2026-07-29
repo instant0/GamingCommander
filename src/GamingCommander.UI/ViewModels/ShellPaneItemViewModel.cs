@@ -10,10 +10,16 @@ public sealed class ShellPaneItemViewModel
     /// <summary>Display name of the item (game name or directory name).</summary>
     public required string Title { get; init; }
 
-    /// <summary>Short label for the game's source type (e.g., 'Steam', 'Standalone').</summary>
+    /// <summary>Parenthetical subtitle: "(95 games)" at root level, "(RPG, Open World)" at game level. Empty = not shown.</summary>
+    public string Subtitle { get; init; } = string.Empty;
+
+    /// <summary>Path shown in the left pane: full root path at roots level, exe filename at games level.</summary>
+    public string LeftPath { get; init; } = string.Empty;
+
+    /// <summary>Short label for the game's source type (e.g., 'Steam', 'Standalone'). Used by right pane details.</summary>
     public required string SourceLabel { get; init; }
 
-    /// <summary>Truncated path summary for display (~50 chars max).</summary>
+    /// <summary>Truncated path summary for display (~50 chars max). Used by right pane and navigation.</summary>
     public required string PathSummary { get; init; }
 
     /// <summary>Path used to launch the game when Enter is pressed.</summary>
@@ -81,9 +87,15 @@ public sealed class ShellPaneItemViewModel
     /// </summary>
     public string ScanningBadge { get; init; } = string.Empty;
 
-    /// <summary>Comma-separated user tags (e.g., "RPG, Open World"). Empty when no tags assigned.</summary>
+    /// <summary>Comma-separated user tags (e.g., "RPG, Open World"). Used by right pane details.</summary>
     public string Tags { get; init; } = string.Empty;
 
-    /// <summary>Tag badges with configurable colors for rendering. Empty when no tags assigned.</summary>
+    /// <summary>Tag badges with configurable colors for rendering. Used by right pane details.</summary>
     public List<TagBadgeViewModel> TagBadges { get; init; } = [];
+
+    /// <summary>
+    /// Store/platform badge for the left pane (e.g., Steam, GOG, Epic).
+    /// Null for Standalone/Unknown sources — no badge shown.
+    /// </summary>
+    public TagBadgeViewModel? StoreBadge { get; init; }
 }

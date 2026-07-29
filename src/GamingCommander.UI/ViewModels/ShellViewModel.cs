@@ -181,11 +181,14 @@ public sealed class ShellViewModel : ReactiveObject
         foreach (LibraryRoot root in _libraryManager.LibraryRoots)
         {
             IReadOnlyList<GameEntry> games = _libraryManager.GetGamesForRoot(root.RootPath);
+            string gameCountText = $"({games.Count} game{(games.Count != 1 ? "s" : "")})";
             Items.Add(new ShellPaneItemViewModel
             {
                 // B32: Show full root path instead of just folder name to avoid duplicates
                 // (e.g., D:\Games vs E:\Games both showed as "Games")
                 Title = root.RootPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                Subtitle = gameCountText,
+                LeftPath = root.RootPath,
                 SourceLabel = root.DefaultType.ToString(),
                 PathSummary = root.RootPath,
                 LaunchTarget = $"[Enter to browse — {games.Count} game(s)]",
@@ -193,6 +196,7 @@ public sealed class ShellViewModel : ReactiveObject
                 LastModified = default,
                 ResolvedType = string.Empty,
                 GameCount = games.Count,
+                StoreBadge = BuildStoreBadge(root.DefaultType),
             });
         }
 
@@ -324,6 +328,8 @@ public sealed class ShellViewModel : ReactiveObject
                 Items[i] = new ShellPaneItemViewModel
                 {
                     Title = item.Title,
+                    Subtitle = item.Subtitle,
+                    LeftPath = item.LeftPath,
                     SourceLabel = item.SourceLabel,
                     PathSummary = item.PathSummary,
                     LaunchTarget = item.LaunchTarget,
@@ -342,6 +348,7 @@ public sealed class ShellViewModel : ReactiveObject
                     ScanningBadge = expectedBadge,
                     Tags = item.Tags,
                     TagBadges = item.TagBadges,
+                    StoreBadge = item.StoreBadge,
                 };
             }
         }
@@ -415,9 +422,17 @@ public sealed class ShellViewModel : ReactiveObject
                 ? game.CommandLineArguments
                 : game.ExecutablePath;
 
+            // Left pane: show just the exe filename
+            string leftPath = Path.GetFileName(game.ExecutablePath);
+
+            // Parenthetical subtitle: tags if present, empty otherwise
+            string subtitle = game.Tags.Count > 0 ? $"({string.Join(", ", game.Tags)})" : string.Empty;
+
             Items.Add(new ShellPaneItemViewModel
             {
                 Title = game.DisplayName,
+                Subtitle = subtitle,
+                LeftPath = leftPath,
                 SourceLabel = game.GameSource.ToString(),
                 PathSummary = game.ExecutablePath,
                 LaunchTarget = launchTarget,
@@ -435,6 +450,7 @@ public sealed class ShellViewModel : ReactiveObject
                 GameCount = 0,
                 Tags = game.Tags.Count > 0 ? string.Join(", ", game.Tags) : string.Empty,
                 TagBadges = BuildTagBadges(game.Tags),
+                StoreBadge = BuildStoreBadge(game.GameSource),
             });
         }
 
@@ -528,5 +544,34 @@ public sealed class ShellViewModel : ReactiveObject
             badges.Add(new TagBadgeViewModel { Name = tag, Background = bg, Foreground = fg });
         }
         return badges;
+    }
+
+    /// <summary>
+    /// Mapping from GameSourceKind to (display label, color config key).
+    /// Display label is what appears on the badge; color key is looked up in tag_colors.json.
+    /// </summary>
+    private static readonly Dictionary<GameSourceKind, (string Label, string ColorKey)> s_storeBadgeMap = new()
+    {
+        [GameSourceKind.Steam] = ("Steam", "Steam"),
+        [GameSourceKind.Gog] = ("GOG", "GOG"),
+        [GameSourceKind.Epic] = ("Epic", "Epic"),
+        [GameSourceKind.EaApp] = ("EA", "EA"),
+        [GameSourceKind.UbisoftConnect] = ("Ubisoft", "Ubisoft"),
+        [GameSourceKind.BattleNet] = ("Battle.net", "BattleNet"),
+        [GameSourceKind.Xbox] = ("Xbox", "Xbox"),
+        [GameSourceKind.Rockstar] = ("Rockstar", "Rockstar"),
+        [GameSourceKind.SteamEmu] = ("Steam Emu", "Steam Emu"),
+    };
+
+    /// <summary>
+    /// Builds a store badge for the left pane. Returns null for Standalone/Unknown (no badge shown).
+    /// </summary>
+    private TagBadgeViewModel? BuildStoreBadge(GameSourceKind source)
+    {
+        if (!s_storeBadgeMap.TryGetValue(source, out var entry))
+            return null;
+
+        var (bg, fg) = _tagColorProvider?.GetColor(entry.ColorKey, TagType.Store) ?? ("#2A3A4A", "#B8C8D8");
+        return new TagBadgeViewModel { Name = entry.Label, Background = bg, Foreground = fg };
     }
 }
