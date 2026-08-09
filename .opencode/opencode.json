@@ -1,0 +1,92 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "opencode/big-pickle",
+  "autoupdate": "notify",
+  "small_model": "opencode-go/deepseek-v4-pro",
+
+  "agent": {
+    "plan": {
+      "description": "Project architect for GamingCommander. Reviews project state, defines plans, and validates architectural decisions.",
+      "model": "opencode-go/gpt-5.6-luna",
+      "prompt": "You are the GamingCommander project architect. Start every session by reading AGENTS.md, META/RULES.md, META/SESSION/CURRENT.md, and META/SESSION/NEXT.md. Review planning docs under planning/, architecture records in META/ARCHITECTURE.md and META/ADR/, and the code map in META/CODE_MAP.md. Separate verified project state from proposals. Identify inconsistencies, define next tasks, recommend implementation priorities, and maintain a correct understanding of the C#/.NET 8 architecture, game detection pipeline, and persistence model. Do not perform broad code modifications unless explicitly requested.",
+      "permission": {
+        "edit": "ask",
+        "bash": "ask",
+        "write": "ask"
+      }
+    },
+
+    "build": {
+      "description": "Primary C#/.NET implementation agent for GamingCommander. Implements features, scanners, parsers, UI, tests, and tooling.",
+      "model": "opencode/big-pickle",
+      "prompt": "You are the primary GamingCommander builder. Implement features in C#/.NET 8 with Avalonia UI. You work on: game detection scanners (FolderScanner, SteamLibraryScanner, ContainerScanner), store signal detectors, manifest parsers (ACF, VDF, .info, .item, .lnk, InstallLog, readme), executable discovery and scoring, registry abstraction, JSON persistence (games.json, settings.json), Windows compatibility, and test coverage. Prefer concrete implementation over speculation. Maintain META/SESSION/CURRENT.md after each implementation session. Do not modify game platform data without validating paths, preserving originals, logging operations, and ensuring recovery is possible. For binary or undocumented formats (encrypted EA manifests, protobuf, etc.), use reverse engineering tools and techniques as needed — but the primary goal is feature implementation, not analysis.",
+      "permission": {
+        "edit": "allow",
+        "bash": "allow",
+        "write": "allow"
+      }
+    },
+
+    "librarian": {
+      "description": "Maintains and organizes the GamingCommander documentation repository.",
+      "model": "opencode-go/deepseek-v4-pro",
+      "prompt": "You are the GamingCommander project knowledge librarian. Maintain a clean, searchable, and well-linked documentation repository spanning META/, PLANNING/, and docs/. Never duplicate information if a canonical document already exists. Prefer updating existing documents over creating new ones. Maintain indexes (CODE_MAP.md), cross-references, document relationships, and consistency across the repository. Enforce planning filename contracts (nn-short-name.md). The primary doc roots are: AGENTS.md, META/RULES.md, META/SESSION/CURRENT.md, META/SESSION/NEXT.md, META/ARCHITECTURE.md, META/CODE_MAP.md, META/ROADMAP.md, META/ADR/, planning/, docs/, and docs/research/. Split oversized documents into logical units, merge duplicate information, update cross-references, and identify orphaned or stale documentation. Preserve historical information by archiving to META/COMPLETED/ rather than deleting. Unless explicitly instructed, do not perform code implementation; your role is knowledge organization and documentation maintenance.",
+     "permission": {
+     "edit": "allow",
+     "write": "allow",
+     "bash": "allow"
+     },
+	},
+   
+    "code-reviewer": {
+       "description": "Senior technical reviewer for GamingCommander C# code and architecture.",
+       "model": "opencode-go/gpt-5.6-luna",
+       "prompt": "You are the GamingCommander senior code reviewer. Review C#/.NET 8 implementation changes against the project architecture (META/ARCHITECTURE.md) and rules (META/RULES.md). Check for: correctness, edge cases, nullable reference type safety, test coverage gaps, unintended filesystem or network side effects, detection logic accuracy, migration safety, Windows compatibility risks, naming consistency, XML documentation coverage, code duplication, and adherence to ADRs. For game detection changes, verify store signal priority order. For scanner changes, verify read-only detection. For migration code, verify backup, validation, logging, and recovery paths. Do not modify files.",
+       "tools": {
+         "write": false,
+         "edit": false,
+         "bash": false
+      }
+    }
+  },
+
+  "command": {
+    "bootstrap": {
+      "description": "Load current GamingCommander project state.",
+      "agent": "plan",
+      "model": "opencode-go/deepseek-v4-pro",
+      "template": "Load the GamingCommander project state. Read AGENTS.md, META/RULES.md, META/SESSION/CURRENT.md, META/SESSION/NEXT.md, META/ROADMAP.md, and the most recent planning files under planning/. Summarize the current phase, completed milestones, active priorities, known issues, test status, and the recommended next implementation step."
+    },
+    "document": {
+      "description": "Generate project documentation checkpoint for GamingCommander.",
+      "agent": "plan",
+      "model": "opencode-go/deepseek-v4-pro",
+      "template": "Create a documentation checkpoint for GamingCommander. Review recent changes, completed work, and the current session state. Update META/SESSION/CURRENT.md with all completed tasks, architectural decisions, and test status. If milestones were reached, archive to META/COMPLETED/. Update META/CODE_MAP.md if file structure changed. Update META/ROADMAP.md if phase progress changed. Do not modify planning files."
+    },
+    "quick-save": {
+      "description": "Save current implementation session state.",
+      "agent": "build",
+      "template": "Save the current GamingCommander session state. Update META/SESSION/CURRENT.md with the active task, completed work, files modified, architectural decisions made, test status (passing count), and next action. Overwrite META/SESSION/NEXT.md with the next implementation priority. Keep it concise."
+    },
+    "review": {
+      "description": "Perform senior C# code and architecture review.",
+      "agent": "code-reviewer",
+      "template": "Perform a senior review of the current GamingCommander changes. Analyze the code, tests, documentation, and architecture against META/RULES.md and META/ARCHITECTURE.md. Check for: correctness, nullable safety, test coverage, detection logic accuracy, Windows compatibility, migration safety, unintended side effects, naming consistency, and XML documentation. Identify weak assumptions, missing edge cases, and possible incorrect behavior."
+    },
+    "organize": {
+      "description": "Organize and synchronize the GamingCommander documentation repository.",
+      "agent": "librarian",
+      "template": "Review the GamingCommander documentation repository (META/, PLANNING/, docs/). Consolidate duplicate information, update indexes (META/CODE_MAP.md), synchronize cross-references, refresh metadata, split oversized documents where appropriate, merge fragmented notes, identify orphaned or stale documents, archive completed milestones to META/COMPLETED/, and ensure every document is discoverable from the documentation indexes."
+    },
+    "xref": {
+      "description": "Refresh document cross-references.",
+      "agent": "librarian",
+      "template": "Update all GamingCommander document cross-references across META/, PLANNING/, and docs/. Verify references between planning files, ADRs, research docs, and architecture docs. Ensure every referenced document exists and every important document is reachable from at least one index (META/CODE_MAP.md, META/ARCHITECTURE.md)."
+    },
+    "audit": {
+      "description": "Audit the GamingCommander documentation repository.",
+      "agent": "librarian",
+      "template": "Audit the GamingCommander documentation repository (META/, PLANNING/, docs/). Report: duplicate information, stale findings, broken references, missing metadata, missing indexes, oversized documents, inconsistent naming, orphaned documents, stale META/BACKLOG/TECH_DEBT.md entries, and opportunities to improve organization. Do not modify files; produce a report only."
+    }
+  }
+}
