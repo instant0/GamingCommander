@@ -8,7 +8,7 @@
     <AnalysisLevel>latest</AnalysisLevel>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <Deterministic>true</Deterministic>
-    <Version>0.4.26208</Version>
-    <FileVersion>0.4.26208.0645</FileVersion>
+    <Version>0.4.26222</Version>
+    <FileVersion>0.4.26222.0425</FileVersion>
   </PropertyGroup>
 </Project>

@@ -26,6 +26,9 @@
   <ItemGroup>
     <None Include="..\..\data\blacklist.json" Link="data\blacklist.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\data\tag_colors.json" Link="data\tag_colors.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Bug 16: ship blacklist.json as an embedded resource so a wiped/missing user
+         data/ copy can be restored (or loaded in-memory) without manual re-copy. -->
+    <EmbeddedResource Include="..\..\data\blacklist.json" LogicalName="GamingCommander.App.data.blacklist.json" />
   </ItemGroup>
 
   <ItemGroup>

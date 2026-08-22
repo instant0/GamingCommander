@@ -267,7 +267,7 @@ Consider adding visual distinction for category entries vs library root entries 
 ## Documentation To Create/Update
 
 - Add a category-browse section to `docs/FEATURES.md` with the feature table
-- Add navigation flow diagram or table to `docs/ui-direction.md`
+- Add navigation flow diagram or table to UI docs (historical: `META/COMPLETED/archived-docs/ui-direction.md`)
 - Add F8 binding to the F-key reference tables in `03-phase-1-ui-polish.md` and `00-overview.md`
 - Update the ShellViewModel architecture notes for the new state machine
 

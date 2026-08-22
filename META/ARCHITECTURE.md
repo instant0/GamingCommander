@@ -125,3 +125,15 @@ Recorded here for quick reference. Full context in ADR files.
 | Detection | Read-only | Scanning must not modify user data |
 | Migration | Treated as safety-critical | Validate, preserve recovery info, avoid destructive actions |
 | UI Direction | Norton Commander-inspired, modern resizable Windows app | Adaptive layout, keyboard-friendly, clear navigation |
+
+---
+
+## Current Reality (2026-08-22)
+
+Appended after post-MVP alignment. Does not replace ADRs above.
+
+- **Scanning lives in App**, not the Detection project. `LibraryManager` selects `SteamLibraryScanner` vs `FolderScanner`. `GamingCommander.Detection` is a deprecated stub kept so project references still compile.
+- **Migration is not implemented.** `IMigrationPlanner` / `DesignTimeMigrationPlanner` produce dry-run summaries only. Real repair is Plan SyncMove (`planning/04-phase-2-syncmove.md`).
+- **Multi-store detection ≠ multi-store clients.** Folder signals + registry fallback classify GOG/Epic/EA/Ubisoft/Battle.net/Rockstar. There is no GOG Galaxy / Epic / EA / Ubisoft API or repair path yet.
+- **Epic local manifests shipped** (Plan 109). The “future metadata pipeline” (PCGW → SteamDB → IGDB) is still future (Plan 102 Phases 2–3).
+- **Rescan is F5**, async and cancellable (Plans 105 + 113). Enter launches. Command bar buttons remain non-clickable.

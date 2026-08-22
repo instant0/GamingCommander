@@ -1,7 +1,7 @@
 # META/BACKLOG/TECH_DEBT.md — Technical Debt & Known Issues
 
-**Nature:** Mutable. Entries appended by Builder/Reviewer, moved to PLANNING/ when prioritized.
-**Last verified:** 2026-07-26
+**Nature:** Mutable. Entries appended by Builder/Reviewer, moved to `planning/` when prioritized.
+**Last verified:** 2026-08-22 (status alignment; Bugs 10/13/16 closed)
 
 ---
 
@@ -79,7 +79,7 @@
 ### UI Command Buttons Are Decorative
 - **Discovered:** 2026-04-17 (Phase 1.1 completion)
 - **Where:** MainWindow command bar
-- **Issue:** All command buttons have `IsHitTestVisible="False"` — cannot be clicked. F5 (launch) and F7 (add root) have been removed entirely; F4/F6/F9/F10 buttons exist but are not clickable.
+- **Issue:** All command buttons have `IsHitTestVisible="False"` — cannot be clicked. Keyboard handlers work (F2 setup, F4 configure, **F5 rescan**, F9 roots, F10 close). F7 add-root was removed (use F2). Mouse users cannot trigger the command bar.
 - **Status:** Open
 
 ### Default settings/games files not created alongside exe
@@ -151,19 +151,26 @@
 
 ### Bug 10: "Steam Controller Config" listed as a game (Orphaned)
 - **Discovered:** 2026-07-26
-- **Where:** Steam library scanning
-- **Issue:** `Steam Controller Configs` folder in Steam library appears as an "Orphaned" game entry. This is a Steam internal folder, not a game.
-- **Impact:** LOW — noise entry in game list.
-- **Suggested fix:** Add `"steam controller configs"` to `FileSystemHelper.NoiseSubDirNames` or `SteamLibraryScanner` skip list.
-- **Status:** Open
+- **Updated:** 2026-08-10 — rewrite (actionable path corrected)
+- **Where:** `SteamLibraryScanner.Scan` / `ScanAll` — enumeration of `steamapps/common` children (not `NoiseSubDirNames`)
+- **Issue:** Every directory under `steamapps/common` without a matching ACF becomes **Orphaned**. Steam internal folders (e.g. `Steam Controller Configs`) are not games but still get entries.
+- **Impact:** LOW — noise Orphaned rows in Steam libraries.
+- **Code reality:** `"steam controller configs"` is already in `FileSystemHelper.NoiseSubDirNames` and `ContainerScanner.s_nonGameFolderNames`. Those lists are used by **FolderScanner** / deep exe search. **`SteamLibraryScanner` does not consult them** — so Bug 10 is still open on the Steam path.
+- **Suggested fix:**
+  1. Add a **Steam-only** skip set (or helper used only by `SteamLibraryScanner`) for known non-game `common` children, at least: `"steam controller configs"`, `"steamworks shared"` (extend as needed).
+  2. Skip those names **before** creating Installed / Moved / Orphaned entries.
+  3. **Do not** put `"steam"` on this list (installdirs can be arbitrary; filter is for Steam internals only).
+  4. Tests: fixture with only Controller Configs under common → zero games; real installdir still listed.
+- **Out of scope:** FolderScanner noise; wiring Steam into FolderScanner (forbidden for now — see Bug 13).
+- **Status:** ✅ Fixed — 2026-08-10. `SteamLibraryScanner.s_nonGameCommonFolderNames` (`"steam controller configs"`, `"steamworks shared"`) skips entries before status resolution; `"steam"` deliberately excluded. Tests: `Scan_WithSteamControllerConfigsFolder_SkipsOrphanedEntry`, `Scan_WithSteamworksSharedFolder_SkipsOrphanedEntry`, `Scan_WithGameNamedSteam_StillDetected`.
 
-### Bug 11: Orphaned status meaning unclear
+### Bug 11/15: Orphaned vs Missing status meaning unclear
 - **Discovered:** 2026-07-26
-- **Where:** UI display
-- **Issue:** User confused about "Orphaned" vs "Missing" status. "Orphaned" means: physical folder exists but no ACF file references it. "Missing" means: ACF exists but game files not found. The distinction is not explained anywhere in the UI.
+- **Where:** UI display (`PlatformStatusDetail`, status detail helpers)
+- **Issue:** User confused about "Orphaned" vs "Missing". **Orphaned** = folder exists, no ACF references it. **Missing** = ACF exists, game files not found. (Merged former Bug 11 + Bug 15.)
 - **Impact:** LOW — UX confusion.
-- **Suggested fix:** Add tooltip or status detail text explaining the status. Already partially addressed in `PlatformStatusDetail` but may not be visible enough.
-- **Status:** Open — **Plan 108: `planning/108-steam-status-messages.md`** — actionable guidance with fix instructions
+- **Status:** ✅ Fixed — Plan 108. `FormatOrphanedDetail` / `FormatMissingDetail` / `FormatMovedDetail` explain state, cause, and fix (incl. multi-library ACF move path).
+- **Verified:** 2026-08-10 — ShellViewModel status helpers; residual label rename ("Unlinked") optional polish only.
 
 ### Bug 12: Library type selector too small to show full text
 - **Discovered:** 2026-07-26
@@ -173,14 +180,51 @@
 - **Suggested fix:** Set `MinWidth` on the ComboBox or use a wider layout.
 - **Status:** Open
 
-### Bug 13: Noise filter gaps — common runtime folders not filtered
+### Bug 13: FolderScanner noise gaps + nested Steam exclusion (no cross-scanner wiring)
 - **Discovered:** 2026-07-26
-- **Where:** `FileSystemHelper.NoiseSubDirNames`, `FolderScanner.IsGameFolder()`
-- **Issue:** Several common non-game directories are not in the noise filter and get scanned as potential games: `DirectX`, `VCRedist`, `redistributable`, `dotnet`, `jdk`. Also `Steam Controller Configs` is a Steam internal folder that appears as an "Orphaned" game (Bug 10).
-- **Impact:** LOW — noise entries in game list.
-- **Suggested fix:** Add these entries to `FileSystemHelper.NoiseSubDirNames`:
-  - `"steam controller configs"`, `"steam"`, `"directx"`, `"vcredist"`, `"redistributable"`, `"dotnet"`, `"jdk"`
-- **Status:** Open — addressed in Plan 107
+- **Updated:** 2026-08-10 — rewrite (nested Steam policy + residual noise; Plan 107 stale note removed)
+- **Where:** `FolderScanner.Scan` child loop; `FileSystemHelper.NoiseSubDirNames`; `ContainerScanner.s_nonGameFolderNames`. Related UX idea: `META/BACKLOG/IDEAS.md` § “Suggest nested Steam as separate library root”.
+- **Impact:** LOW–MEDIUM — false games / missed structure under mixed roots.
+- **Status:** ✅ Fixed — 2026-08-10. 13a: `"redistributable"`, `"commonredist"`, `"jdk"` added to `NoiseSubDirNames` + `ContainerScanner.s_nonGameFolderNames` + `blacklist.json` `directory_patterns`. 13b: `FolderScanner.IsNestedSteamTree` (structural `steamapps/common` OR name `"steam"`) skips nested Steam client/library children before entry creation; no `SteamLibraryScanner` wiring; `"steam"` not in shared noise set. Tests: `Scan_NestedSteamLibrary_IsExcludedFromStandalone`, `Scan_LibraryRootChildFolder_IsExcludedFromStandalone`, `Scan_NonGameFolderGenericRedistributable_Skipped`, `NoiseSubDirNames_ContainsBug13aRedistNames`. Suggest-as-root UX still open → IDEAS.
+
+#### 13a — Residual runtime / redistributable noise (FolderScanner)
+
+- **Issue:** Some non-game dirs can still appear as candidates. Several suggested names are **already** in `NoiseSubDirNames` (`directx`, `vcredist`, `dotnet`, `steam controller configs`, redist variants). Do not re-add those.
+- **Still verify / add if missing:** `"redistributable"`, `"jdk"` (and clear synonyms only). Mirror into `ContainerScanner` where appropriate.
+- **Do not** use bare `"steam"` as a dumb global ban without the nested-Steam policy in 13b (see below).
+
+#### 13b — Nested Steam under a mixed FolderScanner root (required behavior)
+
+**Scenarios (must handle conceptually; implement exclusion only for now):**
+
+```
+d:\games\                      ← configured root (Standalone / mixed) → FolderScanner
+  SomeStandalone\              → normal game detection
+  steam\                       → Steam client and/or library tree
+    steam.exe                  (optional — client install)
+    steamapps\common\...       → structural Steam library (LooksLikeSteamLibrary)
+```
+
+Same when the child is the full Steam application folder containing `steamapps\common`.
+
+**Policy (explicit — avoids coupling bugs):**
+
+1. **Do NOT wire `SteamLibraryScanner` into `FolderScanner`.** No nested auto-scan via Steam scanner from FolderScanner. Scanner selection stays at **configured library root** only (`LibraryManager.SelectScannerAndScan`).
+2. **FolderScanner must filter out** children that look like a Steam library (structural: `steamapps/common` exists on that child, same idea as `LibraryManager.LooksLikeSteamLibrary`). Also filter folder name `"steam"` when it is clearly the Steam client/library tree (prefer structural check over name-only when both possible).
+3. Filtered Steam trees are **not** emitted as Standalone/Unknown **games** entries (even if `steam.exe` is present).
+4. Sibling folders under `d:\games\` continue normal FolderScanner detection.
+5. **Steam-only skip lists** (Bug 10) apply only inside `SteamLibraryScanner` when the user has added a Steam path as its **own** root — never conflate with FolderScanner bans of installdir names.
+
+**Interim UX:** Exclusion only (silent skip or no game row). Games inside nested Steam are invisible until the user adds that Steam path as a **separate library root** (e.g. `d:\games\steam` — the folder that **contains** `steamapps/`, not a fake filesystem dive into games).
+
+**Follow-on feature (not required to close Bug 13):** Suggest-to-user / `??` marker — see IDEAS. VFS is not a real FS browser: UI may show `d:\games\` and `d:\games\steam` (Steam library root) as **two roots** after the user accepts the suggestion.
+
+**Success (Bug 13):**
+
+- Mixed root: standalones listed; nested Steam tree **not** a single fake game; nested Steam games **not** auto-imported via FolderScanner.
+- Steam as its own configured root: unchanged Steam scanner behavior (+ Bug 10 skips).
+- Residual redist/jdk-style noise reduced.
+- No `FolderScanner` → `SteamLibraryScanner` dependency introduced.
 
 ### Bug 14: Wizard + F2 are duplicate setup screens
 - **Discovered:** 2026-07-26
@@ -191,20 +235,23 @@
 - **Status:** ✅ Fixed — Plan 106 implemented. Wizard + F2 merged into single `LibrarySetupWindow`. WizardWindow, WizardViewModel, WizardLibraryEntry deleted.
 
 ### Bug 15: Orphaned vs Missing status semantics not documented in UI
-- **Discovered:** 2026-07-26
-- **Where:** UI status display
-- **Issue:** User confused about what "Orphaned" vs "Missing" means. **Orphaned** = physical folder exists but no ACF file references it (common for manually installed games or leftover folders). **Missing** = ACF file exists but game files not found on disk. The distinction is only partially explained in `PlatformStatusDetail` and not visible in the main game list.
-- **Impact:** LOW — UX confusion.
-- **Suggested fix:** Add tooltip or status detail text. Consider renaming to clearer labels (e.g., "Unlinked" instead of "Orphaned", "Files Missing" instead of "Missing").
-- **Status:** Open
+- **Status:** ✅ Merged into Bug 11/15 — Plan 118.
 
-### Bug 16: blacklist.json ships with user data instead of app directory
+### Bug 16: Shipped defaults mixed with user data (`blacklist.json`)
 - **Discovered:** 2026-07-26
-- **Where:** `data/blacklist.json` — loaded from user's data directory
-- **Issue:** `blacklist.json` is a shipped reference file, not user data. When the user deleted their `data/` folder to reset, they had to re-copy `blacklist.json` back. Should load from `AppContext.BaseDirectory` (alongside the exe) instead.
-- **Impact:** MEDIUM — confusing for users who manage their data folder.
-- **Suggested fix:** Move `blacklist.json` loading to `AppContext.BaseDirectory`. Keep `data/` directory for user-only data (settings, games DB).
-- **Status:** Open
+- **Updated:** 2026-08-10 — rewrite (stale “load BaseDirectory” fix corrected)
+- **Where:** `BlacklistLoader`, app `data/` layout, `GamingCommander.App.csproj` copy rules; same class of issue for `tag_colors.json`
+- **Issue:** User wipes `data/` to reset and loses shipped `blacklist.json`, then must re-copy. Confusing: reference data vs user state.
+- **Impact:** MEDIUM — empty blacklist after reset → weak noise filtering.
+- **Code reality (do not “fix” with a no-op):** Loader already uses `AppDomain.CurrentDomain.BaseDirectory` + `data/blacklist.json`. Settings and games DB live under the **same** `{BaseDirectory}/data/` tree. csproj already `CopyToOutputDirectory` for blacklist. The stale suggestion “load from BaseDirectory” is **already true**.
+- **Real problem:** **Shipped defaults and user-writable state share one directory.** Deleting user data deletes defaults.
+- **Suggested fix (pick one; document choice when implementing):**
+  1. Ship read-only defaults outside user dir (e.g. `{BaseDirectory}/defaults/blacklist.json` or embedded resource); load defaults first; optional user overlay later, **or**
+  2. On missing/empty blacklist at startup, **restore** from embedded/shipped payload into `data/`, **or**
+  3. Split paths: user state (settings, games DB) vs install-dir defaults.
+- **Also consider:** `tag_colors.json` same pattern.
+- **Success:** After deleting user state (or entire `data/`), restart still loads a **non-empty** blacklist without manual file copy; settings can regenerate independently.
+- **Status:** ✅ Fixed — 2026-08-10. Chose option 1+2 combo: `blacklist.json` embedded as resource (`GamingCommander.App.data.blacklist.json`) in csproj; `BlacklistLoader` falls back to embedded copy on missing/unreadable/corrupt file and restores it to disk when missing. Tests: `Load_WithMissingFile_ReturnsEmbeddedDefaultsAndRestoresFile`, `Load_WithCorruptFile_ReturnsEmbeddedDefaults`, `Load_WithMissingDirectory_ReturnsEmbeddedDefaults`. `tag_colors.json` deferral noted in CURRENT.
 
 ### Bug 17: FindEpicManifest searches wrong file extension
 - **Discovered:** 2026-07-26
@@ -272,7 +319,8 @@
 - **Issue:** `UbisoftReadmeParser` reads `Support/Readme/*.txt` and blindly assigns `lines[1]` as `GameTitle` with no validation. Some Ubisoft readme files have the publisher name on line 2 instead of the game title. Since `assassinscreed3.exe` has no valid PE `FileDescription` (or it's filtered by pe_metadata_blacklist), `storeEnrichedDisplayName` stays `false`, and the readme enrichment runs unchecked.
 - **Impact:** MEDIUM — wrong display name for Ubisoft games with non-standard readme format.
 - **Suggested fix:** Add validation in `UbisoftReadmeParser.TryParse()` or `FolderScanner.AddGameEntry()` to reject known publisher strings ("Ubisoft Entertainment", "Ubisoft", "Ubisoft SAS") from `GameTitle`. Alternatively, add a deny-list of publisher-like values.
-- **Status:** Open
+- **Status:** ✅ Fixed — Plan 114. Publisher deny-list rejects known Ubisoft strings on readme line 2.
+- **Verified:** 2026-08-10 — UbisoftReadmeParser.cs deny-list includes "Ubisoft Entertainment"
 
 ### Bug 24: ARC Game Store/Launcher not filtered as noise
 - **Discovered:** 2026-07-26
@@ -281,7 +329,9 @@
 - **Issue:** `"arc"` is missing from both `NoiseSubDirNames` (so the `arc\` directory is scanned) and `blacklist.json` tiers (so `arc.exe` passes all noise filters). `FallbackSignalDetector.HasRootExecutableSignal` finds `arc.exe` as a valid root executable and classifies the folder as Standalone.
 - **Impact:** MEDIUM — launcher/store detected as a game.
 - **Suggested fix:** Add `"arc"` to `FileSystemHelper.NoiseSubDirNames` alongside other store launcher directories. Also add `"arc"` to `blacklist.json` `tier_3_store_bootstraps` as a scoring penalty. Verify no legitimate game exe contains "arc" as a substring (e.g., "ArcaniA.exe") — if so, use a more targeted approach.
-- **Status:** Open
+- **Status:** ✅ Fixed — Plan 114. `"arc"` added to `NoiseSubDirNames`.
+- **Verified:** 2026-08-10 — FileSystemHelper.cs
+- **Residual (nice-to-have):** Name blacklist collides with a real game titled ARC. Durable fix = launcher-vs-game **signal** discrimination — see `META/BACKLOG/IDEAS.md` § “Launcher-vs-game signal discrimination”.
 
 ### Bug 25: battle.net launcher folder detected as a game
 - **Discovered:** 2026-07-26
@@ -290,7 +340,8 @@
 - **Issue:** When `"blizzard"` and `"battle.net"` were removed from `NoiseSubDirNames` (to fix BattleNet game detection), the `battle.net\` launcher folder itself became scannable. `FallbackSignalDetector.HasRootExecutableSignal` finds `battle.net.exe` as a non-noise root exe and classifies the folder as Standalone. The fix for Bug 9 (allowing blizzard game detection) inadvertently exposed the launcher folder.
 - **Impact:** MEDIUM — launcher directory appears as a game entry.
 - **Suggested fix:** Add `"battle.net"` back to `NoiseSubDirNames` (keep `"blizzard"` removed). The `blizzard` folder is the publisher container with game children; the `battle.net` folder is the launcher executable directory. Also add `"battle.net"` to `ContainerScanner.s_nonGameFolderNames` and `blacklist.json` `tier_3_store_bootstraps`.
-- **Status:** Open
+- **Status:** ✅ Fixed — Plan 114. `"battle.net"` restored to `NoiseSubDirNames` (launcher noise; blizzard publisher path not required for signal-file detection — Plan 116).
+- **Verified:** 2026-08-10 — FileSystemHelper.cs
 
 ### Bug 26: Diablo III RETAIL classified as Standalone instead of BattleNet
 - **Discovered:** 2026-07-26
@@ -299,7 +350,8 @@
 - **Issue:** `HasBattleNetGameSignal()` exists and correctly identifies BattleNet games by folder name/exe pattern, but it's only called in the **top-level loop** of `FolderScanner.Scan()` (line 121) when the parent directory has a BattleNet signal. Diablo III RETAIL is a grandchild of `d:\games\` (inside `blizzard\`), so it's discovered by `ContainerScanner`, which has no BattleNet-aware logic. The container scanner only checks `StoreSignalDetector.DetectType` (needs `.battle.net/` in the game folder) and `FallbackSignalDetector.HasRootExecutableSignal` (picks up `DiabloIII.exe` → Standalone).
 - **Impact:** MEDIUM — BattleNet games misclassified as Standalone when inside a publisher container.
 - **Suggested fix:** In `ContainerScanner.ScanContainerChildren()`, after `StoreSignalDetector.DetectType(child)` returns `Unknown`, check if a sibling directory named `"battle.net"` exists in the same parent (indicating a Blizzard container), and if so, call `StoreSignalDetector.HasBattleNetGameSignal(child)`. If true, classify as BattleNet instead of Standalone.
-- **Status:** Open
+- **Status:** ✅ Fixed — Plan 114 (+ Plan 116 signal-file-only BattleNet). Classification uses in-folder signals (`.build.info`, `.product.db`, `.battle.net/`), not path-based parent names.
+- **Verified:** 2026-08-10 — Plan 114/116; session CURRENT
 
 ---
 
@@ -312,7 +364,8 @@
 - **Issue:** `Worldbuilder.exe` (33MB) is NOT in `blacklist.json` noise patterns. The `DefaultNoiseExePatterns` includes `"builder"` but production uses blacklist-loaded patterns which lack it. Worldbuilder passes all noise filters. Meanwhile `lotrbfme2.exe` (495KB) has empty PE Description, so its display name comes from folder name normalization.
 - **Impact:** HIGH — wrong primary exe selected, wrong display name.
 - **Suggested fix:** Add `"builder"` and `"worldbuilder"` to `blacklist.json` `tier_10_dev_editor_tools`.
-- **Status:** Open
+- **Status:** ✅ Fixed — Plan 114. `"builder"`, `"worldbuilder"` in `tier_10_dev_editor_tools`.
+- **Verified:** 2026-08-10 — data/blacklist.json
 
 ### Bug 28: Divine Divinity selects ConfigTool.exe instead of div.exe
 - **Discovered:** 2026-07-26
@@ -321,7 +374,8 @@
 - **Issue:** `configtool.exe` is not in any noise tier. Both exes are in `Run/` subdirectory. ConfigTool has PE Description "configtool MFC Application" which doesn't match any noise filter. The scoring may be picking ConfigTool due to directory traversal order or size heuristics.
 - **Impact:** HIGH — wrong primary exe selected.
 - **Suggested fix:** Add `"configtool"` to `blacklist.json` `tier_10_dev_editor_tools`.
-- **Status:** Open
+- **Status:** ✅ Fixed — Plan 114. `"configtool"` in `tier_10_dev_editor_tools`.
+- **Verified:** 2026-08-10 — data/blacklist.json
 
 ### Bug 29: Endless Legends displayed twice (Win32/Win64)
 - **Discovered:** 2026-07-26
@@ -330,7 +384,8 @@
 - **Issue:** `ENdlessLegend/` has `Win32/` and `Win64/` subdirectories, each containing `EndlessLegend.exe`. Container scanner treats these as separate children with game signals, creating two game entries.
 - **Impact:** MEDIUM — duplicate game entries.
 - **Suggested fix:** Add `"win32"`, `"win64"`, `"x86"`, `"x64"` to `ContainerScanner.s_nonGameFolderNames`.
-- **Status:** Open
+- **Status:** ✅ Fixed — Plan 114. `"win32"`, `"win64"` (and x86/x64) in `s_nonGameFolderNames`.
+- **Verified:** 2026-08-10 — ContainerScanner.cs
 
 ### Bug 30: Diablo III listed twice (x64 + x64 - Copy)
 - **Discovered:** 2026-07-26
@@ -339,7 +394,9 @@
 - **Issue:** `x64 - Copy` is a backup directory that passes all noise filters. Exe discovery finds `Diablo III64.exe` in both directories.
 - **Impact:** MEDIUM — duplicate game entries.
 - **Suggested fix:** Add `"x64 - copy"`, `"x86 - copy"`, `" - copy"` to `FileSystemHelper.NoiseSubDirNames` or `ContainerScanner.s_nonGameFolderNames`.
-- **Status:** Open
+- **Status:** ✅ Fixed — Plan 114. `"x64 - copy"`, `"x86 - copy"` in noise lists.
+- **Verified:** 2026-08-10 — FileSystemHelper.cs, ContainerScanner.cs
+- **Residual (nice-to-have):** Some users want backup/copy folders visible — user-toggleable filter groups in setup; see `META/BACKLOG/IDEAS.md` § “User-toggleable noise / backup filters”.
 
 ### Bug 31: Diablo III RETAIL classified as Standalone (duplicate of Bug 26)
 - **Discovered:** 2026-07-26
@@ -348,7 +405,8 @@
 - **Issue:** Same root cause as Bug 26 — `ContainerScanner` lacks BattleNet-aware logic.
 - **Impact:** MEDIUM — BattleNet games misclassified.
 - **Suggested fix:** Same as Bug 26.
-- **Status:** Open (same fix as Bug 26)
+- **Status:** ✅ Fixed — duplicate of Bug 26; Plan 114/116.
+- **Verified:** 2026-08-10
 
 ### Bug 32: Library roots show duplicate "Games" names
 - **Discovered:** 2026-07-26
@@ -357,7 +415,8 @@
 - **Issue:** `Path.GetFileName(root.RootPath)` returns "Games" for all three roots.
 - **Impact:** LOW — confusing but not broken.
 - **Suggested fix:** Display full path (or drive letter + folder name) instead of just folder name.
-- **Status:** Open
+- **Status:** ✅ Fixed — Plan 114. Full root path displayed for library roots.
+- **Verified:** 2026-08-10 — session CURRENT (Bug 32)
 
 ### Bug 33: Tags not displayed in left lister or details pane
 - **Discovered:** 2026-07-26
@@ -366,4 +425,5 @@
 - **Issue:** `ShellPaneItemViewModel` doesn't have a `Tags` property. `LoadGamesForRoot()` doesn't read `game.Tags`. UI templates don't display tags.
 - **Impact:** LOW — feature incomplete.
 - **Suggested fix:** Add `Tags` to `ShellPaneItemViewModel`, populate in `LoadGamesForRoot()`, add to left-pane item template and right-pane details panel.
-- **Status:** Open
+- **Status:** ✅ Fixed — Plan 102 Phase 4 + Plan 114. Right-pane colored `TagBadges` via `TagColorService` / `tag_colors.json`. Left-pane layout redesign residual → `planning/117-left-pane-layout.md`.
+- **Verified:** 2026-08-10 — TagColorService, ShellViewModel.BuildTagBadges, MainWindow.axaml

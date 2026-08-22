@@ -12,6 +12,19 @@ namespace GamingCommander.App.Services;
 /// </summary>
 public sealed class SteamLibraryScanner
 {
+    /// <summary>
+    /// Known Steam-internal directories under steamapps/common that are NOT games.
+    /// Bug 10: "Steam Controller Configs" etc. were reported as Orphaned because
+    /// SteamLibraryScanner does not consult FolderScanner's NoiseSubDirNames.
+    /// This is the Steam-scanner's OWN skip list — it must never filter the literal
+    /// name "steam" (installdirs are arbitrary; "Steam" could be a real game title).
+    /// </summary>
+    private static readonly HashSet<string> s_nonGameCommonFolderNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "steam controller configs",
+        "steamworks shared",
+    };
+
     private readonly IReadOnlyList<string> _configuredSteamPaths;
 
     /// <summary>Creates a new scanner with the specified configured Steam library paths.</summary>
@@ -46,6 +59,11 @@ public sealed class SteamLibraryScanner
             foreach (DirectoryInfo gameDir in FileSystemHelper.GetDirectoriesSafe(commonDir))
             {
                 string folderName = gameDir.Name;
+
+                // Bug 10: skip Steam-internal folders (Controller Configs, etc.) before
+                // status resolution so they never surface as Orphaned "games".
+                if (IsNonGameCommonFolder(folderName))
+                    continue;
 
                 if (acfMap.TryGetValue(folderName, out var acfInfo))
                 {
@@ -113,6 +131,10 @@ public sealed class SteamLibraryScanner
             foreach (DirectoryInfo gameDir in FileSystemHelper.GetDirectoriesSafe(commonDir))
             {
                 string folderName = gameDir.Name;
+
+                // Bug 10: skip Steam-internal folders (Controller Configs, etc.).
+                if (IsNonGameCommonFolder(folderName))
+                    continue;
 
                 if (acfMap.TryGetValue(folderName, out var acfInfo))
                 {
@@ -362,5 +384,16 @@ public sealed class SteamLibraryScanner
         // Minimal noise check for Steam library context
         return name is "unins000" or "unins001" or "setup" or "vcredist"
             or "dxsetup" or "oalinst" or "commonredist";
+    }
+
+    /// <summary>
+    /// Returns true if the folder name is a known Steam-internal non-game directory
+    /// under steamapps/common. Used to suppress Orphaned entries (Bug 10).
+    /// Deliberately does NOT include "steam" — installdirs are arbitrary and a game
+    /// may legitimately be titled Steam.
+    /// </summary>
+    private static bool IsNonGameCommonFolder(string folderName)
+    {
+        return s_nonGameCommonFolderNames.Contains(folderName);
     }
 }

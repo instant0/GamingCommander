@@ -13,9 +13,9 @@ internal static class FileSystemHelper
     /// </summary>
     internal static readonly IReadOnlySet<string> NoiseSubDirNames = new HashSet<string>(
     [
-        "__redist", "_commonredist", "commonredist", "redist", "directx",
-        "vcredist", "dotnet", "physx", "support", "_installer", "install",
-        "installer", "easyanticheat", "devtools", "docs", "licenses",
+        "__redist", "_commonredist", "commonredist", "redist", "redistributable",
+        "directx", "vcredist", "dotnet", "jdk", "physx", "support", "_installer",
+        "install", "installer", "easyanticheat", "devtools", "docs", "licenses",
         "steam controller configs", "steamworks shared",
         // Store launcher directories — these are games stores, not games themselves
         // NOTE: "blizzard" and "battle.net" REMOVED — they are publisher containers with game subdirs

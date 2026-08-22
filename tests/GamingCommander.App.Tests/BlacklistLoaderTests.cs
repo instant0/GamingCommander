@@ -54,15 +54,20 @@ public sealed class BlacklistLoaderTests : IDisposable
     }
 
     [Fact]
-    public void Load_WithMissingFile_ReturnsEmptyData()
+    public void Load_WithMissingFile_ReturnsEmbeddedDefaultsAndRestoresFile()
     {
         var loader = new BlacklistLoader(_tempDir);
         var data = loader.Load();
 
-        // No file → returns empty data (BlacklistData.Empty)
-        Assert.Empty(data.ExeNamePatterns);
-        Assert.Empty(data.TieredExePatterns);
-        Assert.Empty(data.DirectoryPatterns);
+        // Bug 16: missing file → embedded default resource, never silently empty.
+        Assert.NotEmpty(data.ExeNamePatterns);
+        Assert.NotEmpty(data.TieredExePatterns);
+        Assert.NotEmpty(data.DirectoryPatterns);
+
+        // The embedded default should have been restored to disk for future loads.
+        string restored = Path.Combine(_tempDir, "data", "blacklist.json");
+        Assert.True(File.Exists(restored));
+        Assert.False(string.IsNullOrWhiteSpace(File.ReadAllText(restored)));
     }
 
     [Fact]
@@ -78,15 +83,16 @@ public sealed class BlacklistLoaderTests : IDisposable
     }
 
     [Fact]
-    public void Load_WithCorruptFile_ReturnsDefaults()
+    public void Load_WithCorruptFile_ReturnsEmbeddedDefaults()
     {
         WriteBlacklistJson("not valid json {{{");
 
         var loader = new BlacklistLoader(_tempDir);
         var data = loader.Load();
 
-        // Corrupt JSON → returns defaults
-        Assert.Empty(data.ExeNamePatterns);
+        // Bug 16: corrupt file → embedded default resource instead of empty filtering.
+        Assert.NotEmpty(data.ExeNamePatterns);
+        Assert.NotEmpty(data.TieredExePatterns);
     }
 
     // ════════════════════════════════════════════════════════════════
@@ -242,14 +248,14 @@ public sealed class BlacklistLoaderTests : IDisposable
     // ════════════════════════════════════════════════════════════════
 
     [Fact]
-    public void Load_WithMissingDirectory_ReturnsDefaults()
+    public void Load_WithMissingDirectory_ReturnsEmbeddedDefaults()
     {
         string nonexistent = Path.Combine(_tempDir, "nonexistent", "path");
         var loader = new BlacklistLoader(nonexistent);
         var data = loader.Load();
 
-        // Should not throw, returns defaults
-        Assert.Empty(data.ExeNamePatterns);
+        // Bug 16: should not throw; embedded default keeps filtering active.
+        Assert.NotEmpty(data.ExeNamePatterns);
     }
 
     // ════════════════════════════════════════════════════════════════

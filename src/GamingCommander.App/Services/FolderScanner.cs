@@ -131,6 +131,15 @@ public sealed class FolderScanner
             if (FileSystemHelper.NoiseSubDirNames.Contains(subDir.Name))
                 continue;
 
+            // Bug 13b: Exclude nested Steam client / library trees from the normal
+            // folder scan. A child that IS a Steam library (steamapps/common) or the
+            // Steam application folder must not be emitted as a single Standalone game,
+            // and we deliberately do NOT wire SteamLibraryScanner into FolderScanner.
+            // The user adds such a path as its own library root (see IDEAS: suggest
+            // nested Steam as separate root).
+            if (IsNestedSteamTree(subDir))
+                continue;
+
             // Pass 1: Check for launcher/store signals at this folder level
             GameSourceKind signalType = StoreSignalDetector.DetectType(subDir);
 
@@ -194,6 +203,22 @@ public sealed class FolderScanner
     private bool IsNoiseDirectory(string dirName)
     {
         return FileSystemHelper.IsNoiseDirectory(dirName, _noiseDirectoryPatterns);
+    }
+
+    /// <summary>
+    /// Bug 13b: Returns true when a scanned child is a nested Steam client / library tree:
+    /// either it structurally contains steamapps/common (a Steam library root), or its
+    /// folder name is exactly "steam" (Steam application install — may also contain a
+    /// library). Such folders are excluded from FolderScanner results; Steam games are
+    /// discovered only when the path is added as its own Steam library root.
+    /// Note: "steam" is intentionally NOT added to the shared NoiseSubDirNames set —
+    /// that set also gates deep exe search inside game folders where a "Steam" subdir
+    /// may be legitimate. This check is scoped to the normal top-level folder scan.
+    /// </summary>
+    private static bool IsNestedSteamTree(DirectoryInfo subDir)
+    {
+        return subDir.Name.Equals("steam", StringComparison.OrdinalIgnoreCase)
+            || Directory.Exists(Path.Combine(subDir.FullName, "steamapps", "common"));
     }
 
     /// <summary>

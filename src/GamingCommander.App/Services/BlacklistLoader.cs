@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -7,9 +8,16 @@ namespace GamingCommander.App.Services;
 /// Loads the noise-pattern blacklist from data/blacklist.json at startup.
 /// Provides flattened lists of exe-name substrings and directory-name substrings
 /// for use by FolderScanner.
+///
+/// Bug 16: if the on-disk blacklist is missing, empty, or corrupt, the loader
+/// falls back to the copy embedded in the assembly (GamingCommander.App.data.blacklist.json)
+/// so that wiping the user data/ directory never silently disables noise filtering.
+/// When the file is merely missing, the embedded default is also written back to disk.
 /// </summary>
 public sealed class BlacklistLoader
 {
+    private const string EmbeddedBlacklistResource = "GamingCommander.App.data.blacklist.json";
+
     private static readonly JsonSerializerOptions BlacklistOptions = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -26,18 +34,28 @@ public sealed class BlacklistLoader
     }
 
     /// <summary>
-    /// Loads and returns the blacklist patterns. If the file is missing or
-    /// malformed, returns an empty result (no blacklist applied) rather than
-    /// crashing.
+    /// Loads and returns the blacklist patterns.
+    /// Priority: on-disk data/blacklist.json → embedded resource default.
+    /// If both fail, returns an empty result (no blacklist applied) rather than crashing.
     /// </summary>
     public BlacklistData Load()
     {
         string jsonPath = Path.Combine(_basePath, "data", "blacklist.json");
+        string json = ReadBlacklistJson(jsonPath) ?? RestoreFromEmbeddedResource(jsonPath);
 
-        BlacklistDto? dto = JsonFileHelper.ReadFromFile<BlacklistDto>(
-            jsonPath,
-            () => new BlacklistDto(),
-            BlacklistOptions);
+        BlacklistDto? dto;
+        try
+        {
+            dto = JsonSerializer.Deserialize<BlacklistDto>(json, BlacklistOptions);
+        }
+        catch
+        {
+            // Corrupt on-disk file → retry with the embedded default (Bug 16).
+            // The embedded resource always yields valid JSON ("{}" as last resort).
+            dto = JsonSerializer.Deserialize<BlacklistDto>(
+                RestoreFromEmbeddedResource(jsonPath), BlacklistOptions);
+        }
+
         if (dto?.ExeNamePatterns is null)
             return BlacklistData.Empty;
 
@@ -62,6 +80,70 @@ public sealed class BlacklistLoader
             DirectoryPatterns: directoryPatterns,
             PeMetadataPatterns: peMetadataPatterns,
             PcgwTitleNoise: pcgwTitleNoise);
+    }
+
+    // ── Source resolution (Bug 16) ─────────────────────────────────────
+
+    /// <summary>
+    /// Reads the on-disk blacklist JSON. Returns null when the file is missing,
+    /// unreadable, or effectively empty (whitespace) so the caller can fall back.
+    /// </summary>
+    private static string? ReadBlacklistJson(string jsonPath)
+    {
+        if (!File.Exists(jsonPath))
+            return null;
+
+        try
+        {
+            string json = File.ReadAllText(jsonPath);
+            return string.IsNullOrWhiteSpace(json) ? null : json;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Loads the embedded default blacklist (Bug 16). If the on-disk file is missing,
+    /// the embedded copy is also written back to disk so future loads are self-sufficient.
+    /// Returns an empty JSON object when no embedded resource is available.
+    /// </summary>
+    private static string RestoreFromEmbeddedResource(string jsonPath)
+    {
+        try
+        {
+            Assembly assembly = typeof(BlacklistLoader).Assembly;
+            using Stream? stream = assembly.GetManifestResourceStream(EmbeddedBlacklistResource);
+            if (stream is null)
+                return "{}";
+
+            using var reader = new StreamReader(stream);
+            string json = reader.ReadToEnd();
+            if (string.IsNullOrWhiteSpace(json))
+                return "{}";
+
+            // Restore the file only when it is missing (never overwrite user edits or
+            // a corrupt-but-recoverable file).
+            if (!File.Exists(jsonPath))
+            {
+                try
+                {
+                    JsonFileHelper.EnsureDirectoryExists(jsonPath);
+                    File.WriteAllText(jsonPath, json);
+                }
+                catch
+                {
+                    // Non-fatal — the in-memory fallback still applies this load.
+                }
+            }
+
+            return json;
+        }
+        catch
+        {
+            return "{}";
+        }
     }
 
     // ── DTO for deserialization ──────────────────────────────────────────

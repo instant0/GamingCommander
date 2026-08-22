@@ -273,6 +273,16 @@ public sealed class ScannerFilterTests
     }
 
     [Fact]
+    public void NoiseSubDirNames_ContainsBug13aRedistNames()
+    {
+        // Bug 13a: generic redistributable folder names must be skipped
+        Assert.Contains("redistributable", FileSystemHelper.NoiseSubDirNames);
+        Assert.Contains("commonredist", FileSystemHelper.NoiseSubDirNames);
+        Assert.Contains("jdk", FileSystemHelper.NoiseSubDirNames);
+        Assert.Contains("redist", FileSystemHelper.NoiseSubDirNames);
+    }
+
+    [Fact]
     public void Scan_ArcDirectory_IsExcluded()
     {
         // B24: Full integration test — ARC folder with arc.exe is not a game
@@ -296,6 +306,60 @@ public sealed class ScannerFilterTests
                 g.FolderName.Equals("arc", StringComparison.OrdinalIgnoreCase));
             Assert.Contains(results, g =>
                 g.FolderName.Equals("ValidGame", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+                Directory.Delete(tempRoot, true);
+        }
+    }
+
+    [Fact]
+    public void Scan_NestedSteamLibrary_IsExcludedFromStandalone()
+    {
+        // Bug 13b: a child folder that IS a Steam library (steamapps/common inside)
+        // must not be emitted as a single Standalone "game" — Steam games are found
+        // by adding the path as a Steam library root instead.
+        string tempRoot = Path.Combine(Path.GetTempPath(), "SteamTreeTest_" + Guid.NewGuid().ToString("N")[..8]);
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(tempRoot, "Steam", "steamapps", "common", "SomeSteamGame"));
+            File.WriteAllText(Path.Combine(tempRoot, "Steam", "steam.exe"), "");
+
+            string validDir = Path.Combine(tempRoot, "ValidGame");
+            Directory.CreateDirectory(validDir);
+            File.WriteAllText(Path.Combine(validDir, "ValidGame.exe"), "");
+
+            var scanner = new FolderScanner();
+            var results = scanner.Scan(tempRoot, GameSourceKind.Standalone);
+
+            Assert.DoesNotContain(results, g =>
+                g.FolderName.Equals("Steam", StringComparison.OrdinalIgnoreCase));
+            Assert.Contains(results, g =>
+                g.FolderName.Equals("ValidGame", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+                Directory.Delete(tempRoot, true);
+        }
+    }
+
+    [Fact]
+    public void Scan_LibraryRootChildFolder_IsExcludedFromStandalone()
+    {
+        // Bug 13b: structurally a library root even without a "steam" folder name.
+        string tempRoot = Path.Combine(Path.GetTempPath(), "LibRootTest_" + Guid.NewGuid().ToString("N")[..8]);
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(tempRoot, "Games", "steamapps", "common", "SomeSteamGame"));
+            File.WriteAllText(Path.Combine(tempRoot, "Games", "SomeGame.exe"), "");
+
+            var scanner = new FolderScanner();
+            var results = scanner.Scan(tempRoot, GameSourceKind.Standalone);
+
+            Assert.DoesNotContain(results, g =>
+                g.FolderName.Equals("Games", StringComparison.OrdinalIgnoreCase));
         }
         finally
         {

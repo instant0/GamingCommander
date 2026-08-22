@@ -183,6 +183,20 @@ public sealed class FolderScannerContainerTests : IDisposable
         Assert.Empty(entries);
     }
 
+    [Fact]
+    public void Scan_NonGameFolderGenericRedistributable_Skipped()
+    {
+        // Bug 13a: generic "Redistributable" / "Redist" / "Support" folders were
+        // reported as games because only underscored variants were recognized.
+        CreateDir("Publisher", "Redistributable");
+        CreateDir("Publisher", "Redist");
+        CreateDir("Publisher", "Support");
+
+        var entries = _scanner.Scan(_tempDir, GameSourceKind.Standalone);
+
+        Assert.Empty(entries);
+    }
+
     // ════════════════════════════════════════════════════════════════
     //  Publisher folder pattern (dirs-only root)
     // ════════════════════════════════════════════════════════════════

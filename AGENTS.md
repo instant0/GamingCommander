@@ -4,7 +4,7 @@
 
 This file defines the operating system for autonomous AI agents. 
 
-Project progress, current tasks, and changing decisions belong in `META/` and `PLANNING/`.
+Project progress, current tasks, and changing decisions belong in `META/` and `planning/`.
 
 ---
 
@@ -48,7 +48,7 @@ Only access files inside this repository. Do not disclose local machine paths, g
 
 ## Project Intent
 
-GamingCommander is a C# Windows-native Norton Commander-style game management and launcher. It discovers installed games, collects metadata, launches games safely, and supports migration. Primary targets: Standalone games, Steam. Future: GOG, Epic, EA App, Ubisoft Connect.
+GamingCommander is a C# Windows-native Norton Commander-style game management and launcher. It discovers installed games, collects metadata, launches games safely, and will support migration. Primary targets: Standalone + Steam (scan and launch shipped). Folder/registry detection also covers GOG, Epic, EA, Ubisoft, Battle.net, Xbox, Rockstar. Full store clients, SyncMove repair, and online metadata are not shipped.
 
 ---
 
@@ -75,8 +75,8 @@ Every agent follows this protocol. Stop reading once you have enough context.
  4. META/SESSION/NEXT.md          ─── If implementing.
  5. META/CODE_MAP.md              ─── If implementing (skip if same session).
  6. META/ARCHITECTURE.md          ─── If implementing new feature.
- 7. PLANNING/<relevant-plan>.md   ─── If implementing.
- 8. DOCS/RESEARCH/<relevant>.md   ─── If implementing new platform.
+ 7. planning/<relevant-plan>.md   ─── If implementing.
+ 8. docs/research/<relevant>.md   ─── If implementing new platform.
 ```
 
 ---
@@ -96,8 +96,8 @@ Every agent follows this protocol. Stop reading once you have enough context.
 | META/BACKLOG/TECH_DEBT.md | Mutable | Builder/Reviewer | Bug/issue found |
 | META/SESSION/CURRENT.md | **Overwrite** | Builder | End of session |
 | META/SESSION/NEXT.md | **Overwrite** | Planner/Builder | Start/end session |
-| PLANNING/*.md | Mutable | Planner | Planning phase |
-| DOCS/RESEARCH/*.md | Read-only | Researcher | Once, on creation |
+| planning/*.md | Mutable | Planner | Planning phase |
+| docs/research/*.md | Read-only | Researcher | Once, on creation |
 
 ---
 
@@ -105,7 +105,7 @@ Every agent follows this protocol. Stop reading once you have enough context.
 
 For each implementation task:
 
-1. Read: AGENTS.md → META/SESSION/CURRENT.md → META/SESSION/NEXT.md → relevant PLANNING doc
+1. Read: AGENTS.md → META/SESSION/CURRENT.md → META/SESSION/NEXT.md → relevant planning doc
 2. Implement the requested change.
 3. Update META/SESSION/CURRENT.md at end of session.
 4. Build and test.

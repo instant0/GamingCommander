@@ -138,6 +138,50 @@ public sealed class SteamLibraryScannerTests : IDisposable
         Assert.Equal(string.Empty, results[0].PlatformMetadata["SteamAppId"]);
     }
 
+    // ════════════════════════════════════════════════════════════════
+    //  Bug 10 — Steam-internal common/ folders are not games
+    // ════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void Scan_WithSteamControllerConfigsFolder_SkipsOrphanedEntry()
+    {
+        // Steam-internal folder with no ACF — must NOT surface as an Orphaned "game".
+        string root = CreateSteamAppsDir();
+        Directory.CreateDirectory(Path.Combine(root, "steamapps", "common", "Steam Controller Configs"));
+
+        var scanner = new SteamLibraryScanner([root]);
+        var results = scanner.Scan(root);
+
+        Assert.Empty(results);
+    }
+
+    [Fact]
+    public void Scan_WithSteamworksSharedFolder_SkipsOrphanedEntry()
+    {
+        string root = CreateSteamAppsDir();
+        Directory.CreateDirectory(Path.Combine(root, "steamapps", "common", "Steamworks Shared"));
+
+        var scanner = new SteamLibraryScanner([root]);
+        var results = scanner.Scan(root);
+
+        Assert.Empty(results);
+    }
+
+    [Fact]
+    public void Scan_WithGameNamedSteam_StillDetected()
+    {
+        // Guard: installdirs are arbitrary — a game legitimately titled "Steam"
+        // must be detected, not skipped by the internal-folder filter.
+        string root = CreateMockSteamLibrary("Steam", appId: "777");
+
+        var scanner = new SteamLibraryScanner([root]);
+        var results = scanner.Scan(root);
+
+        Assert.Single(results);
+        Assert.Equal("Installed", results[0].PlatformMetadata["SteamStatus"]);
+        Assert.Equal("Steam", results[0].FolderName);
+    }
+
     [Fact]
     public void Scan_WithMissingGame_DetectsMissingStatus()
     {

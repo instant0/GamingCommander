@@ -3,7 +3,7 @@
 # Usage: ./publish.sh [publish-directory]
 set -euo pipefail
 
-PUBDIR="${1:-publish}"
+PUBDIR="/mnt/r/gc/"
 YYDDD=$(date +%y%j)  # e.g. 26207 (year + day-of-year, both fit in 16-bit)
 HHMM=$(date +%H%M)
 PROPS="Directory.Build.props"

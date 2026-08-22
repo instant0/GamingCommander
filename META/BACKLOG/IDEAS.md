@@ -77,3 +77,56 @@
 - **Implementation:** Add a `Dictionary<string, string[]>` mapping version numbers to breaking changes. On startup, check if any version between `LastSeenVersion` and `currentVersion` has entries. If yes → migration wizard. If no → "What's New" dialog. If none → skip.
 - **Impact:** LOW for internal testing, needed before public release.
 - **Where:** `App.axaml.cs` lines 104-110
+
+---
+
+## Nice-to-have / lowest priority (2026-08-10)
+
+> Not on the post-MVP execute list. Capture only — do not schedule ahead of Plan 117, SyncMove, Plan 102, or open TECH_DEBT bugs.
+
+### Launcher-vs-game signal discrimination (name collisions)
+
+- **Problem:** Plan 114 filtered `"arc"` as noise (ARC Game Store/launcher). There is also a **game** called ARC (and similar short-name collisions). Pure folder/exe **name** blacklists cannot safely distinguish store client vs title.
+- **Desired approach:** Research and document **signal profiles**:
+  - Typical **game-store / launcher** folder contents (installer remnants, update clients, shared runtimes, store-branded DLLs/manifests, no primary game payload layout).
+  - Typical **game** folder contents (store game signals we already use, engines, large primary exe, content dirs).
+- **Outcome:** A detection task/plan that classifies ambiguous names via **in-folder signals** (and scoring), not by banning the string `"arc"` alone. Same pattern should generalize to other launcher/name collisions.
+- **Priority:** Nice-to-have — lowest. Related short-term: Bug 24 name filter is a blunt fix; this idea is the durable replacement.
+- **Touches (when eventually planned):** `StoreSignalDetector` / `FallbackSignalDetector` / noise lists / possibly `data/signals.json` (see also “Configurable detection signals” above).
+
+### User-toggleable noise / backup filters in setup
+
+- **Problem:** Auto-filters hide backup-style folders such as `"x64 - Copy"`, `" - copy"`, `" - Copy of"`, and similar known patterns. Some users **want** those entries visible (deliberate backups, side-by-side builds).
+- **Desired approach:** In Library Setup (F2 / first-run), add a **sub-screen or options section** where the user can **enable/disable groups of known filter patterns** (e.g. “Hide backup/copy folders”, “Hide store launcher dirs”, runtime redistributable skips). Defaults stay conservative (filters on).
+- **Constraints:** Shipped defaults remain safe; toggles are user preference persisted in settings (not rewriting shipped `blacklist.json` unless we design overlay rules).
+- **Priority:** Nice-to-have — lowest. Complements “Configurable detection signals” but is **UX/settings**, not only moving patterns to JSON.
+- **Touches (when eventually planned):** `LibrarySetupWindow` / settings model / `FileSystemHelper` + container noise application path.
+
+### Suggest nested Steam (and similar) as a separate library root (`??` marker)
+
+- **Related debt:** Bug 13 — FolderScanner **excludes** nested Steam trees (no auto-wire of `SteamLibraryScanner` into FolderScanner). Until the user adds a second root, those Steam games are invisible.
+- **Problem:** Mixed layout is common:
+
+  ```
+  d:\games\                 ← root A (FolderScanner): standalones
+  d:\games\steam\           ← Steam client and/or library (steamapps\common\...)
+  ```
+
+  GamingCommander uses a **VFS of library roots**, not a full filesystem browser. Showing everything under one root by secretly calling Steam from FolderScanner is rejected (coupling / bug risk).
+
+- **Desired UX — “Suggest to user”:**
+  1. While scanning a mixed root, **detect** nested Steam library structure (`steamapps/common` on a child; same idea as `LooksLikeSteamLibrary`).
+  2. Do **not** import those games into the mixed root’s game list via Steam scanner.
+  3. Surface a **suggestion row** in the VFS/UI (e.g. status/badge `??` or “Suggested library”) for the detected path — typically the Steam **library root** (folder that **contains** `steamapps/`, e.g. `d:\games\steam`), not every game under `common`.
+  4. If the user **marks / accepts** the suggestion: prompt to **add this path as its own library root** (type Steam). After accept, config has two roots, e.g.:
+     - `d:\games\` — Standalone/mixed (FolderScanner)
+     - `d:\games\steam` — Steam (`SteamLibraryScanner`)
+  5. VFS then lists both roots independently; no need to navigate a real nested FS tree inside one root.
+
+- **Copy sketch:** “Suggested: Steam library at `d:\games\steam`. Add as library root?” → Yes adds root and rescans that root only.
+
+- **Extensions (later):** Same pattern for other nested store trees if we ever exclude them from FolderScanner the same way.
+
+- **Priority:** Nice-to-have — after Bug 13 exclusion exists; do not block Plan 117.
+- **Touches (when planned):** FolderScanner (emit suggestion metadata only), setup/F2 add-root flow, Shell VFS roots list, config persistence.
+- **Non-goals:** Wiring `SteamLibraryScanner` into `FolderScanner`; auto-adding roots without user consent.

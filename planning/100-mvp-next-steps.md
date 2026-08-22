@@ -71,7 +71,7 @@ A Windows user can:
 7. **Edit game (F4):** change display name / source / exe path / args → persisted in `games.json`.  
 8. **Rescan (F6 / library setup):** refreshes DB without wiping user overrides where designed.  
 9. **No crash** on missing folders, empty roots, or games with no exe (status message only).  
-10. **`dotnet build` + `dotnet test`** green on Linux CI; Windows smoke via `docs/windows-validation-checklist.md` (UI/launch/detection sections).
+10. **`dotnet build` + `dotnet test`** green on Linux CI; Windows smoke via `META/COMPLETED/archived-docs/windows-validation-checklist.md` (historical checklist; MVP smoke done).
 
 **Explicitly out of MVP**
 

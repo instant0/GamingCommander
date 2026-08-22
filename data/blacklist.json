@@ -162,12 +162,14 @@
   "directory_patterns": {
     "description": "Directories matching these substrings are skipped entirely during executable scanning. They contain redistributables, installers, and support files.",
     "patterns": [
-      "__redist", "_commonredist", "redist", "directx", "vcredist",
-      "dotnet", "physx", "support", "_installer", "install", "installer"
+      "__redist", "_commonredist", "redist", "redistributable", "directx", "vcredist",
+      "dotnet", "jdk", "physx", "support", "_installer", "install", "installer"
     ],
     "_test_cases": [
       {"dirname": "__redist",   "expected_skip": true,  "reason": "Epic/GOG redistributable folder"},
       {"dirname": "_CommonRedist", "expected_skip": true, "reason": "Steam common redistributable folder"},
+      {"dirname": "Redistributable", "expected_skip": true, "reason": "Bug 13a — generic redistributable folder"},
+      {"dirname": "jdk-17",     "expected_skip": true,  "reason": "Bug 13a — Java JDK runtime folder"},
       {"dirname": "Binaries",   "expected_skip": false, "reason": "game binary folder (should NOT be skipped)"}
     ]
   },

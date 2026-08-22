@@ -49,15 +49,17 @@ GameFolder/
 
 ### 1.1b Current C# Implementation Status
 
-| Feature | Status | Location | Issue |
+> **Plan 109 implemented (2026-07-26).** Tables below updated 2026-08-10 (Plan 118). Historical “broken/not implemented” narrative in later sections is superseded by this status.
+
+| Feature | Status | Location | Notes |
 |---------|--------|----------|-------|
 | `.egstore/` detection | ✅ Implemented | `StoreSignalDetector.HasEpicSignal()` | — |
-| Local manifest file search | ⚠️ Broken | `ExecutableDiscovery.FindEpicManifest()` | Searches `*.json` only — misses `.item` and `.mancpn` |
-| Local `.item`/`.mancpn` parsing | ❌ Not implemented | — | No `EpicManifestParser` class |
-| Global `.item` cross-reference | ❌ Not implemented | — | No scan of `C:\ProgramData\Epic\...\Manifests\` |
-| `CatalogItemId`/`CatalogNamespace` extraction | ❌ Not implemented | — | IDs not captured |
-| `LaunchExecutable` → absolute path | ❌ Not implemented | — | Relative paths not resolved |
-| Epic GraphQL API lookup | ❌ Not implemented | — | No `EpicStoreApiClient` class |
+| Local manifest file search | ✅ Implemented | `ExecutableDiscovery.FindEpicManifest()` | Prefers `*.item`, `*.mancpn`, then `*.json` |
+| Local `.item`/`.mancpn` parsing | ✅ Implemented | `EpicManifestParser` | ExtractLocalIdentifiers |
+| Global `.item` cross-reference | ✅ Implemented | `EpicManifestParser.CrossReferenceGlobalManifests()` | ProgramData Manifests path |
+| `CatalogItemId`/`CatalogNamespace` extraction | ✅ Implemented | FolderScanner + PlatformMetadata | — |
+| `LaunchExecutable` → absolute path | ✅ Implemented | Plan 109 Phase 4 | — |
+| Epic GraphQL API lookup | ❌ Deferred | — | Future plan; not required for local names |
 | Tests | ❌ None | — | — |
 
 **Result:** Epic games are detected by signal but show codename/folder names. `ManifestPath` is stored but no data is extracted from it. See TECH_DEBT bugs #17, #18, #19.
@@ -320,11 +322,11 @@ Epic game detected (.egstore/ signal)
 | Feature | Status | Location | Plan |
 |---------|--------|----------|------|
 | `.egstore/` detection | ✅ Implemented | `StoreSignalDetector.HasEpicSignal()` | — |
-| Local `.item`/`.json` lookup | ⚠️ Broken (Bug #17) | `ExecutableDiscovery.FindEpicManifest()` | Plan 109 Phase 1 |
-| Global `.item` cross-reference | ❌ Not implemented (Bug #19) | — | Plan 109 Phase 3 |
-| Epic GraphQL API lookup | ❌ Not implemented | — | **DEFERRED** |
-| `CatalogItemId`/`CatalogNamespace` extraction | ❌ Not implemented (Bug #18) | — | Plan 109 Phases 2+4 |
-| `LaunchExecutable` → absolute path resolution | ❌ Not implemented | — | Plan 109 Phase 4 |
+| Local `.item`/`.mancpn`/`.json` lookup | ✅ Fixed (Bug #17) | `ExecutableDiscovery.FindEpicManifest()` | Plan 109 Phase 1 |
+| Global `.item` cross-reference | ✅ Implemented (Bug #19) | `EpicManifestParser` | Plan 109 Phase 3 |
+| Epic GraphQL API lookup | ❌ Deferred | — | **DEFERRED** |
+| `CatalogItemId`/`CatalogNamespace` extraction | ✅ Implemented (Bug #18) | FolderScanner + parser | Plan 109 Phases 2+4 |
+| `LaunchExecutable` → absolute path resolution | ✅ Implemented | Plan 109 Phase 4 | Plan 109 Phase 4 |
 
 ### 5.2 FindEpicManifest — Current Implementation
 
@@ -373,14 +375,16 @@ The `ManifestPath` is stored on `GameEntry` but **no metadata is extracted from 
 
 | Python Feature | C# Status | Gap | Plan |
 |----------------|-----------|-----|------|
-| `epic_crossref_item_manifests()` — global `.item` cross-ref | ❌ Not implemented (Bug #19) | Full implementation needed | Plan 109 Phase 3 |
-| `epic_resolve_metadata()` — combined pipeline | ❌ Not implemented | 2-strategy (API deferred) | Plan 109 Phase 4 |
-| `_extract_epic_identifiers()` — local `.mancpn`/`.item` | ❌ Not implemented (Bug #18) | Full implementation needed | Plan 109 Phase 2 |
+| `epic_crossref_item_manifests()` — global `.item` cross-ref | ✅ Implemented | — | Plan 109 Phase 3 |
+| `epic_resolve_metadata()` — combined pipeline | ✅ Local strategies | API strategy deferred | Plan 109 Phase 4 |
+| `_extract_epic_identifiers()` — local `.mancpn`/`.item` | ✅ Implemented | — | Plan 109 Phase 2 |
 | `epic_search_by_namespace()` — GraphQL API | ❌ Not implemented | **DEFERRED** | Future plan |
-| GUID-based identification | ❌ Not implemented | — | Plan 109 Phase 2 |
-| Display name resolution from manifests | ❌ Not implemented | — | Plan 109 Phase 4 |
-| `.mancpn` parsing | ❌ Not implemented | — | Plan 109 Phase 2 |
-| `.item` parsing (local + global) | ❌ Not implemented | — | Plan 109 Phases 2+3 |
+| GUID-based identification | ✅ Implemented | — | Plan 109 Phase 2 |
+| Display name resolution from manifests | ✅ Implemented | — | Plan 109 Phase 4 |
+| `.mancpn` parsing | ✅ Implemented | — | Plan 109 Phase 2 |
+| `.item` parsing (local + global) | ✅ Implemented | — | Plan 109 Phases 2+3 |
+
+> **Note:** §§5.2–5.3 code snippets below are **historical** (pre–Plan 109). Prefer §1.1b and live sources `EpicManifestParser.cs` / `ExecutableDiscovery.FindEpicManifest`.
 
 ---
 
@@ -621,22 +625,19 @@ The enrichment should be implemented **before** Plan 102 Phase 3 to ensure Epic 
 
 ## 10. Implementation Priority
 
-**Plan 109 Status:** APPROVED — ready to implement
+**Plan 109 Status:** ✅ COMPLETE (Phases 1–6). Phase 7 API still deferred.
 
-| Phase | Feature | Priority | Effort | Status |
-|-------|---------|----------|--------|--------|
-| 1 | Fix `FindEpicManifest()` extension bug (#17) | High | ~0.5 hours | Plan 109 Phase 1 |
-| 2 | Local `.mancpn`/`.item` parsing (#18 partial) | High | ~2 hours | Plan 109 Phase 2 |
-| 3 | Global `.item` cross-reference (#19) | High | ~2 hours | Plan 109 Phase 3 |
-| 4 | `LaunchExecutable` → absolute path resolution | Medium | ~1 hour | Plan 109 Phase 4 |
-| 5 | Integration into `FolderScanner` (#18 full) | High | ~2 hours | Plan 109 Phase 4 |
-| 6 | Tests | High | ~2 hours | Plan 109 Phase 5 |
-| 7 | Epic GraphQL API client | Medium | ~3 hours | **DEFERRED** — future plan |
+| Phase | Feature | Priority | Status |
+|-------|---------|----------|--------|
+| 1 | Fix `FindEpicManifest()` extension bug (#17) | High | ✅ Done |
+| 2 | Local `.mancpn`/`.item` parsing (#18 partial) | High | ✅ Done |
+| 3 | Global `.item` cross-reference (#19) | High | ✅ Done |
+| 4 | `LaunchExecutable` → absolute path resolution | Medium | ✅ Done |
+| 5 | Integration into `FolderScanner` (#18 full) | High | ✅ Done |
+| 6 | Tests | High | ✅ Done |
+| 7 | Epic GraphQL API client | Medium | **DEFERRED** |
 
-**Total estimated effort (this plan):** ~9.5 hours across multiple sessions.
-**Deferred:** Epic GraphQL API client (~3 hours) — add as fallback when online metadata is needed.
-
-**Critical path:** Phases 1-5 provide 80%+ of the value (correct display names from `.item` files). Phase 7 (API) is a fallback for games without local `.item` files — deferred because local `.item` + global cross-reference covers the vast majority of Epic games.
+**Deferred:** Epic GraphQL API client — fallback when online metadata is needed.
 
 ---
 
@@ -654,5 +655,5 @@ The enrichment should be implemented **before** Plan 102 Phase 3 to ensure Epic 
 
 ---
 
-**Last updated:** 2026-07-26 (Plan 109 approved, API deferred)
-**Related documents:** `docs/GAME-DETECTION-LOGIC.md` (Store Manifest Systems section), `planning/102-tags-metadata-display.md` (Phase 3), `planning/109-epic-manifest-enrichment.md`
+**Last updated:** 2026-08-10 (Plan 118 — body status aligned with Plan 109 complete; API still deferred)  
+**Related documents:** `docs/GAME-DETECTION-LOGIC.md`, `planning/102-tags-metadata-display.md` (Phase 3), `planning/109-epic-manifest-enrichment.md`

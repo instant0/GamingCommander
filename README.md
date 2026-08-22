@@ -1,22 +1,23 @@
 # GamingCommander
 
-GamingCommander is a planned C# Windows-native game management and launcher application with a retro Norton Commander-inspired interface.
+GamingCommander is a C# Windows-native game management and launcher with a Norton Commander-inspired dual-pane interface.
 
 The visual goal is inspired by classic commander-style tools, but the UI should scale with modern window resizing instead of being limited to a fixed legacy text resolution.
 
 ## Current State
 
-The repository is in Phase 2: Steam & Standalone Games. **MVP is declared complete.**
+**MVP is complete.** Phase 2 baseline (scan + launch) is complete. Remaining Phase 2 work is SyncMove (manifest repair). Live status: [`META/SESSION/CURRENT.md`](./META/SESSION/CURRENT.md).
 
 Current status:
 
 - ✅ Steam library scanning, ACF cross-referencing, Installed/Moved/Orphaned/Missing detection
 - ✅ Standalone game detection for 10 platforms (GOG, EA, Ubisoft, Epic, Blizzard, Xbox, Rockstar, Steam Emu)
-- ✅ Executable scoring and noise filtering (21-tier blacklist, 320+ patterns)
+- ✅ Executable scoring and noise filtering (21-tier blacklist; embedded `blacklist.json` restore)
 - ✅ Game launching: `steam://` URI for Steam, direct `.exe` with args for standalone
 - ✅ GOG metadata extraction, UE-aware exe discovery, `.lnk` shortcut resolution, container detection
-- ✅ Dual-pane NC UI, first-run wizard, F2/F4/F6/F9 workflows, theme centralization
-- 217 tests passing across Core, Detection, Migration, and App test projects
+- ✅ Dual-pane NC UI, first-run / F2 setup, F4 configure, **F5** async rescan, F9 library roots
+- ✅ Epic local `.item` / `.mancpn` enrichment; right-pane colored tags
+- 365 tests passing (73 Core + 1 Migration + 291 App)
 
 ## Development Environment
 
@@ -30,7 +31,7 @@ However, Windows-specific tasks will still require a Windows machine, especially
 - symlink/junction and manifest migration validation,
 - packaging and installer testing.
 
-See [`docs/development-environment.md`](./docs/development-environment.md) for the working model.
+Dev notes (archived Phase 0): [`META/COMPLETED/archived-docs/development-environment.md`](./META/COMPLETED/archived-docs/development-environment.md).
 
 ## Solution Layout
 
@@ -63,4 +64,4 @@ dotnet build
 dotnet test
 ```
 
-Requirements: .NET 8 SDK. See [`docs/development-environment.md`](./docs/development-environment.md) for details.
+Requirements: .NET 8 SDK. Live session state: [`META/SESSION/CURRENT.md`](./META/SESSION/CURRENT.md).
