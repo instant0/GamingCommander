@@ -71,6 +71,10 @@ public static class MetadataDetailsFormatter
 
         GameMetadataPath? path = paths.FirstOrDefault(p =>
             p.Os.Equals("Windows", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(p.Template)
+            && !PcgwPathTokens.IsRegistry(p.Template));
+        path ??= paths.FirstOrDefault(p =>
+            p.Os.Equals("Windows", StringComparison.OrdinalIgnoreCase)
             && !string.IsNullOrWhiteSpace(p.Template));
         return path is null ? string.Empty : PcgwPathTokens.ResolveWindows(path.Template, gameDirectory);
     }

@@ -159,8 +159,10 @@ public sealed class ShellViewModel : ReactiveObject
         WindowsExplorer.IsClickableFolder(DetailsConfigPath, SelectedInstallDirectory);
     public bool DetailsSavePathClickable =>
         WindowsExplorer.IsClickableFolder(DetailsSavePath, SelectedInstallDirectory);
+    public bool DetailsConfigPathIsRegistry =>
+        PcgwPathTokens.IsRegistry(DetailsConfigPath);
     public bool DetailsConfigPathDisplayOnly =>
-        !string.IsNullOrEmpty(DetailsConfigPath) && !DetailsConfigPathClickable;
+        !string.IsNullOrEmpty(DetailsConfigPath) && !DetailsConfigPathClickable && !DetailsConfigPathIsRegistry;
     public bool DetailsSavePathDisplayOnly =>
         !string.IsNullOrEmpty(DetailsSavePath) && !DetailsSavePathClickable;
 
@@ -569,6 +571,7 @@ public sealed class ShellViewModel : ReactiveObject
         OnPropertyChanged(nameof(DetailsSavePath));
         OnPropertyChanged(nameof(DetailsConfigPathClickable));
         OnPropertyChanged(nameof(DetailsSavePathClickable));
+        OnPropertyChanged(nameof(DetailsConfigPathIsRegistry));
         OnPropertyChanged(nameof(DetailsConfigPathDisplayOnly));
         OnPropertyChanged(nameof(DetailsSavePathDisplayOnly));
         OnPropertyChanged(nameof(DetailsCommandLine));
@@ -594,6 +597,7 @@ public sealed class ShellViewModel : ReactiveObject
         OnPropertyChanged(nameof(DetailsSavePath));
         OnPropertyChanged(nameof(DetailsConfigPathClickable));
         OnPropertyChanged(nameof(DetailsSavePathClickable));
+        OnPropertyChanged(nameof(DetailsConfigPathIsRegistry));
         OnPropertyChanged(nameof(DetailsConfigPathDisplayOnly));
         OnPropertyChanged(nameof(DetailsSavePathDisplayOnly));
         OnPropertyChanged(nameof(DetailsCommandLine));

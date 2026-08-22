@@ -29,7 +29,7 @@ internal static class HelpDialogBuilder
         {
             ("F1", "Help — this window"),
             ("F2", "Library Setup — add/remove/rescan folders"),
-            ("F3", "Fetch extras; pick the wiki page if several match"),
+            ("F3", "Fetch extras (Steam AppID → one PCGW page; else pick if several names match)"),
             ("F4", "Configure game — name, type, pick exe if several were found"),
             ("F5", "Rescan current folder or all roots"),
             ("F8", "Filter/category view (coming soon)"),

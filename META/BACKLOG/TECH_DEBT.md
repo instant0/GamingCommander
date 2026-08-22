@@ -80,7 +80,8 @@
 - **Discovered:** 2026-04-17 (Phase 1.1 completion)
 - **Where:** MainWindow command bar
 - **Issue:** All command buttons have `IsHitTestVisible="False"` — cannot be clicked. Keyboard handlers work (F2 setup, F4 configure, **F5 rescan**, F9 roots, F10 close). F7 add-root was removed (use F2). Mouse users cannot trigger the command bar.
-- **Status:** Open
+- **Status:** ✅ Fixed — command bar F1–F5, F8, F10 are clickable (`PointerPressed`). F9 removed (Esc/Backspace).
+- **Verified:** 2026-08-22 — `MainWindow.axaml` command borders; `CommandButtonPressed`
 
 ### Default settings/games files not created alongside exe
 - **Discovered:** 2026-04-17

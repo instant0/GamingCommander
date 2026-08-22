@@ -44,6 +44,35 @@ public static class PcgwTitleFilter
         return false;
     }
 
+    /// <summary>Drop case-only duplicates (PCGW OpenSearch returns both casings of one page).</summary>
+    public static IReadOnlyList<string> Dedupe(IEnumerable<string> titles)
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var list = new List<string>();
+        foreach (string title in titles)
+        {
+            if (string.IsNullOrWhiteSpace(title))
+                continue;
+            string trimmed = title.Trim();
+            if (seen.Add(trimmed))
+                list.Add(trimmed);
+        }
+
+        return list;
+    }
+
+    /// <summary>List label: keep <c>(YYYY)</c>, else mark remaster vs original.</summary>
+    public static string FormatChoice(string title)
+    {
+        if (YearFromTitle(title) is not null)
+            return title;
+        if (title.Contains("remake", StringComparison.OrdinalIgnoreCase)
+            || title.Contains("remaster", StringComparison.OrdinalIgnoreCase)
+            || title.Contains("definitive", StringComparison.OrdinalIgnoreCase))
+            return title + "  (newer)";
+        return title + "  (no year on title)";
+    }
+
     /// <summary>First title that is not noise, or null.</summary>
     public static string? FirstClean(IEnumerable<string> titles) =>
         PickBest(titles, yearHint: null);

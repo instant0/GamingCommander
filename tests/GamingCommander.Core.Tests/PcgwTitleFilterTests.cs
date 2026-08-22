@@ -46,6 +46,19 @@ public sealed class PcgwTitleFilterTests
     }
 
     [Fact]
+    public void Dedupe_DropsCaseOnlyDuplicates()
+    {
+        IReadOnlyList<string> titles = PcgwTitleFilter.Dedupe(
+        [
+            "Beneath a Steel Sky",
+            "Beneath A Steel Sky",
+            "Beneath a Steel Sky",
+        ]);
+        Assert.Single(titles);
+        Assert.Equal("Beneath a Steel Sky", titles[0]);
+    }
+
+    [Fact]
     public void PickBest_YearHint2008_KeepsOriginal()
     {
         string? title = PcgwTitleFilter.PickBest(

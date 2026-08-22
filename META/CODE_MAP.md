@@ -36,6 +36,8 @@ GamingCommander.sln
 | `ILibraryManager` | `ILibraryManager.cs` | `LibraryRoots`, `GetGamesForRoot()`, `AddRoot()`, `RemoveRoot()`, `Refresh()`, `RescanRoot()`, `UpdateGameEntry()`, `DeleteGameEntry()`, `RetagGame()` |
 | `IConfigService` | `IConfigService.cs` | `Load()` → `AppConfig`, `Save(AppConfig)` |
 | `IGamesDatabaseService` | `IGamesDatabaseService.cs` | `Load()` → `GamesDatabase`, `Save()`, same CRUD as ILibraryManager |
+| `IMetadataStore` | `IMetadataStore.cs` | Get/Upsert sidecar by game id. Must not touch `games.json`. |
+| `IMetadataService` | `IMetadataService.cs` | `RefreshAsync` + `SearchPagesAsync` (F3 picker) |
 
 ---
 
@@ -50,12 +52,11 @@ GamingCommander.sln
 | `LaunchArgumentComposer` | static | Toggle/combine extras; Steam URI does not eat flags. |
 | `GameLaunchResolver` | static | GameEntry → process target + args. |
 | `MetadataSource` | enum | `Unknown, Steam, Pcgw, EpicLocal` |
-| `IMetadataStore` | interface | Get/Upsert sidecar by game id. Must not touch `games.json`. |
 | `FileSystemEntryKind` | enum | `Directory=0, File=1, ParentDirectory=2` |
 | `MigrationMode` | enum | `MoveOnly=0, MoveAndLink=1 (deprecated), ManifestRepairOnly=2` |
 | `TagType` | enum | `User=0, Store=1, Engine=2` |
 | `GameRecord` | record (implements IGame) | Id, Title, Source, InstallPath, LaunchTarget, ExecutablePath, LastModified, SupportsPointerInteraction, SupportsKeyboardOnlyFlow |
-| `GameEntry` | record | Id, FolderName, DisplayName, GameSource, Override, ExecutablePath, LauncherPath, CmdlineArgs, ManifestPath, LastScanned, LastModified, Extra, Tags, GameEngine |
+| `GameEntry` | record | Id, FolderName, DisplayName, GameSource, Override, ExecutablePath, LauncherPath, CommandLineArguments, ExtraLaunchArguments, ManifestPath, LastScanned, LastModified, Extra, Tags, GameEngine |
 | `GameRoot` | record | RootPath, DefaultType, Games (List\<GameEntry\>) |
 | `GamesDatabase` | record | Roots (List\<GameRoot\>) |
 | `AppConfig` | record | LibraryRoots, FolderOverrides, HiddenFolders, IsFirstRun, LastSeenVersion, EnableOnlineMetadata |
@@ -72,6 +73,7 @@ GamingCommander.sln
 |--------|------|---------|
 | `VdfParser` | `VdfParser.cs` | Minimal VDF/ACF key-value parser for Steam manifest files |
 | `GameEntryId` | `GameEntryId.cs` | Deterministic MD5-based ID generation for GameEntry records |
+| `PeProductYear` | `PeProductYear.cs` | Year hint from PE FileVersion / LastWriteTime |
 
 ---
 
@@ -112,16 +114,16 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 |---------|------|---------|
 | `LibraryManager` | `LibraryManager.cs` | Routes scanning to appropriate scanner, manages roots, delegates to IGamesDatabaseService |
 | `MetadataStore` | `Metadata/MetadataStore.cs` | Plan 119 sidecar `data/games_metadata.json` |
-| `MetadataService` | `Metadata/MetadataService.cs` | Steam then PCGW; `EnableOnlineMetadata`; 30-day cache |
+| `MetadataService` | `Metadata/MetadataService.cs` | PCGW then Steam Store; `EnableOnlineMetadata`; 30-day cache; never writes `games.json` |
 | `SteamStoreLookup` | `Metadata/SteamStoreLookup.cs` | Raw `appdetails` GET (injectable HttpClient) |
 | `SteamStoreParser` | `Metadata/SteamStoreParser.cs` | Envelope → `SteamStoreFacts` |
-| `PcgwLookup` | `Metadata/PcgwLookup.cs` | appid.php / OpenSearch / Parse — **not Cargo** |
+| `PcgwLookup` | `Metadata/PcgwLookup.cs` | appid.php / OpenSearch / Parse / `pageTitleOverride` — **not Cargo** |
 | `PcgwInfoboxParser` | `Metadata/PcgwInfoboxParser.cs` | HTML title, OpenSearch, Infobox wikitext |
 | `PcgwSectionParser` | `Metadata/PcgwSectionParser.cs` | Plan 120: paths, cmdline, Fixbox, Video, cloud |
 | `PcgwLookup.LookupAsync` | `Metadata/PcgwLookup.cs` | Infobox + sections from one Parse payload |
 | `MetadataLookupQueue` | `Metadata/MetadataLookupQueue.cs` | F5 enqueues; one game at a time; sidecar only |
 | `PcgwPathTokens` | Core `PcgwPathTokens.cs` | `{{P|…}}` → Windows env tokens (display only) |
-| `PcgwTitleFilter` | Core | Reject soundtrack/demo/artbook OpenSearch hits |
+| `PcgwTitleFilter` | Core | Reject soundtrack/demo/artbook; `PickBest` + year |
 | `MetadataDetailsFormatter` | Core | Right-pane path/arg/video strings |
 | `CommonMetadataParser` | `Metadata/CommonMetadataParser.cs` | Source facts → `GameMetadataRecord` |
 | `EngineDetector` | `EngineDetector.cs` | Local engine probe (Unreal / Unity / RAGE / Frostbite) — Plan 102 Phase 2 |
@@ -136,6 +138,7 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 | `FileSystemHelper` | `FileSystemHelper.cs` | Shared filesystem utilities: GetDirectoriesSafe, GetFilesSafe, GetLastWriteTimeSafe, NormalizeDisplayName, NoiseSubDirNames |
 | `JsonFileHelper` | `JsonFileHelper.cs` | Shared JSON read/write: ReadFromFile\<T\>, WriteToFile\<T\>, DefaultOptions |
 | `HelpDialogBuilder` | `HelpDialogBuilder.cs` | Builds and shows the help dialog with keyboard shortcuts |
+| `PickPcgwPageWindow` | `PickPcgwPageWindow.cs` | F3: choose among several PCGW titles |
 | `TagColorService` | `TagColorService.cs` | Reads tag_colors.json, maps tag→color by type (User/Store/Engine), implements ITagColorProvider |
 | `LibrarySetupViewModel` | `.App/ViewModels/LibrarySetupViewModel.cs` | Library root setup dialog logic (F2 + first-run) |
 
@@ -143,7 +146,7 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 
 - `Scan(rootPath, defaultType)` → 10-signal priority-ordered detection for GOG, EA, Ubisoft, Epic, Blizzard, Xbox, Rockstar, Steam, Steam Emu
 - Deep executable discovery (root → child → Binaries/Win64/ → Binaries/WinGDK/)
-- Executable scoring (folder-token match +10, launcher penalty -20, shipping bonus +5, filesize bonus)
+- Executable scoring (folder-token match +10, launcher -20, `game.exe` +18, `*-Win64-Shipping.exe` +28 + `\Binaries\Win64\` +12, org-copy -25, filesize)
 - Container detection (parent with no signals, child has signals → promote child)
 - Nested Steam trees (`steamapps/common` or folder name `steam`) are skipped — not scanned via `SteamLibraryScanner`
 - Uses `GameEntryId.Compute()` and `GameSourceParser` from Core
@@ -165,7 +168,7 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 
 | Window | AXAML (lines) | Code-behind (lines) | Purpose |
 |--------|--------------|---------------------|---------|
-| `MainWindow` | 135 L | ~550 L | Dual-pane shell, keyboard handlers, command bar, details panel |
+| `MainWindow` | — | — | Dual-pane shell, keyboard handlers, command bar, details panel |
 | `LibrarySetupWindow` | 31 L | 140 L | Library root setup (F2 + first-run onboarding) |
 | `GameSetupWindow` | 19 L | ~225 L | F4 game editing |
 
@@ -176,12 +179,12 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 - `Backspace` / `Esc` → `NavigateUp()`
 - `F1` → Help dialog
 - `F2` → LibrarySetup dialog
-- `F3` → "Not yet implemented" (placeholder)
-- `F4` → GameSetup dialog (configure name, type, exe, args)
-- `F5` → Rescan current root or all roots (async; press again to cancel). Plan 105 rebound F6→F5.
+- `F3` → force online extras lookup; picker if several PCGW pages
+- `F4` → GameSetup dialog (name, type, exe, PCGW arg catalog). Does not wait for HTTP.
+- `F5` → Rescan current root or all roots (async; press again to cancel). Then enqueue metadata if Online.
 - `F8` → "Category view not yet implemented" (placeholder)
-- `F9` → JumpToLibraryRoots
 - `F10` → Close()
+- No F9 (Esc / Backspace goes up to roots)
 
 ### MainWindow Key Events
 
@@ -252,7 +255,9 @@ testdata/mock/
 
 ---
 
-## Test Coverage (217 tests total)
+## Test Coverage
+
+Count last snapshotted mid-2026 (~217). Metadata / PCGW / scoring tests added after that — do not treat the table as live.
 
 | Project | Tests | What |
 |---------|-------|------|

@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
+using GamingCommander.App.Services;
 using GamingCommander.Core;
 using GamingCommander.Core.Models;
 using GamingCommander.Core.Services;
@@ -185,6 +186,7 @@ public partial class GameSetupWindow : Window
                         new FilePickerOpenOptions
                         {
                             Title = $"Select {label}",
+                            SuggestedStartLocation = await PickerStartFolderAsync().ConfigureAwait(true),
                             FileTypeFilter = [new FilePickerFileType("Executable") { Patterns = ["*.exe"] }],
                         });
                     if (result.Count > 0) textBox.Text = result[0].Path.LocalPath;
@@ -195,6 +197,7 @@ public partial class GameSetupWindow : Window
                         new FilePickerOpenOptions
                         {
                             Title = $"Select {label}",
+                            SuggestedStartLocation = await PickerStartFolderAsync().ConfigureAwait(true),
                         });
                     if (result.Count > 0) textBox.Text = result[0].Path.LocalPath;
                 }
@@ -209,6 +212,16 @@ public partial class GameSetupWindow : Window
         }
 
         return panel;
+    }
+
+    private async Task<IStorageFolder?> PickerStartFolderAsync()
+    {
+        string folder = Path.Combine(_rootPath, _originalGame.FolderName);
+        if (!Directory.Exists(folder))
+            folder = _gameFolderPath;
+        if (!Directory.Exists(folder))
+            return null;
+        return await StorageProvider.TryGetFolderFromPathAsync(folder).ConfigureAwait(true);
     }
 
     private StackPanel MakeComboRow(string label, string[] items, string selected, int fieldIndex)
@@ -268,7 +281,9 @@ public partial class GameSetupWindow : Window
         string dir = WindowsExplorer.ParentDirectory(ExecutablePath)
                      ?? WindowsExplorer.ParentDirectory(_originalGame.ExecutablePath)
                      ?? string.Empty;
-        string[] names = list.Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        string[] names = list.Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(n => !ExecutableDiscovery.IsForbiddenLaunchExe(n))
+            .ToArray();
         if (names.Length < 2)
             return new StackPanel();
 
@@ -283,7 +298,9 @@ public partial class GameSetupWindow : Window
         var combo = new ComboBox
         {
             ItemsSource = names,
-            SelectedItem = Path.GetFileName(ExecutablePath),
+            SelectedItem = names.Contains(Path.GetFileName(ExecutablePath), StringComparer.OrdinalIgnoreCase)
+                ? Path.GetFileName(ExecutablePath)
+                : names[0],
             Background = AppTheme.PaneBg,
             Foreground = AppTheme.TextPrimary,
         };
@@ -506,6 +523,9 @@ public partial class GameSetupWindow : Window
         }
 
         Dictionary<string, string> platformMetadata = new(_originalGame.PlatformMetadata);
+        if (ExecutableDiscovery.IsForbiddenLaunchExe(ExecutablePath))
+            return;
+
         if (userOverrides.ContainsKey(GameEntryFields.ExecutablePath))
         {
             platformMetadata.Remove("ExeCandidates");

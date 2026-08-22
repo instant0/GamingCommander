@@ -539,22 +539,46 @@ public partial class MainWindow : Window
             return;
         }
 
-        int? year = PeProductYear.Guess(game.ExecutablePath);
-        IReadOnlyList<string> pages = await _metadataService!.SearchPagesAsync(game.DisplayName).ConfigureAwait(true);
         string? chosen = null;
-        if (pages.Count > 1)
+        if (TrySteamAppId(game) is null)
         {
-            string? preferred = PcgwTitleFilter.PickBest(pages, year);
-            chosen = await PickPcgwPageWindow.ShowAsync(this, pages, preferred).ConfigureAwait(true);
-            if (chosen is null)
+            int? year = PeProductYear.Guess(game.ExecutablePath);
+            IReadOnlyList<string> pages = PcgwTitleFilter.Dedupe(
+                await _metadataService!.SearchPagesAsync(game.DisplayName).ConfigureAwait(true));
+            if (pages.Count > 1)
             {
-                SetStatusWithAutoClear("Lookup cancelled.");
-                return;
+                string? preferred = PcgwTitleFilter.PickBest(pages, year);
+                chosen = await PickPcgwPageWindow.ShowAsync(this, pages, preferred).ConfigureAwait(true);
+                if (chosen is null)
+                {
+                    SetStatusWithAutoClear("Lookup cancelled.");
+                    return;
+                }
+            }
+            else if (pages.Count == 1)
+            {
+                chosen = pages[0];
             }
         }
 
-        await RefreshMetadataForGameAsync(game, force: true, pcgwPage: chosen).ConfigureAwait(true);
-        SetStatusWithAutoClear($"Metadata updated: {game.DisplayName}");
+        GameMetadataRecord? record = await RefreshMetadataForGameAsync(game, force: true, pcgwPage: chosen)
+            .ConfigureAwait(true);
+        if (record?.HasDisplayableExtras == true)
+            SetStatusWithAutoClear($"Metadata updated: {game.DisplayName}");
+        else
+            SetStatusWithAutoClear($"No extras found for {game.DisplayName}.");
+    }
+
+    /// <summary>ACF / sidecar AppID. When set, F3 must not OpenSearch by name.</summary>
+    private static string? TrySteamAppId(GameEntry game)
+    {
+        if (game.PlatformMetadata.TryGetValue("SteamAppId", out string? id)
+            && !string.IsNullOrWhiteSpace(id))
+        {
+            return id.Trim();
+        }
+
+        return null;
     }
 
     private GameEntry? GetSelectedGame()
@@ -569,23 +593,18 @@ public partial class MainWindow : Window
     }
 
     /// <summary>Online extras for one game. Does not block F4. F3 passes force.</summary>
-    private async Task RefreshMetadataForGameAsync(GameEntry game, bool force = false, string? pcgwPage = null)
+    private async Task<GameMetadataRecord?> RefreshMetadataForGameAsync(
+        GameEntry game, bool force = false, string? pcgwPage = null)
     {
         if (_metadataService is null || _viewModel is null)
-            return;
+            return null;
 
         _metadataCts?.Cancel();
         _metadataCts?.Dispose();
         var cts = new CancellationTokenSource();
         _metadataCts = cts;
 
-        string? steamAppId = null;
-        if (game.GameSource == GameSourceKind.Steam
-            && game.PlatformMetadata.TryGetValue("SteamAppId", out string? id)
-            && !string.IsNullOrWhiteSpace(id))
-        {
-            steamAppId = id;
-        }
+        string? steamAppId = TrySteamAppId(game);
 
         try
         {
@@ -594,12 +613,15 @@ public partial class MainWindow : Window
                 .RefreshAsync(game.Id, steamAppId, game.DisplayName, cts.Token, force, PeProductYear.Guess(game.ExecutablePath), pcgwPage)
                 .ConfigureAwait(true);
             _viewModel.ApplySidecarMetadata(game.Id, record);
+            return record;
         }
         catch (OperationCanceledException)
         {
+            return null;
         }
         catch
         {
+            return null;
         }
     }
 

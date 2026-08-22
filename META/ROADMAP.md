@@ -2,7 +2,7 @@
 
 **Nature:** Reference. Updated by Planner after milestones.  
 **Audience:** All agents. Read when determining what to work on next.  
-**Updated:** 2026-08-22 — aligned with post-MVP code (Plans 105–118, Bugs 10/13/16).
+**Updated:** 2026-08-22 — Plans 119/120 metadata sidecar shipped.
 
 ---
 
@@ -23,12 +23,12 @@ GamingCommander is a C# Windows-native game management and launcher application 
 | Phase 1.2: Research & Data Collection | ✅ COMPLETE | Format research for Steam ACF, Epic, standalone; Python validation |
 | **Phase 2: Steam & Standalone Games** | **✅ BASELINE COMPLETE** | Scan + launch shipped. Leftover: SyncMove (2.1) |
 | Phase 2.1: SyncMove Migration | ⏳ PLANNED | Manifest repair after user-relocated files (Steam first) |
-| Phase 2.2: Game Metadata Lookup | ⏳ PLANNED | F4 metadata lookup (PCGW, SteamDB, IGDB), local game DB |
+| Phase 2.2: Game Metadata Lookup | ✅ SHIPPED (narrowed) | Sidecar extras via PCGW + Steam Store. No SteamDB / IGDB / Cargo. |
 | Phase 3: Multi-Launcher Support | 🔵 DETECTION SHIPPED / CLIENTS FUTURE | Folder/registry detection for GOG, Epic, EA, Ubisoft, Battle.net, Rockstar exists. Full store APIs / repair do not. |
 | Phase 3.5: Category Browsing & Search | 🔮 FUTURE | F8 category view, S key quick search, cross-root aggregation |
 | Phase 4: Advanced Features & Polish | 🔮 FUTURE | PCGamingWiki integration, metadata sync, UX polish |
 
-**Post-MVP product track (current):** UI polish (Plan 117) → SyncMove (2.1) → engine/PCGW metadata (Plan 102 Phases 2–3).
+**Post-MVP product track (current):** Plans 117 + 119 + 120 shipped. Next product plan: SyncMove (2.1). F8/S category browse remains future.
 
 ---
 
@@ -55,14 +55,15 @@ GamingCommander is a C# Windows-native game management and launcher application 
 | Shipped | Not shipped |
 |---------|-------------|
 | Dual-pane VFS over `data/games.json` | SyncMove manifest repair |
-| F2 / first-run `LibrarySetupWindow` | Online metadata (PCGW / SteamDB / IGDB) |
+| F2 / first-run `LibrarySetupWindow` | SteamDB / IGDB / Cargo / Epic GraphQL |
 | F5 async rescan + cancel | Category browse / search (F8, S) |
 | Steam ACF + multi-library | Full GOG/Epic/EA/Ubisoft *clients* |
-| FolderScanner + registry fallback | Clickable command-bar buttons |
-| Epic local manifests + global cross-ref | Nested Steam “add as root” UX |
-| Right-pane colored tags | Left-pane layout (Plan 117) |
-| Embedded `blacklist.json` restore (Bug 16) | `tag_colors.json` embed/restore |
-| Sidecar extras (`games_metadata.json`, flag off by default) | Cover-art UI; Epic GraphQL |
+| FolderScanner + registry fallback | Nested Steam “add as root” UX |
+| Epic local manifests + global cross-ref | Cover-art image UI |
+| Right-pane colored tags + Plan 117 left pane | `tag_colors.json` embed/restore |
+| Embedded `blacklist.json` restore (Bug 16) | Writing extras into `GameEntry.Tags` |
+| Sidecar extras (`games_metadata.json`, flag off) | Auto-applying PCGW launch args |
+| F3 lookup + F4 arg catalog; Steam URI launch | Inverting Steam → raw exe |
 
 ---
 
@@ -80,3 +81,4 @@ GamingCommander is a C# Windows-native game management and launcher application 
 | 2026-07 | Post-MVP 105–113 | F5 rescan, unified setup, Steam status copy, async scan, tags Phase 4 |
 | 2026-07 | Post-MVP 109/114–116 | Epic manifests, detection bugfixes B23–B33, registry fallback, BattleNet signals |
 | 2026-08 | Plan 118 + Bugs 10/13/16 | Doc audit; Steam internals skip; nested Steam exclusion; embedded blacklist |
+| 2026-08 | Plans 119 + 120 | Sidecar extras; PCGW details; F3 picker; no SteamDB |

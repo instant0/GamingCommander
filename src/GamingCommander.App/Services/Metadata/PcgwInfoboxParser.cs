@@ -22,7 +22,7 @@ public static class PcgwInfoboxParser
         @"\{\{Infobox game/row/engine\|(.+?)(?:\||\}\})", RegexOptions.IgnoreCase | RegexOptions.Singleline);
 
     private static readonly Regex DateRow = new(
-        @"\{\{Infobox game/row/date\|Windows\|(.+?)(?:\||\}\})", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+        @"\{\{Infobox game/row/date\|([^|}]+)\|(.+?)(?:\||\}\})", RegexOptions.IgnoreCase | RegexOptions.Singleline);
 
     private static readonly Regex GenreRow = new(
         @"\{\{Infobox game/row/taxonomy/genres\|(.+?)(?:\||\}\})", RegexOptions.IgnoreCase | RegexOptions.Singleline);
@@ -62,6 +62,35 @@ public static class PcgwInfoboxParser
             foreach (JsonElement item in titles.EnumerateArray())
             {
                 string? title = item.GetString();
+                if (!string.IsNullOrWhiteSpace(title))
+                    list.Add(title);
+            }
+        }
+        catch (JsonException)
+        {
+            return list;
+        }
+
+        return list;
+    }
+
+    /// <summary>Titles from <c>action=query&amp;list=search</c> (finds "Prime World: Defenders" when OpenSearch misses).</summary>
+    public static IReadOnlyList<string> ParseSearchTitles(string json)
+    {
+        var list = new List<string>();
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty("query", out JsonElement query)
+                || !query.TryGetProperty("search", out JsonElement search)
+                || search.ValueKind != JsonValueKind.Array)
+            {
+                return list;
+            }
+
+            foreach (JsonElement item in search.EnumerateArray())
+            {
+                string? title = item.TryGetProperty("title", out JsonElement t) ? t.GetString() : null;
                 if (!string.IsNullOrWhiteSpace(title))
                     list.Add(title);
             }
@@ -138,7 +167,7 @@ public static class PcgwInfoboxParser
         var developers = MatchList(DeveloperRow, wikitext);
         var publishers = MatchList(PublisherRow, wikitext);
         var engines = MatchList(EngineRow, wikitext);
-        var dates = MatchList(DateRow, wikitext);
+        var dates = MatchDates(wikitext);
         var genres = new List<string>();
         foreach (Match m in GenreRow.Matches(wikitext))
         {
@@ -155,6 +184,27 @@ public static class PcgwInfoboxParser
             : "https://www.pcgamingwiki.com/wiki/" + pageTitle.Replace(' ', '_');
 
         return new PcgwFacts(pageTitle, url, developers, publishers, genres, engines, dates);
+    }
+
+    /// <summary>Windows date first, then any other Infobox platform date (DOS, Mac, …).</summary>
+    private static List<string> MatchDates(string text)
+    {
+        string? windows = null;
+        var others = new List<string>();
+        foreach (Match m in DateRow.Matches(text))
+        {
+            string cleaned = CleanWikitext(m.Groups[2].Value);
+            if (cleaned.Length == 0)
+                continue;
+            if (m.Groups[1].Value.Equals("Windows", StringComparison.OrdinalIgnoreCase))
+                windows ??= cleaned;
+            else
+                others.Add(cleaned);
+        }
+
+        if (windows is not null)
+            others.Insert(0, windows);
+        return others;
     }
 
     private static List<string> MatchList(Regex regex, string text)

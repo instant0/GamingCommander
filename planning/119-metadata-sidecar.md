@@ -1,6 +1,7 @@
 # Plan 119 — Online metadata sidecar (right-pane extras)
 
-**Status:** Steps 1–5 ✅ (2026-08-22). Cargo not used. Epic GraphQL still out.  
+**Status:** COMPLETE (v1, 2026-08-22). Plan **120** owns details/catalog/F4 extras.  
+**Amendments after v1** (do not re-implement v1 “on select” HTTP): PCGW-first merge; no HTTP on list highlight; F3 force lookup; F5 queue; online chip. Contract: `docs/ONLINE-AND-DATA.md`.  
 **Audience:** Planner / Builder  
 **Depends on:** Plan 102 Phases 1–2+4 (tags, local engine, right-pane badges). Plan 102 Phase 3 **superseded** by this file for storage and PCGW path.  
 **Probes:** `tools/probe_steam_store.py` ✅, `tools/probe_pcgw.py` ✅ (Cargo ❌, OpenSearch+Parse ✅)
@@ -142,8 +143,10 @@ Keep **per-source facts** in the sidecar so a parser fix can re-run without refe
 ## 5. When lookup runs
 
 - **Never during scan.** Scan stays local.
-- **On select** (right pane): if enabled, cache miss or stale (>30 days), queue one background lookup. UI shows cached/empty immediately.
-- **Optional later:** F4 “Refresh metadata” button (Plan 110 §13) — not required for v1.
+- **On select** (right pane): **cache only.** No HTTP when highlighting a row. (v1 draft said background fetch here — **superseded**.)
+- **F3:** force lookup for the selected game (Plan 120 picker if several PCGW pages).
+- **F5:** after rescan, enqueue lookups one-at-a-time if Online.
+- **F4:** may start a background refresh; the dialog does **not** wait.
 - Cancellation: share scan `CancellationToken` style; closing the app cancels.
 
 `EnableOnlineMetadata` default remains **false**.
@@ -238,6 +241,6 @@ Do **not** hit live Valve/PCGW in `dotnet test`.
 2. [x] `SteamStoreParser` + `SteamStoreLookup` (fixtures from `docs/findings/steam-store-api-probe.md`).  
 3. [x] `PcgwInfoboxParser` + `PcgwLookup` (fixtures from Parse probe).  
 4. [x] `MetadataService` merge + `EnableOnlineMetadata`.  
-5. [x] Wire select-to-background fetch.
+5. [x] Wire select-to-background fetch. **Later removed** — highlight is cache-only; F5/F3 own HTTP.
 
 Stop after each step if parsers disagree with fixtures.

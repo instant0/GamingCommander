@@ -39,6 +39,8 @@ public static class PcgwPathTokens
                 "userprofile\\documents" => @"%USERPROFILE%\Documents",
                 "userprofile\\savedgames" => @"%USERPROFILE%\Saved Games",
                 "game" => game,
+                "hkcu" => "HKCU",
+                "hklm" => "HKLM",
                 _ => m.Value,
             };
         });
@@ -72,5 +74,18 @@ public static class PcgwPathTokens
         }
 
         return text.Contains('%') ? null : text;
+    }
+
+    /// <summary>True when the template is a registry key (<c>{{P|hkcu}}</c> / <c>HKCU\</c>), not a folder.</summary>
+    public static bool IsRegistry(string? templateOrDisplay)
+    {
+        if (string.IsNullOrWhiteSpace(templateOrDisplay))
+            return false;
+
+        string text = templateOrDisplay.Trim();
+        return text.Contains("{{p|hkcu}}", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("{{p|hklm}}", StringComparison.OrdinalIgnoreCase)
+            || text.StartsWith("HKCU", StringComparison.OrdinalIgnoreCase)
+            || text.StartsWith("HKLM", StringComparison.OrdinalIgnoreCase);
     }
 }

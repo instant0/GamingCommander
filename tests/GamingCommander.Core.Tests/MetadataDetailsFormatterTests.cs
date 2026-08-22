@@ -39,6 +39,20 @@ public sealed class MetadataDetailsFormatterTests
     }
 
     [Fact]
+    public void WindowsConfig_PrefersFolderOverRegistry()
+    {
+        var details = new GameMetadataDetails
+        {
+            ConfigPaths =
+            [
+                new GameMetadataPath { Os = "Windows", Template = @"{{P|hkcu}}\Software\Foo\" },
+                new GameMetadataPath { Os = "Windows", Template = @"{{p|appdata}}\Foo\" },
+            ],
+        };
+        Assert.Equal(@"%APPDATA%\Foo\", MetadataDetailsFormatter.WindowsConfig(details));
+    }
+
+    [Fact]
     public void CommandLineSummary_ListsArgs()
     {
         var details = new GameMetadataDetails

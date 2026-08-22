@@ -29,8 +29,8 @@ Failed later PCGW/Steam HTTP (timeout, 5xx, connection error) also flips **Offli
 
 | | |
 |--|--|
-| **When** | Chip is **Online**, and (a) F5 finished a rescan and queued that game, or (b) you open **F4** for that game, or (c) you **launch** it and its sidecar is older than 30 days. **Not** when you only highlight a row. |
-| **How** | 1. If we have a Steam AppID: `GET https://www.pcgamingwiki.com/api/appid.php?appid={id}` → page title from HTML `<title>`. 2. Else: `GET .../w/api.php?action=opensearch&search={display name}`. Soundtrack/demo titles are skipped. 3. `GET .../w/api.php?action=parse&prop=wikitext&page={title}`. |
+| **When** | Chip is **Online**, and (a) **F3** on the selected game, or (b) F5 finished a rescan and queued that game, or (c) you open **F4** (background, dialog does not wait), or (d) you **launch** it and its sidecar is older than 30 days. **Not** when you only highlight a row. |
+| **How** | 1. If we have a Steam AppID (Steam library ACF): `GET https://www.pcgamingwiki.com/api/appid.php?appid={id}` — one page, no name picker. 2. Else if F3 chose a page, fetch that title. 3. Else: `GET .../w/api.php?action=opensearch&limit=8&search={display name}`. Soundtrack/demo titles and case-only duplicates are skipped. Year from the exe prefers e.g. Dead Space (2023) over 2008. F3 with several *different* titles: you pick. 4. `GET .../w/api.php?action=parse&prop=wikitext&redirects=1&page={title}`. |
 | **Send** | AppID or the game’s display name. No account, no paths, no files. |
 | **Receive** | Wiki wikitext. We parse Infobox (dev/engine/date), Availability (Steam/GOG/Epic ids), Game data paths, command-line table, Fixbox args, Video caps. |
 | **Why** | Right-pane paths/args/video; F4 argument catalog; Steam AppID when the folder scan did not have one. |
@@ -99,8 +99,9 @@ Repo `testdata/` is tests/fixtures only — not copied to publish.
 | Trigger | HTTP? |
 |---------|--------|
 | Highlight a game | No — cache only |
+| F3 Lookup | Yes — force fetch; picker if several pages |
 | F5 rescan done | Yes — enqueue every scanned game, one at a time |
-| F4 | Yes — that game immediately (if stale) |
+| F4 | Background only if stale; dialog does not wait |
 | Enter / launch | Game starts first; if sidecar stale, enqueue silently |
 | Chip Offline or Lookup Disabled | Never |
 
@@ -111,6 +112,7 @@ Repo `testdata/` is tests/fixtures only — not copied to publish.
 | Key | Meaning |
 |-----|---------|
 | Esc / Backspace | Game list → catalogue (two levels). No F9. |
-| F4 | Edit that game; may fetch extras |
+| F3 | Fetch extras. Steam AppID → one PCGW page (no picker). Else pick if several names match. |
+| F4 | Edit that game; may start a background fetch |
 | F5 | Rescan folders; then metadata queue if Online |
 | F2 | Roots + **Enable online metadata** |

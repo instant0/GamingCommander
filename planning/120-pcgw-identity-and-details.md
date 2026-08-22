@@ -1,9 +1,28 @@
 # Plan 120 — PCGW identity (P1) + details sidecar (P2)
 
-**Status:** IN PROGRESS — fixtures + section parsers (Cyberpunk live harvest 2026-08-22)  
+**Status:** COMPLETE (shipped 2026-08-22). Later addenda: year-hint OpenSearch, F3 page picker.  
 **Depends on:** Plan 119 v1 (sidecar file, Steam lookup, PCGW Parse path, `EnableOnlineMetadata`)  
 **Does not replace:** Scan / `games.json` / local engine / launch.  
+**Live contract:** `docs/ONLINE-AND-DATA.md` (if this plan and that file disagree, that file + code win).  
 **Live check:** Cyberpunk 2077 page (2026-08-22) — sections and templates below are real, not guessed.
+
+---
+
+## As shipped (do not re-open)
+
+| Spec in this file | What landed |
+|-------------------|-------------|
+| Nested sidecar `identity {…}` | **Not used.** Identity fields stay **flat** on `GameMetadataRecord` (`Developer`, `SteamAppId`, `PcGamingWikiUrl`, …). |
+| `confidence` high/medium/low; skip Part 2 on low | **Not used.** A resolved page is parsed. Ambiguous OpenSearch → year hint + **F3 picker**. |
+| Part 1 name-search only when scan failed | **Narrowed.** Lookup never writes `GameEntry.DisplayName`. Named Steam/GOG games still get **Part 2 extras** (F5 queue / F3). |
+| Steam first, then PCGW | **Reversed.** PCGW first; Steam Store fills holes (score/cover). |
+| HTTP on list select | **Forbidden.** Highlight = cache only. |
+| F4 “Launch exe with extras (ignore steam://)” | **Removed.** That invert was a bug. Steam URI stays Steam URI. |
+| `LaunchExeWithExtras` | **Deleted.** |
+
+**Triggers (Online chip + flag on):** F5 enqueue after rescan; F3 force lookup (picker if ≥2 clean titles); F4 may start a **background** refresh and does **not** wait; launch may enqueue if sidecar stale. Probe: one `HEAD` PCGW favicon per process.
+
+**Page resolve:** Steam AppID → `appid.php`; else OpenSearch (limit 8, noise filter) → `PcgwTitleFilter.PickBest(titles, yearHint)` from PE/`PeProductYear`; F3 override via `pageTitleOverride`.
 
 ---
 
@@ -85,10 +104,10 @@ If Part 1 is skipped (normal Steam/GOG game), we still know the page via AppID f
 
 ### Success (Part 1)
 
-- [ ] AppID 1091500 → page “Cyberpunk 2077”, developer filled, `games.json` unchanged  
+- [x] AppID path uses `appid.php` then Parse (fixture + live optional)  
 - [x] Wrong OpenSearch hit (soundtrack) rejected  
 - [x] Flag off → no HTTP, identity from cache or empty  
-- [ ] Fixture tests; no live Valve/PCGW in `dotnet test`
+- [x] Fixture tests; no live Valve/PCGW in `dotnet test`
 
 ---
 
@@ -193,7 +212,7 @@ Composer already exists: `LaunchArgumentComposer` (`Toggle`, `Combine`, `ForProc
 3. Check → `LaunchArgumentComposer.Toggle(extras, arg, true)`. Uncheck → `Toggle(..., false)`.  
 4. Rows with `NeedsValue` (`-width X`) → **not** a checkbox; hint “type in extras”.  
 5. Free-text box is the extras string (user can still type unknown flags).  
-6. Preview line: `ForProcessStart(CommandLineArguments, extras, launchExeWithExtras)`.  
+6. Preview line: `ForProcessStart(CommandLineArguments, extras)`.  
 7. Save writes `ExtraLaunchArguments` + `UserOverrides`. Rescan must not wipe (same rule as today’s args).
 
 ```
@@ -206,7 +225,6 @@ PCGW launch options
 
 Launch extras: --launcher-skip
 Will start: C:\...\Cyberpunk2077.exe --launcher-skip
-☐ Launch game exe with extras (ignore steam://)
 ```
 
 ### How launch uses it
@@ -214,16 +232,16 @@ Will start: C:\...\Cyberpunk2077.exe --launcher-skip
 | Situation | Process |
 |-----------|---------|
 | Standalone / GOG exe | `FileName = ExecutablePath`, `Arguments = ForProcessStart(cmd, extras)` |
-| Steam URI, checkbox off (default) | `FileName = steam://…`, extras unused (Steam overlay/cloud stay) |
-| Steam URI, checkbox on | `FileName = ExecutablePath`, `Arguments = extras` |
+| Steam URI (`steam://rungameid/{id}`) | `FileName = steam://…`, extras **unused** |
 
-Do **not** put extras into `CommandLineArguments` when that field is a URI.
+Do **not** put extras into `CommandLineArguments` when that field is a URI.  
+Do **not** invert Steam → raw exe.
 
 ### Landed
 
 - `ExtraLaunchArguments` on `GameEntry` (exe launch only; Steam URI unchanged)  
 - F4 checkbox list bound to sidecar catalog + extras preview  
-- `GameLaunchResolver` + `MainWindow` launch (Steam URI default; exe+extras when checked)
+- `GameLaunchResolver` + `MainWindow` launch (Steam URI if present; else exe + extras)
 
 ---
 
@@ -239,7 +257,7 @@ EnableOnlineMetadata?
           right pane binds identity + details
 ```
 
-Still: never during scan; 0.6s PCGW / 10s Steam; 30-day freshness; cancel on reselect.
+Still: never during scan; never on list highlight; 0.6s PCGW / 10s Steam; 30-day freshness.
 
 ---
 
@@ -270,7 +288,8 @@ Still: never during scan; 0.6s PCGW / 10s Steam; 30-day freshness; cancel on res
 4. **Sidecar schema** `Details` on `GameMetadataRecord`; merge keeps catalog. **done**  
 5. **Right pane** Windows paths + short arg summary. **done**  
 6. **F4 toggles** + `ExtraLaunchArguments` + launch compose. **done**  
-7. Stop. Live optional: one flagged probe, not `dotnet test`.
+7. Stop. **done**  
+8. Later (same plan family, not a new number): online gate + F5 queue + F3 force lookup + year hint + multi-page picker. **done**
 
 ---
 
@@ -278,13 +297,15 @@ Still: never during scan; 0.6s PCGW / 10s Steam; 30-day freshness; cancel on res
 
 - [x] Cyberpunk fixture: Windows config + save templates extracted  
 - [x] Cyberpunk fixture: `--launcher-skip` and `-width X` present  
-- [ ] Part 2 skipped when Part 1 confidence is low  
-- [ ] `games.json` byte-identical after a successful populate  
+- [x] Confidence enum **not shipped** (declined — see As shipped)  
+- [x] Lookup writes sidecar only (`games.json` launch fields untouched)  
 - [x] Right pane shows paths/args only when sidecar `details` exists  
-- [ ] F4 lists Cyberpunk fixture args with notes; toggle writes extras only  
+- [x] F4 lists sidecar catalog + notes; toggle writes `ExtraLaunchArguments` only  
 - [x] Steam URI launch is never replaced by a raw exe  
-- [ ] Flag off: no HTTP  
-- [ ] Part 1 name search does **not** run when ACF/GOG/PE already named the game  
+- [x] Flag off: no HTTP  
+- [x] DisplayName never overwritten by lookup  
+- [x] F3 picker when OpenSearch returns ≥2 clean titles  
+- [x] Year hint (`PeProductYear`) prefers e.g. Dead Space (2023) over 2008  
 
 ---
 

@@ -18,14 +18,12 @@ This folder contains implementation plans following the FILE NAMING CONTRACT (`n
 
 | Document | Description | Status |
 | :--- | :--- | :--- |
-| **`120-pcgw-identity-and-details.md`** | P1 identify game/dev; P2 sidecar args/saves/config/video | **DRAFT — next if finishing metadata** |
-| `119-metadata-sidecar.md` | Online extras file + Steam/PCGW identity basics | **COMPLETE** (v1; flag default off; Infobox only) |
 | `04-phase-2-syncmove.md` | SyncMove — repair store registration after user moves files | PLANNED (Phase 2.1) |
-| `102-tags-metadata-display.md` | Tags + metadata system | Phases 1+2+4 ✅; Phase 3 storage/PCGW path → **119** |
+| `102-tags-metadata-display.md` | Tags + local engine | Phases 1+2+4 ✅; Phase 3 → **119/120 COMPLETE** |
 | `103-detect-py-port-status.md` | C# vs detect.py parity gaps | REFERENCE / gaps remain |
 | `104-detect-py-module-split.md` | Split detect.py into modules | PLANNED (P3) |
 | `101-top-level-modes-and-filter.md` | Category browse / search (F8, S) | PLANNED (P3) |
-| `04-phase-2-metadata-lookup.md` | F4 metadata lookup (PCGW etc.) | PLANNED |
+| `04-phase-2-metadata-lookup.md` | Historical Phase 2.2 (Cargo/SteamDB/IGDB) | **SUPERSEDED** by 119 + 120 |
 | `04-phase-2.md` | Steam & standalone baseline | **Baseline COMPLETE**; leftover = SyncMove |
 | `97-multi-theme-system.md` | Runtime theme switching | PLANNED |
 | `111-logging-toggle-readme-metadata.md` | Logging toggle / readme metadata | PLANNED |
@@ -37,6 +35,8 @@ This folder contains implementation plans following the FILE NAMING CONTRACT (`n
 
 | Document | Description | Status |
 | :--- | :--- | :--- |
+| `120-pcgw-identity-and-details.md` | PCGW details sidecar + F3/F4 extras | **COMPLETE** |
+| `119-metadata-sidecar.md` | `games_metadata.json` + Steam Store / PCGW | **COMPLETE** |
 | `117-left-pane-layout.md` | Left pane: badge left, tags as subtitle, path right | **COMPLETE** |
 | — | Bugs 10 / 13a / 13b / 16 (Steam internals, nested Steam, embedded blacklist) | **COMPLETE** (no numbered plan) |
 | `118-doc-audit-refactor.md` | Governance drift: TECH_DEBT, session, indexes, archives | **COMPLETE** |

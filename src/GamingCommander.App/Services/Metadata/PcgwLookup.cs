@@ -80,20 +80,28 @@ public sealed class PcgwLookup : IDisposable
         string displayName,
         CancellationToken cancellationToken = default)
     {
-        string url = Api + "?action=opensearch&limit=8&format=json&search=" + Uri.EscapeDataString(displayName.Trim());
+        string encoded = Uri.EscapeDataString(displayName.Trim());
+        string url = Api + "?action=opensearch&limit=8&format=json&search=" + encoded;
         string? json = await GetStringAsync(url, cancellationToken).ConfigureAwait(false);
-        if (json is null)
-            return [];
+        IReadOnlyList<string> titles = json is null
+            ? []
+            : PcgwInfoboxParser.ParseOpenSearchTitles(json);
 
-        return PcgwInfoboxParser.ParseOpenSearchTitles(json)
-            .Where(t => !PcgwTitleFilter.IsNoisy(t))
-            .ToList();
+        if (titles.Count == 0)
+        {
+            string searchUrl = Api + "?action=query&list=search&srnamespace=0&srlimit=8&format=json&srsearch=" + encoded;
+            string? searchJson = await GetStringAsync(searchUrl, cancellationToken).ConfigureAwait(false);
+            titles = searchJson is null ? [] : PcgwInfoboxParser.ParseSearchTitles(searchJson);
+        }
+
+        return PcgwTitleFilter.Dedupe(titles.Where(t => !PcgwTitleFilter.IsNoisy(t)));
     }
 
     /// <summary>Parse one wiki page by exact title.</summary>
     public async Task<PcgwLookupResult?> FetchPageAsync(string page, CancellationToken cancellationToken = default)
     {
-        string parseUrl = Api + "?action=parse&prop=wikitext&format=json&page=" + Uri.EscapeDataString(page);
+        string parseUrl = Api + "?action=parse&prop=wikitext&redirects=1&format=json&page="
+            + Uri.EscapeDataString(page);
         string? parseJson = await GetStringAsync(parseUrl, cancellationToken).ConfigureAwait(false);
         if (parseJson is null)
             return null;

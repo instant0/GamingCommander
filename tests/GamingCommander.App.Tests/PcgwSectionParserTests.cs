@@ -45,6 +45,16 @@ public sealed class PcgwSectionParserTests
     }
 
     [Fact]
+    public void ResolveWindows_HkcuIsRegistryNotFolder()
+    {
+        string resolved = PcgwPathTokens.ResolveWindows(
+            @"{{P|hkcu}}\Software\Nival Red\Prime World: Defenders\");
+        Assert.Equal(@"HKCU\Software\Nival Red\Prime World: Defenders\", resolved);
+        Assert.True(PcgwPathTokens.IsRegistry(resolved));
+        Assert.False(WindowsExplorer.IsClickableFolder(resolved, gameDirectory: null));
+    }
+
+    [Fact]
     public void ParseCommandLineTable_WidthAndSkipStart()
     {
         string wt = Read("cyberpunk_cmdline.wikitext");

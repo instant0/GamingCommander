@@ -75,6 +75,35 @@ public sealed class ExecutableScoringTests : IDisposable
     // ════════════════════════════════════════════════════════════════
 
     [Fact]
+    public void IsForbiddenLaunchExe_Uninstallers()
+    {
+        Assert.True(ExecutableDiscovery.IsForbiddenLaunchExe(@"D:\games\foo\unins000.exe"));
+        Assert.True(ExecutableDiscovery.IsForbiddenLaunchExe("Unins001.exe"));
+        Assert.True(ExecutableDiscovery.IsForbiddenLaunchExe("Uninstallation.exe"));
+        Assert.False(ExecutableDiscovery.IsForbiddenLaunchExe("sky.exe"));
+    }
+
+    [Fact]
+    public void FindPrimaryExecutable_DoesNotFallBackToUnins000()
+    {
+        string dir = Path.Combine(_tempDir, "bass");
+        Directory.CreateDirectory(dir);
+        File.WriteAllBytes(Path.Combine(dir, "unins000.exe"), new byte[2 * 1024 * 1024]);
+        File.WriteAllBytes(Path.Combine(dir, "scummvm.exe"), new byte[200 * 1024]);
+
+        var result = ExecutableDiscovery.FindPrimaryExecutable(
+            new DirectoryInfo(dir),
+            Directory.GetFiles(dir, "*.exe"),
+            ["unins", "scummvm"],
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+            ["launcher"]);
+
+        Assert.Null(result.ExePath);
+        Assert.DoesNotContain(result.Candidates,
+            p => Path.GetFileName(p).StartsWith("unins", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void ScoreExecutable_HighTierNoisePattern_HeavilyPenalizes()
     {
         string uninstaller = CreateTempExe("unins000.exe");

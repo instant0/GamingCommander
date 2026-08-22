@@ -1,5 +1,12 @@
 # Phase 2.2: Game Metadata Lookup
 
+**Status:** SUPERSEDED (2026-08-22). Do not implement this file.
+
+Shipped path: `planning/119-metadata-sidecar.md` + `planning/120-pcgw-identity-and-details.md`.  
+Not shipped from this draft: Cargo, SteamDB, IGDB, Epic GraphQL, `GamingResourcesManifest`, writing extras into `games.json`.
+
+---
+
 ## Goal
 
 Implement F4 to look up structured metadata for the currently selected game from third-party sources. Populate the local game database with enriched data: developers, publishers, genres, release date, engine, and cover art. Provide a `GamingResourcesManifest` that documents all known data sources and their field formats so lookups are surgical — requesting only the fields we need, from the best source per field.

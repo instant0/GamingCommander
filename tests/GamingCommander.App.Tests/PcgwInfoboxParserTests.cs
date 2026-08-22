@@ -19,6 +19,15 @@ public sealed class PcgwInfoboxParserTests
     }
 
     [Fact]
+    public void ParseSearchTitles_ReadsQueryList()
+    {
+        string json = """{"query":{"search":[{"title":"Prime World: Defenders"},{"title":"Prime World: Defenders 2"}]}}""";
+        IReadOnlyList<string> titles = PcgwInfoboxParser.ParseSearchTitles(json);
+        Assert.Equal("Prime World: Defenders", titles[0]);
+        Assert.Equal("Prime World: Defenders 2", titles[1]);
+    }
+
+    [Fact]
     public void ParseOpenSearch_SkipsSoundtrackHit()
     {
         string json = """["q",["Cyberpunk 2077 Soundtrack","Cyberpunk 2077"],[],["u1","u2"]]""";

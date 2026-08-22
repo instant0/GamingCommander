@@ -2,13 +2,18 @@
 
 **Nature:** Scratch. **Overwritten** every session handoff.  
 **Audience:** All agents. Read every session.  
-**Updated:** 2026-08-22 — CycloneDX SBOM added.
+**Updated:** 2026-08-22 — HKCU config paths; search fallback.
 
 ---
 
 ## This session
 
-`docs/sbom/GamingCommander.cdx.json` (CycloneDX 1.6). Regenerate via `dotnet tool run dotnet-CycloneDX`.
+- PCGW `{{P|hkcu}}` is a **registry** key, not a folder. Shown as `HKCU\…` / “Config (registry)”, never Explorer.
+- Prefer a real folder path when both exist. Saves for PWD stay `%APPDATA%\Prime World Defenders\`.
+- OpenSearch miss (no colon) → wiki `list=search` (finds `Prime World: Defenders`).
+- Earlier: Steam F3 uses AppID only; unins000 banned; Browse starts in game folder; redirect + case dedupe.
+
+Published to `./publish`.
 
 ---
 

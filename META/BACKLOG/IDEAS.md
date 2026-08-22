@@ -130,3 +130,11 @@
 - **Priority:** Nice-to-have — after Bug 13 exclusion exists; do not block Plan 117.
 - **Touches (when planned):** FolderScanner (emit suggestion metadata only), setup/F2 add-root flow, Shell VFS roots list, config persistence.
 - **Non-goals:** Wiring `SteamLibraryScanner` into `FolderScanner`; auto-adding roots without user consent.
+
+---
+
+## Resolved / shipped (append 2026-08-22)
+
+- **PCGW save/config paths in the right pane** — shipped (Plan 120 `Details` + token resolve). Clickable only under install / profile / AppData allowlist.
+- **F3 metadata** — shipped as force lookup + page picker (not a separate “view” window).
+- **Cargo / SteamDB / IGDB** — still ideas only; product path is PCGW Parse + Steam Store. Do not treat `04-phase-2-metadata-lookup.md` as current.

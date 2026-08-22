@@ -176,6 +176,9 @@
               <TextBlock Text="Config (click to open)"
                          Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}"
                          IsVisible="{Binding DetailsConfigPathClickable}" />
+              <TextBlock Text="Config (registry)"
+                         Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}"
+                         IsVisible="{Binding DetailsConfigPathIsRegistry}" />
               <TextBlock Text="Config"
                          Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}"
                          IsVisible="{Binding DetailsConfigPathDisplayOnly}" />
@@ -188,6 +191,10 @@
                          Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeLabel}"
                          TextWrapping="Wrap"
                          IsVisible="{Binding DetailsConfigPathDisplayOnly}" />
+              <TextBlock Text="{Binding DetailsConfigPath}"
+                         Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeLabel}"
+                         TextWrapping="Wrap"
+                         IsVisible="{Binding DetailsConfigPathIsRegistry}" />
               <TextBlock Text="Saves (click to open)"
                          Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}"
                          IsVisible="{Binding DetailsSavePathClickable}" />

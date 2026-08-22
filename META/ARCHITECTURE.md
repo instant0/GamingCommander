@@ -143,3 +143,15 @@ Appended after post-MVP alignment. Does not replace ADRs above.
 - **Epic local manifests shipped** (Plan 109). Online extras: PCGW + Steam Store only (`docs/ONLINE-AND-DATA.md`).
 - **Rescan is F5**, async and cancellable. Enter launches. Esc/Backspace goes up. No F9.
 - **Command bar** F1–F5, F8, F10 are clickable. F9 removed (redundant with Backspace).
+
+---
+
+## Current Reality (2026-08-22, metadata close)
+
+Appended after Plans 119/120 shipped. Does not replace ADRs above.
+
+- **Two JSON files:** `data/games.json` = VFS/launch; `data/games_metadata.json` = extras only. Lookup never writes DisplayName.
+- **HTTP only if** F2 `EnableOnlineMetadata` **and** chip Online. Highlight a row = cache only. F3 = force lookup (picker if several PCGW pages). F5 queues after rescan. F4 does not wait.
+- **PCGW first**, then Steam Store `appdetails` if an AppID is known. No SteamDB, Cargo, Epic GraphQL, IGDB.
+- **Launch:** `steam://rungameid/{id}` stays a Steam URI (extras unused). Everything else = exe + `CommandLineArguments` + `ExtraLaunchArguments`. Do not invert Steam → raw exe.
+- **Unreal scoring:** `Binaries\Win64\*-Win64-Shipping.exe` beats root `game.exe` / launcher stubs.

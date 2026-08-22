@@ -387,16 +387,20 @@ internal static class ExecutableDiscovery
         IReadOnlyList<string> launcherPatterns,
         Func<string, int>? tierLookup = null)
     {
-        var candidates = FindExecutablesDeep(dir, noiseExePatterns, noiseDirectoryPatterns);
+        var candidates = FindExecutablesDeep(dir, noiseExePatterns, noiseDirectoryPatterns)
+            .Where(p => !IsForbiddenLaunchExe(p))
+            .ToList();
         if (candidates.Count == 0)
         {
-            // Fallback: if even deep search found nothing, try top-level exes
-            if (topLevelExes.Length == 0) return new PrimaryExeResult(null, null, []);
-            // Cache FileInfo.Length to avoid redundant syscalls (Plan 112 Step 4B)
-            string best = topLevelExes
+            var fallback = topLevelExes
+                .Where(p => !IsForbiddenLaunchExe(p) && !IsNoiseExeByPath(p, noiseExePatterns))
+                .ToList();
+            if (fallback.Count == 0)
+                return new PrimaryExeResult(null, null, []);
+            string best = fallback
                 .OrderByDescending(f => { try { return new FileInfo(f).Length; } catch { return 0; } })
                 .First();
-            return new PrimaryExeResult(best, null, topLevelExes);
+            return new PrimaryExeResult(best, null, fallback);
         }
 
         if (candidates.Count == 1)
@@ -504,8 +508,41 @@ internal static class ExecutableDiscovery
     /// <summary>
     /// Checks if an executable file path matches any noise pattern. Extracts filename before checking.
     /// </summary>
+    /// <summary>
+    /// Uninstaller / Inno Setup stubs. Never a launch target or F4 pick — even if
+    /// every other exe was filtered as noise (fallback used to pick the largest, often unins000).
+    /// </summary>
+    internal static bool IsForbiddenLaunchExe(string? pathOrName)
+    {
+        if (string.IsNullOrWhiteSpace(pathOrName))
+            return true;
+
+        string name = WindowsFileStem(pathOrName);
+        if (name.Length == 0)
+            return true;
+        if (name.StartsWith("unins", StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (name.Contains("uninstall", StringComparison.OrdinalIgnoreCase))
+            return true;
+        return name.Equals("unwise", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Filename stem; treats <c>\</c> as separator so Windows paths work on Linux.</summary>
+    private static string WindowsFileStem(string pathOrName)
+    {
+        string text = pathOrName.Trim().Replace('/', '\\');
+        int slash = text.LastIndexOf('\\');
+        string file = slash >= 0 ? text[(slash + 1)..] : text;
+        if (file.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+            return file[..^4];
+        int dot = file.LastIndexOf('.');
+        return dot > 0 ? file[..dot] : file;
+    }
+
     private static bool IsNoiseExeByPath(string exePath, IReadOnlyList<string> noiseExePatterns)
     {
+        if (IsForbiddenLaunchExe(exePath))
+            return true;
         string name = Path.GetFileNameWithoutExtension(exePath);
         return FileSystemHelper.IsNoiseExeName(name, noiseExePatterns);
     }
