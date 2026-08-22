@@ -15,7 +15,7 @@ Usage:
     python tools/generate_mock_registry.py [--output-dir DIR]
 
 Output:
-    data/mock/registry/*.reg
+    testdata/mock/registry/*.reg
 """
 
 import argparse
@@ -23,10 +23,10 @@ import os
 from pathlib import Path
 
 # Default output directory is relative to this script's location
-DEFAULT_OUTPUT = Path(__file__).resolve().parent.parent / "data" / "mock" / "registry"
+DEFAULT_OUTPUT = Path(__file__).resolve().parent.parent / "testdata" / "mock" / "registry"
 
-# Base paths for mock data (relative to data/mock/)
-MOCK_DATA_ROOT = Path(__file__).resolve().parent.parent / "data" / "mock"
+# Base paths for mock data (relative to testdata/mock/)
+MOCK_DATA_ROOT = Path(__file__).resolve().parent.parent / "testdata" / "mock"
 
 
 def write_reg_file(path: Path, content: str):

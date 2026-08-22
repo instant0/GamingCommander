@@ -539,7 +539,21 @@ public partial class MainWindow : Window
             return;
         }
 
-        await RefreshMetadataForGameAsync(game, force: true).ConfigureAwait(true);
+        int? year = PeProductYear.Guess(game.ExecutablePath);
+        IReadOnlyList<string> pages = await _metadataService!.SearchPagesAsync(game.DisplayName).ConfigureAwait(true);
+        string? chosen = null;
+        if (pages.Count > 1)
+        {
+            string? preferred = PcgwTitleFilter.PickBest(pages, year);
+            chosen = await PickPcgwPageWindow.ShowAsync(this, pages, preferred).ConfigureAwait(true);
+            if (chosen is null)
+            {
+                SetStatusWithAutoClear("Lookup cancelled.");
+                return;
+            }
+        }
+
+        await RefreshMetadataForGameAsync(game, force: true, pcgwPage: chosen).ConfigureAwait(true);
         SetStatusWithAutoClear($"Metadata updated: {game.DisplayName}");
     }
 
@@ -555,7 +569,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>Online extras for one game. Does not block F4. F3 passes force.</summary>
-    private async Task RefreshMetadataForGameAsync(GameEntry game, bool force = false)
+    private async Task RefreshMetadataForGameAsync(GameEntry game, bool force = false, string? pcgwPage = null)
     {
         if (_metadataService is null || _viewModel is null)
             return;
@@ -577,7 +591,7 @@ public partial class MainWindow : Window
         {
             _viewModel.StatusText = $"Looking up metadata: {game.DisplayName}";
             GameMetadataRecord? record = await _metadataService
-                .RefreshAsync(game.Id, steamAppId, game.DisplayName, cts.Token, force)
+                .RefreshAsync(game.Id, steamAppId, game.DisplayName, cts.Token, force, PeProductYear.Guess(game.ExecutablePath), pcgwPage)
                 .ConfigureAwait(true);
             _viewModel.ApplySidecarMetadata(game.Id, record);
         }

@@ -69,11 +69,18 @@ public sealed class MetadataLookupQueueTests
             string? steamAppId,
             string? displayName,
             CancellationToken cancellationToken = default,
-            bool force = false)
+            bool force = false,
+            int? yearHint = null,
+            string? pcgwPage = null)
         {
             Seen.Add(gameEntryId);
             return Task.FromResult<GameMetadataRecord?>(new GameMetadataRecord { GameEntryId = gameEntryId });
         }
+
+        public Task<IReadOnlyList<string>> SearchPagesAsync(
+            string displayName,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<string>>([]);
     }
 
     private sealed class StubConfig : IConfigService

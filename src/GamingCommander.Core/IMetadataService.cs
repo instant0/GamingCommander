@@ -16,5 +16,12 @@ public interface IMetadataService
         string? steamAppId,
         string? displayName,
         CancellationToken cancellationToken = default,
-        bool force = false);
+        bool force = false,
+        int? yearHint = null,
+        string? pcgwPage = null);
+
+    /// <summary>Clean PCGW OpenSearch titles for a display name. Empty if lookup is off or offline.</summary>
+    Task<IReadOnlyList<string>> SearchPagesAsync(
+        string displayName,
+        CancellationToken cancellationToken = default);
 }

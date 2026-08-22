@@ -115,6 +115,23 @@ public sealed class ExecutableScoringTests : IDisposable
     // ════════════════════════════════════════════════════════════════
 
     [Fact]
+    public void ScoreExecutable_Win64Shipping_BeatsRootGameExe()
+    {
+        string root = Path.Combine(_tempDir, "MyGame");
+        Directory.CreateDirectory(Path.Combine(root, "Binaries", "Win64"));
+        string stub = Path.Combine(root, "game.exe");
+        string shipping = Path.Combine(root, "Binaries", "Win64", "MyGame-Win64-Shipping.exe");
+        File.WriteAllBytes(stub, new byte[200 * 1024]);
+        File.WriteAllBytes(shipping, new byte[200 * 1024]);
+
+        int stubScore = ExecutableDiscovery.ScoreExecutable(stub, "MyGame", [], [], _ => 999).Score;
+        int shipScore = ExecutableDiscovery.ScoreExecutable(shipping, "MyGame", [], [], _ => 999).Score;
+
+        Assert.True(shipScore > stubScore,
+            $"Win64-Shipping ({shipScore}) should beat root game.exe ({stubScore})");
+    }
+
+    [Fact]
     public void ScoreExecutable_ShippingBinary_AddsBonus()
     {
         string shipping = CreateTempExe("MyGame-Win64-Shipping.exe");

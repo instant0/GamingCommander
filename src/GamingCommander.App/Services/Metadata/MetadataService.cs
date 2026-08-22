@@ -42,7 +42,9 @@ public sealed class MetadataService : IMetadataService
         string? steamAppId,
         string? displayName,
         CancellationToken cancellationToken = default,
-        bool force = false)
+        bool force = false,
+        int? yearHint = null,
+        string? pcgwPage = null)
     {
         if (string.IsNullOrWhiteSpace(gameEntryId))
             return null;
@@ -65,7 +67,8 @@ public sealed class MetadataService : IMetadataService
 
         if (_pcgw is not null)
         {
-            PcgwLookupResult? page = await _pcgw.LookupAsync(steamAppId, displayName, cancellationToken)
+            PcgwLookupResult? page = await _pcgw.LookupAsync(
+                    steamAppId, displayName, cancellationToken, yearHint, pcgwPage)
                 .ConfigureAwait(false);
             GameMetadataRecord? rec = page is null ? null : CommonMetadataParser.ToRecord(page, gameEntryId);
             merged = Merge(merged, rec, MetadataSource.Pcgw);
@@ -91,6 +94,22 @@ public sealed class MetadataService : IMetadataService
         }
 
         return merged;
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<string>> SearchPagesAsync(
+        string displayName,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(displayName)
+            || !_config.Load().EnableOnlineMetadata
+            || _online is { AllowsHttp: false }
+            || _pcgw is null)
+        {
+            return [];
+        }
+
+        return await _pcgw.SearchTitlesAsync(displayName, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

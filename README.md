@@ -60,6 +60,7 @@ data/
 - [`META/ROADMAP.md`](./META/ROADMAP.md) — Phase milestones and progress
 - [`docs/ONLINE-AND-DATA.md`](./docs/ONLINE-AND-DATA.md) — What we read, write, and contact (HOW / WHAT / WHY)
 - [`docs/sbom/`](./docs/sbom/) — CycloneDX 1.6 Software Bill of Materials
+- [`testdata/`](./testdata/) — Test fixtures (not shipped). `data/` is shipped defaults only.
 - [`GamingCommander.Readme.txt`](./GamingCommander.Readme.txt) — End-user access guide
 - [`planning/`](./planning/) — Detailed implementation plans
 

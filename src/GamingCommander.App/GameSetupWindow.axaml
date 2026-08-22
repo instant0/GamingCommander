@@ -2,10 +2,10 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="GamingCommander.App.GameSetupWindow"
         Title="Configure Game"
-        Width="600"
-        Height="640"
-        MinWidth="480"
-        MinHeight="440"
+        Width="760"
+        Height="820"
+        MinWidth="560"
+        MinHeight="560"
         CanResize="True"
         WindowStartupLocation="CenterScreen">
   <Grid RowDefinitions="Auto,*" Margin="20">

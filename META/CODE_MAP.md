@@ -224,10 +224,10 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 
 ---
 
-## Mock Data (data/mock/)
+## Test fixtures (`testdata/`) — not shipped
 
 ```
-data/mock/
+testdata/mock/
 ├── steam/steamapps/
 │   ├── appmanifest_12345.acf          (Mock Game Alpha)
 │   ├── appmanifest_67890.acf          (Mock Game Beta)

@@ -45,10 +45,16 @@ public sealed class PcgwLookup : IDisposable
     public async Task<PcgwLookupResult?> LookupAsync(
         string? steamAppId,
         string? displayName,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        int? yearHint = null,
+        string? pageTitleOverride = null)
     {
         string? page = null;
-        if (!string.IsNullOrWhiteSpace(steamAppId))
+        if (!string.IsNullOrWhiteSpace(pageTitleOverride))
+        {
+            page = pageTitleOverride.Trim();
+        }
+        else if (!string.IsNullOrWhiteSpace(steamAppId))
         {
             string? html = await GetStringAsync($"{AppIdPhp}?appid={Uri.EscapeDataString(steamAppId.Trim())}", cancellationToken)
                 .ConfigureAwait(false);
@@ -59,14 +65,34 @@ public sealed class PcgwLookup : IDisposable
 
         if (page is null && !string.IsNullOrWhiteSpace(displayName))
         {
-            string url = Api + "?action=opensearch&limit=3&format=json&search=" + Uri.EscapeDataString(displayName.Trim());
-            string? json = await GetStringAsync(url, cancellationToken).ConfigureAwait(false);
-            page = json is null ? null : PcgwInfoboxParser.ParseOpenSearchFirstTitle(json);
+            IReadOnlyList<string> titles = await SearchTitlesAsync(displayName, cancellationToken).ConfigureAwait(false);
+            page = PcgwTitleFilter.PickBest(titles, yearHint);
         }
 
         if (page is null || PcgwTitleFilter.IsNoisy(page))
             return null;
 
+        return await FetchPageAsync(page, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Clean OpenSearch titles (soundtrack/demo removed).</summary>
+    public async Task<IReadOnlyList<string>> SearchTitlesAsync(
+        string displayName,
+        CancellationToken cancellationToken = default)
+    {
+        string url = Api + "?action=opensearch&limit=8&format=json&search=" + Uri.EscapeDataString(displayName.Trim());
+        string? json = await GetStringAsync(url, cancellationToken).ConfigureAwait(false);
+        if (json is null)
+            return [];
+
+        return PcgwInfoboxParser.ParseOpenSearchTitles(json)
+            .Where(t => !PcgwTitleFilter.IsNoisy(t))
+            .ToList();
+    }
+
+    /// <summary>Parse one wiki page by exact title.</summary>
+    public async Task<PcgwLookupResult?> FetchPageAsync(string page, CancellationToken cancellationToken = default)
+    {
         string parseUrl = Api + "?action=parse&prop=wikitext&format=json&page=" + Uri.EscapeDataString(page);
         string? parseJson = await GetStringAsync(parseUrl, cancellationToken).ConfigureAwait(false);
         if (parseJson is null)

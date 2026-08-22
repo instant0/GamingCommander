@@ -51,7 +51,7 @@ resp = requests.post(endpoint, json={"query": query}, headers=headers)
 
 ## Test .item File
 
-Location: `data/DyingLight2.item`
+Location: `testdata/samples/DyingLight2.item`
 
 ```json
 {

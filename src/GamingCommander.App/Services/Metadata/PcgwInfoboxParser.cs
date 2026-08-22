@@ -74,9 +74,9 @@ public static class PcgwInfoboxParser
         return list;
     }
 
-    /// <summary>First OpenSearch hit that is not soundtrack/demo noise.</summary>
-    public static string? ParseOpenSearchFirstTitle(string json) =>
-        Core.Services.PcgwTitleFilter.FirstClean(ParseOpenSearchTitles(json));
+    /// <summary>Best OpenSearch hit: skip noise, prefer <c>(YYYY)</c> near <paramref name="yearHint"/>.</summary>
+    public static string? ParseOpenSearchFirstTitle(string json, int? yearHint = null) =>
+        Core.Services.PcgwTitleFilter.PickBest(ParseOpenSearchTitles(json), yearHint);
 
     /// <summary>Raw wikitext from a Parse API envelope (same payload as Infobox parse).</summary>
     public static string? ExtractWikitext(string json)

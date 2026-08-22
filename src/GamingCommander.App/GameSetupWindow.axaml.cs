@@ -463,7 +463,11 @@ public partial class GameSetupWindow : Window
         }
 
         // Check if executable path changed
-        if (_userPickedExe || !_originalGame.ExecutablePath.Equals(ExecutablePath, StringComparison.Ordinal))
+        bool hadCandidates = _originalGame.PlatformMetadata.ContainsKey("ExeCandidates")
+            || _originalGame.PlatformMetadata.ContainsKey("ExeCandidateCount");
+        if (hadCandidates
+            || _userPickedExe
+            || !_originalGame.ExecutablePath.Equals(ExecutablePath, StringComparison.Ordinal))
         {
             userOverrides[GameEntryFields.ExecutablePath] = now;
         }

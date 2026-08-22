@@ -1,5 +1,6 @@
 using GamingCommander.Core;
 using GamingCommander.Core.Models;
+using GamingCommander.Core.Services;
 
 namespace GamingCommander.App.Services.Metadata;
 
@@ -157,7 +158,7 @@ public sealed class MetadataLookupQueue : IDisposable
             try
             {
                 record = await _service
-                    .RefreshAsync(item.GameEntryId, item.SteamAppId, item.DisplayName, cancellationToken)
+                    .RefreshAsync(item.GameEntryId, item.SteamAppId, item.DisplayName, cancellationToken, force: false, item.YearHint)
                     .ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -190,8 +191,8 @@ public sealed class MetadataLookupQueue : IDisposable
         if (game.PlatformMetadata.TryGetValue("SteamAppId", out string? id) && !string.IsNullOrWhiteSpace(id))
             appId = id.Trim();
 
-        return new WorkItem(game.Id, appId, game.DisplayName);
+        return new WorkItem(game.Id, appId, game.DisplayName, PeProductYear.Guess(game.ExecutablePath));
     }
 
-    private readonly record struct WorkItem(string GameEntryId, string? SteamAppId, string DisplayName);
+    private readonly record struct WorkItem(string GameEntryId, string? SteamAppId, string DisplayName, int? YearHint);
 }

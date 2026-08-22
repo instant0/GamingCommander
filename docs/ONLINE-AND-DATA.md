@@ -79,7 +79,8 @@ Only under the app’s `data/` folder (next to the exe). Never in game installs.
 
 Only folders you add in F2, plus the well-known store keys already listed in `GamingCommander.Readme.txt` (Steam ACF, GOG `.info`, Epic `.item`, EA logs, Ubisoft, Battle.net, Rockstar, Xbox signals, selected HKLM install-path keys). All **read-only**.
 
-Shipped read: `data/blacklist.json` (also embedded in the exe).
+Shipped read: `data/blacklist.json` and `data/tag_colors.json` (blacklist also embedded).  
+Repo `testdata/` is tests/fixtures only — not copied to publish.
 
 ---
 

@@ -248,9 +248,21 @@ internal static class ExecutableDiscovery
             }
         }
 
-        // Bonus for "shipping" or "win64" in name (+5)
-        if (name.Contains("shipping") || name.Contains("win64"))
+        // Unreal shipping binary beats root game.exe / launcher stubs
+        string pathLower = exePath.Replace('/', '\\').ToLowerInvariant();
+        bool shippingName = name.Contains("-win64-shipping")
+            || name.Contains("-win32-shipping")
+            || name.Contains("-wingdk-shipping")
+            || name.EndsWith("-shipping", StringComparison.Ordinal);
+        if (shippingName)
+            score += 28;
+        else if (name.Contains("shipping") || name.Contains("win64"))
             score += 5;
+
+        if (pathLower.Contains(@"\binaries\win64\")
+            || pathLower.Contains(@"\binaries\win32\")
+            || pathLower.Contains(@"\binaries\wingdk\"))
+            score += 12;
 
         // File size bonus: up to +5 for very large files (>= 100MB)
         // Uses cached fileSize from above (Plan 112 Step 4B)

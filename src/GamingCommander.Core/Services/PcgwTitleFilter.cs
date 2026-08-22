@@ -45,14 +45,50 @@ public static class PcgwTitleFilter
     }
 
     /// <summary>First title that is not noise, or null.</summary>
-    public static string? FirstClean(IEnumerable<string> titles)
+    public static string? FirstClean(IEnumerable<string> titles) =>
+        PickBest(titles, yearHint: null);
+
+    /// <summary>
+    /// Prefer a title whose <c>(YYYY)</c> is closest to <paramref name="yearHint"/>
+    /// (exe ProductVersion / last-write). Without a hint, first clean title wins.
+    /// </summary>
+    public static string? PickBest(IEnumerable<string> titles, int? yearHint)
     {
-        foreach (string title in titles)
+        var clean = titles.Where(t => !IsNoisy(t)).ToList();
+        if (clean.Count == 0)
+            return null;
+        if (yearHint is null)
+            return clean[0];
+
+        string? best = null;
+        int bestDelta = int.MaxValue;
+        foreach (string title in clean)
         {
-            if (!IsNoisy(title))
-                return title;
+            int? year = YearFromTitle(title);
+            int delta;
+            if (year is int y)
+                delta = Math.Abs(y - yearHint.Value);
+            else if (title.Contains("remake", StringComparison.OrdinalIgnoreCase) && yearHint >= 2018)
+                delta = 3;
+            else
+                delta = yearHint >= 2018 ? 20 : Math.Abs(2008 - yearHint.Value);
+
+            if (delta < bestDelta)
+            {
+                best = title;
+                bestDelta = delta;
+            }
         }
 
-        return null;
+        return best ?? clean[0];
+    }
+
+    /// <summary>Four-digit year in parentheses, e.g. Dead Space (2023).</summary>
+    public static int? YearFromTitle(string title)
+    {
+        Match m = Regex.Match(title, @"\((\d{4})\)");
+        if (!m.Success)
+            return null;
+        return int.TryParse(m.Groups[1].Value, out int year) ? year : null;
     }
 }

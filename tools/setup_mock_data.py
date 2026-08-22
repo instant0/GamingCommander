@@ -8,7 +8,7 @@ This script creates a simulated Windows game library structure on Linux for:
   - Standalone game detection testing
   - Folder scanner heuristics testing (exe selection, non-game filtering)
 
-The mock data lives under data/mock/ and is used by both Python validation
+The mock data lives under testdata/mock/ and is used by both Python validation
 scripts and C# unit tests. It must be regenerated if the test fixtures need
 updating.
 
@@ -17,7 +17,7 @@ Usage:
     python tools/setup_mock_data.py --clean   # remove mock data tree
 
 Output:
-    data/mock/ with subdirectories and sample files
+    testdata/mock/ with subdirectories and sample files
 """
 
 import argparse
@@ -27,7 +27,7 @@ import stat
 import sys
 from pathlib import Path
 
-MOCK_ROOT = Path(__file__).resolve().parent.parent / "data" / "mock"
+MOCK_ROOT = Path(__file__).resolve().parent.parent / "testdata" / "mock"
 
 
 # ---------------------------------------------------------------------------

@@ -11,8 +11,8 @@ for offline testing of the registry reading logic that GamingCommander
 will use at runtime.
 
 Usage:
-    python tools/parse_registry.py data/mock/registry/steam.reg.txt    # UTF-8 copy
-    python tools/parse_registry.py data/mock/registry/steam.reg        # UTF-16 LE
+    python tools/parse_registry.py testdata/mock/registry/steam.reg.txt    # UTF-8 copy
+    python tools/parse_registry.py testdata/mock/registry/steam.reg        # UTF-16 LE
     python tools/parse_registry.py --all                               # parse all mock files
     python tools/parse_registry.py --test
     python tools/parse_registry.py --help

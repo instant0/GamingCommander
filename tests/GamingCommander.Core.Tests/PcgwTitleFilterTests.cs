@@ -31,4 +31,28 @@ public sealed class PcgwTitleFilterTests
         ]);
         Assert.Equal("Cyberpunk 2077", title);
     }
+
+    [Fact]
+    public void PickBest_YearHint_PrefersRemakeOverOriginal()
+    {
+        string? title = PcgwTitleFilter.PickBest(
+        [
+            "Dead Space",
+            "Dead Space (2023)",
+            "Dead Space (remake)",
+            "Dead Space 2",
+        ], yearHint: 2026);
+        Assert.Equal("Dead Space (2023)", title);
+    }
+
+    [Fact]
+    public void PickBest_YearHint2008_KeepsOriginal()
+    {
+        string? title = PcgwTitleFilter.PickBest(
+        [
+            "Dead Space",
+            "Dead Space (2023)",
+        ], yearHint: 2008);
+        Assert.Equal("Dead Space", title);
+    }
 }
