@@ -4,7 +4,7 @@
 **Updated:** 2026-07-26 — Implemented and verified
 **Priority:** P2
 **Status:** ✅ COMPLETE
-**Source:** Real registry exports (`/home/malware/projects/game-text/*.reg`), `docs/research/launcher_discovery.md`
+**Source:** Local registry exports (not in this repo), `docs/research/launcher_discovery.md`
 
 ---
 

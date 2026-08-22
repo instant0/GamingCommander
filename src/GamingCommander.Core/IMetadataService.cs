@@ -15,5 +15,6 @@ public interface IMetadataService
         string gameEntryId,
         string? steamAppId,
         string? displayName,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        bool force = false);
 }

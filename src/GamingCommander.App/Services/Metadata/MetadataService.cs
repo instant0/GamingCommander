@@ -41,7 +41,8 @@ public sealed class MetadataService : IMetadataService
         string gameEntryId,
         string? steamAppId,
         string? displayName,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool force = false)
     {
         if (string.IsNullOrWhiteSpace(gameEntryId))
             return null;
@@ -53,7 +54,8 @@ public sealed class MetadataService : IMetadataService
         if (_online is { AllowsHttp: false })
             return existing;
 
-        if (existing?.LastUpdated is DateTimeOffset updated
+        if (!force
+            && existing?.LastUpdated is DateTimeOffset updated
             && DateTimeOffset.UtcNow - updated < Freshness)
         {
             return existing;

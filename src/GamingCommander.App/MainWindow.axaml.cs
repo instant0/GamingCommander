@@ -233,7 +233,7 @@ public partial class MainWindow : Window
                 break;
 
             case Key.F3:
-                SetStatusWithAutoClear("Metadata is in the details pane (right).");
+                _ = LookupSelectedGameMetadataAsync();
                 e.Handled = true;
                 break;
 
@@ -512,10 +512,50 @@ public partial class MainWindow : Window
         Dispatcher.UIThread.Post(() => _viewModel?.ApplySidecarMetadata(gameId, record));
     }
 
-    /// <summary>
-    /// Online extras for one game (F4). List selection only reads the sidecar cache.
-    /// </summary>
-    private async Task RefreshMetadataForGameAsync(GameEntry game)
+    private async Task LookupSelectedGameMetadataAsync()
+    {
+        if (_viewModel is null || _viewModel.IsAtRootLevel)
+        {
+            SetStatusWithAutoClear("Select a game first.");
+            return;
+        }
+
+        if (_onlineGate is null || !_configService!.Load().EnableOnlineMetadata)
+        {
+            SetStatusWithAutoClear("Online lookup is off (F2).");
+            return;
+        }
+
+        if (!_onlineGate.AllowsHttp)
+        {
+            SetStatusWithAutoClear("Offline — no lookup.");
+            return;
+        }
+
+        GameEntry? game = GetSelectedGame();
+        if (game is null)
+        {
+            SetStatusWithAutoClear("Select a game first.");
+            return;
+        }
+
+        await RefreshMetadataForGameAsync(game, force: true).ConfigureAwait(true);
+        SetStatusWithAutoClear($"Metadata updated: {game.DisplayName}");
+    }
+
+    private GameEntry? GetSelectedGame()
+    {
+        if (_viewModel?.SelectedItem?.GameId is null)
+            return null;
+        string? rootPath = _viewModel.GetCurrentRootPath();
+        if (rootPath is null)
+            return null;
+        return GetDbService().GetGamesForRoot(rootPath)
+            .FirstOrDefault(g => g.Id == _viewModel.SelectedItem.GameId);
+    }
+
+    /// <summary>Online extras for one game. Does not block F4. F3 passes force.</summary>
+    private async Task RefreshMetadataForGameAsync(GameEntry game, bool force = false)
     {
         if (_metadataService is null || _viewModel is null)
             return;
@@ -537,7 +577,7 @@ public partial class MainWindow : Window
         {
             _viewModel.StatusText = $"Looking up metadata: {game.DisplayName}";
             GameMetadataRecord? record = await _metadataService
-                .RefreshAsync(game.Id, steamAppId, game.DisplayName, cts.Token)
+                .RefreshAsync(game.Id, steamAppId, game.DisplayName, cts.Token, force)
                 .ConfigureAwait(true);
             _viewModel.ApplySidecarMetadata(game.Id, record);
         }
@@ -733,7 +773,7 @@ public partial class MainWindow : Window
                 _ = OpenLibrarySetupAsync();
                 break;
             case "F3":
-                SetStatusWithAutoClear("Metadata is in the details pane (right).");
+                _ = LookupSelectedGameMetadataAsync();
                 break;
             case "F4":
                 _ = OpenGameSetupAsync();

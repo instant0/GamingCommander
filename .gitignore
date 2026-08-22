@@ -6,6 +6,13 @@
 artifacts/
 out/
 publish/
+publish-old/
+
+# Live library / sidecar (local paths, usernames)
+data/games.json
+data/settings.json
+data/games_metadata.json
+data/startup.log
 
 # Test / coverage
 TestResults/

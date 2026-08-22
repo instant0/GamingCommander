@@ -47,6 +47,11 @@ What does GamingCommander do?
                game for you. For Steam games, it opens the Steam launcher.
                For standalone games, it runs the .exe directly.
 
+   F3 LOOKUP — With online metadata on (F2) and the chip Online, F3
+               fetches extras for the selected game and fills the
+               details pane. It does not open a new window. F4 does
+               not wait for this.
+
    4. CHOOSE EXE — If a folder has more than one .exe, the details pane
                shows: "Multiple EXE files detected — press F4 to choose
                the main one." Click that line or press F4. Pick the real

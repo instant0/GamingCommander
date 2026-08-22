@@ -68,7 +68,8 @@ public sealed class MetadataLookupQueueTests
             string gameEntryId,
             string? steamAppId,
             string? displayName,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            bool force = false)
         {
             Seen.Add(gameEntryId);
             return Task.FromResult<GameMetadataRecord?>(new GameMetadataRecord { GameEntryId = gameEntryId });

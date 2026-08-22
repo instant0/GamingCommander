@@ -29,7 +29,7 @@ internal static class HelpDialogBuilder
         {
             ("F1", "Help — this window"),
             ("F2", "Library Setup — add/remove/rescan folders"),
-            ("F3", "Metadata is in the right-hand details pane"),
+            ("F3", "Fetch online extras for the selected game (details pane)"),
             ("F4", "Configure game — name, type, pick exe if several were found"),
             ("F5", "Rescan current folder or all roots"),
             ("F8", "Filter/category view (coming soon)"),
