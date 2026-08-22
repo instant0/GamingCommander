@@ -284,7 +284,7 @@ public partial class GameSetupWindow : Window
             {
                 panel.Children.Add(new TextBlock
                 {
-                    Text = $"{row.Argument}  — needs value, type in extras. {row.Notes}",
+                    Text = $"{row.Argument}  — needs value, type in extras",
                     Foreground = AppTheme.TextDimmed,
                     FontSize = AppTheme.FontSizeLabel,
                     TextWrapping = TextWrapping.Wrap,
@@ -295,7 +295,7 @@ public partial class GameSetupWindow : Window
 
             var check = new CheckBox
             {
-                Content = $"{row.Argument}   {row.Notes}",
+                Content = row.Argument,
                 IsChecked = LaunchArgumentComposer.ContainsToken(ExtraLaunchArguments, row.Argument),
                 Foreground = AppTheme.TextPrimary,
                 Tag = row.Argument,

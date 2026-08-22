@@ -1,4 +1,5 @@
 using GamingCommander.Core.Models;
+using GamingCommander.Core.Services;
 
 namespace GamingCommander.App.Services.Metadata;
 
@@ -73,14 +74,38 @@ public static class CommonMetadataParser
             LastMetadataSource = nameof(MetadataSource.Pcgw),
         };
 
-        string? steamAppId = StoreId(page.Sections, "Steam");
-        string? gogId = StoreId(page.Sections, "GOG");
+        string? steamAppId = MetadataText.SafeSteamAppId(StoreId(page.Sections, "Steam"));
+        string? gogId = MetadataText.SafeStoreSlug(StoreId(page.Sections, "GOG"));
         return record with
         {
             Details = details.HasAny ? details : record.Details,
             SteamAppId = record.SteamAppId ?? steamAppId,
             GogGameId = record.GogGameId ?? gogId,
         };
+    }
+
+    private static List<GameMetadataPath> SafePaths(IReadOnlyList<PcgwGameDataPath> paths, string kind) =>
+        paths
+            .Where(p => p.Kind.Equals(kind, StringComparison.OrdinalIgnoreCase))
+            .Select(p => (Os: MetadataText.SafeNote(p.Os, 16), Template: MetadataText.SafePathTemplate(p.Template)))
+            .Where(p => p.Template is not null && p.Os.Length > 0)
+            .Select(p => new GameMetadataPath { Kind = kind, Os = p.Os, Template = p.Template! })
+            .ToList();
+
+    private static string? SanitizeArgList(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return null;
+
+        var kept = new List<string>();
+        foreach (string part in raw.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            string? arg = MetadataText.SafeArgument(part);
+            if (arg is not null)
+                kept.Add(arg);
+        }
+
+        return kept.Count == 0 ? null : string.Join(' ', kept);
     }
 
     private static string? StoreId(PcgwSectionFacts sections, string store) =>
@@ -93,33 +118,36 @@ public static class CommonMetadataParser
     {
         return new GameMetadataDetails
         {
-            ConfigPaths = sections.Paths
-                .Where(p => p.Kind.Equals("config", StringComparison.OrdinalIgnoreCase))
-                .Select(p => new GameMetadataPath { Kind = p.Kind, Os = p.Os, Template = p.Template })
-                .ToList(),
-            SavePaths = sections.Paths
-                .Where(p => p.Kind.Equals("saves", StringComparison.OrdinalIgnoreCase))
-                .Select(p => new GameMetadataPath { Kind = p.Kind, Os = p.Os, Template = p.Template })
-                .ToList(),
+            ConfigPaths = SafePaths(sections.Paths, "config"),
+            SavePaths = SafePaths(sections.Paths, "saves"),
             CommandLine = sections.CommandLine
-                .Select(c => new GameMetadataCommandLine
+                .Select(c => (Arg: MetadataText.SafeArgument(c.Argument), Row: c))
+                .Where(x => x.Arg is not null)
+                .Select(x => new GameMetadataCommandLine
                 {
-                    Argument = c.Argument,
-                    Notes = c.Notes,
-                    NeedsValue = c.NeedsValue,
-                    Source = c.Source,
+                    Argument = x.Arg!,
+                    Notes = MetadataText.SafeNote(x.Row.Notes),
+                    NeedsValue = x.Row.NeedsValue,
+                    Source = MetadataText.SafeNote(x.Row.Source, 24),
                 })
                 .ToList(),
             Fixes = sections.Fixes
                 .Select(f => new GameMetadataFix
                 {
-                    Title = f.Title,
-                    SuggestedArgs = f.SuggestedArgs,
-                    SuggestedExecutable = f.SuggestedExecutable,
+                    Title = MetadataText.SafeNote(f.Title, 200),
+                    SuggestedArgs = MetadataText.SafeArgument(f.SuggestedArgs) is string one
+                        ? one
+                        : SanitizeArgList(f.SuggestedArgs),
+                    SuggestedExecutable = MetadataText.SafePathTemplate(f.SuggestedExecutable),
                 })
+                .Where(f => f.Title.Length > 0)
                 .ToList(),
-            Video = sections.Video.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase),
-            CloudSync = sections.CloudSync.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase),
+            Video = sections.Video
+                .Where(kv => MetadataDetailsFormatter.IsShortCap(kv.Value))
+                .ToDictionary(kv => MetadataText.SafeNote(kv.Key, 32), kv => MetadataText.SafeNote(kv.Value, 24), StringComparer.OrdinalIgnoreCase),
+            CloudSync = sections.CloudSync
+                .Where(kv => MetadataDetailsFormatter.IsShortCap(kv.Value))
+                .ToDictionary(kv => MetadataText.SafeNote(kv.Key, 32), kv => MetadataText.SafeNote(kv.Value, 16), StringComparer.OrdinalIgnoreCase),
         };
     }
 

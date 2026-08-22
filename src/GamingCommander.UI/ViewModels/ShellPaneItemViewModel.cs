@@ -22,6 +22,9 @@ public sealed class ShellPaneItemViewModel
     /// <summary>Truncated path summary for display (~50 chars max). Used by right pane and navigation.</summary>
     public required string PathSummary { get; init; }
 
+    /// <summary>Windows install directory of the exe (opaque string). Empty if unknown.</summary>
+    public string InstallDirectory { get; init; } = string.Empty;
+
     /// <summary>Path used to launch the game when Enter is pressed.</summary>
     public required string LaunchTarget { get; init; }
 

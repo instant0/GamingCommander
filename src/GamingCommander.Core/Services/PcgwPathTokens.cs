@@ -4,12 +4,17 @@ namespace GamingCommander.Core.Services;
 
 /// <summary>
 /// Resolves PCGW <c>{{P|…}}</c> / <c>{{p|…}}</c> tokens for Windows display only.
-/// Unknown tokens (e.g. <c>osxhome</c>) are left intact.
+/// Unknown tokens are left intact (and then fail the Explorer allowlist).
 /// </summary>
 public static class PcgwPathTokens
 {
     private static readonly Regex Token = new(
         @"\{\{[Pp]\|([^}]+)\}\}", RegexOptions.CultureInvariant);
+
+    private static readonly HashSet<string> AllowedEnv = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "LOCALAPPDATA", "APPDATA", "PROGRAMDATA", "WINDIR", "USERPROFILE",
+    };
 
     /// <summary>Replace known Windows tokens. Does not invent Linux paths.</summary>
     public static string ResolveWindows(string template, string? gameDirectory = null)
@@ -39,7 +44,10 @@ public static class PcgwPathTokens
         });
     }
 
-    /// <summary>Expand <c>%VAR%</c> for Explorer. Returns null when the path is not openable.</summary>
+    /// <summary>
+    /// Expand only the env names we ourselves emit. Never <see cref="Environment.ExpandEnvironmentVariables"/>
+    /// (that would honor attacker <c>%COMSPEC%</c>).
+    /// </summary>
     public static string? ExpandForExplorer(string? displayPath)
     {
         if (string.IsNullOrWhiteSpace(displayPath))
@@ -49,7 +57,20 @@ public static class PcgwPathTokens
         if (displayPath.Contains("%GAME%", StringComparison.OrdinalIgnoreCase))
             return null;
 
-        string expanded = Environment.ExpandEnvironmentVariables(displayPath.Trim());
-        return string.IsNullOrWhiteSpace(expanded) || expanded.Contains('%') ? null : expanded;
+        string text = displayPath.Trim();
+        foreach (Match m in Regex.Matches(text, "%([A-Za-z][A-Za-z0-9_]*)%"))
+        {
+            string name = m.Groups[1].Value;
+            if (!AllowedEnv.Contains(name))
+                return null;
+
+            string? value = Environment.GetEnvironmentVariable(name);
+            if (string.IsNullOrWhiteSpace(value))
+                return null;
+
+            text = text.Replace(m.Value, value.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase);
+        }
+
+        return text.Contains('%') ? null : text;
     }
 }

@@ -21,7 +21,7 @@ From the repo root (needs .NET 8 SDK):
 ```bash
 dotnet tool restore
 dotnet tool run dotnet-CycloneDX -- src/GamingCommander.App/GamingCommander.App.csproj \
-  -rs -ed \
+  -rs -ed -rt win-x64 \
   -o docs/sbom -fn GamingCommander.cdx.json -F Json \
   -sn GamingCommander -sv 0.4.0 -st Application
 ```

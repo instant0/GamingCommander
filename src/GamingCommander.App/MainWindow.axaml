@@ -174,20 +174,34 @@
               <TextBlock Text="PCGW details" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" />
               <TextBlock Text="Config (click to open)"
                          Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}"
-                         IsVisible="{Binding DetailsConfigPath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                         IsVisible="{Binding DetailsConfigPathClickable}" />
+              <TextBlock Text="Config"
+                         Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}"
+                         IsVisible="{Binding DetailsConfigPathDisplayOnly}" />
               <TextBlock Text="{Binding DetailsConfigPath}"
                          Foreground="{DynamicResource TextAccent}" FontSize="{DynamicResource FontSizeLabel}"
                          TextWrapping="Wrap" Cursor="Hand"
                          PointerPressed="OpenConfigPath_PointerPressed"
-                         IsVisible="{Binding DetailsConfigPath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                         IsVisible="{Binding DetailsConfigPathClickable}" />
+              <TextBlock Text="{Binding DetailsConfigPath}"
+                         Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeLabel}"
+                         TextWrapping="Wrap"
+                         IsVisible="{Binding DetailsConfigPathDisplayOnly}" />
               <TextBlock Text="Saves (click to open)"
                          Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}"
-                         IsVisible="{Binding DetailsSavePath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                         IsVisible="{Binding DetailsSavePathClickable}" />
+              <TextBlock Text="Saves"
+                         Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}"
+                         IsVisible="{Binding DetailsSavePathDisplayOnly}" />
               <TextBlock Text="{Binding DetailsSavePath}"
                          Foreground="{DynamicResource TextAccent}" FontSize="{DynamicResource FontSizeLabel}"
                          TextWrapping="Wrap" Cursor="Hand"
                          PointerPressed="OpenSavePath_PointerPressed"
-                         IsVisible="{Binding DetailsSavePath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                         IsVisible="{Binding DetailsSavePathClickable}" />
+              <TextBlock Text="{Binding DetailsSavePath}"
+                         Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeLabel}"
+                         TextWrapping="Wrap"
+                         IsVisible="{Binding DetailsSavePathDisplayOnly}" />
               <TextBlock Text="Video"
                          Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}"
                          IsVisible="{Binding DetailsVideo, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />

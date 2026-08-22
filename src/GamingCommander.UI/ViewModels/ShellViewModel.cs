@@ -145,9 +145,22 @@ public sealed class ShellViewModel : ReactiveObject
     public bool HasMetadataExtras => _selectedMetadata?.HasDisplayableExtras == true;
 
     /// <summary>Windows config path from PCGW, tokens expanded. Empty when unknown.</summary>
-    public string DetailsConfigPath => MetadataDetailsFormatter.WindowsConfig(_selectedMetadata?.Details);
+    public string DetailsConfigPath =>
+        MetadataDetailsFormatter.WindowsConfig(_selectedMetadata?.Details, SelectedInstallDirectory);
     /// <summary>Windows save path from PCGW, tokens expanded. Empty when unknown.</summary>
-    public string DetailsSavePath => MetadataDetailsFormatter.WindowsSaves(_selectedMetadata?.Details);
+    public string DetailsSavePath =>
+        MetadataDetailsFormatter.WindowsSaves(_selectedMetadata?.Details, SelectedInstallDirectory);
+    public bool DetailsConfigPathClickable =>
+        WindowsExplorer.IsClickableFolder(DetailsConfigPath, SelectedInstallDirectory);
+    public bool DetailsSavePathClickable =>
+        WindowsExplorer.IsClickableFolder(DetailsSavePath, SelectedInstallDirectory);
+    public bool DetailsConfigPathDisplayOnly =>
+        !string.IsNullOrEmpty(DetailsConfigPath) && !DetailsConfigPathClickable;
+    public bool DetailsSavePathDisplayOnly =>
+        !string.IsNullOrEmpty(DetailsSavePath) && !DetailsSavePathClickable;
+
+    private string? SelectedInstallDirectory =>
+        string.IsNullOrWhiteSpace(SelectedItem?.InstallDirectory) ? null : SelectedItem.InstallDirectory;
     /// <summary>Short PCGW argument catalog for the right pane.</summary>
     public string DetailsCommandLine => MetadataDetailsFormatter.CommandLineSummary(_selectedMetadata?.Details);
     /// <summary>Short video caps (fov, ultrawide, …).</summary>
@@ -486,6 +499,7 @@ public sealed class ShellViewModel : ReactiveObject
                 LeftPath = leftPath,
                 SourceLabel = game.GameSource.ToString(),
                 PathSummary = game.ExecutablePath,
+                InstallDirectory = WindowsExplorer.ParentDirectory(game.ExecutablePath) ?? string.Empty,
                 LaunchTarget = launchTarget,
                 CommandLineArguments = game.CommandLineArguments,
                 Kind = FileSystemEntryKind.File,
@@ -543,6 +557,10 @@ public sealed class ShellViewModel : ReactiveObject
         OnPropertyChanged(nameof(HasMetadataExtras));
         OnPropertyChanged(nameof(DetailsConfigPath));
         OnPropertyChanged(nameof(DetailsSavePath));
+        OnPropertyChanged(nameof(DetailsConfigPathClickable));
+        OnPropertyChanged(nameof(DetailsSavePathClickable));
+        OnPropertyChanged(nameof(DetailsConfigPathDisplayOnly));
+        OnPropertyChanged(nameof(DetailsSavePathDisplayOnly));
         OnPropertyChanged(nameof(DetailsCommandLine));
         OnPropertyChanged(nameof(DetailsVideo));
         OnPropertyChanged(nameof(HasMetadataDetails));
@@ -564,6 +582,10 @@ public sealed class ShellViewModel : ReactiveObject
         OnPropertyChanged(nameof(HasMetadataExtras));
         OnPropertyChanged(nameof(DetailsConfigPath));
         OnPropertyChanged(nameof(DetailsSavePath));
+        OnPropertyChanged(nameof(DetailsConfigPathClickable));
+        OnPropertyChanged(nameof(DetailsSavePathClickable));
+        OnPropertyChanged(nameof(DetailsConfigPathDisplayOnly));
+        OnPropertyChanged(nameof(DetailsSavePathDisplayOnly));
         OnPropertyChanged(nameof(DetailsCommandLine));
         OnPropertyChanged(nameof(DetailsVideo));
         OnPropertyChanged(nameof(HasMetadataDetails));

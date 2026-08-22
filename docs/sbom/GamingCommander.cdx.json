@@ -1,10 +1,10 @@
 {
   "bomFormat": "CycloneDX",
   "specVersion": "1.6",
-  "serialNumber": "urn:uuid:2e81cdff-09f5-4e79-b9d6-dbf80f1b488b",
+  "serialNumber": "urn:uuid:ac0958a1-bb2b-480d-8f7d-5622c7598f2c",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-08-22T16:59:25Z",
+    "timestamp": "2026-08-22T17:03:00Z",
     "tools": [
       {
         "vendor": "CycloneDX",
@@ -175,44 +175,6 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:nuget/Avalonia.Desktop@11.3.12",
-      "authors": [
-        {
-          "name": "Avalonia Team"
-        }
-      ],
-      "name": "Avalonia.Desktop",
-      "version": "11.3.12",
-      "description": "Avalonia is a cross-platform UI framework for .NET providing a flexible styling system and supporting a wide range of Operating Systems such as Windows, Linux, macOS and with experimental support for Android, iOS and WebAssembly.",
-      "scope": "required",
-      "hashes": [
-        {
-          "alg": "SHA-512",
-          "content": "2A5C144645E51840953C822903BB9DB9CD64D9BF8E3AB128A9E7EF731443A570075EECF6F1C5A7700A4836C223FB14223F1DB08BD56C4C25C5CAC48030872D38"
-        }
-      ],
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        }
-      ],
-      "copyright": "Copyright 2013-2026 \u00A9 The AvaloniaUI Project",
-      "purl": "pkg:nuget/Avalonia.Desktop@11.3.12",
-      "externalReferences": [
-        {
-          "url": "https://avaloniaui.net/?utm_source=nuget\u0026utm_medium=referral\u0026utm_content=project_homepage_link",
-          "type": "website"
-        },
-        {
-          "url": "https://github.com/AvaloniaUI/Avalonia/",
-          "type": "vcs"
-        }
-      ]
-    },
-    {
-      "type": "library",
       "bom-ref": "pkg:nuget/Avalonia.Diagnostics@11.3.12",
       "authors": [
         {
@@ -276,82 +238,6 @@
       ],
       "copyright": "Copyright 2013-2026 \u00A9 The AvaloniaUI Project",
       "purl": "pkg:nuget/Avalonia.Fonts.Inter@11.3.12",
-      "externalReferences": [
-        {
-          "url": "https://avaloniaui.net/?utm_source=nuget\u0026utm_medium=referral\u0026utm_content=project_homepage_link",
-          "type": "website"
-        },
-        {
-          "url": "https://github.com/AvaloniaUI/Avalonia/",
-          "type": "vcs"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "bom-ref": "pkg:nuget/Avalonia.FreeDesktop@11.3.12",
-      "authors": [
-        {
-          "name": "Avalonia Team"
-        }
-      ],
-      "name": "Avalonia.FreeDesktop",
-      "version": "11.3.12",
-      "description": "Avalonia is a cross-platform UI framework for .NET providing a flexible styling system and supporting a wide range of Operating Systems such as Windows, Linux, macOS and with experimental support for Android, iOS and WebAssembly.",
-      "scope": "required",
-      "hashes": [
-        {
-          "alg": "SHA-512",
-          "content": "59FC260A98449B6BE7E358824E598910B59D3B5F0781874336E49C15F768430964A0BBB4ED96DC98E90750BF491D6AD13A2BF68CC8F634C174B890E4CC2A8603"
-        }
-      ],
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        }
-      ],
-      "copyright": "Copyright 2013-2026 \u00A9 The AvaloniaUI Project",
-      "purl": "pkg:nuget/Avalonia.FreeDesktop@11.3.12",
-      "externalReferences": [
-        {
-          "url": "https://avaloniaui.net/?utm_source=nuget\u0026utm_medium=referral\u0026utm_content=project_homepage_link",
-          "type": "website"
-        },
-        {
-          "url": "https://github.com/AvaloniaUI/Avalonia/",
-          "type": "vcs"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "bom-ref": "pkg:nuget/Avalonia.Native@11.3.12",
-      "authors": [
-        {
-          "name": "Avalonia Team"
-        }
-      ],
-      "name": "Avalonia.Native",
-      "version": "11.3.12",
-      "description": "Avalonia is a cross-platform UI framework for .NET providing a flexible styling system and supporting a wide range of Operating Systems such as Windows, Linux, macOS and with experimental support for Android, iOS and WebAssembly.",
-      "scope": "required",
-      "hashes": [
-        {
-          "alg": "SHA-512",
-          "content": "C679ED66D8BE99C59693D4D467388BFFE7EE801ED140DE0EA8C4FC6990F7A9848FB85659DD85B43CF3B63BFC083316A84034764C82D21E0031DBF376D196C8BF"
-        }
-      ],
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        }
-      ],
-      "copyright": "Copyright 2013-2026 \u00A9 The AvaloniaUI Project",
-      "purl": "pkg:nuget/Avalonia.Native@11.3.12",
       "externalReferences": [
         {
           "url": "https://avaloniaui.net/?utm_source=nuget\u0026utm_medium=referral\u0026utm_content=project_homepage_link",
@@ -542,44 +428,6 @@
       ],
       "copyright": "Copyright 2013-2026 \u00A9 The AvaloniaUI Project",
       "purl": "pkg:nuget/Avalonia.Win32@11.3.12",
-      "externalReferences": [
-        {
-          "url": "https://avaloniaui.net/?utm_source=nuget\u0026utm_medium=referral\u0026utm_content=project_homepage_link",
-          "type": "website"
-        },
-        {
-          "url": "https://github.com/AvaloniaUI/Avalonia/",
-          "type": "vcs"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "bom-ref": "pkg:nuget/Avalonia.X11@11.3.12",
-      "authors": [
-        {
-          "name": "Avalonia Team"
-        }
-      ],
-      "name": "Avalonia.X11",
-      "version": "11.3.12",
-      "description": "Avalonia is a cross-platform UI framework for .NET providing a flexible styling system and supporting a wide range of Operating Systems such as Windows, Linux, macOS and with experimental support for Android, iOS and WebAssembly.",
-      "scope": "required",
-      "hashes": [
-        {
-          "alg": "SHA-512",
-          "content": "035B9835B921433842990E77716A10EEEBC8A1C9D4F606251A813EAEA180F96713DED0D7552809E759C5CDC05982098DDA02EE92519CEA7C59BFF0A61A384F94"
-        }
-      ],
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        }
-      ],
-      "copyright": "Copyright 2013-2026 \u00A9 The AvaloniaUI Project",
-      "purl": "pkg:nuget/Avalonia.X11@11.3.12",
       "externalReferences": [
         {
           "url": "https://avaloniaui.net/?utm_source=nuget\u0026utm_medium=referral\u0026utm_content=project_homepage_link",
@@ -1083,44 +931,6 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:nuget/System.IO.Pipelines@8.0.0",
-      "authors": [
-        {
-          "name": "Microsoft"
-        }
-      ],
-      "name": "System.IO.Pipelines",
-      "version": "8.0.0",
-      "description": "Single producer single consumer byte buffer management.\n\nCommonly Used Types:\nSystem.IO.Pipelines.Pipe\nSystem.IO.Pipelines.PipeWriter\nSystem.IO.Pipelines.PipeReader",
-      "scope": "required",
-      "hashes": [
-        {
-          "alg": "SHA-512",
-          "content": "57EB6A11E84F40A48B57B1DC5786A01AA9852122B7D15363490D8A12C9A458BF99A8DDF4C0C0247BE98559C2B42E769A10BDA2C5A9817735484D960DC652EB12"
-        }
-      ],
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        }
-      ],
-      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
-      "purl": "pkg:nuget/System.IO.Pipelines@8.0.0",
-      "externalReferences": [
-        {
-          "url": "https://dot.net/",
-          "type": "website"
-        },
-        {
-          "url": "https://github.com/dotnet/runtime",
-          "type": "vcs"
-        }
-      ]
-    },
-    {
-      "type": "library",
       "bom-ref": "pkg:nuget/System.Security.AccessControl@5.0.0",
       "authors": [
         {
@@ -1194,40 +1004,6 @@
           "type": "vcs"
         }
       ]
-    },
-    {
-      "type": "library",
-      "bom-ref": "pkg:nuget/Tmds.DBus.Protocol@0.21.2",
-      "authors": [
-        {
-          "name": "Tom Deseyn"
-        }
-      ],
-      "name": "Tmds.DBus.Protocol",
-      "version": "0.21.2",
-      "description": "Tmds.DBus.Protocol Library",
-      "scope": "required",
-      "hashes": [
-        {
-          "alg": "SHA-512",
-          "content": "01E55DAD6B1B3060CF3022727231DB50AE1272F8D71112783F9213FE1ADC930CD8EE60227F7B5569711287858086A9E882BEDA137EBD08C279FDA23C89AF25F2"
-        }
-      ],
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        }
-      ],
-      "copyright": "Tom Deseyn",
-      "purl": "pkg:nuget/Tmds.DBus.Protocol@0.21.2",
-      "externalReferences": [
-        {
-          "url": "https://github.com/tmds/Tmds.DBus.git",
-          "type": "vcs"
-        }
-      ]
     }
   ],
   "dependencies": [
@@ -1238,17 +1014,13 @@
         "pkg:nuget/Avalonia.Angle.Windows.Natives@2.1.25547.20250602",
         "pkg:nuget/Avalonia.BuildServices@11.3.2",
         "pkg:nuget/Avalonia.Controls.ColorPicker@11.3.12",
-        "pkg:nuget/Avalonia.Desktop@11.3.12",
         "pkg:nuget/Avalonia.Diagnostics@11.3.12",
         "pkg:nuget/Avalonia.Fonts.Inter@11.3.12",
-        "pkg:nuget/Avalonia.FreeDesktop@11.3.12",
-        "pkg:nuget/Avalonia.Native@11.3.12",
         "pkg:nuget/Avalonia.Remote.Protocol@11.3.12",
         "pkg:nuget/Avalonia.Skia@11.3.12",
         "pkg:nuget/Avalonia.Themes.Fluent@11.3.12",
         "pkg:nuget/Avalonia.Themes.Simple@11.3.12",
         "pkg:nuget/Avalonia.Win32@11.3.12",
-        "pkg:nuget/Avalonia.X11@11.3.12",
         "pkg:nuget/HarfBuzzSharp@8.3.1.1",
         "pkg:nuget/HarfBuzzSharp.NativeAssets.Linux@8.3.1.1",
         "pkg:nuget/HarfBuzzSharp.NativeAssets.macOS@8.3.1.1",
@@ -1262,10 +1034,8 @@
         "pkg:nuget/SkiaSharp.NativeAssets.macOS@2.88.9",
         "pkg:nuget/SkiaSharp.NativeAssets.WebAssembly@2.88.9",
         "pkg:nuget/SkiaSharp.NativeAssets.Win32@2.88.9",
-        "pkg:nuget/System.IO.Pipelines@8.0.0",
         "pkg:nuget/System.Security.AccessControl@5.0.0",
-        "pkg:nuget/System.Security.Principal.Windows@5.0.0",
-        "pkg:nuget/Tmds.DBus.Protocol@0.21.2"
+        "pkg:nuget/System.Security.Principal.Windows@5.0.0"
       ]
     },
     {
@@ -1284,16 +1054,6 @@
       ]
     },
     {
-      "ref": "pkg:nuget/Avalonia.Desktop@11.3.12",
-      "dependsOn": [
-        "pkg:nuget/Avalonia@11.3.12",
-        "pkg:nuget/Avalonia.Native@11.3.12",
-        "pkg:nuget/Avalonia.Skia@11.3.12",
-        "pkg:nuget/Avalonia.Win32@11.3.12",
-        "pkg:nuget/Avalonia.X11@11.3.12"
-      ]
-    },
-    {
       "ref": "pkg:nuget/Avalonia.Diagnostics@11.3.12",
       "dependsOn": [
         "pkg:nuget/Avalonia@11.3.12",
@@ -1303,19 +1063,6 @@
     },
     {
       "ref": "pkg:nuget/Avalonia.Fonts.Inter@11.3.12",
-      "dependsOn": [
-        "pkg:nuget/Avalonia@11.3.12"
-      ]
-    },
-    {
-      "ref": "pkg:nuget/Avalonia.FreeDesktop@11.3.12",
-      "dependsOn": [
-        "pkg:nuget/Avalonia@11.3.12",
-        "pkg:nuget/Tmds.DBus.Protocol@0.21.2"
-      ]
-    },
-    {
-      "ref": "pkg:nuget/Avalonia.Native@11.3.12",
       "dependsOn": [
         "pkg:nuget/Avalonia@11.3.12"
       ]
@@ -1353,14 +1100,6 @@
       "dependsOn": [
         "pkg:nuget/Avalonia@11.3.12",
         "pkg:nuget/Avalonia.Angle.Windows.Natives@2.1.25547.20250602"
-      ]
-    },
-    {
-      "ref": "pkg:nuget/Avalonia.X11@11.3.12",
-      "dependsOn": [
-        "pkg:nuget/Avalonia@11.3.12",
-        "pkg:nuget/Avalonia.FreeDesktop@11.3.12",
-        "pkg:nuget/Avalonia.Skia@11.3.12"
       ]
     },
     {
@@ -1435,10 +1174,6 @@
       ]
     },
     {
-      "ref": "pkg:nuget/System.IO.Pipelines@8.0.0",
-      "dependsOn": []
-    },
-    {
       "ref": "pkg:nuget/System.Security.AccessControl@5.0.0",
       "dependsOn": [
         "pkg:nuget/Microsoft.NETCore.Platforms@5.0.0",
@@ -1448,12 +1183,6 @@
     {
       "ref": "pkg:nuget/System.Security.Principal.Windows@5.0.0",
       "dependsOn": []
-    },
-    {
-      "ref": "pkg:nuget/Tmds.DBus.Protocol@0.21.2",
-      "dependsOn": [
-        "pkg:nuget/System.IO.Pipelines@8.0.0"
-      ]
     }
   ]
 }

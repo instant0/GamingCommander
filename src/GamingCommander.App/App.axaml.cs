@@ -165,6 +165,8 @@ public partial class App : Application
                                 r => dbService.GetGamesForRoot(r.RootPath).Count);
                             shellVm.StatusText = $"Welcome — {config.LibraryRoots.Count} root(s), {totalGames} game(s) loaded.";
                         }
+
+                        _ = mainWindow.SyncOnlineGateFromConfigAsync();
                     };
                 }
                 else

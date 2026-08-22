@@ -82,8 +82,7 @@ public partial class MainWindow : Window
         if (_onlineGate is not null)
         {
             _onlineGate.Changed += UpdateLookupChip;
-            if (GetConfigService().Load().EnableOnlineMetadata)
-                Opened += (_, _) => _ = ProbeOnlineAsync();
+            Opened += (_, _) => _ = ProbeOnlineAsync();
         }
 
         Closed += (_, _) =>
@@ -234,7 +233,7 @@ public partial class MainWindow : Window
                 break;
 
             case Key.F3:
-                SetStatusWithAutoClear("View metadata — coming in a future update");
+                SetStatusWithAutoClear("Metadata is in the details pane (right).");
                 e.Handled = true;
                 break;
 
@@ -403,10 +402,11 @@ public partial class MainWindow : Window
         var game = games.FirstOrDefault(g => g.Id == item.GameId);
         if (game is null) return;
 
-        await RefreshMetadataForGameAsync(game).ConfigureAwait(true);
-
         IReadOnlyList<GameMetadataCommandLine> catalog =
             _viewModel.GetSidecar(game.Id)?.Details?.CommandLine ?? [];
+        if (_onlineGate is { AllowsHttp: true })
+            _ = RefreshMetadataForGameAsync(game);
+
         var window = new GameSetupWindow(game, rootPath, configService, dbService, catalog);
         await window.ShowDialog(this);
 
@@ -444,7 +444,8 @@ public partial class MainWindow : Window
         await _onlineGate.ProbeOnceAsync(_probeHttp).ConfigureAwait(true);
     }
 
-    private async Task SyncOnlineGateFromConfigAsync()
+    /// <summary>Re-read F2 flag and probe once if lookup was just turned on.</summary>
+    public async Task SyncOnlineGateFromConfigAsync()
     {
         if (_onlineGate is null)
             return;
@@ -693,8 +694,8 @@ public partial class MainWindow : Window
 
     private void OpenFolderFromDisplay(string? displayPath)
     {
-        string? path = PcgwPathTokens.ExpandForExplorer(displayPath);
-        if (path is null)
+        string? gameDir = _viewModel?.SelectedItem?.InstallDirectory;
+        if (!WindowsExplorer.TryBuildOpenFolder(displayPath, gameDir, out string fileName, out string arguments))
         {
             SetStatusWithAutoClear("Path is not a local Windows folder.");
             return;
@@ -704,8 +705,9 @@ public partial class MainWindow : Window
         {
             Process.Start(new ProcessStartInfo
             {
-                FileName = path,
-                UseShellExecute = true,
+                FileName = fileName,
+                Arguments = arguments,
+                UseShellExecute = false,
             });
         }
         catch (Exception ex)
@@ -728,7 +730,7 @@ public partial class MainWindow : Window
                 _ = OpenLibrarySetupAsync();
                 break;
             case "F3":
-                SetStatusWithAutoClear("View metadata — coming in a future update");
+                SetStatusWithAutoClear("Metadata is in the details pane (right).");
                 break;
             case "F4":
                 _ = OpenGameSetupAsync();

@@ -6,12 +6,12 @@ namespace GamingCommander.Core.Services;
 public static class MetadataDetailsFormatter
 {
     /// <summary>First Windows config path, tokens expanded.</summary>
-    public static string WindowsConfig(GameMetadataDetails? details) =>
-        FirstWindows(details?.ConfigPaths);
+    public static string WindowsConfig(GameMetadataDetails? details, string? gameDirectory = null) =>
+        FirstWindows(details?.ConfigPaths, gameDirectory);
 
     /// <summary>First Windows save path, tokens expanded.</summary>
-    public static string WindowsSaves(GameMetadataDetails? details) =>
-        FirstWindows(details?.SavePaths);
+    public static string WindowsSaves(GameMetadataDetails? details, string? gameDirectory = null) =>
+        FirstWindows(details?.SavePaths, gameDirectory);
 
     /// <summary>Up to <paramref name="max"/> catalog rows as <c>arg — notes</c>.</summary>
     public static string CommandLineSummary(GameMetadataDetails? details, int max = 8)
@@ -21,8 +21,7 @@ public static class MetadataDetailsFormatter
 
         return string.Join(
             Environment.NewLine,
-            details.CommandLine.Take(max).Select(r =>
-                string.IsNullOrWhiteSpace(r.Notes) ? r.Argument : $"{r.Argument}  —  {Trim(r.Notes, 72)}"));
+            details.CommandLine.Take(max).Select(r => r.Argument));
     }
 
     /// <summary>One video cap per line. Skips false/unknown and URL/note blobs.</summary>
@@ -51,7 +50,7 @@ public static class MetadataDetailsFormatter
         return string.Join(Environment.NewLine, parts);
     }
 
-    internal static bool IsShortCap(string? value)
+    public static bool IsShortCap(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
             return false;
@@ -65,7 +64,7 @@ public static class MetadataDetailsFormatter
         return value.Trim().Length <= 24;
     }
 
-    private static string FirstWindows(IReadOnlyList<GameMetadataPath>? paths)
+    private static string FirstWindows(IReadOnlyList<GameMetadataPath>? paths, string? gameDirectory)
     {
         if (paths is null)
             return string.Empty;
@@ -73,7 +72,7 @@ public static class MetadataDetailsFormatter
         GameMetadataPath? path = paths.FirstOrDefault(p =>
             p.Os.Equals("Windows", StringComparison.OrdinalIgnoreCase)
             && !string.IsNullOrWhiteSpace(p.Template));
-        return path is null ? string.Empty : PcgwPathTokens.ResolveWindows(path.Template);
+        return path is null ? string.Empty : PcgwPathTokens.ResolveWindows(path.Template, gameDirectory);
     }
 
     private static string Trim(string text, int max)

@@ -200,6 +200,31 @@ ACCESS 11: Launch games
             via Steam, or running "D:\Games\Witcher3\witcher3.exe".
 
 
+ACCESS 11b: Open config / save folders (details pane)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  What:     If a config or save path is shown as a clickable link
+            ("click to open"), GamingCommander starts explorer.exe
+            with that folder as a quoted argument. It never starts
+            the path itself as a program.
+
+  Why:      So you can jump to the game's config or save directory.
+
+  Scope:    Clickable only when the path is a local Windows folder
+            (X:\…) under one of:
+              — the selected game's install folder
+              — %USERPROFILE%  (includes Documents\My Games\…)
+              — %APPDATA%
+              — %LOCALAPPDATA%
+            Other sanitized paths may still be listed as plain text.
+            They are not clickable. Not opened: UNC (\\server\…),
+            URLs, C:\Windows, %PROGRAMDATA%, .., .exe/.bat, leftover
+            {{wiki}} tokens.
+
+  Examples: %USERPROFILE%\Documents\Electronic Arts\Dead Space\
+            is clickable. C:\Windows\System32 is shown only if it
+            appeared in the wiki, and cannot be clicked.
+
+
 ACCESS 12: Internet access for metadata (opt-in)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   What:     HTTPS requests to these hostnames only, and only if you

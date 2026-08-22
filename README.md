@@ -65,9 +65,24 @@ data/
 
 ## Build & Test
 
+Requirements: .NET 8 SDK.
+
 ```bash
 dotnet build
 dotnet test
+dotnet list GamingCommander.sln package --vulnerable --include-transitive
 ```
 
-Requirements: .NET 8 SDK. Live session state: [`META/SESSION/CURRENT.md`](./META/SESSION/CURRENT.md).
+The vuln check must report **no vulnerable packages** (app and tests). Test projects pin `System.Net.Http` 4.3.4 and `System.Text.RegularExpressions` 4.3.1 (`tests/Directory.Build.props`).
+
+Windows Release (from Linux or Windows):
+
+```bash
+dotnet publish src/GamingCommander.App/GamingCommander.App.csproj -c Release -r win-x64 --self-contained false -o ./publish
+```
+
+Needs the .NET 8 Desktop Runtime on the target PC. The folder includes `GamingCommander.Readme.txt`. The Windows application manifest is **embedded** in the exe (`app.manifest`); a loose `.exe.manifest` is not shipped and is not required by Microsoft.
+
+SBOM: [`docs/sbom/README.md`](./docs/sbom/README.md).
+
+Live session state: [`META/SESSION/CURRENT.md`](./META/SESSION/CURRENT.md).

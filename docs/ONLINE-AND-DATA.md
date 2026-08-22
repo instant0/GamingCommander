@@ -89,9 +89,7 @@ Shipped read: `data/blacklist.json` (also embedded in the exe).
 |------|-----|-----|
 | Steam row with `steam://rungameid/{id}` | `Process.Start` that URI | Documented Steam launch. Overlay/cloud stay with Steam. Extra PCGW flags are **not** passed. |
 | Everything else | `ExecutablePath` + `CommandLineArguments` + `ExtraLaunchArguments` | Direct exe. F4 checkboxes build extras. |
-| Click config/save in the pane | `Process.Start` the resolved Windows folder | Open Explorer. Tokens like `{{p|userprofile\Documents}}` become `%USERPROFILE%\Documents\…`. |
-
-We do not start browsers for PCGW except if you click a path that is not a folder (we refuse unresolved `{{…}}` tokens).
+| Click config/save in the pane | `explorer.exe "X:\folder"` only | Clickable **only** under the game install dir, `%USERPROFILE%`, `%APPDATA%`, or `%LOCALAPPDATA%`. Other paths may display. Not clickable: UNC, URLs, `%PROGRAMDATA%`, `%WINDIR%`, `..`, `.exe`. |
 
 ---
 

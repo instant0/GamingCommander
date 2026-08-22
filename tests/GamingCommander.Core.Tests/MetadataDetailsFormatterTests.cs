@@ -52,7 +52,7 @@ public sealed class MetadataDetailsFormatterTests
 
         string text = MetadataDetailsFormatter.CommandLineSummary(details);
         Assert.Contains("--launcher-skip", text);
-        Assert.Contains("skips the separate launcher", text);
+        Assert.DoesNotContain("skips the separate launcher", text);
         Assert.Contains("-width X", text);
     }
 
