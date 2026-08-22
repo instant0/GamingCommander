@@ -18,6 +18,9 @@ public static class GameEntryFields
     /// <summary>Command-line arguments passed to the executable on launch.</summary>
     public const string CommandLineArguments = "CommandLineArguments";
 
+    /// <summary>Constructed extras from F4 PCGW toggles / free text. Exe launch only.</summary>
+    public const string ExtraLaunchArguments = "ExtraLaunchArguments";
+
     /// <summary>Path to the launcher manifest file (e.g., Steam ACF).</summary>
     public const string ManifestPath = "ManifestPath";
 

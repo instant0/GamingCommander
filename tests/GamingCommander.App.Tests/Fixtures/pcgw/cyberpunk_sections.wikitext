@@ -1,0 +1,126 @@
+==Essential improvements==
+===Bypass REDlauncher or GOG Galaxy===
+{{++}} The game is DRM-free when bypassing the launcher/client.<ref name="dlc1"/><ref name="dlc2"/>
+{{--}} Breaks the "Rewards" DLC and cross-progression cloud sync.<ref name="dlc3">{{Refurl|url=https://www.gog.com/forum/cyberpunk_2077/psa_cyberpunk_2077_is_not_100_drmfree_so_far_the_rewards_dlc_is_drmed/page1|title=PSA: Cyberpunk 2077 is not 100% DRM-free! (So far, the 'Rewards' DLC is DRM-ed)|date=2020-12-08}}</ref>
+
+{{Fixbox|description=Start the game directly from {{file|{{P|game}}\bin\x64\Cyberpunk2077.exe}}|ref=<ref name="Keith">{{Refcheck|user=Keith|date=2024-06-21|comment=}}</ref>|fix=
+}}
+
+{{Fixbox|description=Bypass launcher with <code>--launcher-skip -skipStartScreen -modded</code> [[Glossary:Command line arguments|parameters]]|ref=<ref>{{Refcheck|user=Aemony|date=2023-09-30|comment=Verified this works on both Steam and Epic}}</ref>{{note|note=* <code>--launcher-skip</code> skips the separate launcher.
+* <code>-skipStartScreen</code> skips the "Breaching..." start screen.
+* <code>-modded</code> is required for mods dependent on REDmod to load when skipping the launcher.}}|fix=
+}}
+
+===Skip intro videos===
+{{Fixbox|description=Use the No Intro Videos mod|ref=<ref>{{Refcheck|user=Aemony|date=2023-09-30|comment=}}</ref>|fix=
+# Download the [https://www.nexusmods.com/cyberpunk2077/mods/533 latest version of the mod].
+# Unzip the contents in {{file|{{P|game}}}}.
+}}
+
+==Game data==
+===Configuration file(s) location===
+{{Game data| 
+{{Game data/config|Windows|{{P|localappdata}}\CD Projekt Red\Cyberpunk 2077}}
+{{Game data/config|OS X|{{P|osxhome}}/Library/Application Support/CD Projekt Red/Cyberpunk 2077}}
+}}
+
+===Save game data location===
+{{Game data|
+{{Game data/saves|Windows|{{p|userprofile}}\Saved Games\CD Projekt Red\Cyberpunk 2077}}
+{{Game data/saves|OS X|{{P|osxhome}}/Library/Application Support/CD Projekt Red/Cyberpunk 2077/saves}}
+}}
+{{--}} Does not respect a relocated {{file|Saved Games|folder}} folder in Windows.<ref>{{Refurl|url=https://steamcommunity.com/app/1091500/discussions/0/2988665684341294213/#c2988665684345205591|title=Steam Discussions - Cyberpunk 2077 - Steam Cloud doesn't work with CP2077|date=2020-12-15}}</ref>
+
+===[[Glossary:Save game cloud syncing|Save game cloud syncing]]===
+{{Save game cloud syncing
+|discord                   = 
+|discord notes             = 
+|epic games launcher       = true
+|epic games launcher notes = 
+|gog galaxy                = true
+|gog galaxy notes          = 
+|origin                    = 
+|origin notes              = 
+|icloud                    = 
+|icloud notes              = 
+|steam cloud               = true
+|steam cloud notes         = 
+|ubisoft connect           = 
+|ubisoft connect notes     = 
+|xbox cloud                = 
+|xbox cloud notes          = 
+}}
+{{ii}} Cross-progression cloud sync requires using either GOG Galaxy or the REDlauncher.<ref name="sync">{{Refurl|url=https://support.cdprojektred.com/en/cyberpunk/xbox/sp-technical/issue/2425/how-to-use-cross-progression-1|title=CD PROJECT RED - How to use cross progression|date=2023-09-30}}</ref><ref>{{Refurl|url=https://support.cdprojektred.com/en/cyberpunk/xbox/sp-technical/issue/2242/cross-progression-in-game-versions-with-regional-restrictions|title=CD PROJECT RED - Cross-progression in game versions with regional restrictions*|date=2023-09-30}}</ref>
+
+{{Video
+|wsgf link                  = 
+|widescreen wsgf award      = 
+|multimonitor wsgf award    = 
+|ultrawidescreen wsgf award = 
+|4k ultra hd wsgf award     = 
+|widescreen resolution      = true
+|widescreen resolution notes= 
+|multimonitor               = unknown
+|multimonitor notes         = The horizontal camera axis is constrained in dialogue. UI cropping issues.<ref>{{Refurl|url=https://forums.cdprojektred.com/index.php?threads/nvidia-surround-completely-breaks-ui.11040686/|title=Nvidia Surround Completely Breaks UI|date=2020-12-10}}</ref><ref>{{Refurl|url=https://www.reddit.com/r/widescreengamingforum/comments/ka5o3t/cyberpunk_2077_has_native_329_support/|title=Cyberpunk 2077 has native 32:9 support|date=2020-12-10}}</ref>
+|ultrawidescreen            = limited
+|ultrawidescreen notes      = {{term|Hor+}} gameplay and dialogue.<ref>{{Refcheck|user=Rose|date=2020-12-10|comment=Screenshots taken at 1920x1080, 2560x1080 and 3840x1080, then compared.}}</ref><br>UI elements may be cropped or inaccessible.<ref>{{Refurl|url=https://www.reddit.com/r/widescreengamingforum/comments/ka4ybr/cyberpunk_possible_hud_bug/|title=Cyberpunk possible HUD bug|date=2020-12-10}}</ref><ref>{{Refurl|url=https://www.reddit.com/r/ultrawidemasterrace/comments/ka4eof/cyberpunk_supports_329/gf904sk/|title=Cyberpunk supports 32:9|date=2020-12-10}}</ref><ref>{{Refurl|url=https://steamcommunity.com/app/1091500/discussions/0/2988665684325694957/|title=Ultrawide 21:9 breaks certain HUD elements making the game unplayable. |date=2020-12-10}}</ref> Sometimes, the image is cropped to 16:9. Opening the menu will fix this in some cases.<ref>{{Refcheck|user=Aaronth07|date=2020-12-15|comment=I have experienced this as well. Randomly the game will crop to 16:9, the only fix being to open a menu and then close it.}}</ref><br>Photo Mode UI is broken but can be used with the keyboard. Images always crop to 16:9 1920x1080.<ref>{{Refcheck|user=Anonymous|date=2021-01-23|comment=Photo Mode pictures are always cropped to 1920x1080 16:9 on 3840x1200 monitor as of 1.1 update.}}</ref>
+|4k ultra hd                = true
+|4k ultra hd notes          = 
+|fov                        = true
+|fov notes                  = 70-100°. Character interactions are not affected. See [[#Field of View (FOV)|Field of View (FOV)]] for more.
+|windowed                   = true
+|windowed notes             = 
+|borderless windowed        = true
+|borderless windowed notes  = 
+|anisotropic                = true
+|anisotropic notes          = Up to 16x.
+|antialiasing               = always on
+|antialiasing notes         = Forces [[TAA]] with an option to disable [[#Anti-aliasing_.28AA.29|here]]. [[DLAA]] was added in 1.62 update.<ref name=patch162>{{Refurl|url=https://www.cyberpunk.net/en/news/47875/patch-1-62-ray-tracing-overdrive-mode|title=Patch 1.62 — Ray Tracing: Overdrive Mode - Cyberpunk 2077|date=2023-04-12}}</ref> '''FSR Native AA''' was added in 2.13 update.
+|upscaling                  = true
+|upscaling tech             = DLSS 4, FSR 2.1, FSR 3, FSR 3.1, FSR 4, XeSS 1.3, XeSS 2.0
+|upscaling notes            = '''DLSS Ray Reconstruction''' was added in Update 2.0.<ref>{{Refurl|url=https://store.steampowered.com/news/app/1091500/view/3725096176275686395?l=english|title=Update 2.0|date=2023-09-22}}</ref><br />[[DLSS]] was updated to 4.0 for '''Super Resolution''', '''Ray Reconstruction''' and '''(Multi) Frame Generation''' with patch 2.21.<ref name="DLSS MFG">{{Refurl|url=https://www.cyberpunk.net/en/news/51296/patch-2-21|title=Patch 2.21|date=2025-01-27}}</ref> [[FSR]] 2.1 remains as a separate setting.<ref>{{Refurl|url=https://support.cdprojektred.com/en/cyberpunk/pc/sp-technical/issue/2728/amd-fidelityfx-super-resolution-3|title=AMD FidelityFX Super Resolution 3 — Cyberpunk 2077|date=2024-09-13}}</ref> <br> [[FSR]] 3.1, [[FSR]] 4 and [[XeSS]] 2.0 were added in 2.3 update.<ref name="update2-3"></ref> <br> All options have sharpness and dynamic resolution sliders.<br><br>Use [https://www.nexusmods.com/site/mods/986 OptiScaler] to force newer versions of DLSS, FSR and XeSS to fix ghosting and image reconstruction issues.
+|framegen                   = true
+|framegen tech              = DLSS FG, DLSS MFG, fsr fg, xess fg
+|framegen notes             = '''DLSS Frame Generation''' was added on January 31, 2023<ref>{{Refurl|url=https://twitter.com/CyberpunkGame/status/1620394369567318022|title=DLSS 3 FG Update|date=2023-01-31}}</ref>, while '''DLSS Multi-Frame Generation''' was added with Patch 2.21<ref name="DLSS MFG"/>.<br />'''FSR Frame Generation''' and [[XeSS]] 1.3 were added in 2.13 update.<ref>{{Refurl|url=https://www.cyberpunk.net/en/news/50818/patch-2-13|title=Patch 2.13|date=2024-09-13}}</ref><ref>{{Refurl|url=https://www.cyberpunk.net/en/news/46420/patch-1-61-list-of-changes|title=PATCH 1.61 — LIST OF CHANGES|date=2022-11-08}}</ref><br />'''XeSS Frame Generation''' were added in 2.3 update.<ref name="update2-3"/>
+|vsync                      = true
+|vsync notes                = Forced on Windows 7,{{cn|date=2023-01-31|reason=}} use [https://github.com/yamashi/CyberEngineTweaks Cyber Engine Tweaks] to disable.
+|60 fps                     = true
+|60 fps notes               = 
+|120 fps                    = true
+|120 fps notes              = Up to 240 FPS. See [[#High frame rate|High frame rate]] for more.
+|hdr                        = limited
+|hdr notes                  = Has options for scRGB or PQ HDR10,<ref>{{Refurl|url=https://discourse.differentk.fyi/t/topic-free-mega-thread-v-1-11-2020/79/3746|title=Topic-Free Mega Thread - v 1.11.2020 - General - Special K Discussion|date=May 2023}}</ref> as well as setting for peak brightness, paper white, and tone-mapping midpoint (exposure). Current implementation suffers from clipping past set peak nits, raised blacks, and oversaturation from image stretching. See the [[Glossary:High_dynamic_range_(HDR)#Enable_HDR_output_in_unsupported_games|HDR glossary page]] for solutions providing better results.<p>
+With version 2.1, support for HDR10+ was added<ref name=patch210>{{Refurl|url=https://www.cyberpunk.net/en/news/49690/update-2-1|title=Patch 2.1 Update||date=2023-13-12}}</ref>. A new slider with lable "HDR10 PQ Saturation" is displayed in the HDR menu. (HDR10+ is often support on TV, less on PC monitors). For proper HDR setup in Cyperpunk use this [https://youtu.be/CpOMB5pEWVc?si=DJKogDtvDN02QcH3&t=241 guide video]
+|ray tracing                = true
+|ray tracing notes          = Directional/local shadows, reflections, diffuse illumination, ambient occlusion and a single-bounce global illumination pass.<br>Nvidia RTX hardware supported at release. AMD RDNA2+ support added in patch 1.2.<ref>{{Refurl|url=https://www.cyberpunk.net/en/news/37801/patch-1-2-list-of-changes|title=Cyberpunk 2077 - Patch 1.2 -- list of changes|date=2021-03-31|snippet=Enabled Ray Tracing on AMD graphics cards. Latest GPU drivers are required.}}</ref><br>Path Tracing: Technology Preview mode was added in 1.62 update.<ref name=patch162/> Technology was moved out of Preview mode in 2.1 update.<ref name=patch210/>
+|color blind                = true
+|color blind notes          = Protanopia, deuteranopia and tritanopia options available.
+}}
+
+===[[Glossary:Command line arguments|Command line arguments]]===
+{{Standard table|collapsed=no|Command|Notes|content=
+{{Standard table/row|-width X|Sets game resolution width to X.}}
+{{Standard table/row|-height Y|Sets game resolution height to Y.}}
+{{Standard table/row|-fullscreen|Launches the game in exclusive fullscreen mode.}}
+{{Standard table/row|-borderless|Launches the game in borderless fullscreen mode.}}
+{{Standard table/row|-windowed|Launches the game in windowed mode.}}
+{{Standard table/row|-x X|Sets game window X position to X.}}
+{{Standard table/row|-y Y|Sets game window Y position to Y.}}
+{{Standard table/row|-monitor N|Sets display monitor number to N.}}
+{{Standard table/row|-fpsClamp N|Sets maximum FPS limit to N.}}
+{{Standard table/row|-noHUD|Prevents in-game HUD from being drawn.}}
+{{Standard table/row|-skipStartScreen|Skips the 'Press {{key|space}} to continue' & 'Breaching...' screens, splash screens will still be shown.}}
+{{Standard table/row|-d3d12|Force usage of Direct3D12.}}
+{{Standard table/row|-gpuFlag FLAG|Allows forcing certain GPU features to be enabled/disabled, FLAG can be one of <code>forceAsync/noAsync/forceAftermath/noAftermath/forceRayTracing</code>.}}
+{{Standard table/row|-qualityLevel|Set to <code>ConsolePro</code> to match Xbox One X quality settings.<ref>{{Refurl|url=https://www.youtube.com/watch?v=yHxqDFzVPW8&t=10m38s|title=Cyberpunk 2077 PC Tested On Xbox One CPU... And It Works! - YouTube|date=2025-07-06}}</ref>}}
+{{Standard table/row|-benchmark|Automatically runs the built-in benchmark and exits on completion.<ref>{{Refcheck|user=Shmerl|date=2024-08-26|comment=}}</ref>}}
+}}
+{{ii}} More arguments can be found here: [https://pastebin.com/jmGpVNWe], though most listed there are unstable or may not have any effect in the retail game.
+
+==Availability==
+{{Availability|
+{{Availability/row| Steam | 1091500 }}
+{{Availability/row| GOG.com | cyberpunk_2077 }}
+{{Availability/row| Epic Games Store | silver }}
+}}
+{{Infobox game/row/store|Steam|1091500}}

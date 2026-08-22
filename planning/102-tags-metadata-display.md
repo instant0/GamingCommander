@@ -1,6 +1,6 @@
 # Plan 102 — Tags, Metadata, and Display System
 
-**Status:** Phase 1 ✅ COMPLETE, Phase 4 ✅ COMPLETE — Phase 2 and 3 pending  
+**Status:** Phase 1 ✅ COMPLETE, Phase 2 ✅ COMPLETE (engine detection), Phase 4 ✅ COMPLETE — Phase 3 (PCGW/online) pending  
 **Audience:** Planner / Builder  
 **Priority:** P2 (post-MVP)  
 **Effort:** ~6–10 sessions across 4 phases  

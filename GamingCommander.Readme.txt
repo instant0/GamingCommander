@@ -1,7 +1,9 @@
 GamingCommander — Application Guide
 ====================================
 
-Version: 0.3.x (MVP)
+Version: 0.4.x
+© 2026 ins
+https://github.com/instant0/GamingCommander
 License: CC BY-NC 4.0 (see below)
 
 
@@ -174,14 +176,16 @@ ACCESS 9: Read game configuration files
 ACCESS 10: Write to application data folder
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   What:     Write files to GamingCommander's own data/ directory.
-  Why:      To save your settings, game database, and diagnostic logs.
+  Why:      To save your settings, game database, extras cache, and logs.
             This is the ONLY folder GamingCommander writes to.
   Scope:    Only the data/ folder inside GamingCommander's installation
             directory. No other folders are written to.
-  Files:    settings.json    — Your preferences and library roots
-            games.json       — Discovered games database
-            startup.log      — Diagnostic log (can be disabled)
-            blacklist.json   — Noise filter patterns (shipped with app)
+  Files:    settings.json         — Preferences and library roots
+            games.json            — Discovered games (launch data)
+            games_metadata.json   — Online extras cache (if lookup on)
+            startup.log           — Diagnostic log (can be disabled)
+            blacklist.json        — Noise filter (shipped; may restore)
+            tag_colors.json       — Tag colours
 
 
 ACCESS 11: Launch games
@@ -196,17 +200,56 @@ ACCESS 11: Launch games
             via Steam, or running "D:\Games\Witcher3\witcher3.exe".
 
 
-ACCESS 12 (FUTURE): Internet access for metadata
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  What:     Connect to PCGamingWiki, Epic Games Store, and Steam Store
-            APIs to fetch game metadata (developer, publisher, engine,
-            cover art, ratings).
-  Why:      To enrich your game library with information from the web.
-            This is opt-in and controlled by the "Enable Online
-            Metadata" setting.
-  Scope:    Only fetches data for games in your library. No personal
-            data is sent. Results are cached locally.
-  Status:   NOT YET IMPLEMENTED — planned for a future version.
+ACCESS 12: Internet access for metadata (opt-in)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  What:     HTTPS requests to these hostnames only, and only if you
+            turn on "Enable online metadata" in F2. If that box is
+            off, GamingCommander makes no network requests at all.
+
+              www.pcgamingwiki.com
+              store.steampowered.com
+
+            Nothing else is contacted (not steamdb.info, not
+            store.epicgames.com, not api.igdb.com).
+
+            1. Once at startup — only if the F2 box is already on:
+               HEAD www.pcgamingwiki.com/favicon.ico
+               (headers only, no page body). Any reply means Online.
+               No reply (timeout / DNS) means Offline for that session.
+               If the box is off, this request is not sent.
+               We do not ping steamdb.info.
+
+            2. Per game (F5 queue, F4, or launch if cache is older
+               than 30 days — not when you only highlight a row):
+
+               GET www.pcgamingwiki.com/api/appid.php?appid={Steam AppID}
+                   (only if we already have an AppID)
+               GET www.pcgamingwiki.com/w/api.php?action=opensearch
+                   &search={game display name}
+                   (only if we do not have an AppID)
+               GET www.pcgamingwiki.com/w/api.php?action=parse
+                   &prop=wikitext&page={wiki title}
+
+               GET store.steampowered.com/api/appdetails?appids={AppID}
+                   (only if we have a Steam AppID from the install or
+                   from the wiki page)
+
+  Why:      To show extra facts in the details pane (developer, engine,
+            save/config folder paths, known launch flags, Metacritic
+            score). This does not change how a Steam game launches.
+
+  Scope:    Only games in your library. The only data sent is a Steam
+            AppID number and/or the game's display name. No personal
+            data, no file contents, no folder paths, no account tokens.
+            Replies are stored only in data/games_metadata.json.
+            Highlighting a game does not go online.
+
+  Examples: After a rescan with lookup on, GET appdetails?appids=17470
+            for Dead Space; GET the PCGW parse page "Dead Space" for
+            save path and command-line flags.
+
+  Note:     More engineer-level detail is in docs/ONLINE-AND-DATA.md.
+            You do not need that file to know what is contacted.
 
 
 What files does GamingCommander generate?
@@ -221,6 +264,11 @@ What files does GamingCommander generate?
     The game database. Contains all discovered games with their names,
     types, executable paths, tags, and platform metadata. Updated when
     you scan your libraries or edit games via F4.
+
+  data/games_metadata.json
+    Online extras only (developer, engine, wiki URL, paths, argument
+    catalog, video caps, scores). Created when online lookup succeeds.
+    Not merged into games.json.
 
   data/blacklist.json
     Reference file shipped with the application. Contains patterns for
@@ -243,7 +291,9 @@ What does GamingCommander NOT do?
   — It does NOT modify, move, or delete your game files.
   — It does NOT access your personal documents, photos, or other files.
   — It does NOT scan your entire hard drive — only folders you add.
-  — It does NOT send data to the internet (currently offline-only).
+  — It does NOT send data to the internet unless you enable online
+    metadata (then only AppID / game name to PCGW and Steam Store).
+  — It does NOT contact SteamDB, Epic GraphQL, or IGDB.
   — It does NOT install any background services or drivers.
   — It does NOT require administrator privileges to run.
   — It does NOT modify the Windows registry (read-only access only).
@@ -252,6 +302,9 @@ What does GamingCommander NOT do?
 
 License
 -------
+
+© 2026 ins
+Project: https://github.com/instant0/GamingCommander
 
 GamingCommander is licensed under the Creative Commons Attribution-
 NonCommercial 4.0 International License (CC BY-NC 4.0).
@@ -269,6 +322,9 @@ NonCommercial 4.0 International License (CC BY-NC 4.0).
 
 Dependencies
 ~~~~~~~~~~~~
+
+A CycloneDX 1.6 Software Bill of Materials (all NuGet packages and
+versions in the shipped app) is in docs/sbom/GamingCommander.cdx.json.
 
 GamingCommander uses the following open-source libraries:
 
@@ -296,14 +352,11 @@ and the MIT copyright notices for Avalonia/.NET in any distribution.
 Third-party data
 ~~~~~~~~~~~~~~~~
 
-Game metadata (names, developers, publishers, ratings) may be fetched
-from:
-  — PCGamingWiki (https://pcgamingwiki.com) — CC BY-NC-SA 4.0
-  — Steam Store API (https://store.steampowered.com) — Valve API Terms
-  — Epic Games Store API (https://store.epicgames.com) — Epic Terms
+If online metadata is enabled, extras may be fetched from:
+  — PCGamingWiki (https://www.pcgamingwiki.com) — wiki terms / CC BY-NC-SA
+  — Steam Store appdetails (https://store.steampowered.com) — Valve terms
 
-These services have their own terms of use. Metadata fetched from them
-is cached locally and attributed in the application where applicable.
+See docs/ONLINE-AND-DATA.md. Epic GraphQL is not used.
 
 
 Contact

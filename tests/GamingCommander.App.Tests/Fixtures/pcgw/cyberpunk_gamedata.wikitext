@@ -1,0 +1,34 @@
+==Game data==
+===Configuration file(s) location===
+{{Game data| 
+{{Game data/config|Windows|{{P|localappdata}}\CD Projekt Red\Cyberpunk 2077}}
+{{Game data/config|OS X|{{P|osxhome}}/Library/Application Support/CD Projekt Red/Cyberpunk 2077}}
+}}
+
+===Save game data location===
+{{Game data|
+{{Game data/saves|Windows|{{p|userprofile}}\Saved Games\CD Projekt Red\Cyberpunk 2077}}
+{{Game data/saves|OS X|{{P|osxhome}}/Library/Application Support/CD Projekt Red/Cyberpunk 2077/saves}}
+}}
+{{--}} Does not respect a relocated {{file|Saved Games|folder}} folder in Windows.<ref>{{Refurl|url=https://steamcommunity.com/app/1091500/discussions/0/2988665684341294213/#c2988665684345205591|title=Steam Discussions - Cyberpunk 2077 - Steam Cloud doesn't work with CP2077|date=2020-12-15}}</ref>
+
+===[[Glossary:Save game cloud syncing|Save game cloud syncing]]===
+{{Save game cloud syncing
+|discord                   = 
+|discord notes             = 
+|epic games launcher       = true
+|epic games launcher notes = 
+|gog galaxy                = true
+|gog galaxy notes          = 
+|origin                    = 
+|origin notes              = 
+|icloud                    = 
+|icloud notes              = 
+|steam cloud               = true
+|steam cloud notes         = 
+|ubisoft connect           = 
+|ubisoft connect notes     = 
+|xbox cloud                = 
+|xbox cloud notes          = 
+}}
+{{ii}} Cross-progression cloud sync requires using either GOG Galaxy or the REDlauncher.<ref name="sync">{{Refurl|url=https://support.cdprojektred.com/en/cyberpunk/xbox/sp-technical/issue/2425/how-to-use-cross-progression-1|title=CD PROJECT RED - How to use cross progression|date=2023-09-30}}</ref><ref>{{Refurl|url=https://support.cdprojektred.com/en/cyberpunk/xbox/sp-technical/issue/2242/cross-progression-in-game-versions-with-regional-restrictions|title=CD PROJECT RED - Cross-progression in game versions with regional restrictions*|date=2023-09-30}}</ref>

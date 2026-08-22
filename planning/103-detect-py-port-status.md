@@ -1,6 +1,6 @@
 # detect.py Port Status — C# Parity Analysis
 
-**Status:** REVIEWED — 2026-07-26  
+**Status:** REVIEWED 2026-07-26; high-priority gaps closed 2026-08-22 (blizzard skip already Plan 114/116; GOG `gog_*`/`gog.ico`; Ubisoft loader pattern; crack + roman scoring; engine detection → Plan 102 Phase 2)  
 **Reference:** `tools/detect.py` (1829 LOC)  
 **C# Scanner Files:** `FolderScanner.cs`, `StoreSignalDetector.cs`, `ExecutableDiscovery.cs`, `FallbackSignalDetector.cs`, `ContainerScanner.cs`, `GogInfoParser.cs`, `LnkParser.cs`
 

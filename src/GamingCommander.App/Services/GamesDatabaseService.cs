@@ -52,8 +52,10 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
                             g.LastScanned,
                             g.LastModified,
                             g.Extra ?? [],
-                            g.Tags ?? [],
-                            g.UserOverrides ?? []))
+                             g.Tags ?? [],
+                             g.UserOverrides ?? [],
+                             g.GameEngine,
+                             g.ExtraLaunchArguments ?? ""))
                         .ToList() ?? []))
                 .ToList() ?? []);
         return _cachedDb;
@@ -87,6 +89,8 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
                     Extra = g.PlatformMetadata,
                     Tags = g.Tags,
                     UserOverrides = g.UserOverrides,
+                    GameEngine = g.GameEngine,
+                    ExtraLaunchArguments = g.ExtraLaunchArguments,
                 }).ToList(),
             }).ToList(),
         };
@@ -212,6 +216,7 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
             GameSource = gameSource,
             IsSourceOverridden = existing.IsSourceOverridden,
             CommandLineArguments = commandLineArgs,
+            ExtraLaunchArguments = existing.ExtraLaunchArguments,
             LauncherPath = launcherPath,
             ManifestPath = manifestPath,
             Tags = existing.Tags.Count > 0 ? existing.Tags : scanned.Tags,
@@ -296,5 +301,7 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
         public Dictionary<string, string> Extra { get; set; } = [];
         public List<string>? Tags { get; set; }
         public Dictionary<string, string>? UserOverrides { get; set; }
+        public GameEngineKind GameEngine { get; set; }
+        public string ExtraLaunchArguments { get; set; } = string.Empty;
     }
 }

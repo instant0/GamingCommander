@@ -44,11 +44,18 @@ GamingCommander.sln
 | Model | Kind | Key Fields |
 |-------|------|------------|
 | `GameSourceKind` | enum | `Unknown=0, Standalone=1, Steam=2, Gog=3, Epic=4, EaApp=5, UbisoftConnect=6, BattleNet=7, Xbox=8, Rockstar=9, SteamEmu=10` |
+| `GameEngineKind` | enum | `Unknown=0, UnrealEngine=1, Unity=2, Rage=3, Frostbite=4, Source=5, Godot=6, CryEngine=7` |
+| `GameMetadataRecord` | record | Sidecar extras + optional `Details` catalog. Not part of `GameEntry`. |
+| `GameMetadataDetails` | record | PCGW paths, cmdline catalog, fixes, video, cloud. |
+| `LaunchArgumentComposer` | static | Toggle/combine extras; Steam URI does not eat flags. |
+| `GameLaunchResolver` | static | GameEntry → process target + args. |
+| `MetadataSource` | enum | `Unknown, Steam, Pcgw, EpicLocal` |
+| `IMetadataStore` | interface | Get/Upsert sidecar by game id. Must not touch `games.json`. |
 | `FileSystemEntryKind` | enum | `Directory=0, File=1, ParentDirectory=2` |
 | `MigrationMode` | enum | `MoveOnly=0, MoveAndLink=1 (deprecated), ManifestRepairOnly=2` |
 | `TagType` | enum | `User=0, Store=1, Engine=2` |
 | `GameRecord` | record (implements IGame) | Id, Title, Source, InstallPath, LaunchTarget, ExecutablePath, LastModified, SupportsPointerInteraction, SupportsKeyboardOnlyFlow |
-| `GameEntry` | record | Id, FolderName, DisplayName, GameSource, Override, ExecutablePath, LauncherPath, CmdlineArgs, ManifestPath, LastScanned, LastModified, Extra, Tags |
+| `GameEntry` | record | Id, FolderName, DisplayName, GameSource, Override, ExecutablePath, LauncherPath, CmdlineArgs, ManifestPath, LastScanned, LastModified, Extra, Tags, GameEngine |
 | `GameRoot` | record | RootPath, DefaultType, Games (List\<GameEntry\>) |
 | `GamesDatabase` | record | Roots (List\<GameRoot\>) |
 | `AppConfig` | record | LibraryRoots, FolderOverrides, HiddenFolders, IsFirstRun, LastSeenVersion, EnableOnlineMetadata |
@@ -104,6 +111,20 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 | Service | File | Purpose |
 |---------|------|---------|
 | `LibraryManager` | `LibraryManager.cs` | Routes scanning to appropriate scanner, manages roots, delegates to IGamesDatabaseService |
+| `MetadataStore` | `Metadata/MetadataStore.cs` | Plan 119 sidecar `data/games_metadata.json` |
+| `MetadataService` | `Metadata/MetadataService.cs` | Steam then PCGW; `EnableOnlineMetadata`; 30-day cache |
+| `SteamStoreLookup` | `Metadata/SteamStoreLookup.cs` | Raw `appdetails` GET (injectable HttpClient) |
+| `SteamStoreParser` | `Metadata/SteamStoreParser.cs` | Envelope → `SteamStoreFacts` |
+| `PcgwLookup` | `Metadata/PcgwLookup.cs` | appid.php / OpenSearch / Parse — **not Cargo** |
+| `PcgwInfoboxParser` | `Metadata/PcgwInfoboxParser.cs` | HTML title, OpenSearch, Infobox wikitext |
+| `PcgwSectionParser` | `Metadata/PcgwSectionParser.cs` | Plan 120: paths, cmdline, Fixbox, Video, cloud |
+| `PcgwLookup.LookupAsync` | `Metadata/PcgwLookup.cs` | Infobox + sections from one Parse payload |
+| `MetadataLookupQueue` | `Metadata/MetadataLookupQueue.cs` | F5 enqueues; one game at a time; sidecar only |
+| `PcgwPathTokens` | Core `PcgwPathTokens.cs` | `{{P|…}}` → Windows env tokens (display only) |
+| `PcgwTitleFilter` | Core | Reject soundtrack/demo/artbook OpenSearch hits |
+| `MetadataDetailsFormatter` | Core | Right-pane path/arg/video strings |
+| `CommonMetadataParser` | `Metadata/CommonMetadataParser.cs` | Source facts → `GameMetadataRecord` |
+| `EngineDetector` | `EngineDetector.cs` | Local engine probe (Unreal / Unity / RAGE / Frostbite) — Plan 102 Phase 2 |
 | `FolderScanner` | `FolderScanner.cs` | Generic folder scanner: detection chain, exe noise filtering, container detection, nested Steam exclusion (`IsNestedSteamTree`) |
 | `StoreSignalDetector` | `StoreSignalDetector.cs` | DetectType + 10 store/platform signal checks (GOG, EA, Ubisoft, Epic, Blizzard, Xbox, Rockstar, Steam) |
 | `ExecutableDiscovery` | `ExecutableDiscovery.cs` | Deep exe search, primary exe selection, launcher detection, Epic manifest discovery |
@@ -198,6 +219,8 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 | `generate_mock_registry.py` | Generate mock .reg files for 5 launchers | ✅ Exists |
 | `parse_registry.py` | Parse .reg files, extract launcher paths | ✅ Exists |
 | `lookup_metadata.py` | Multi-source metadata lookup (store ID → PCGW Cargo/Parse → PE scan) | ✅ Exists |
+| `probe_steam_store.py` | Live Steam Store `appdetails` probe (Plan 102 pri 1). Public AppIDs only | ✅ Exists |
+| `probe_pcgw.py` | Live PCGW probe: Cargo denied; OpenSearch + Parse work | ✅ Exists |
 
 ---
 

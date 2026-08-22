@@ -313,6 +313,36 @@ public sealed class ExecutableScoringTests : IDisposable
             $"Tier 1 noise should have negative score, got {noiseResult.Score}");
     }
 
+    [Fact]
+    public void ScoreExecutable_CrackInName_Penalizes()
+    {
+        string crack = CreateTempExe("MyGame_crack.exe");
+        string game = CreateTempExe("MyGame.exe");
+
+        int crackScore = ExecutableDiscovery.ScoreExecutable(
+            crack, "MyGame", [], [], _ => 999).Score;
+        int gameScore = ExecutableDiscovery.ScoreExecutable(
+            game, "MyGame", [], [], _ => 999).Score;
+
+        Assert.True(gameScore > crackScore,
+            $"Game ({gameScore}) should score higher than crack ({crackScore})");
+    }
+
+    [Fact]
+    public void ScoreExecutable_RomanNumeralMatch_AddsBonus()
+    {
+        string roman = CreateTempExe("heroesiv.exe");
+        string plain = CreateTempExe("other.exe");
+
+        int romanScore = ExecutableDiscovery.ScoreExecutable(
+            roman, "Heroes 4", [], [], _ => 999).Score;
+        int plainScore = ExecutableDiscovery.ScoreExecutable(
+            plain, "Heroes 4", [], [], _ => 999).Score;
+
+        Assert.True(romanScore > plainScore,
+            $"Roman match ({romanScore}) should beat unrelated ({plainScore})");
+    }
+
     // ── Helpers ───────────────────────────────────────────────
 
     private string CreateTempExe(string fileName)

@@ -421,6 +421,12 @@ public sealed class FolderScanner
             }
         }
 
+        GameEngineKind engine = EngineDetector.Detect(subDir.FullName);
+        var tags = new List<string>();
+        string engineTag = EngineDetector.ToTag(engine);
+        if (engineTag.Length > 0)
+            tags.Add(engineTag);
+
         entries.Add(new GameEntry(
             Id: id,
             FolderName: subDir.Name,
@@ -434,8 +440,9 @@ public sealed class FolderScanner
             LastScanned: DateTimeOffset.UtcNow,
             LastModified: FileSystemHelper.GetLastWriteTimeSafe(subDir),
             PlatformMetadata: platformMetadata,
-            Tags: [],
-            UserOverrides: []));
+            Tags: tags,
+            UserOverrides: [],
+            GameEngine: engine));
     }
 
 }

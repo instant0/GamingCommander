@@ -16,6 +16,11 @@ public partial class GameSetupWindow : Window
     private readonly IConfigService _configService;
     private readonly IGamesDatabaseService _dbService;
     private readonly string _gameFolderPath;
+    private readonly IReadOnlyList<GameMetadataCommandLine> _catalog;
+    private readonly List<CheckBox> _catalogChecks = [];
+    private TextBox? _extrasBox;
+    private TextBlock? _previewText;
+    private bool _syncingExtras;
 
     /// <summary>The editable display name of the game.</summary>
     public string DisplayName { get; set; }
@@ -25,8 +30,10 @@ public partial class GameSetupWindow : Window
     public string ExecutablePath { get; set; }
     /// <summary>The full path to the game's launcher executable (if any).</summary>
     public string LauncherPath { get; set; }
-    /// <summary>Command-line arguments passed to the game on launch.</summary>
+    /// <summary>Command-line arguments passed to the game on launch (Steam URI or legacy extras).</summary>
     public string CommandLineArguments { get; set; }
+    /// <summary>Constructed extras from PCGW toggles / free text. Applied on exe launch only.</summary>
+    public string ExtraLaunchArguments { get; set; }
     /// <summary>The path to the game's store manifest file (Epic .item, etc.).</summary>
     public string ManifestPath { get; set; }
     /// <summary>User-defined tags (comma-separated input).</summary>
@@ -39,7 +46,8 @@ public partial class GameSetupWindow : Window
         GameEntry game,
         string rootPath,
         IConfigService configService,
-        IGamesDatabaseService dbService)
+        IGamesDatabaseService dbService,
+        IReadOnlyList<GameMetadataCommandLine>? catalog = null)
     {
         InitializeComponent();
 
@@ -58,6 +66,8 @@ public partial class GameSetupWindow : Window
         ExecutablePath = game.ExecutablePath;
         LauncherPath = game.LauncherPath;
         CommandLineArguments = game.CommandLineArguments;
+        ExtraLaunchArguments = game.ExtraLaunchArguments;
+        _catalog = catalog ?? [];
         ManifestPath = game.ManifestPath;
         _currentTags = new List<string>(game.Tags);
         TagsInput = TagNormalizer.ToCommaSeparated(_currentTags);
@@ -77,6 +87,9 @@ public partial class GameSetupWindow : Window
         panel.Children.Add(MakeComboRow("Game Type", GameSourceParser.SourceDisplayNames, SelectedType, 1));
         panel.Children.Add(MakeFieldRow("Executable Path", ExecutablePath, 2, false, true, "Browse..."));
         panel.Children.Add(MakeFieldRow("Launch Args", CommandLineArguments, 3, false, false, ""));
+        panel.Children.Add(MakeCatalogSection());
+        panel.Children.Add(MakeExtrasRow());
+        panel.Children.Add(MakePreviewRow());
         panel.Children.Add(MakeFieldRow("Launcher Path", LauncherPath, 4, false, true, "Browse..."));
 
         // Only show Epic Manifest field for Epic games (BUG-7)
@@ -242,6 +255,144 @@ public partial class GameSetupWindow : Window
         return panel;
     }
 
+    private StackPanel MakeCatalogSection()
+    {
+        var panel = new StackPanel { Spacing = 4 };
+        panel.Children.Add(new TextBlock
+        {
+            Text = "PCGW launch options",
+            Foreground = AppTheme.TextMuted,
+            FontSize = AppTheme.FontSizeLabel,
+        });
+
+        if (_catalog.Count == 0)
+        {
+            panel.Children.Add(new TextBlock
+            {
+                Text = "No cached PCGW arguments. Enable online metadata and select the game once.",
+                Foreground = AppTheme.TextDimmed,
+                FontSize = AppTheme.FontSizeLabel,
+                TextWrapping = TextWrapping.Wrap,
+            });
+            return panel;
+        }
+
+        _catalogChecks.Clear();
+        foreach (GameMetadataCommandLine row in _catalog)
+        {
+            if (row.NeedsValue || row.Argument.Contains(' '))
+            {
+                panel.Children.Add(new TextBlock
+                {
+                    Text = $"{row.Argument}  — needs value, type in extras. {row.Notes}",
+                    Foreground = AppTheme.TextDimmed,
+                    FontSize = AppTheme.FontSizeLabel,
+                    TextWrapping = TextWrapping.Wrap,
+                    Margin = new Thickness(18, 0, 0, 0),
+                });
+                continue;
+            }
+
+            var check = new CheckBox
+            {
+                Content = $"{row.Argument}   {row.Notes}",
+                IsChecked = LaunchArgumentComposer.ContainsToken(ExtraLaunchArguments, row.Argument),
+                Foreground = AppTheme.TextPrimary,
+                Tag = row.Argument,
+            };
+            string argument = row.Argument;
+            check.IsCheckedChanged += (_, _) =>
+            {
+                if (_syncingExtras)
+                    return;
+                ExtraLaunchArguments = LaunchArgumentComposer.Toggle(
+                    ExtraLaunchArguments, argument, check.IsChecked == true);
+                if (_extrasBox is not null && _extrasBox.Text != ExtraLaunchArguments)
+                    _extrasBox.Text = ExtraLaunchArguments;
+                UpdatePreview();
+            };
+            _catalogChecks.Add(check);
+            panel.Children.Add(check);
+        }
+
+        return panel;
+    }
+
+    private StackPanel MakeExtrasRow()
+    {
+        var panel = new StackPanel { Spacing = 4 };
+        panel.Children.Add(new TextBlock
+        {
+            Text = "Launch extras",
+            Foreground = AppTheme.TextMuted,
+            FontSize = AppTheme.FontSizeLabel,
+        });
+
+        _extrasBox = new TextBox
+        {
+            Text = ExtraLaunchArguments,
+            Background = AppTheme.PaneBg,
+            Foreground = AppTheme.TextPrimary,
+            Watermark = "--launcher-skip -windowed",
+        };
+        _extrasBox.TextChanged += (_, _) =>
+        {
+            ExtraLaunchArguments = _extrasBox.Text ?? "";
+            SyncCatalogChecks();
+            UpdatePreview();
+        };
+        panel.Children.Add(_extrasBox);
+        return panel;
+    }
+
+    private StackPanel MakePreviewRow()
+    {
+        var panel = new StackPanel { Spacing = 4 };
+        _previewText = new TextBlock
+        {
+            Foreground = AppTheme.TextAccent,
+            FontSize = AppTheme.FontSizeLabel,
+            TextWrapping = TextWrapping.Wrap,
+        };
+        panel.Children.Add(_previewText);
+        UpdatePreview();
+        return panel;
+    }
+
+    private void SyncCatalogChecks()
+    {
+        _syncingExtras = true;
+        try
+        {
+            foreach (CheckBox check in _catalogChecks)
+            {
+                string argument = check.Tag as string ?? "";
+                check.IsChecked = LaunchArgumentComposer.ContainsToken(ExtraLaunchArguments, argument);
+            }
+        }
+        finally
+        {
+            _syncingExtras = false;
+        }
+    }
+
+    private void UpdatePreview()
+    {
+        if (_previewText is null)
+            return;
+
+        var draft = _originalGame with
+        {
+            CommandLineArguments = CommandLineArguments,
+            ExtraLaunchArguments = ExtraLaunchArguments,
+            ExecutablePath = ExecutablePath,
+        };
+        (string target, string args) = GameLaunchResolver.Resolve(draft);
+        _previewText.Text = string.IsNullOrEmpty(args)
+            ? $"Will start: {target}"
+            : $"Will start: {target} {args}";
+    }
+
     /// <summary>
     /// Saves the edited game entry to the database and closes the dialog.
     /// </summary>
@@ -285,6 +436,9 @@ public partial class GameSetupWindow : Window
             userOverrides[GameEntryFields.CommandLineArguments] = now;
         }
 
+        if (!_originalGame.ExtraLaunchArguments.Equals(ExtraLaunchArguments, StringComparison.Ordinal))
+            userOverrides[GameEntryFields.ExtraLaunchArguments] = now;
+
         // Check if manifest path changed
         if (!_originalGame.ManifestPath.Equals(ManifestPath, StringComparison.Ordinal))
         {
@@ -311,6 +465,7 @@ public partial class GameSetupWindow : Window
             ExecutablePath = ExecutablePath,
             LauncherPath = LauncherPath,
             CommandLineArguments = CommandLineArguments,
+            ExtraLaunchArguments = ExtraLaunchArguments,
             ManifestPath = ManifestPath,
             Tags = newTags,
             UserOverrides = userOverrides,

@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using GamingCommander.App.Services;
+using GamingCommander.App.Services.Metadata;
 using GamingCommander.Core.Models;
 using GamingCommander.Core.Services;
 using GamingCommander.Migration;
@@ -117,11 +118,23 @@ public partial class App : Application
                 Log("Creating ShellViewModel...");
                 string tagColorsPath = Path.Combine(AppContext.BaseDirectory, "data", "tag_colors.json");
                 var tagColorService = new TagColorService(tagColorsPath);
-                var shellVm = new ShellViewModel(libraryManager, configService, tagColorService);
+                var metadataStore = new MetadataStore(GetMetadataDbPath());
+                var steamLookup = new SteamStoreLookup();
+                var pcgwLookup = new PcgwLookup();
+                var onlineGate = new MetadataOnlineGate(configService);
+                if (config.EnableOnlineMetadata)
+                    onlineGate.SetChecking();
+                else
+                    onlineGate.SetDisabled();
+                steamLookup.Online = onlineGate;
+                pcgwLookup.Online = onlineGate;
+                var metadataService = new MetadataService(metadataStore, configService, steamLookup, pcgwLookup, onlineGate);
+                var shellVm = new ShellViewModel(libraryManager, configService, tagColorService, metadataStore);
+                shellVm.LookupStatusText = onlineGate.StatusLabel;
                 Log("  ShellViewModel created");
 
                 Log("Creating MainWindow...");
-                var mainWindow = new MainWindow(shellVm, dbService);
+                var mainWindow = new MainWindow(shellVm, dbService, metadataService, onlineGate);
                 Log("  MainWindow created");
 
                 desktop.MainWindow = mainWindow;
@@ -206,6 +219,15 @@ public partial class App : Application
         if (!Directory.Exists(dataDir))
             Directory.CreateDirectory(dataDir);
         return Path.Combine(dataDir, "games.json");
+    }
+
+    private static string GetMetadataDbPath()
+    {
+        string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+        string dataDir = Path.Combine(baseDir, "data");
+        if (!Directory.Exists(dataDir))
+            Directory.CreateDirectory(dataDir);
+        return Path.Combine(dataDir, "games_metadata.json");
     }
 
     /// <summary>Returns -1 if leftVersion &lt; rightVersion, 0 if equal, 1 if leftVersion &gt; rightVersion.</summary>

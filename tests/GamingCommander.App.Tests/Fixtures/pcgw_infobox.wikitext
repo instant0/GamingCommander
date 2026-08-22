@@ -1,0 +1,11 @@
+{{Infobox game
+|cover        = Cyberpunk 2077 cover.png
+|developers   =
+{{Infobox game/row/developer|CD Projekt Red}}
+{{Infobox game/row/developer|Virtuos|2.2 Update}}
+|publishers   =
+{{Infobox game/row/publisher|CD Projekt}}
+{{Infobox game/row/date|Windows|December 10, 2020}}
+{{Infobox game/row/engine|REDengine 4}}
+{{Infobox game/row/taxonomy/genres|RPG, Open world}}
+}}

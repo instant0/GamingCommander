@@ -1,5 +1,8 @@
 # GamingCommander
 
+© 2026 ins · [github.com/instant0/GamingCommander](https://github.com/instant0/GamingCommander)  
+License: [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)
+
 GamingCommander is a C# Windows-native game management and launcher with a Norton Commander-inspired dual-pane interface.
 
 The visual goal is inspired by classic commander-style tools, but the UI should scale with modern window resizing instead of being limited to a fixed legacy text resolution.
@@ -15,9 +18,9 @@ Current status:
 - ✅ Executable scoring and noise filtering (21-tier blacklist; embedded `blacklist.json` restore)
 - ✅ Game launching: `steam://` URI for Steam, direct `.exe` with args for standalone
 - ✅ GOG metadata extraction, UE-aware exe discovery, `.lnk` shortcut resolution, container detection
-- ✅ Dual-pane NC UI, first-run / F2 setup, F4 configure, **F5** async rescan, F9 library roots
+- ✅ Dual-pane NC UI, first-run / F2 setup, F4 configure, **F5** async rescan, Esc/Backspace up (no F9)
 - ✅ Epic local `.item` / `.mancpn` enrichment; right-pane colored tags
-- 365 tests passing (73 Core + 1 Migration + 291 App)
+- ✅ Opt-in online extras (PCGW + Steam Store only). Contract: [`docs/ONLINE-AND-DATA.md`](./docs/ONLINE-AND-DATA.md)
 
 ## Development Environment
 
@@ -55,6 +58,9 @@ data/
 - [`META/SESSION/CURRENT.md`](./META/SESSION/CURRENT.md) — Current project state
 - [`META/ARCHITECTURE.md`](./META/ARCHITECTURE.md) — Architecture decisions
 - [`META/ROADMAP.md`](./META/ROADMAP.md) — Phase milestones and progress
+- [`docs/ONLINE-AND-DATA.md`](./docs/ONLINE-AND-DATA.md) — What we read, write, and contact (HOW / WHAT / WHY)
+- [`docs/sbom/`](./docs/sbom/) — CycloneDX 1.6 Software Bill of Materials
+- [`GamingCommander.Readme.txt`](./GamingCommander.Readme.txt) — End-user access guide
 - [`planning/`](./planning/) — Detailed implementation plans
 
 ## Build & Test

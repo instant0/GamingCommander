@@ -63,8 +63,14 @@ internal static class StoreSignalDetector
     /// <summary>GOG signal: goggame* files at folder root, or "Launch *.lnk" shortcut.</summary>
     internal static bool HasGogSignal(DirectoryInfo dir)
     {
-        // Primary: goggame* files (goggame.dll, goggame-*.info, gog_*)
+        // Primary: goggame* files (goggame.dll, goggame-*.info)
         if (FileSystemHelper.GetFilesSafe(dir, "goggame*").Length > 0)
+            return true;
+
+        // Plan 103: gog_* prefix and gog.ico (detect.py HasGogSignal parity)
+        if (FileSystemHelper.GetFilesSafe(dir, "gog_*").Length > 0)
+            return true;
+        if (File.Exists(Path.Combine(dir.FullName, "gog.ico")))
             return true;
 
         // Secondary: "Launch <gamename>.lnk" shortcut (strong GOG signal)
@@ -140,8 +146,10 @@ internal static class StoreSignalDetector
                 // Original signals: manifest and loader DLLs
                 if (name == "uplay_install.manifest" || name == "uplay_install.state")
                     return true;
-                if (name is "uplay_r1_loader64.dll" or "uplay_r2_loader64.dll"
-                    or "uplay_r1_loader32.dll" or "uplay_r2_loader32.dll")
+                // Plan 103: any uplay_r*_loader*.dll, not just the four hardcoded names
+                if (name.StartsWith("uplay_r", StringComparison.Ordinal)
+                    && name.Contains("loader", StringComparison.Ordinal)
+                    && name.EndsWith(".dll", StringComparison.Ordinal))
                     return true;
 
                 // Plan 112 Step 3C: *_UPP*.exe subscription variants.

@@ -30,10 +30,9 @@ internal static class HelpDialogBuilder
             ("F1", "Help — this window"),
             ("F2", "Library Setup — add/remove/rescan folders"),
             ("F3", "View game metadata (coming soon)"),
-            ("F4", "Configure game — name, type, exe, args"),
+            ("F4", "Configure game — name, type, exe, PCGW launch options"),
             ("F5", "Rescan current folder or all roots"),
             ("F8", "Filter/category view (coming soon)"),
-            ("F9", "Jump to Library Roots"),
             ("F10", "Quit GamingCommander"),
             ("Enter", "Launch game / drill into folder"),
             ("Esc / Backspace", "Go up one level"),
@@ -62,6 +61,32 @@ internal static class HelpDialogBuilder
             TextWrapping = TextWrapping.Wrap,
             FontSize = AppTheme.FontSizeBody,
             Foreground = bodyBrush,
+            Margin = new Thickness(0, 0, 0, 8),
+        });
+        panel.Children.Add(new TextBlock
+        {
+            Text = "© 2026 ins",
+            FontSize = AppTheme.FontSizeBody,
+            Foreground = bodyBrush,
+        });
+        panel.Children.Add(new TextBlock
+        {
+            Text = "https://github.com/instant0/GamingCommander",
+            FontSize = AppTheme.FontSizeLabel,
+            Foreground = headerBrush,
+        });
+        panel.Children.Add(new TextBlock
+        {
+            Text = "License: Creative Commons Attribution-NonCommercial 4.0 (CC BY-NC 4.0)",
+            TextWrapping = TextWrapping.Wrap,
+            FontSize = AppTheme.FontSizeLabel,
+            Foreground = bodyBrush,
+        });
+        panel.Children.Add(new TextBlock
+        {
+            Text = "https://creativecommons.org/licenses/by-nc/4.0/",
+            FontSize = AppTheme.FontSizeLabel,
+            Foreground = headerBrush,
             Margin = new Thickness(0, 0, 0, 12),
         });
 
@@ -103,9 +128,9 @@ internal static class HelpDialogBuilder
 
         var helpWindow = new Window
         {
-            Title = "Help — GamingCommander",
+            Title = "About / Help — GamingCommander",
             Width = 480,
-            Height = 520,
+            Height = 580,
             CanResize = false,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             SystemDecorations = SystemDecorations.Full,

@@ -278,6 +278,23 @@ public sealed class GamesDatabaseServiceTests : IDisposable
     }
 
     [Fact]
+    public void RescanRoot_PreservesExtraLaunchArguments()
+    {
+        var svc = CreateService();
+        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone, [MakeGame("g1")]);
+
+        svc.UpdateGameEntry(@"D:\Games", MakeGame("g1") with
+        {
+            ExtraLaunchArguments = "--launcher-skip -modded",
+        });
+
+        svc.RescanRoot(@"D:\Games", [MakeGame("g1")]);
+
+        var games = svc.GetGamesForRoot(@"D:\Games");
+        Assert.Equal("--launcher-skip -modded", games[0].ExtraLaunchArguments);
+    }
+
+    [Fact]
     public void RescanRoot_PreservesUserSourceOverride()
     {
         var svc = CreateService();

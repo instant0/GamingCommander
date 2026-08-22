@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using GamingCommander.Core;
 using GamingCommander.Core.Models;
+using GamingCommander.Core.Services;
 
 namespace GamingCommander.UI.ViewModels;
 
@@ -13,6 +14,8 @@ public sealed class ShellViewModel : ReactiveObject
     private readonly ILibraryManager _libraryManager;
     private readonly IConfigService _configService;
     private readonly ITagColorProvider? _tagColorProvider;
+    private readonly IMetadataStore? _metadataStore;
+    private GameMetadataRecord? _selectedMetadata;
 
     private string _currentRootPath = string.Empty;
     private int _selectedIndex;
@@ -27,12 +30,21 @@ public sealed class ShellViewModel : ReactiveObject
     /// <summary>Raised when a game should be launched. Subscribers handle the actual process start.</summary>
     public event Action<ShellPaneItemViewModel>? RequestLaunch;
 
+    /// <summary>Sidecar extras for a game, or null.</summary>
+    public GameMetadataRecord? GetSidecar(string gameEntryId) =>
+        string.IsNullOrWhiteSpace(gameEntryId) ? null : _metadataStore?.Get(gameEntryId);
+
     /// <summary>Creates the shell ViewModel with navigation, selection, and details panel state.</summary>
-    public ShellViewModel(ILibraryManager libraryManager, IConfigService configService, ITagColorProvider? tagColorProvider = null)
+    public ShellViewModel(
+        ILibraryManager libraryManager,
+        IConfigService configService,
+        ITagColorProvider? tagColorProvider = null,
+        IMetadataStore? metadataStore = null)
     {
         _libraryManager = libraryManager;
         _configService = configService;
         _tagColorProvider = tagColorProvider;
+        _metadataStore = metadataStore;
 
         AppConfig config = _configService.Load();
         if (config.LibraryRoots.Count == 0)
@@ -43,7 +55,7 @@ public sealed class ShellViewModel : ReactiveObject
             return;
         }
 
-            InteractionHint = "Arrows: navigate  |  Enter: launch/drill in  |  Esc/Backspace: go up  |  F4: configure  |  F9: Library Roots";
+            InteractionHint = "Arrows: navigate  |  Enter: launch/drill in  |  Esc/Backspace: go up  |  F4: configure";
         JumpToLibraryRoots();
     }
 
@@ -122,6 +134,43 @@ public sealed class ShellViewModel : ReactiveObject
     /// <summary>Tag badges with colors for the selected game.</summary>
     public List<TagBadgeViewModel> DetailsTagBadges => SelectedItem?.TagBadges ?? [];
 
+    /// <summary>Sidecar extras for the selected game (Plan 119). Empty when no sidecar row.</summary>
+    public string DetailsDeveloper => _selectedMetadata?.Developer ?? string.Empty;
+    public string DetailsPublisher => _selectedMetadata?.Publisher ?? string.Empty;
+    public string DetailsGenre => _selectedMetadata?.Genre ?? string.Empty;
+    public string DetailsReleaseDate => _selectedMetadata?.ReleaseDate ?? string.Empty;
+    public string DetailsMetacritic => _selectedMetadata?.MetacriticScore?.ToString() ?? string.Empty;
+    public string DetailsPcgwUrl => _selectedMetadata?.PcGamingWikiUrl ?? string.Empty;
+    /// <summary>True when the sidecar has at least one extra field for the selection.</summary>
+    public bool HasMetadataExtras => _selectedMetadata?.HasDisplayableExtras == true;
+
+    /// <summary>Windows config path from PCGW, tokens expanded. Empty when unknown.</summary>
+    public string DetailsConfigPath => MetadataDetailsFormatter.WindowsConfig(_selectedMetadata?.Details);
+    /// <summary>Windows save path from PCGW, tokens expanded. Empty when unknown.</summary>
+    public string DetailsSavePath => MetadataDetailsFormatter.WindowsSaves(_selectedMetadata?.Details);
+    /// <summary>Short PCGW argument catalog for the right pane.</summary>
+    public string DetailsCommandLine => MetadataDetailsFormatter.CommandLineSummary(_selectedMetadata?.Details);
+    /// <summary>Short video caps (fov, ultrawide, …).</summary>
+    public string DetailsVideo => MetadataDetailsFormatter.VideoSummary(_selectedMetadata?.Details);
+    /// <summary>True when sidecar operator details exist (paths / args / video).</summary>
+    public bool HasMetadataDetails => _selectedMetadata?.Details?.HasAny == true;
+
+    /// <summary>Online / Offline / Lookup Disabled chip (bottom right).</summary>
+    public string LookupStatusText
+    {
+        get => _lookupStatusText;
+        set => SetProperty(ref _lookupStatusText, value);
+    }
+    private string _lookupStatusText = "Lookup Disabled";
+
+    /// <summary>Background lookup queue, next to the Online chip. Empty when idle.</summary>
+    public string LookupQueueText
+    {
+        get => _lookupQueueText;
+        set => SetProperty(ref _lookupQueueText, value);
+    }
+    private string _lookupQueueText = string.Empty;
+
     /// <summary>Text shown in the bottom status bar.</summary>
     public string StatusText
     {
@@ -155,7 +204,6 @@ public sealed class ShellViewModel : ReactiveObject
         new ShellCommandViewModel { Hotkey = "F4", Label = "Edit" },
         new ShellCommandViewModel { Hotkey = "F5", Label = "Rescan" },
         new ShellCommandViewModel { Hotkey = "F8", Label = "Filter" },
-        new ShellCommandViewModel { Hotkey = "F9", Label = "Library Roots" },
         new ShellCommandViewModel { Hotkey = "F10", Label = "Quit" },
     ];
 
@@ -182,11 +230,14 @@ public sealed class ShellViewModel : ReactiveObject
         {
             IReadOnlyList<GameEntry> games = _libraryManager.GetGamesForRoot(root.RootPath);
             string gameCountText = $"({games.Count} game{(games.Count != 1 ? "s" : "")})";
+            string trimmedRoot = root.RootPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            string folderName = Path.GetFileName(trimmedRoot);
+            if (string.IsNullOrEmpty(folderName))
+                folderName = trimmedRoot;
             Items.Add(new ShellPaneItemViewModel
             {
-                // B32: Show full root path instead of just folder name to avoid duplicates
-                // (e.g., D:\Games vs E:\Games both showed as "Games")
-                Title = root.RootPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                // Plan 117: folder name in title; full path in LeftPath (disambiguates D:\Games vs E:\Games).
+                Title = folderName,
                 Subtitle = gameCountText,
                 LeftPath = root.RootPath,
                 SourceLabel = root.DefaultType.ToString(),
@@ -460,6 +511,9 @@ public sealed class ShellViewModel : ReactiveObject
 
     private void UpdateDetailsForSelection()
     {
+        string? gameId = SelectedItem?.GameId;
+        _selectedMetadata = gameId is null ? null : _metadataStore?.Get(gameId);
+
         OnPropertyChanged(nameof(SelectedItem));
         OnPropertyChanged(nameof(DetailsName));
         OnPropertyChanged(nameof(DetailsPath));
@@ -480,6 +534,39 @@ public sealed class ShellViewModel : ReactiveObject
         OnPropertyChanged(nameof(DetailsTags));
         OnPropertyChanged(nameof(HasTags));
         OnPropertyChanged(nameof(DetailsTagBadges));
+        OnPropertyChanged(nameof(DetailsDeveloper));
+        OnPropertyChanged(nameof(DetailsPublisher));
+        OnPropertyChanged(nameof(DetailsGenre));
+        OnPropertyChanged(nameof(DetailsReleaseDate));
+        OnPropertyChanged(nameof(DetailsMetacritic));
+        OnPropertyChanged(nameof(DetailsPcgwUrl));
+        OnPropertyChanged(nameof(HasMetadataExtras));
+        OnPropertyChanged(nameof(DetailsConfigPath));
+        OnPropertyChanged(nameof(DetailsSavePath));
+        OnPropertyChanged(nameof(DetailsCommandLine));
+        OnPropertyChanged(nameof(DetailsVideo));
+        OnPropertyChanged(nameof(HasMetadataDetails));
+    }
+
+    /// <summary>Applies a sidecar row after a background refresh (Plan 119 step 5). Call on the UI thread.</summary>
+    public void ApplySidecarMetadata(string gameEntryId, GameMetadataRecord? record)
+    {
+        if (SelectedItem?.GameId != gameEntryId)
+            return;
+
+        _selectedMetadata = record;
+        OnPropertyChanged(nameof(DetailsDeveloper));
+        OnPropertyChanged(nameof(DetailsPublisher));
+        OnPropertyChanged(nameof(DetailsGenre));
+        OnPropertyChanged(nameof(DetailsReleaseDate));
+        OnPropertyChanged(nameof(DetailsMetacritic));
+        OnPropertyChanged(nameof(DetailsPcgwUrl));
+        OnPropertyChanged(nameof(HasMetadataExtras));
+        OnPropertyChanged(nameof(DetailsConfigPath));
+        OnPropertyChanged(nameof(DetailsSavePath));
+        OnPropertyChanged(nameof(DetailsCommandLine));
+        OnPropertyChanged(nameof(DetailsVideo));
+        OnPropertyChanged(nameof(HasMetadataDetails));
     }
 
     private static string TruncatePath(string path)

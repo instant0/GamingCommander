@@ -42,4 +42,8 @@ public sealed record GameEntry(
     /// enrichment skips fields present in this dictionary.
     /// Values are ISO timestamps of when the override was set.
     /// </summary>
-    Dictionary<string, string> UserOverrides);
+    Dictionary<string, string> UserOverrides,
+    /// <summary>Detected game engine (Plan 102 Phase 2). Unknown when no signal.</summary>
+    GameEngineKind GameEngine = GameEngineKind.Unknown,
+    /// <summary>User-selected extras from the PCGW catalog / free text. Used on exe launch only.</summary>
+    string ExtraLaunchArguments = "");

@@ -62,6 +62,7 @@ GamingCommander is a C# Windows-native game management and launcher application 
 | Epic local manifests + global cross-ref | Nested Steam “add as root” UX |
 | Right-pane colored tags | Left-pane layout (Plan 117) |
 | Embedded `blacklist.json` restore (Bug 16) | `tag_colors.json` embed/restore |
+| Sidecar extras (`games_metadata.json`, flag off by default) | Cover-art UI; Epic GraphQL |
 
 ---
 

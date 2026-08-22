@@ -15,7 +15,8 @@ class Program
     /// <summary>Configures the Avalonia application builder with platform-specific settings.</summary>
     public static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()
-            .UsePlatformDetect()
+            .UseWin32()
+            .UseSkia()
             .WithInterFont()
             .LogToTrace();
 }

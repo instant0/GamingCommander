@@ -44,32 +44,30 @@
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="vm:ShellPaneItemViewModel">
                 <Border BorderBrush="{DynamicResource SeparatorBorder}" BorderThickness="0,0,0,1" Padding="4,3">
-                  <Grid ColumnDefinitions="1*,Auto,Auto">
-                    <!-- Col 0: Title + inline badge + subtitle (all left-aligned) -->
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Spacing="0">
+                  <!-- Plan 117: Badge | Title+subtitle | Path | Scanning -->
+                  <Grid ColumnDefinitions="80,1*,Auto,Auto">
+                    <Border Grid.Column="0"
+                            Background="{Binding StoreBadge.Background, Converter={StaticResource HexToBrush}}"
+                            CornerRadius="3" Padding="5,1" VerticalAlignment="Center" HorizontalAlignment="Center"
+                            MinWidth="72"
+                            IsVisible="{Binding StoreBadge, Converter={x:Static ObjectConverters.IsNotNull}}">
+                      <TextBlock Text="{Binding StoreBadge.Name}"
+                                 Foreground="{Binding StoreBadge.Foreground, Converter={StaticResource HexToBrush}}"
+                                 FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,0,0">
                       <TextBlock Text="{Binding Title}" FontWeight="Bold" FontSize="{DynamicResource FontSizeItem}"
                                  TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
                                  Foreground="{Binding ItemStatusColor, Converter={StaticResource HexToBrush}}" />
-                      <!-- Store badge: inline after title -->
-                      <Border Background="{Binding StoreBadge.Background, Converter={StaticResource HexToBrush}}"
-                              CornerRadius="3" Padding="5,1" VerticalAlignment="Center" Margin="6,0,0,0"
-                              IsVisible="{Binding StoreBadge, Converter={x:Static ObjectConverters.IsNotNull}}">
-                        <TextBlock Text="{Binding StoreBadge.Name}"
-                                   Foreground="{Binding StoreBadge.Foreground, Converter={StaticResource HexToBrush}}"
-                                   FontSize="10" VerticalAlignment="Center" />
-                      </Border>
-                      <!-- Subtitle: tags or game count -->
                       <TextBlock Text="{Binding Subtitle}" Foreground="{DynamicResource TextMuted}"
                                  FontSize="{DynamicResource FontSizeItem}" VerticalAlignment="Center"
                                  Margin="6,0,0,0" />
                     </StackPanel>
-                    <!-- Col 1: Path (right-aligned) -->
-                    <TextBlock Grid.Column="1" Text="{Binding LeftPath}"
+                    <TextBlock Grid.Column="2" Text="{Binding LeftPath}"
                                Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}"
                                TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
                                MaxWidth="280" TextAlignment="Right" Margin="6,0" />
-                    <!-- Col 2: Scanning badge -->
-                    <TextBlock Grid.Column="2" Text="{Binding ScanningBadge}"
+                    <TextBlock Grid.Column="3" Text="{Binding ScanningBadge}"
                                Foreground="{DynamicResource TextHighlight}" FontSize="{DynamicResource FontSizeLabel}"
                                VerticalAlignment="Center" Margin="6,0,0,0" />
                   </Grid>
@@ -148,6 +146,61 @@
               </ItemsControl>
             </StackPanel>
 
+            <!-- Plan 119: sidecar extras — hidden when games_metadata.json has no row -->
+            <StackPanel IsVisible="{Binding HasMetadataExtras}" Margin="0,12,0,0" Spacing="4">
+              <TextBlock Text="Metadata" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" />
+              <TextBlock Text="{Binding DetailsDeveloper, StringFormat='Developer: {0}'}"
+                         Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeBody}"
+                         IsVisible="{Binding DetailsDeveloper, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+              <TextBlock Text="{Binding DetailsPublisher, StringFormat='Publisher: {0}'}"
+                         Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeBody}"
+                         IsVisible="{Binding DetailsPublisher, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+              <TextBlock Text="{Binding DetailsGenre, StringFormat='Genre: {0}'}"
+                         Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeBody}"
+                         IsVisible="{Binding DetailsGenre, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+              <TextBlock Text="{Binding DetailsReleaseDate, StringFormat='Released: {0}'}"
+                         Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeBody}"
+                         IsVisible="{Binding DetailsReleaseDate, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+              <TextBlock Text="{Binding DetailsMetacritic, StringFormat='Metacritic: {0}'}"
+                         Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeBody}"
+                         IsVisible="{Binding DetailsMetacritic, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+              <TextBlock Text="{Binding DetailsPcgwUrl}"
+                         Foreground="{DynamicResource TextAccent}" FontSize="{DynamicResource FontSizeLabel}"
+                         TextWrapping="Wrap"
+                         IsVisible="{Binding DetailsPcgwUrl, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            </StackPanel>
+
+            <StackPanel IsVisible="{Binding HasMetadataDetails}" Margin="0,12,0,0" Spacing="4">
+              <TextBlock Text="PCGW details" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" />
+              <TextBlock Text="Config (click to open)"
+                         Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}"
+                         IsVisible="{Binding DetailsConfigPath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+              <TextBlock Text="{Binding DetailsConfigPath}"
+                         Foreground="{DynamicResource TextAccent}" FontSize="{DynamicResource FontSizeLabel}"
+                         TextWrapping="Wrap" Cursor="Hand"
+                         PointerPressed="OpenConfigPath_PointerPressed"
+                         IsVisible="{Binding DetailsConfigPath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+              <TextBlock Text="Saves (click to open)"
+                         Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}"
+                         IsVisible="{Binding DetailsSavePath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+              <TextBlock Text="{Binding DetailsSavePath}"
+                         Foreground="{DynamicResource TextAccent}" FontSize="{DynamicResource FontSizeLabel}"
+                         TextWrapping="Wrap" Cursor="Hand"
+                         PointerPressed="OpenSavePath_PointerPressed"
+                         IsVisible="{Binding DetailsSavePath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+              <TextBlock Text="Video"
+                         Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}"
+                         IsVisible="{Binding DetailsVideo, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+              <TextBlock Text="{Binding DetailsVideo}"
+                         Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeLabel}"
+                         TextWrapping="Wrap"
+                         IsVisible="{Binding DetailsVideo, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+              <TextBlock Text="{Binding DetailsCommandLine}"
+                         Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeLabel}"
+                         TextWrapping="Wrap"
+                         IsVisible="{Binding DetailsCommandLine, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            </StackPanel>
+
             <TextBlock Text="Executable" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" Margin="0,12,0,0" />
             <TextBlock Text="{Binding DetailsExecutable}" Foreground="{DynamicResource TextSuccess}" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeLabel}" />
 
@@ -168,7 +221,18 @@
     </Grid>
 
     <Border Grid.Row="2" Classes="pane" Padding="10" Margin="0,10,0,10">
-      <TextBlock Classes="status-line" Text="{Binding StatusText}" TextWrapping="Wrap" />
+      <Grid>
+        <TextBlock Classes="status-line" Text="{Binding StatusText}" TextWrapping="Wrap" Margin="0,0,280,0" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="12">
+          <TextBlock Text="{Binding LookupQueueText}"
+                     Foreground="{DynamicResource TextMuted}"
+                     FontSize="{DynamicResource FontSizeLabel}"
+                     IsVisible="{Binding LookupQueueText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          <TextBlock x:Name="LookupStatusChip"
+                     Text="{Binding LookupStatusText}"
+                     FontSize="{DynamicResource FontSizeLabel}" FontWeight="Bold" />
+        </StackPanel>
+      </Grid>
     </Border>
 
     <ItemsControl Grid.Row="3" ItemsSource="{Binding Commands}">

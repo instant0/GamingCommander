@@ -1,0 +1,18 @@
+==Essential improvements==
+===Bypass REDlauncher or GOG Galaxy===
+{{++}} The game is DRM-free when bypassing the launcher/client.<ref name="dlc1"/><ref name="dlc2"/>
+{{--}} Breaks the "Rewards" DLC and cross-progression cloud sync.<ref name="dlc3">{{Refurl|url=https://www.gog.com/forum/cyberpunk_2077/psa_cyberpunk_2077_is_not_100_drmfree_so_far_the_rewards_dlc_is_drmed/page1|title=PSA: Cyberpunk 2077 is not 100% DRM-free! (So far, the 'Rewards' DLC is DRM-ed)|date=2020-12-08}}</ref>
+
+{{Fixbox|description=Start the game directly from {{file|{{P|game}}\bin\x64\Cyberpunk2077.exe}}|ref=<ref name="Keith">{{Refcheck|user=Keith|date=2024-06-21|comment=}}</ref>|fix=
+}}
+
+{{Fixbox|description=Bypass launcher with <code>--launcher-skip -skipStartScreen -modded</code> [[Glossary:Command line arguments|parameters]]|ref=<ref>{{Refcheck|user=Aemony|date=2023-09-30|comment=Verified this works on both Steam and Epic}}</ref>{{note|note=* <code>--launcher-skip</code> skips the separate launcher.
+* <code>-skipStartScreen</code> skips the "Breaching..." start screen.
+* <code>-modded</code> is required for mods dependent on REDmod to load when skipping the launcher.}}|fix=
+}}
+
+===Skip intro videos===
+{{Fixbox|description=Use the No Intro Videos mod|ref=<ref>{{Refcheck|user=Aemony|date=2023-09-30|comment=}}</ref>|fix=
+# Download the [https://www.nexusmods.com/cyberpunk2077/mods/533 latest version of the mod].
+# Unzip the contents in {{file|{{P|game}}}}.
+}}

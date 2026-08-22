@@ -1,0 +1,19 @@
+===[[Glossary:Command line arguments|Command line arguments]]===
+{{Standard table|collapsed=no|Command|Notes|content=
+{{Standard table/row|-width X|Sets game resolution width to X.}}
+{{Standard table/row|-height Y|Sets game resolution height to Y.}}
+{{Standard table/row|-fullscreen|Launches the game in exclusive fullscreen mode.}}
+{{Standard table/row|-borderless|Launches the game in borderless fullscreen mode.}}
+{{Standard table/row|-windowed|Launches the game in windowed mode.}}
+{{Standard table/row|-x X|Sets game window X position to X.}}
+{{Standard table/row|-y Y|Sets game window Y position to Y.}}
+{{Standard table/row|-monitor N|Sets display monitor number to N.}}
+{{Standard table/row|-fpsClamp N|Sets maximum FPS limit to N.}}
+{{Standard table/row|-noHUD|Prevents in-game HUD from being drawn.}}
+{{Standard table/row|-skipStartScreen|Skips the 'Press {{key|space}} to continue' & 'Breaching...' screens, splash screens will still be shown.}}
+{{Standard table/row|-d3d12|Force usage of Direct3D12.}}
+{{Standard table/row|-gpuFlag FLAG|Allows forcing certain GPU features to be enabled/disabled, FLAG can be one of <code>forceAsync/noAsync/forceAftermath/noAftermath/forceRayTracing</code>.}}
+{{Standard table/row|-qualityLevel|Set to <code>ConsolePro</code> to match Xbox One X quality settings.<ref>{{Refurl|url=https://www.youtube.com/watch?v=yHxqDFzVPW8&t=10m38s|title=Cyberpunk 2077 PC Tested On Xbox One CPU... And It Works! - YouTube|date=2025-07-06}}</ref>}}
+{{Standard table/row|-benchmark|Automatically runs the built-in benchmark and exits on completion.<ref>{{Refcheck|user=Shmerl|date=2024-08-26|comment=}}</ref>}}
+}}
+{{ii}} More arguments can be found here: [https://pastebin.com/jmGpVNWe], though most listed there are unstable or may not have any effect in the retail game.

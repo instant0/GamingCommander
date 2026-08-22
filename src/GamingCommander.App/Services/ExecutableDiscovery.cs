@@ -191,13 +191,18 @@ internal static class ExecutableDiscovery
         if (launcherPatterns.Any(p => name.Contains(p)))
             score -= 20;
 
-        // Penalize backup copies (-25 to -30)
+        // Penalize backup copies / cracks / org groups
         if (name.Contains("copy of") || name.Contains(" - copy"))
             score -= 25;
         else if (name.Contains("org_") || name.StartsWith("org_"))
             score -= 20;
         else if (name.Contains("original"))
             score -= 15;
+        if (name.Contains("crack"))
+            score -= 25;
+
+        score += RomanNumeralBonus(name, folderLower, folderTokens);
+        score += AbbreviationBonus(name, folderLower);
 
         // Cache FileInfo.Length — avoid redundant filesystem syscalls (Plan 112 Step 4B)
         long fileSize = 0;
@@ -285,6 +290,54 @@ internal static class ExecutableDiscovery
 
         return new ExeScoreResult(score, fileDescription);
     }
+
+    /// <summary>
+    /// Plan 103: +12 when a folder digit token matches a roman numeral in the exe stem, or vice versa
+    /// (e.g. folder "heroes 4" vs exe "heroesiv").
+    /// </summary>
+    private static int RomanNumeralBonus(string exeStem, string folderLower, string[] folderTokens)
+    {
+        foreach (var (digit, roman) in s_romanDigits)
+        {
+            bool folderHasDigit = folderTokens.Contains(digit);
+            bool folderHasRoman = folderLower.Contains(roman);
+            bool exeHasDigit = exeStem.Contains(digit);
+            bool exeHasRoman = exeStem.Contains(roman);
+            if ((folderHasDigit && exeHasRoman) || (folderHasRoman && exeHasDigit))
+                return 12;
+        }
+
+        return 0;
+    }
+
+    /// <summary>
+    /// Plan 103: +8 when a short exe stem (2–4 chars) is an ordered abbreviation of the folder name
+    /// sharing the first letter (e.g. "hk" for "hollow knight").
+    /// </summary>
+    private static int AbbreviationBonus(string exeStem, string folderLower)
+    {
+        if (exeStem.Length is < 2 or > 4)
+            return 0;
+        if (folderLower.Length == 0 || exeStem[0] != folderLower[0])
+            return 0;
+
+        int fi = 0;
+        foreach (char c in exeStem)
+        {
+            int found = folderLower.IndexOf(c, fi);
+            if (found < 0)
+                return 0;
+            fi = found + 1;
+        }
+
+        return 8;
+    }
+
+    private static readonly (string Digit, string Roman)[] s_romanDigits =
+    [
+        ("2", "ii"), ("3", "iii"), ("4", "iv"), ("5", "v"),
+        ("6", "vi"), ("7", "vii"), ("8", "viii"), ("9", "ix"),
+    ];
 
     /// <summary>
     /// Result of finding the primary executable in a game directory.

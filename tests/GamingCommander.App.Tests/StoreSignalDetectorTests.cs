@@ -47,6 +47,28 @@ public sealed class StoreSignalDetectorTests : IDisposable
         Assert.Equal(GameSourceKind.Gog, result);
     }
 
+    [Fact]
+    public void DetectType_GogPrefixFile_ReturnsGog()
+    {
+        // Plan 103: gog_* prefix
+        CreateFile("gog_com_game.dll");
+
+        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
+
+        Assert.Equal(GameSourceKind.Gog, result);
+    }
+
+    [Fact]
+    public void DetectType_GogIco_ReturnsGog()
+    {
+        // Plan 103: gog.ico
+        CreateFile("gog.ico");
+
+        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
+
+        Assert.Equal(GameSourceKind.Gog, result);
+    }
+
     // ════════════════════════════════════════════════════════════════
     //  EA Signal (Priority 2)
     // ════════════════════════════════════════════════════════════════
@@ -397,6 +419,15 @@ public sealed class StoreSignalDetectorTests : IDisposable
     public void HasUbisoftSignal_UplayDownloadDir_ReturnsTrue()
     {
         CreateDir("uplay_download");
+
+        Assert.True(StoreSignalDetector.HasUbisoftSignal(AsDirInfo(_tempDir)));
+    }
+
+    [Fact]
+    public void HasUbisoftSignal_NonStandardLoaderDll_ReturnsTrue()
+    {
+        // Plan 103: pattern match, not hardcoded r1/r2 32/64 names
+        CreateFile("uplay_r3_loader.dll");
 
         Assert.True(StoreSignalDetector.HasUbisoftSignal(AsDirInfo(_tempDir)));
     }

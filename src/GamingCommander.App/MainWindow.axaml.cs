@@ -5,6 +5,7 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Threading;
 using GamingCommander.App.Services;
+using GamingCommander.App.Services.Metadata;
 using GamingCommander.Core;
 using GamingCommander.Core.Models;
 using GamingCommander.Core.Services;
@@ -21,12 +22,21 @@ public partial class MainWindow : Window
     private SteamLibraryScanner? _steamScanner;
 
     private LibraryManager? _libraryManager;
+    private IMetadataService? _metadataService;
+    private MetadataLookupQueue? _metadataQueue;
+    private MetadataOnlineGate? _onlineGate;
+    private HttpClient? _probeHttp;
     private CancellationTokenSource? _statusClearCts;
     private CancellationTokenSource? _scanCts;
+    private CancellationTokenSource? _metadataCts;
     private bool _isRefreshing;
 
     /// <summary>Primary application window. Manages dual-pane navigation, keyboard shortcuts, and game launching.</summary>
-    public MainWindow(ShellViewModel shellViewModel, IGamesDatabaseService dbService)
+    public MainWindow(
+        ShellViewModel shellViewModel,
+        IGamesDatabaseService dbService,
+        IMetadataService? metadataService = null,
+        MetadataOnlineGate? onlineGate = null)
     {
         try
         {
@@ -42,6 +52,8 @@ public partial class MainWindow : Window
 
         _viewModel = shellViewModel;
         _dbService = dbService;
+        _metadataService = metadataService;
+        _onlineGate = onlineGate;
 
         // Ensure _scanner and _configService are initialized so OpenLibrarySetupAsync
         // always has a blacklist-enabled scanner (not the null-fallback path).
@@ -59,6 +71,35 @@ public partial class MainWindow : Window
         _steamScanner = new SteamLibraryScanner(steamPaths);
 
         _libraryManager = new LibraryManager(_configService, _dbService, _scanner, _steamScanner);
+
+        if (_metadataService is not null)
+        {
+            _metadataQueue = new MetadataLookupQueue(_metadataService, _configService, _onlineGate);
+            _metadataQueue.ItemCompleted += OnMetadataQueueItemCompleted;
+            _metadataQueue.ProgressChanged += OnMetadataQueueProgress;
+        }
+
+        if (_onlineGate is not null)
+        {
+            _onlineGate.Changed += UpdateLookupChip;
+            if (GetConfigService().Load().EnableOnlineMetadata)
+                Opened += (_, _) => _ = ProbeOnlineAsync();
+        }
+
+        Closed += (_, _) =>
+        {
+            if (_onlineGate is not null)
+                _onlineGate.Changed -= UpdateLookupChip;
+            if (_metadataQueue is not null)
+            {
+                _metadataQueue.ItemCompleted -= OnMetadataQueueItemCompleted;
+                _metadataQueue.ProgressChanged -= OnMetadataQueueProgress;
+                _metadataQueue.Dispose();
+            }
+            _probeHttp?.Dispose();
+        };
+
+        UpdateLookupChip();
 
         DataContext = _viewModel;
 
@@ -197,11 +238,6 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 break;
 
-            case Key.F9:
-                _viewModel.JumpToLibraryRoots();
-                e.Handled = true;
-                break;
-
             case Key.F4:
                 await OpenGameSetupAsync();
                 e.Handled = true;
@@ -280,16 +316,33 @@ public partial class MainWindow : Window
 
         try
         {
-            // Resolve arguments: URI launches use the URI itself as the entire target, no extra args
-            string args = item.CommandLineArguments.StartsWith("steam://", StringComparison.OrdinalIgnoreCase)
-                ? string.Empty
-                : item.CommandLineArguments;
+            string args;
+            string? rootPath = _viewModel.GetCurrentRootPath();
+            GameEntry? game = item.GameId is not null && rootPath is not null
+                ? GetDbService().GetGamesForRoot(rootPath).FirstOrDefault(g => g.Id == item.GameId)
+                : null;
+            if (game is not null)
+            {
+                (target, args) = GameLaunchResolver.Resolve(game);
+            }
+            else
+            {
+                args = LaunchArgumentComposer.IsSteamUri(item.CommandLineArguments)
+                    ? string.Empty
+                    : item.CommandLineArguments;
+            }
+
+            if (string.IsNullOrEmpty(target))
+            {
+                _viewModel.StatusText = $"No launch target for {item.Title}";
+                return Task.CompletedTask;
+            }
 
             _viewModel.StatusText = string.IsNullOrEmpty(args)
                 ? $"Launching: {target}"
                 : $"Launching: {target} {args}";
 
-            if (target.StartsWith("steam://", StringComparison.OrdinalIgnoreCase))
+            if (LaunchArgumentComposer.IsSteamUri(target))
             {
                 using var proc = Process.Start(new ProcessStartInfo
                 {
@@ -309,6 +362,8 @@ public partial class MainWindow : Window
             }
 
             _viewModel.StatusText = $"Launched: {item.Title}";
+            if (game is not null)
+                QueueSilentMetadataIfStale(game);
         }
         catch (Exception ex)
         {
@@ -329,6 +384,7 @@ public partial class MainWindow : Window
         await window.ShowDialog(this);
 
         _viewModel?.Reload();
+        await SyncOnlineGateFromConfigAsync().ConfigureAwait(true);
     }
 
     private async Task OpenGameSetupAsync()
@@ -347,10 +403,149 @@ public partial class MainWindow : Window
         var game = games.FirstOrDefault(g => g.Id == item.GameId);
         if (game is null) return;
 
-        var window = new GameSetupWindow(game, rootPath, configService, dbService);
+        await RefreshMetadataForGameAsync(game).ConfigureAwait(true);
+
+        IReadOnlyList<GameMetadataCommandLine> catalog =
+            _viewModel.GetSidecar(game.Id)?.Details?.CommandLine ?? [];
+        var window = new GameSetupWindow(game, rootPath, configService, dbService, catalog);
         await window.ShowDialog(this);
 
         _viewModel.Reload();
+    }
+
+    private void QueueSilentMetadataIfStale(GameEntry game)
+    {
+        if (_onlineGate is not { AllowsHttp: true } || _metadataQueue is null || _viewModel is null)
+            return;
+
+        GameMetadataRecord? cached = _viewModel.GetSidecar(game.Id);
+        if (!MetadataService.IsStale(cached))
+            return;
+
+        _metadataQueue.Enqueue([game]);
+    }
+
+    private async Task ProbeOnlineAsync()
+    {
+        if (_onlineGate is null)
+            return;
+
+        AppConfig config = GetConfigService().Load();
+        if (!config.EnableOnlineMetadata)
+        {
+            _onlineGate.SetDisabled();
+            return;
+        }
+
+        if (_onlineGate.Kind == MetadataOnlineKind.Disabled)
+            _onlineGate.SetChecking();
+
+        _probeHttp ??= new HttpClient();
+        await _onlineGate.ProbeOnceAsync(_probeHttp).ConfigureAwait(true);
+    }
+
+    private async Task SyncOnlineGateFromConfigAsync()
+    {
+        if (_onlineGate is null)
+            return;
+
+        AppConfig config = GetConfigService().Load();
+        if (!config.EnableOnlineMetadata)
+        {
+            _onlineGate.SetDisabled();
+            return;
+        }
+
+        if (_onlineGate.Kind == MetadataOnlineKind.Disabled)
+            _onlineGate.SetChecking();
+
+        await ProbeOnlineAsync().ConfigureAwait(true);
+    }
+
+    private void UpdateLookupChip()
+    {
+        void Apply()
+        {
+            if (_viewModel is not null)
+                _viewModel.LookupStatusText = _onlineGate?.StatusLabel ?? "Lookup Disabled";
+
+            var chip = this.FindControl<TextBlock>("LookupStatusChip");
+            if (chip is null)
+                return;
+
+            chip.Foreground = _onlineGate?.Kind switch
+            {
+                MetadataOnlineKind.Online => AppTheme.TextSuccess,
+                MetadataOnlineKind.Offline => AppTheme.TextDanger,
+                MetadataOnlineKind.Checking => AppTheme.TextHighlight,
+                _ => AppTheme.TextHighlight,
+            };
+        }
+
+        if (Dispatcher.UIThread.CheckAccess())
+            Apply();
+        else
+            Dispatcher.UIThread.Post(Apply);
+    }
+
+    private void EnqueueMetadataLookups(IReadOnlyList<GameEntry> games)
+    {
+        if (_metadataQueue is null || games.Count == 0)
+            return;
+
+        _metadataQueue.Enqueue(games);
+    }
+
+    private void OnMetadataQueueProgress()
+    {
+        string line = _metadataQueue?.StatusLine ?? string.Empty;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_viewModel is not null)
+                _viewModel.LookupQueueText = line;
+        });
+    }
+
+    private void OnMetadataQueueItemCompleted(string gameId, GameMetadataRecord? record)
+    {
+        Dispatcher.UIThread.Post(() => _viewModel?.ApplySidecarMetadata(gameId, record));
+    }
+
+    /// <summary>
+    /// Online extras for one game (F4). List selection only reads the sidecar cache.
+    /// </summary>
+    private async Task RefreshMetadataForGameAsync(GameEntry game)
+    {
+        if (_metadataService is null || _viewModel is null)
+            return;
+
+        _metadataCts?.Cancel();
+        _metadataCts?.Dispose();
+        var cts = new CancellationTokenSource();
+        _metadataCts = cts;
+
+        string? steamAppId = null;
+        if (game.GameSource == GameSourceKind.Steam
+            && game.PlatformMetadata.TryGetValue("SteamAppId", out string? id)
+            && !string.IsNullOrWhiteSpace(id))
+        {
+            steamAppId = id;
+        }
+
+        try
+        {
+            _viewModel.StatusText = $"Looking up metadata: {game.DisplayName}";
+            GameMetadataRecord? record = await _metadataService
+                .RefreshAsync(game.Id, steamAppId, game.DisplayName, cts.Token)
+                .ConfigureAwait(true);
+            _viewModel.ApplySidecarMetadata(game.Id, record);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch
+        {
+        }
     }
 
     private async Task RefreshCurrentRootAsync()
@@ -410,14 +605,17 @@ public partial class MainWindow : Window
                     }, ct);
                 }
 
-                int totalGames = config.LibraryRoots.Sum(
-                    r => _libraryManager.GetGamesForRoot(r.RootPath).Count);
+                var allGames = new List<GameEntry>();
+                foreach (LibraryRoot root in config.LibraryRoots)
+                    allGames.AddRange(_libraryManager.GetGamesForRoot(root.RootPath));
+
+                EnqueueMetadataLookups(allGames);
 
                 Dispatcher.UIThread.Post(() =>
                 {
                     _viewModel.Reload();
                     SetStatusWithAutoClear(
-                        $"Rescanned {config.LibraryRoots.Count} root(s), found {totalGames} game(s).");
+                        $"Rescanned {config.LibraryRoots.Count} root(s), found {allGames.Count} game(s).");
                 });
                 return;
             }
@@ -441,6 +639,8 @@ public partial class MainWindow : Window
                 return _libraryManager.SelectScannerAndScan(
                     rootPath, matchedRoot.DefaultType, ct);
             }, ct);
+
+            EnqueueMetadataLookups(scannedGames);
 
             Dispatcher.UIThread.Post(() =>
             {
@@ -485,6 +685,35 @@ public partial class MainWindow : Window
             _viewModel!.NavigateInto();
     }
 
+    private void OpenConfigPath_PointerPressed(object? sender, PointerPressedEventArgs e) =>
+        OpenFolderFromDisplay(_viewModel?.DetailsConfigPath);
+
+    private void OpenSavePath_PointerPressed(object? sender, PointerPressedEventArgs e) =>
+        OpenFolderFromDisplay(_viewModel?.DetailsSavePath);
+
+    private void OpenFolderFromDisplay(string? displayPath)
+    {
+        string? path = PcgwPathTokens.ExpandForExplorer(displayPath);
+        if (path is null)
+        {
+            SetStatusWithAutoClear("Path is not a local Windows folder.");
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = path,
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception ex)
+        {
+            SetStatusWithAutoClear($"Could not open folder: {ex.Message}");
+        }
+    }
+
     private void CommandButtonPressed(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (sender is not Border border || border.Tag is not string hotkey || _viewModel is null)
@@ -509,9 +738,6 @@ public partial class MainWindow : Window
                 break;
             case "F8":
                 SetStatusWithAutoClear("Filter/category view — coming in a future update");
-                break;
-            case "F9":
-                _viewModel.JumpToLibraryRoots();
                 break;
             case "F10":
                 Close();

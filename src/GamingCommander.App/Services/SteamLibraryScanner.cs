@@ -267,6 +267,12 @@ public sealed class SteamLibraryScanner
             extra["AcfFilePath"] = acf.AcfFilePath;
         }
 
+        GameEngineKind engine = EngineDetector.Detect(gameDir.FullName);
+        var tags = new List<string>();
+        string engineTag = EngineDetector.ToTag(engine);
+        if (engineTag.Length > 0)
+            tags.Add(engineTag);
+
         return new GameEntry(
             Id: id,
             FolderName: folderName,
@@ -280,8 +286,9 @@ public sealed class SteamLibraryScanner
             LastScanned: DateTimeOffset.UtcNow,
             LastModified: FileSystemHelper.GetLastWriteTimeSafe(gameDir),
             PlatformMetadata: extra,
-            Tags: [],
-            UserOverrides: []);
+            Tags: tags,
+            UserOverrides: [],
+            GameEngine: engine);
     }
 
     /// <summary>

@@ -97,11 +97,16 @@ Launcher detection is isolated behind `ILibraryManager`. The `LibraryManager` ro
 
 > **Note:** `ILauncher` (proposed in ADR-008) was retired in favor of this two-tier scanner architecture. The isolation intent is preserved — scanner implementations are decoupled from core logic.
 
-### Future Metadata Pipeline
+### Live metadata pipeline (opt-in)
 
 ```
-PCGamingWiki → SteamDB → Steam Store → IGDB → games_db.json
+EnableOnlineMetadata + Online chip
+  → PCGW (appid.php or OpenSearch → Parse wikitext)
+  → Steam Store appdetails if AppID known (ACF or PCGW Availability)
+  → data/games_metadata.json only
 ```
+
+SteamDB, Cargo, Epic GraphQL, IGDB are **not** in the product. Contract: `docs/ONLINE-AND-DATA.md`.
 
 ### Future Migration Repair Pipeline
 
@@ -135,5 +140,6 @@ Appended after post-MVP alignment. Does not replace ADRs above.
 - **Scanning lives in App**, not the Detection project. `LibraryManager` selects `SteamLibraryScanner` vs `FolderScanner`. `GamingCommander.Detection` is a deprecated stub kept so project references still compile.
 - **Migration is not implemented.** `IMigrationPlanner` / `DesignTimeMigrationPlanner` produce dry-run summaries only. Real repair is Plan SyncMove (`planning/04-phase-2-syncmove.md`).
 - **Multi-store detection ≠ multi-store clients.** Folder signals + registry fallback classify GOG/Epic/EA/Ubisoft/Battle.net/Rockstar. There is no GOG Galaxy / Epic / EA / Ubisoft API or repair path yet.
-- **Epic local manifests shipped** (Plan 109). The “future metadata pipeline” (PCGW → SteamDB → IGDB) is still future (Plan 102 Phases 2–3).
-- **Rescan is F5**, async and cancellable (Plans 105 + 113). Enter launches. Command bar buttons remain non-clickable.
+- **Epic local manifests shipped** (Plan 109). Online extras: PCGW + Steam Store only (`docs/ONLINE-AND-DATA.md`).
+- **Rescan is F5**, async and cancellable. Enter launches. Esc/Backspace goes up. No F9.
+- **Command bar** F1–F5, F8, F10 are clickable. F9 removed (redundant with Backspace).
