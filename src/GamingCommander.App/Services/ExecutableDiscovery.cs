@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using GamingCommander.Core.Models;
+using GamingCommander.Core.Services;
 
 namespace GamingCommander.App.Services;
 
@@ -170,13 +171,15 @@ internal static class ExecutableDiscovery
     {
         int score = 0;
         string name = Path.GetFileNameWithoutExtension(exePath).ToLowerInvariant();
-        string folderLower = folderName.ToLowerInvariant();
+        string folderLower = TitleText.ForSearch(folderName).ToLowerInvariant();
+        string nameKey = TitleText.LettersAndDigits(name);
+        string folderKey = TitleText.LettersAndDigits(folderLower);
 
         // Bonus for exe name containing folder name (+15)
-        if (name.Contains(folderLower))
+        if (name.Contains(folderLower) || (folderKey.Length > 2 && nameKey == folderKey))
             score += 15;
         // Bonus for folder name containing exe stem (+15)
-        else if (folderLower.Contains(name))
+        else if (folderLower.Contains(name) || (nameKey.Length > 2 && folderKey.Contains(nameKey)))
             score += 15;
 
         // Folder name token match (+10 per matching token)
@@ -261,7 +264,8 @@ internal static class ExecutableDiscovery
 
         if (pathLower.Contains(@"\binaries\win64\")
             || pathLower.Contains(@"\binaries\win32\")
-            || pathLower.Contains(@"\binaries\wingdk\"))
+            || pathLower.Contains(@"\binaries\wingdk\")
+            || pathLower.Contains(@"\shipping\"))
             score += 12;
 
         // File size bonus: up to +5 for very large files (>= 100MB)
@@ -455,10 +459,13 @@ internal static class ExecutableDiscovery
     internal static bool ExeNameMatchesFolderName(string exePath, string folderName)
     {
         string exeStem = Path.GetFileNameWithoutExtension(exePath);
-        string folderLower = folderName.ToLowerInvariant();
+        string folderLower = TitleText.ForSearch(folderName).ToLowerInvariant();
         string exeLower = exeStem.ToLowerInvariant();
+        string folderKey = TitleText.LettersAndDigits(folderLower);
+        string exeKey = TitleText.LettersAndDigits(exeLower);
 
-        if (folderLower.Contains(exeLower) || exeLower.Contains(folderLower))
+        if (folderLower.Contains(exeLower) || exeLower.Contains(folderLower)
+            || (folderKey.Length > 2 && (folderKey == exeKey || folderKey.Contains(exeKey) || exeKey.Contains(folderKey))))
             return true;
 
         char[] separators = [' ', '_', '-', '.', ':'];
@@ -515,11 +522,11 @@ internal static class ExecutableDiscovery
     internal static bool IsForbiddenLaunchExe(string? pathOrName)
     {
         if (string.IsNullOrWhiteSpace(pathOrName))
-            return true;
+            return false;
 
         string name = WindowsFileStem(pathOrName);
         if (name.Length == 0)
-            return true;
+            return false;
         if (name.StartsWith("unins", StringComparison.OrdinalIgnoreCase))
             return true;
         if (name.Contains("uninstall", StringComparison.OrdinalIgnoreCase))

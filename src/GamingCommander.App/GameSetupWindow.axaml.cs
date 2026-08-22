@@ -64,7 +64,7 @@ public partial class GameSetupWindow : Window
             : rootPath;
 
         DisplayName = game.DisplayName;
-        SelectedType = game.GameSource.ToString();
+        SelectedType = GameSourceParser.ToDisplayName(game.GameSource);
         ExecutablePath = game.ExecutablePath;
         LauncherPath = game.LauncherPath;
         CommandLineArguments = game.CommandLineArguments;
@@ -524,7 +524,11 @@ public partial class GameSetupWindow : Window
 
         Dictionary<string, string> platformMetadata = new(_originalGame.PlatformMetadata);
         if (ExecutableDiscovery.IsForbiddenLaunchExe(ExecutablePath))
-            return;
+        {
+            ExecutablePath = ExecutableDiscovery.IsForbiddenLaunchExe(_originalGame.ExecutablePath)
+                ? string.Empty
+                : _originalGame.ExecutablePath;
+        }
 
         if (userOverrides.ContainsKey(GameEntryFields.ExecutablePath))
         {

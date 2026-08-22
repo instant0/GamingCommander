@@ -49,6 +49,9 @@ public sealed class ShellPaneItemViewModel
     /// <summary>Database ID of the game, or null for non-game items.</summary>
     public string? GameId { get; init; }
 
+    /// <summary>Library root this game belongs to. Required when the list is a cross-root filter.</summary>
+    public string LibraryRootPath { get; init; } = string.Empty;
+
     /// <summary>
     /// Platform-specific identifier (e.g. Steam App ID, Epic Catalog Item ID).
     /// Populated from GameEntry.PlatformMetadata during LoadGamesForRoot.

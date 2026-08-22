@@ -39,7 +39,8 @@ public sealed class TagColorService : ITagColorProvider
         TagColor? color = type switch
         {
             TagType.Store => _config.Stores.GetValueOrDefault(tag, _config.Default),
-            TagType.Engine => _config.Engines.GetValueOrDefault(tag, _config.Default),
+            TagType.Engine => _config.Engines.GetValueOrDefault(tag)
+                ?? new TagColor { Background = "#1A1A2E", Foreground = "#C8B8E8" },
             TagType.User => _config.Default,
             _ => _config.Default
         };

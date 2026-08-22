@@ -55,6 +55,29 @@ public sealed class PcgwSectionParserTests
     }
 
     [Fact]
+    public void ResolveWindows_UplayUidSavePath()
+    {
+        string resolved = PcgwPathTokens.ResolveWindows(
+            @"{{p|uplay}}\savegames\{{p|uid}}\54\");
+        Assert.Equal(
+            @"%PROGRAMFILES(X86)%\Ubisoft\Ubisoft Game Launcher\savegames\<user-id>\54\",
+            resolved);
+        Assert.Null(PcgwPathTokens.ExpandForExplorer(resolved));
+        string? previous = Environment.GetEnvironmentVariable("PROGRAMFILES(X86)");
+        try
+        {
+            Environment.SetEnvironmentVariable("PROGRAMFILES(X86)", @"C:\Program Files (x86)");
+            Assert.Equal(
+                @"C:\Program Files (x86)\Ubisoft\Ubisoft Game Launcher\savegames",
+                PcgwPathTokens.ForExplorer(resolved));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("PROGRAMFILES(X86)", previous);
+        }
+    }
+
+    [Fact]
     public void ParseCommandLineTable_WidthAndSkipStart()
     {
         string wt = Read("cyberpunk_cmdline.wikitext");

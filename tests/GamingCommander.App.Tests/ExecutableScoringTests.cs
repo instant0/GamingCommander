@@ -28,6 +28,16 @@ public sealed class ExecutableScoringTests : IDisposable
     // ════════════════════════════════════════════════════════════════
 
     [Fact]
+    public void ScoreExecutable_TrademarkFolder_MatchesConcatenatedExe()
+    {
+        string exe = CreateTempExe("DarkSoulsIII.exe");
+        int score = ExecutableDiscovery.ScoreExecutable(
+            exe, "Dark Souls® III", [], [], _ => 999).Score;
+        Assert.True(score >= 15, $"DarkSoulsIII vs Dark Souls® III should match, got {score}");
+        Assert.True(ExecutableDiscovery.ExeNameMatchesFolderName(exe, "Dark Souls® III"));
+    }
+
+    [Fact]
     public void ScoreExecutable_ExactNameMatch_AddsBonus()
     {
         string exe = CreateTempExe("MyGame.exe");
@@ -81,6 +91,8 @@ public sealed class ExecutableScoringTests : IDisposable
         Assert.True(ExecutableDiscovery.IsForbiddenLaunchExe("Unins001.exe"));
         Assert.True(ExecutableDiscovery.IsForbiddenLaunchExe("Uninstallation.exe"));
         Assert.False(ExecutableDiscovery.IsForbiddenLaunchExe("sky.exe"));
+        Assert.False(ExecutableDiscovery.IsForbiddenLaunchExe(""));
+        Assert.False(ExecutableDiscovery.IsForbiddenLaunchExe(null));
     }
 
     [Fact]

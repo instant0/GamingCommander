@@ -245,7 +245,9 @@ public sealed class SteamLibraryScanner
         string libraryRoot, DirectoryInfo gameDir, string folderName,
         AcfInfo acf, string status)
     {
-        string displayName = !string.IsNullOrWhiteSpace(acf.Name) ? acf.Name : FileSystemHelper.NormalizeDisplayName(folderName);
+        string displayName = !string.IsNullOrWhiteSpace(acf.Name)
+            ? TitleText.ForSearch(acf.Name)
+            : FileSystemHelper.NormalizeDisplayName(folderName);
         string id = GameEntryId.ComputeId(libraryRoot, folderName);
 
         var extra = new Dictionary<string, string>
@@ -333,7 +335,9 @@ public sealed class SteamLibraryScanner
         return new GameEntry(
             Id: id,
             FolderName: acf.Installdir,
-            DisplayName: !string.IsNullOrWhiteSpace(acf.Name) ? acf.Name : FileSystemHelper.NormalizeDisplayName(acf.Installdir),
+            DisplayName: !string.IsNullOrWhiteSpace(acf.Name)
+                ? TitleText.ForSearch(acf.Name)
+                : FileSystemHelper.NormalizeDisplayName(acf.Installdir),
             GameSource: GameSourceKind.Steam,
             IsSourceOverridden: false,
             ExecutablePath: string.Empty,
@@ -368,29 +372,14 @@ public sealed class SteamLibraryScanner
     /// </summary>
     private static string FindPrimaryExe(DirectoryInfo dir)
     {
-        try
-        {
-            foreach (string exe in Directory.EnumerateFiles(dir.FullName, "*.exe", SearchOption.TopDirectoryOnly))
-            {
-                string name = Path.GetFileNameWithoutExtension(exe).ToLowerInvariant();
-                if (!IsNoiseExe(name))
-                    return exe;
-            }
-        }
-        catch { }
-        return string.Empty;
-    }
-
-    /// <summary>
-    /// Checks if an executable is a known Steam noise file (installer, uninstaller, etc.).
-    /// Subset of the full noise list — Steam-specific to avoid false positives on
-    /// common redistributable names that are valid games in other contexts.
-    /// </summary>
-    private static bool IsNoiseExe(string name)
-    {
-        // Minimal noise check for Steam library context
-        return name is "unins000" or "unins001" or "setup" or "vcredist"
-            or "dxsetup" or "oalinst" or "commonredist";
+        string[] top = FileSystemHelper.GetFilesSafe(dir, "*.exe");
+        var found = ExecutableDiscovery.FindPrimaryExecutable(
+            dir,
+            top,
+            ["unins", "setup", "vcredist", "dxsetup", "oalinst"],
+            FileSystemHelper.NoiseSubDirNames,
+            ["launcher", "crashhandler"]);
+        return found.ExePath ?? string.Empty;
     }
 
     /// <summary>

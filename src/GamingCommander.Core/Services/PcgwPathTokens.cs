@@ -14,6 +14,7 @@ public static class PcgwPathTokens
     private static readonly HashSet<string> AllowedEnv = new(StringComparer.OrdinalIgnoreCase)
     {
         "LOCALAPPDATA", "APPDATA", "PROGRAMDATA", "WINDIR", "USERPROFILE",
+        "PROGRAMFILES", "PROGRAMFILES(X86)", "PUBLIC", "TEMP",
     };
 
     /// <summary>Replace known Windows tokens. Does not invent Linux paths.</summary>
@@ -33,14 +34,25 @@ public static class PcgwPathTokens
             {
                 "localappdata" => "%LOCALAPPDATA%",
                 "appdata" => "%APPDATA%",
-                "programdata" => "%PROGRAMDATA%",
+                "programdata" or "allusersprofile" => "%PROGRAMDATA%",
                 "windir" => "%WINDIR%",
+                "temp" => "%TEMP%",
+                "public" => "%PUBLIC%",
+                "username" => "%USERNAME%",
+                "programfiles" => "%PROGRAMFILES%",
                 "userprofile" => "%USERPROFILE%",
                 "userprofile\\documents" => @"%USERPROFILE%\Documents",
                 "userprofile\\savedgames" => @"%USERPROFILE%\Saved Games",
+                "userprofile\\appdata\\locallow" => @"%USERPROFILE%\AppData\LocalLow",
                 "game" => game,
-                "hkcu" => "HKCU",
-                "hklm" => "HKLM",
+                "uid" => "<user-id>",
+                "steam" => @"%PROGRAMFILES(X86)%\Steam",
+                "steamlibrary" => "<SteamLibrary-folder>",
+                "uplay" or "ubisoftconnect" =>
+                    @"%PROGRAMFILES(X86)%\Ubisoft\Ubisoft Game Launcher",
+                "hkcu" or "hkey_current_user" => "HKCU",
+                "hklm" or "hkey_local_machine" => "HKLM",
+                "wow64" => "Wow6432Node",
                 _ => m.Value,
             };
         });
@@ -56,11 +68,13 @@ public static class PcgwPathTokens
             return null;
         if (displayPath.Contains("{{", StringComparison.Ordinal))
             return null;
-        if (displayPath.Contains("%GAME%", StringComparison.OrdinalIgnoreCase))
+        if (displayPath.Contains("%GAME%", StringComparison.OrdinalIgnoreCase)
+            || displayPath.Contains('<')
+            || displayPath.Contains('>'))
             return null;
 
         string text = displayPath.Trim();
-        foreach (Match m in Regex.Matches(text, "%([A-Za-z][A-Za-z0-9_]*)%"))
+        foreach (Match m in Regex.Matches(text, "%([A-Za-z][A-Za-z0-9_()]*)%"))
         {
             string name = m.Groups[1].Value;
             if (!AllowedEnv.Contains(name))
@@ -74,6 +88,23 @@ public static class PcgwPathTokens
         }
 
         return text.Contains('%') ? null : text;
+    }
+
+    /// <summary>
+    /// Folder to open in Explorer: drop <c>&lt;user-id&gt;</c> and everything after it
+    /// (e.g. stop at <c>…\savegames\</c>).
+    /// </summary>
+    public static string? ForExplorer(string? displayPath)
+    {
+        if (string.IsNullOrWhiteSpace(displayPath))
+            return null;
+
+        string text = displayPath.Trim();
+        int cut = text.IndexOf('<');
+        if (cut >= 0)
+            text = text[..cut].TrimEnd('\\', '/');
+
+        return ExpandForExplorer(text);
     }
 
     /// <summary>True when the template is a registry key (<c>{{P|hkcu}}</c> / <c>HKCU\</c>), not a folder.</summary>

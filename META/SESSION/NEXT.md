@@ -2,12 +2,12 @@
 
 **Nature:** Scratch. **Overwritten** every session handoff.  
 **Audience:** Builder. Read before implementing.  
-**Updated:** 2026-08-22 — HKCU + search fallback.
+**Updated:** 2026-08-22 — F8 filter shipped.
 
 ---
 
 ## Do next
 
-Wait for Windows verify: Prime World Defenders config = `HKCU\Software\Nival Red\…` (not a folder); F3 Steam AppID; BASS; Browse folder.
+Wait for Windows: click RPG / F8 store / wildcard; Backspace clears.
 
-Do not add SteamDB. Do not HTTP on list select. Do not invert Steam URI launch.
+Do not add SteamDB. Do not invert Steam URI launch.

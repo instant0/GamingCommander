@@ -248,7 +248,7 @@ public partial class MainWindow : Window
                 break;
 
             case Key.F8:
-                SetStatusWithAutoClear("Filter/category view — coming in a future update");
+                _ = OpenFilterAsync();
                 e.Handled = true;
                 break;
 
@@ -260,7 +260,7 @@ public partial class MainWindow : Window
             case Key.S:
                 if (e.KeyModifiers == KeyModifiers.None)
                 {
-                    SetStatusWithAutoClear("Search not yet implemented");
+                    _ = OpenFilterAsync();
                     e.Handled = true;
                 }
                 break;
@@ -370,6 +370,35 @@ public partial class MainWindow : Window
         }
 
         return Task.CompletedTask;
+    }
+
+    private async Task OpenFilterAsync()
+    {
+        if (_viewModel is null)
+            return;
+
+        GameFilter? chosen = await FilterWindow.ShowAsync(
+            this, _viewModel.CollectFilterOptions(), _viewModel.ActiveFilter).ConfigureAwait(true);
+        if (chosen is null)
+        {
+            if (_viewModel.IsFilterActive)
+                _viewModel.ClearFilter();
+            SetStatusWithAutoClear("Filter cleared.");
+            return;
+        }
+
+        _viewModel.ApplyFilter(chosen);
+    }
+
+    private void TagBadgePressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
+    {
+        if (_viewModel is null || sender is not Control control)
+            return;
+        string? name = control.Tag as string ?? (control.DataContext as TagBadgeViewModel)?.Name;
+        if (string.IsNullOrWhiteSpace(name))
+            return;
+        _viewModel.ApplyFilter(new GameFilter(GameFilterKind.Tag, name));
+        e.Handled = true;
     }
 
     private async Task OpenLibrarySetupAsync()
@@ -651,8 +680,8 @@ public partial class MainWindow : Window
         {
             _viewModel.IsScanning = true;
 
-            // At root level: rescan all configured roots sequentially
-            if (_viewModel.IsAtRootLevel)
+            // At root level or filter: rescan all configured roots sequentially
+            if (_viewModel.IsAtRootLevel || _viewModel.IsFilterActive)
             {
                 var config = GetConfigService().Load();
                 if (config.LibraryRoots.Count == 0)
@@ -818,7 +847,7 @@ public partial class MainWindow : Window
                 _ = RefreshCurrentRootAsync();
                 break;
             case "F8":
-                SetStatusWithAutoClear("Filter/category view — coming in a future update");
+                _ = OpenFilterAsync();
                 break;
             case "F10":
                 Close();

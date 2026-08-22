@@ -59,8 +59,11 @@ public sealed class ShellViewModel : ReactiveObject
         JumpToLibraryRoots();
     }
 
-    /// <summary>Title displayed in the left pane header (root name or truncated path).</summary>
-    public string LeftPaneTitle => IsAtRootLevel ? "Library Roots" : TruncatePath(_currentRootPath);
+    /// <summary>Title displayed in the left pane header (root name, path, or active filter).</summary>
+    public string LeftPaneTitle =>
+        ActiveFilter is not null
+            ? $"Filter: {ActiveFilter.Caption}"
+            : IsAtRootLevel ? "Library Roots" : TruncatePath(_currentRootPath);
 
     /// <summary>Title displayed in the right pane header ('Details').</summary>
     public string RightPaneTitle => "Details";
@@ -76,6 +79,11 @@ public sealed class ShellViewModel : ReactiveObject
         }
     }
     private bool _isAtRootLevel = true;
+
+    /// <summary>Cross-library filter, or null when browsing roots / one folder.</summary>
+    public GameFilter? ActiveFilter { get; private set; }
+
+    public bool IsFilterActive => ActiveFilter is not null;
 
     /// <summary>Observable collection of items displayed in the left pane.</summary>
     public ObservableCollection<ShellPaneItemViewModel> Items { get; } = [];
@@ -132,17 +140,19 @@ public sealed class ShellViewModel : ReactiveObject
     public bool HasGameSelected => SelectedItem is { Kind: FileSystemEntryKind.File };
     /// <summary>True when the selected game has a user-defined folder override.</summary>
     public bool HasOverride => SelectedItem?.HasOverride == true;
-    /// <summary>Comma-separated tags for the selected game (e.g., "RPG, Open World").</summary>
-    public string DetailsTags => SelectedItem?.Tags ?? string.Empty;
-    /// <summary>True when the selected game has tags assigned.</summary>
-    public bool HasTags => !string.IsNullOrEmpty(SelectedItem?.Tags);
+    /// <summary>User tags plus sidecar genre/engine.</summary>
+    public string DetailsTags => string.Join(", ", SelectedMergedTags());
+    /// <summary>True when the selected game has user or metadata tags.</summary>
+    public bool HasTags => SelectedMergedTags().Count > 0;
     /// <summary>Tag badges with colors for the selected game.</summary>
-    public List<TagBadgeViewModel> DetailsTagBadges => SelectedItem?.TagBadges ?? [];
+    public List<TagBadgeViewModel> DetailsTagBadges =>
+        BuildTagBadges(SelectedMergedTags(), TagNormalizer.SplitList(_selectedMetadata?.Engine));
 
     /// <summary>Sidecar extras for the selected game (Plan 119). Empty when no sidecar row.</summary>
     public string DetailsDeveloper => _selectedMetadata?.Developer ?? string.Empty;
     public string DetailsPublisher => _selectedMetadata?.Publisher ?? string.Empty;
     public string DetailsGenre => _selectedMetadata?.Genre ?? string.Empty;
+    public string DetailsEngine => _selectedMetadata?.Engine ?? string.Empty;
     public string DetailsReleaseDate => _selectedMetadata?.ReleaseDate ?? string.Empty;
     public string DetailsMetacritic => _selectedMetadata?.MetacriticScore?.ToString() ?? string.Empty;
     public string DetailsPcgwUrl => _selectedMetadata?.PcGamingWikiUrl ?? string.Empty;
@@ -237,11 +247,13 @@ public sealed class ShellViewModel : ReactiveObject
     /// <summary>Populates the item list with configured library roots.</summary>
     public void JumpToLibraryRoots()
     {
+        ActiveFilter = null;
         _currentRootPath = string.Empty;
         IsAtRootLevel = true;
         _selectedIndex = _previousRootIndex;
         OnPropertyChanged(nameof(CurrentRootPath));
         OnPropertyChanged(nameof(LeftPaneTitle));
+        OnPropertyChanged(nameof(IsFilterActive));
         OnPropertyChanged(nameof(SelectedIndex));
         OnPropertyChanged(nameof(ItemCount));
 
@@ -315,15 +327,48 @@ public sealed class ShellViewModel : ReactiveObject
         UpdateDetailsForSelection();
     }
 
-    /// <summary>Goes up one level (games → roots, or no-op if already at roots).</summary>
+    /// <summary>Goes up one level (games/filter → roots, or no-op if already at roots).</summary>
     public void NavigateUp()
     {
-        if (IsAtRootLevel) return;
+        if (IsAtRootLevel && ActiveFilter is null)
+            return;
         JumpToLibraryRoots();
     }
 
-    /// <summary>Returns the full path of the currently browsed library root, or null if at root level.</summary>
-    public string? GetCurrentRootPath() => IsAtRootLevel ? null : _currentRootPath;
+    /// <summary>Library root for the selected game, or the folder being browsed.</summary>
+    public string? GetCurrentRootPath()
+    {
+        if (!string.IsNullOrWhiteSpace(SelectedItem?.LibraryRootPath))
+            return SelectedItem.LibraryRootPath;
+        return IsAtRootLevel ? null : _currentRootPath;
+    }
+
+    /// <summary>Show every matching game from every library root.</summary>
+    public void ApplyFilter(GameFilter filter)
+    {
+        if (string.IsNullOrWhiteSpace(filter.Value))
+        {
+            JumpToLibraryRoots();
+            return;
+        }
+
+        ActiveFilter = filter;
+        _currentRootPath = string.Empty;
+        IsAtRootLevel = false;
+        OnPropertyChanged(nameof(CurrentRootPath));
+        OnPropertyChanged(nameof(LeftPaneTitle));
+        OnPropertyChanged(nameof(IsFilterActive));
+        LoadFilteredGames();
+        StatusText = $"Filter: {filter.Caption} ({Items.Count(i => i.Kind == FileSystemEntryKind.File)} games)";
+    }
+
+    /// <summary>Drop the filter and return to library roots.</summary>
+    public void ClearFilter() => JumpToLibraryRoots();
+
+    /// <summary>All games plus sidecar genre/engine tags, for the F8 list.</summary>
+    public IReadOnlyList<GameFilterOption> CollectFilterOptions() =>
+        GameFilterMatcher.CollectOptions(
+            EnumerateGamesWithExtraTags().Select(x => (x.Game, (IEnumerable<string>)x.Extra)));
 
     /// <summary>Returns the ID of the currently selected game, or null if no game is selected.</summary>
     public string? GetSelectedGameId() => SelectedItem?.GameId;
@@ -331,9 +376,11 @@ public sealed class ShellViewModel : ReactiveObject
     /// <summary>Updates the source type of the selected game.</summary>
     public void RetagSelected(GameSourceKind newType)
     {
-        if (SelectedItem?.GameId is null || IsAtRootLevel) return;
-        _libraryManager.RetagGame(_currentRootPath, SelectedItem.GameId, newType);
-        LoadGamesForRoot(_currentRootPath);
+        if (SelectedItem?.GameId is null) return;
+        string? root = GetCurrentRootPath();
+        if (root is null) return;
+        _libraryManager.RetagGame(root, SelectedItem.GameId, newType);
+        Reload();
         StatusText = $"Retagged [{newType}]: {SelectedItem.Title}";
     }
 
@@ -352,7 +399,9 @@ public sealed class ShellViewModel : ReactiveObject
     /// <summary>Refreshes the current view by re-loading from database.</summary>
     public void Reload()
     {
-        if (IsAtRootLevel)
+        if (ActiveFilter is not null)
+            LoadFilteredGames();
+        else if (IsAtRootLevel)
             JumpToLibraryRoots();
         else
             LoadGamesForRoot(_currentRootPath);
@@ -420,6 +469,7 @@ public sealed class ShellViewModel : ReactiveObject
                     Tags = item.Tags,
                     TagBadges = item.TagBadges,
                     StoreBadge = item.StoreBadge,
+                    LibraryRootPath = item.LibraryRootPath,
                 };
             }
         }
@@ -497,7 +547,11 @@ public sealed class ShellViewModel : ReactiveObject
             string leftPath = Path.GetFileName(game.ExecutablePath);
 
             // Parenthetical subtitle: tags if present, empty otherwise
-            string subtitle = game.Tags.Count > 0 ? $"({string.Join(", ", game.Tags)})" : string.Empty;
+            GameMetadataRecord? sidecar = _metadataStore?.Get(game.Id);
+            List<string> engineTags = TagNormalizer.SplitList(sidecar?.Engine);
+            List<string> mergedTags = TagNormalizer.Merge(
+                game.Tags, TagNormalizer.FromMetadata(sidecar?.Genre, sidecar?.Engine));
+            string subtitle = mergedTags.Count > 0 ? $"({string.Join(", ", mergedTags)})" : string.Empty;
 
             Items.Add(new ShellPaneItemViewModel
             {
@@ -523,14 +577,112 @@ public sealed class ShellViewModel : ReactiveObject
                 PlatformStatusDetail = platformStatusDetail,
                 ItemStatusColor = itemStatusColor,
                 GameCount = 0,
-                Tags = game.Tags.Count > 0 ? string.Join(", ", game.Tags) : string.Empty,
-                TagBadges = BuildTagBadges(game.Tags),
+                Tags = mergedTags.Count > 0 ? string.Join(", ", mergedTags) : string.Empty,
+                TagBadges = BuildTagBadges(mergedTags, engineTags),
                 StoreBadge = BuildStoreBadge(game.GameSource),
+                LibraryRootPath = rootPath,
             });
         }
 
         OnPropertyChanged(nameof(ItemCount));
         NavigationChanged?.Invoke();
+    }
+
+    private void LoadFilteredGames()
+    {
+        GameFilter? filter = ActiveFilter;
+        Items.Clear();
+        Items.Add(new ShellPaneItemViewModel
+        {
+            Title = "..",
+            SourceLabel = string.Empty,
+            PathSummary = "Clear filter",
+            LaunchTarget = string.Empty,
+            Kind = FileSystemEntryKind.ParentDirectory,
+            LastModified = default,
+            ResolvedType = string.Empty,
+        });
+
+        if (filter is null)
+        {
+            OnPropertyChanged(nameof(ItemCount));
+            NavigationChanged?.Invoke();
+            UpdateDetailsForSelection();
+            return;
+        }
+
+        foreach ((string rootPath, GameEntry game, IReadOnlyList<string> extra) in EnumerateGamesWithExtraTags())
+        {
+            if (!GameFilterMatcher.Matches(game, filter, extra))
+                continue;
+
+            string rootName = RootFolderName(rootPath);
+            GameMetadataRecord? sidecar = _metadataStore?.Get(game.Id);
+            List<string> engineTags = TagNormalizer.SplitList(sidecar?.Engine);
+            List<string> mergedTags = TagNormalizer.Merge(
+                game.Tags, TagNormalizer.FromMetadata(sidecar?.Genre, sidecar?.Engine));
+            string subtitle = mergedTags.Count > 0 ? $"({string.Join(", ", mergedTags)})" : string.Empty;
+            string launchTarget = game.CommandLineArguments.StartsWith("steam://", StringComparison.OrdinalIgnoreCase)
+                ? game.CommandLineArguments
+                : game.ExecutablePath;
+            string platformId = game.GameSource switch
+            {
+                GameSourceKind.Steam => game.PlatformMetadata.TryGetValue("SteamAppId", out var steamAppId) ? steamAppId : string.Empty,
+                GameSourceKind.Epic => game.PlatformMetadata.TryGetValue("EpicCatalogItemId", out var epicCatalogItemId) ? epicCatalogItemId : string.Empty,
+                _ => string.Empty,
+            };
+            string platformStatus = game.GameSource == GameSourceKind.Steam
+                && game.PlatformMetadata.TryGetValue("SteamStatus", out var status)
+                ? status : string.Empty;
+
+            Items.Add(new ShellPaneItemViewModel
+            {
+                Title = game.DisplayName,
+                Subtitle = subtitle,
+                LeftPath = string.IsNullOrEmpty(rootName) ? Path.GetFileName(game.ExecutablePath) : rootName,
+                SourceLabel = game.GameSource.ToString(),
+                PathSummary = game.ExecutablePath,
+                InstallDirectory = WindowsExplorer.ParentDirectory(game.ExecutablePath) ?? string.Empty,
+                LaunchTarget = launchTarget,
+                CommandLineArguments = game.CommandLineArguments,
+                Kind = FileSystemEntryKind.File,
+                LastModified = game.LastModified,
+                ResolvedType = game.IsSourceOverridden ? $"{game.GameSource} (override)" : game.GameSource.ToString(),
+                HasOverride = game.IsSourceOverridden,
+                GameId = game.Id,
+                PlatformId = platformId,
+                PlatformStatus = platformStatus,
+                Tags = mergedTags.Count > 0 ? string.Join(", ", mergedTags) : string.Empty,
+                TagBadges = BuildTagBadges(mergedTags, engineTags),
+                StoreBadge = BuildStoreBadge(game.GameSource),
+                LibraryRootPath = rootPath,
+            });
+        }
+
+        _selectedIndex = 0;
+        OnPropertyChanged(nameof(SelectedIndex));
+        OnPropertyChanged(nameof(ItemCount));
+        UpdateDetailsForSelection();
+        NavigationChanged?.Invoke();
+    }
+
+    private IEnumerable<(string RootPath, GameEntry Game, IReadOnlyList<string> Extra)> EnumerateGamesWithExtraTags()
+    {
+        foreach (LibraryRoot root in _libraryManager.LibraryRoots)
+        {
+            foreach (GameEntry game in _libraryManager.GetGamesForRoot(root.RootPath))
+            {
+                GameMetadataRecord? sidecar = _metadataStore?.Get(game.Id);
+                yield return (root.RootPath, game, TagNormalizer.FromMetadata(sidecar?.Genre, sidecar?.Engine));
+            }
+        }
+    }
+
+    private static string RootFolderName(string rootPath)
+    {
+        string trimmed = rootPath.TrimEnd('\\', '/');
+        int slash = Math.Max(trimmed.LastIndexOf('\\'), trimmed.LastIndexOf('/'));
+        return slash >= 0 ? trimmed[(slash + 1)..] : trimmed;
     }
 
     private void UpdateDetailsForSelection()
@@ -563,6 +715,7 @@ public sealed class ShellViewModel : ReactiveObject
         OnPropertyChanged(nameof(DetailsDeveloper));
         OnPropertyChanged(nameof(DetailsPublisher));
         OnPropertyChanged(nameof(DetailsGenre));
+        OnPropertyChanged(nameof(DetailsEngine));
         OnPropertyChanged(nameof(DetailsReleaseDate));
         OnPropertyChanged(nameof(DetailsMetacritic));
         OnPropertyChanged(nameof(DetailsPcgwUrl));
@@ -589,10 +742,14 @@ public sealed class ShellViewModel : ReactiveObject
         OnPropertyChanged(nameof(DetailsDeveloper));
         OnPropertyChanged(nameof(DetailsPublisher));
         OnPropertyChanged(nameof(DetailsGenre));
+        OnPropertyChanged(nameof(DetailsEngine));
         OnPropertyChanged(nameof(DetailsReleaseDate));
         OnPropertyChanged(nameof(DetailsMetacritic));
         OnPropertyChanged(nameof(DetailsPcgwUrl));
         OnPropertyChanged(nameof(HasMetadataExtras));
+        OnPropertyChanged(nameof(DetailsTags));
+        OnPropertyChanged(nameof(HasTags));
+        OnPropertyChanged(nameof(DetailsTagBadges));
         OnPropertyChanged(nameof(DetailsConfigPath));
         OnPropertyChanged(nameof(DetailsSavePath));
         OnPropertyChanged(nameof(DetailsConfigPathClickable));
@@ -652,17 +809,31 @@ public sealed class ShellViewModel : ReactiveObject
                $"To fix: Move ACF to {targetPath} and restart Steam.";
     }
 
+    private List<string> SelectedMergedTags()
+    {
+        IEnumerable<string> user = string.IsNullOrWhiteSpace(SelectedItem?.Tags)
+            ? []
+            : TagNormalizer.ParseFromCommaSeparated(SelectedItem.Tags);
+        return TagNormalizer.Merge(
+            user, TagNormalizer.FromMetadata(_selectedMetadata?.Genre, _selectedMetadata?.Engine));
+    }
+
     /// <summary>
     /// Builds tag badge view models with configurable colors for each tag.
     /// </summary>
-    private List<TagBadgeViewModel> BuildTagBadges(IReadOnlyList<string> tags)
+    private List<TagBadgeViewModel> BuildTagBadges(
+        IReadOnlyList<string> tags,
+        IReadOnlyList<string>? engineNames = null)
     {
         if (tags.Count == 0) return [];
 
+        var engines = new HashSet<string>(engineNames ?? [], StringComparer.OrdinalIgnoreCase);
         var badges = new List<TagBadgeViewModel>(tags.Count);
         foreach (string tag in tags)
         {
-            TagType tagType = _tagColorProvider?.GetTagType(tag) ?? Core.Models.TagType.User;
+            TagType tagType = engines.Contains(tag)
+                ? TagType.Engine
+                : _tagColorProvider?.GetTagType(tag) ?? TagType.User;
             var (bg, fg) = _tagColorProvider?.GetColor(tag, tagType) ?? ("#2A3A4A", "#B8C8D8");
             badges.Add(new TagBadgeViewModel { Name = tag, Background = bg, Foreground = fg });
         }

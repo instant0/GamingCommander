@@ -24,7 +24,7 @@ public static class WindowsExplorer
         fileName = "explorer.exe";
         arguments = string.Empty;
 
-        string? expanded = PcgwPathTokens.ExpandForExplorer(displayPath);
+        string? expanded = PcgwPathTokens.ForExplorer(displayPath);
         if (expanded is null || !TryNormalizeFolder(expanded, out string folder))
             return false;
 
@@ -41,8 +41,9 @@ public static class WindowsExplorer
     /// </summary>
     public static bool IsClickableFolder(string? displayOrExpanded, string? gameDirectory)
     {
-        string? expanded = displayOrExpanded is not null && displayOrExpanded.Contains('%')
-            ? PcgwPathTokens.ExpandForExplorer(displayOrExpanded)
+        string? expanded = displayOrExpanded is not null
+            && (displayOrExpanded.Contains('%') || displayOrExpanded.Contains('<'))
+            ? PcgwPathTokens.ForExplorer(displayOrExpanded)
             : displayOrExpanded;
         if (expanded is null || !TryNormalizeFolder(expanded, out string folder))
             return false;
@@ -57,7 +58,15 @@ public static class WindowsExplorer
                 return true;
         }
 
-        return false;
+        return IsKnownStoreDataFolder(folder);
+    }
+
+    /// <summary>Ubisoft Connect savegames / Steam userdata — not arbitrary Program Files.</summary>
+    private static bool IsKnownStoreDataFolder(string folder)
+    {
+        string a = folder.Replace('/', '\\').TrimEnd('\\') + "\\";
+        return a.Contains(@"\Ubisoft\Ubisoft Game Launcher\", StringComparison.OrdinalIgnoreCase)
+            || a.Contains(@"\Steam\userdata\", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>Parent of a Windows exe path. Does not use <see cref="Path"/> (Linux-safe).</summary>

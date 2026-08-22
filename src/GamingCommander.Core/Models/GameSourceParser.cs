@@ -51,4 +51,19 @@ public static class GameSourceParser
         "Steam Emulator" => GameSourceKind.SteamEmu,
         _ => GameSourceKind.Standalone,
     };
+
+    /// <summary>Combo-box label for <paramref name="kind"/>. Must match <see cref="SourceDisplayNames"/>.</summary>
+    public static string ToDisplayName(GameSourceKind kind) => kind switch
+    {
+        GameSourceKind.Steam => "Steam",
+        GameSourceKind.Gog => "GOG",
+        GameSourceKind.Epic => "Epic",
+        GameSourceKind.EaApp => "EA App",
+        GameSourceKind.UbisoftConnect => "Ubisoft Connect",
+        GameSourceKind.BattleNet => "Battle.net",
+        GameSourceKind.Xbox => "Xbox",
+        GameSourceKind.Rockstar => "Rockstar",
+        GameSourceKind.SteamEmu => "Steam Emulator",
+        _ => "Standalone",
+    };
 }

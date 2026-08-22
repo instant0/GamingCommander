@@ -1,3 +1,5 @@
+using GamingCommander.Core.Services;
+
 namespace GamingCommander.App.Services;
 
 /// <summary>
@@ -123,7 +125,7 @@ internal static class FileSystemHelper
     /// </summary>
     internal static string NormalizeDisplayName(string folderName)
     {
-        return folderName
+        return TitleText.ForSearch(folderName)
             .Replace("Remastered", "")
             .Replace("Definitive Edition", "")
             .Replace("Enhanced Edition", "")

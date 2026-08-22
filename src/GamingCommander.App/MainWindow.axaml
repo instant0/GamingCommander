@@ -128,7 +128,7 @@
             <!-- B33: Tags -->
             <StackPanel IsVisible="{Binding HasTags}" Margin="0,12,0,0">
               <TextBlock Text="Tags" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" Margin="0,0,0,4" />
-              <ItemsControl ItemsSource="{Binding SelectedItem.TagBadges}">
+              <ItemsControl ItemsSource="{Binding DetailsTagBadges}">
                 <ItemsControl.ItemsPanel>
                   <ItemsPanelTemplate>
                     <WrapPanel Orientation="Horizontal" />
@@ -137,7 +137,9 @@
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:TagBadgeViewModel">
                     <Border Background="{Binding Background, Converter={StaticResource HexToBrush}}"
-                            CornerRadius="4" Padding="6,2" Margin="2">
+                            CornerRadius="4" Padding="6,2" Margin="2"
+                            Cursor="Hand" Tag="{Binding Name}"
+                            PointerPressed="TagBadgePressed">
                       <TextBlock Text="{Binding Name}"
                                  Foreground="{Binding Foreground, Converter={StaticResource HexToBrush}}"
                                  FontSize="11" />
@@ -159,6 +161,9 @@
               <TextBlock Text="{Binding DetailsGenre, StringFormat='Genre: {0}'}"
                          Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeBody}"
                          IsVisible="{Binding DetailsGenre, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+              <TextBlock Text="{Binding DetailsEngine, StringFormat='Engine: {0}'}"
+                         Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeBody}"
+                         IsVisible="{Binding DetailsEngine, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
               <TextBlock Text="{Binding DetailsReleaseDate, StringFormat='Released: {0}'}"
                          Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeBody}"
                          IsVisible="{Binding DetailsReleaseDate, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />

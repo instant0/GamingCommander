@@ -63,6 +63,22 @@ public sealed class SteamLibraryScannerTests : IDisposable
     // ════════════════════════════════════════════════════════════════
 
     [Fact]
+    public void Scan_FindsExeInShippingSubfolder()
+    {
+        string root = CreateMockSteamLibrary("DivinityOriginalSin", appId: "230230");
+        string shipping = Path.Combine(root, "steamapps", "common", "DivinityOriginalSin", "Shipping");
+        Directory.CreateDirectory(shipping);
+        File.WriteAllBytes(Path.Combine(shipping, "EOCApp.exe"), new byte[200 * 1024]);
+
+        var scanner = new SteamLibraryScanner([root]);
+        var results = scanner.Scan(root);
+
+        Assert.Single(results);
+        Assert.Contains("EOCApp.exe", results[0].ExecutablePath, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Shipping", results[0].ExecutablePath, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void Scan_WithValidAcf_ParsesAllFields()
     {
         string root = CreateMockSteamLibrary("TestGame", appId: "730");

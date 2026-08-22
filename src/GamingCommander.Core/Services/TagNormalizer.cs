@@ -69,4 +69,30 @@ public static class TagNormalizer
     {
         return string.Join(", ", tags);
     }
+
+    /// <summary>Split a comma list (PCGW genre or engine). Does not write <c>games.json</c>.</summary>
+    public static List<string> SplitList(string? raw)
+    {
+        var list = new List<string>();
+        if (string.IsNullOrWhiteSpace(raw))
+            return list;
+        foreach (string part in raw.Split(',', StringSplitOptions.RemoveEmptyEntries))
+            AddDistinct(list, part);
+        return list;
+    }
+
+    /// <summary>Genre tokens then engine tokens. Engine names stay tags of type Engine in the UI.</summary>
+    public static List<string> FromMetadata(string? genre, string? engine) =>
+        Merge(SplitList(genre), SplitList(engine));
+
+    /// <summary>User tags first, then metadata tokens that are not already present.</summary>
+    public static List<string> Merge(IEnumerable<string> userTags, IEnumerable<string> metadataTags)
+    {
+        var list = new List<string>();
+        foreach (string tag in userTags)
+            AddDistinct(list, tag);
+        foreach (string tag in metadataTags)
+            AddDistinct(list, tag);
+        return list;
+    }
 }

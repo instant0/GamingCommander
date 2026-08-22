@@ -179,4 +179,18 @@ public class TagNormalizerTests
     {
         Assert.Equal("RPG, Co-op, Story Rich", TagNormalizer.ToCommaSeparated(["RPG", "Co-op", "Story Rich"]));
     }
+
+    [Fact]
+    public void FromMetadata_SplitsGenreAndKeepsEngine()
+    {
+        List<string> tags = TagNormalizer.FromMetadata("Action, Adventure, Open world", "Anvil");
+        Assert.Equal(["Action", "Adventure", "Open world", "Anvil"], tags);
+    }
+
+    [Fact]
+    public void Merge_UserFirst_SkipsDuplicateGenre()
+    {
+        List<string> merged = TagNormalizer.Merge(["RPG", "Co-op"], ["Action", "rpg"]);
+        Assert.Equal(["RPG", "Co-op", "Action"], merged);
+    }
 }

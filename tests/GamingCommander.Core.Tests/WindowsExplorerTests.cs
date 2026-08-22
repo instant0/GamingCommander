@@ -41,6 +41,27 @@ public sealed class WindowsExplorerTests
     }
 
     [Fact]
+    public void Clickable_UplaySavegamesPrefix()
+    {
+        string? previous = Environment.GetEnvironmentVariable("PROGRAMFILES(X86)");
+        try
+        {
+            Environment.SetEnvironmentVariable("PROGRAMFILES(X86)", @"C:\Program Files (x86)");
+            string display =
+                @"%PROGRAMFILES(X86)%\Ubisoft\Ubisoft Game Launcher\savegames\<user-id>\54\";
+            Assert.True(WindowsExplorer.IsClickableFolder(display, gameDirectory: null));
+            Assert.True(WindowsExplorer.TryBuildOpenFolder(display, null, out _, out string args));
+            Assert.Equal(
+                "\"C:\\Program Files (x86)\\Ubisoft\\Ubisoft Game Launcher\\savegames\"",
+                args);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("PROGRAMFILES(X86)", previous);
+        }
+    }
+
+    [Fact]
     public void Clickable_OnlyGameOrUserProfileRoots()
     {
         string? previous = Environment.GetEnvironmentVariable("USERPROFILE");

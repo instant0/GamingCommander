@@ -2,16 +2,13 @@
 
 **Nature:** Scratch. **Overwritten** every session handoff.  
 **Audience:** All agents. Read every session.  
-**Updated:** 2026-08-22 — HKCU config paths; search fallback.
+**Updated:** 2026-08-22 — F8 filter wired.
 
 ---
 
 ## This session
 
-- PCGW `{{P|hkcu}}` is a **registry** key, not a folder. Shown as `HKCU\…` / “Config (registry)”, never Explorer.
-- Prefer a real folder path when both exist. Saves for PWD stay `%APPDATA%\Prime World Defenders\`.
-- OpenSearch miss (no colon) → wiki `list=search` (finds `Prime World: Defenders`).
-- Earlier: Steam F3 uses AppID only; unins000 banned; Browse starts in game folder; redirect + case dedupe.
+Filter is live: click a details tag, or **F8** / **S**. List is every matching game across all roots. Options = tags (user + PCGW genre/engine) + store labels + wildcard. **Clear** / **Backspace** / **Esc** / **..** return to library roots.
 
 Published to `./publish`.
 
