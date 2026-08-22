@@ -103,6 +103,11 @@ public sealed class ShellViewModel : ReactiveObject
     public string DetailsType => SelectedItem?.SourceLabel ?? string.Empty;
     /// <summary>Primary executable path of the currently selected game.</summary>
     public string DetailsExecutable => SelectedItem?.LaunchTarget ?? string.Empty;
+    public bool HasMultipleExes => SelectedItem?.HasMultipleExes == true;
+    public string MultipleExeWarning =>
+        HasMultipleExes
+            ? "Multiple EXE files detected — press F4 to choose the main one."
+            : string.Empty;
     /// <summary>Last modification timestamp of the game's installation directory.</summary>
     public string DetailsLastModified => FormatTimestamp(SelectedItem?.LastModified);
     /// <summary>The resolved source type as a human-readable string.</summary>
@@ -500,6 +505,9 @@ public sealed class ShellViewModel : ReactiveObject
                 SourceLabel = game.GameSource.ToString(),
                 PathSummary = game.ExecutablePath,
                 InstallDirectory = WindowsExplorer.ParentDirectory(game.ExecutablePath) ?? string.Empty,
+                HasMultipleExes = game.PlatformMetadata.TryGetValue("ExeCandidateCount", out string? exeCount)
+                    && int.TryParse(exeCount, out int n) && n > 1,
+                AlternateExes = game.PlatformMetadata.GetValueOrDefault("ExeCandidates", string.Empty),
                 LaunchTarget = launchTarget,
                 CommandLineArguments = game.CommandLineArguments,
                 Kind = FileSystemEntryKind.File,
@@ -533,6 +541,8 @@ public sealed class ShellViewModel : ReactiveObject
         OnPropertyChanged(nameof(DetailsPath));
         OnPropertyChanged(nameof(DetailsType));
         OnPropertyChanged(nameof(DetailsExecutable));
+        OnPropertyChanged(nameof(HasMultipleExes));
+        OnPropertyChanged(nameof(MultipleExeWarning));
         OnPropertyChanged(nameof(DetailsLastModified));
         OnPropertyChanged(nameof(DetailsPlatformId));
         OnPropertyChanged(nameof(HasPlatformId));

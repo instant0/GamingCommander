@@ -217,6 +217,11 @@
 
             <TextBlock Text="Executable" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" Margin="0,12,0,0" />
             <TextBlock Text="{Binding DetailsExecutable}" Foreground="{DynamicResource TextSuccess}" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeLabel}" />
+            <TextBlock Text="{Binding MultipleExeWarning}"
+                       Foreground="{DynamicResource TextDanger}" FontSize="{DynamicResource FontSizeLabel}"
+                       TextWrapping="Wrap" Cursor="Hand" Margin="0,4,0,0"
+                       PointerPressed="MultipleExeWarning_PointerPressed"
+                       IsVisible="{Binding HasMultipleExes}" />
 
             <TextBlock Text="Press F4 to configure this entry."
                        Foreground="{DynamicResource TextAccent}" FontSize="{DynamicResource FontSizeLabel}" Margin="0,16,0,0"

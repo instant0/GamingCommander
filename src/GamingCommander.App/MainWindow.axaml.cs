@@ -686,6 +686,9 @@ public partial class MainWindow : Window
             _viewModel!.NavigateInto();
     }
 
+    private void MultipleExeWarning_PointerPressed(object? sender, PointerPressedEventArgs e) =>
+        _ = OpenGameSetupAsync();
+
     private void OpenConfigPath_PointerPressed(object? sender, PointerPressedEventArgs e) =>
         OpenFolderFromDisplay(_viewModel?.DetailsConfigPath);
 

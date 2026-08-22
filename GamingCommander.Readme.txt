@@ -43,9 +43,16 @@ What does GamingCommander do?
                (Steam, GOG, Epic, etc.), and status (installed, moved,
                etc.). You can add custom tags to each game.
 
-  3. LAUNCH  — Select a game and press Enter. GamingCommander starts the
+   3. LAUNCH  — Select a game and press Enter. GamingCommander starts the
                game for you. For Steam games, it opens the Steam launcher.
                For standalone games, it runs the .exe directly.
+
+   4. CHOOSE EXE — If a folder has more than one .exe, the details pane
+               shows: "Multiple EXE files detected — press F4 to choose
+               the main one." Click that line or press F4. Pick the real
+               game (e.g. GAME.EXE, not 12-org-game.exe). After you save
+               that choice, the warning goes away and the extra names are
+               not stored. A later rescan will not bring them back.
 
 
 What access does GamingCommander need?

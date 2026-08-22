@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using GamingCommander.Core.Models;
 
 namespace GamingCommander.App.Services;
@@ -191,15 +192,24 @@ internal static class ExecutableDiscovery
         if (launcherPatterns.Any(p => name.Contains(p)))
             score -= 20;
 
-        // Penalize backup copies / cracks / org groups
+        // Penalize backup copies / cracks / org groups (org_ and 12-org-game)
         if (name.Contains("copy of") || name.Contains(" - copy"))
             score -= 25;
-        else if (name.Contains("org_") || name.StartsWith("org_"))
-            score -= 20;
+        else if (name.Contains("org_", StringComparison.Ordinal)
+                 || name.Contains("-org-", StringComparison.Ordinal)
+                 || name.Contains("-org_", StringComparison.Ordinal)
+                 || name.StartsWith("org_", StringComparison.Ordinal)
+                 || name.StartsWith("org-", StringComparison.Ordinal)
+                 || Regex.IsMatch(name, @"^\d{1,3}-org"))
+            score -= 25;
         else if (name.Contains("original"))
             score -= 15;
         if (name.Contains("crack"))
             score -= 25;
+
+        // Classic main binary names (Silent Storm, many 2000s titles)
+        if (name is "game" or "start" or "play")
+            score += 18;
 
         score += RomanNumeralBonus(name, folderLower, folderTokens);
         score += AbbreviationBonus(name, folderLower);
@@ -342,7 +352,10 @@ internal static class ExecutableDiscovery
     /// <summary>
     /// Result of finding the primary executable in a game directory.
     /// </summary>
-    internal sealed record PrimaryExeResult(string? ExePath, string? FileDescription);
+    internal sealed record PrimaryExeResult(
+        string? ExePath,
+        string? FileDescription,
+        IReadOnlyList<string> Candidates);
 
     /// <summary>
     /// Finds the primary executable in a game directory by deep-searching and scoring candidates.
@@ -366,12 +379,12 @@ internal static class ExecutableDiscovery
         if (candidates.Count == 0)
         {
             // Fallback: if even deep search found nothing, try top-level exes
-            if (topLevelExes.Length == 0) return new PrimaryExeResult(null, null);
+            if (topLevelExes.Length == 0) return new PrimaryExeResult(null, null, []);
             // Cache FileInfo.Length to avoid redundant syscalls (Plan 112 Step 4B)
             string best = topLevelExes
                 .OrderByDescending(f => { try { return new FileInfo(f).Length; } catch { return 0; } })
                 .First();
-            return new PrimaryExeResult(best, null);
+            return new PrimaryExeResult(best, null, topLevelExes);
         }
 
         if (candidates.Count == 1)
@@ -380,7 +393,7 @@ internal static class ExecutableDiscovery
             string folderName = dir.Name;
             Func<string, int> singleLookup = tierLookup ?? (_ => 999);
             var result = ScoreExecutable(candidates[0], folderName, launcherPatterns, noiseExePatterns, singleLookup);
-            return new PrimaryExeResult(candidates[0], result.FileDescription);
+            return new PrimaryExeResult(candidates[0], result.FileDescription, candidates);
         }
 
         // Score all candidates and pick the best
@@ -390,7 +403,7 @@ internal static class ExecutableDiscovery
             .Select(exe => (Exe: exe, Result: ScoreExecutable(exe, folderNameForScoring, launcherPatterns, noiseExePatterns, lookup)))
             .OrderByDescending(x => x.Result.Score)
             .First();
-        return new PrimaryExeResult(scored.Exe, scored.Result.FileDescription);
+        return new PrimaryExeResult(scored.Exe, scored.Result.FileDescription, candidates);
     }
 
     /// <summary>

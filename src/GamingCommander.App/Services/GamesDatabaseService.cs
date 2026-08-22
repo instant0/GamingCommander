@@ -210,10 +210,23 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
             ? existing.ManifestPath
             : scanned.ManifestPath;
 
+        string executablePath = existing.UserOverrides.ContainsKey(GameEntryFields.ExecutablePath)
+            ? existing.ExecutablePath
+            : scanned.ExecutablePath;
+
+        Dictionary<string, string> platformMetadata = new(scanned.PlatformMetadata);
+        if (existing.UserOverrides.ContainsKey(GameEntryFields.ExecutablePath))
+        {
+            platformMetadata.Remove("ExeCandidates");
+            platformMetadata.Remove("ExeCandidateCount");
+        }
+
         return scanned with
         {
             DisplayName = displayName,
             GameSource = gameSource,
+            ExecutablePath = executablePath,
+            PlatformMetadata = platformMetadata,
             IsSourceOverridden = existing.IsSourceOverridden,
             CommandLineArguments = commandLineArgs,
             ExtraLaunchArguments = existing.ExtraLaunchArguments,

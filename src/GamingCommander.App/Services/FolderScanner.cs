@@ -257,6 +257,16 @@ public sealed class FolderScanner
         string displayName = FileSystemHelper.NormalizeDisplayName(subDir.Name);
         string id = GameEntryId.ComputeId(rootPath, subDir.Name);
         var platformMetadata = new Dictionary<string, string>();
+        if (primaryExe.Candidates.Count > 1)
+        {
+            platformMetadata["ExeCandidateCount"] = primaryExe.Candidates.Count.ToString();
+            platformMetadata["ExeCandidates"] = string.Join('|',
+                primaryExe.Candidates
+                    .Select(Path.GetFileName)
+                    .Where(n => !string.IsNullOrEmpty(n))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Take(16));
+        }
         string commandLineArgs = string.Empty;
 
         // Track whether display name was enriched by a store parser (used for PE FileDescription guard)

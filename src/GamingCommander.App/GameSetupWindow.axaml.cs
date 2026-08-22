@@ -18,6 +18,7 @@ public partial class GameSetupWindow : Window
     private readonly string _gameFolderPath;
     private readonly IReadOnlyList<GameMetadataCommandLine> _catalog;
     private readonly List<CheckBox> _catalogChecks = [];
+    private bool _userPickedExe;
     private TextBox? _extrasBox;
     private TextBlock? _previewText;
     private bool _syncingExtras;
@@ -86,6 +87,7 @@ public partial class GameSetupWindow : Window
         panel.Children.Add(MakeFieldRow("Display Name", DisplayName, 0, false, false, ""));
         panel.Children.Add(MakeComboRow("Game Type", GameSourceParser.SourceDisplayNames, SelectedType, 1));
         panel.Children.Add(MakeFieldRow("Executable Path", ExecutablePath, 2, false, true, "Browse..."));
+        panel.Children.Add(MakeExeCandidateRow());
         panel.Children.Add(MakeFieldRow("Launch Args", CommandLineArguments, 3, false, false, ""));
         panel.Children.Add(MakeCatalogSection());
         panel.Children.Add(MakeExtrasRow());
@@ -255,6 +257,48 @@ public partial class GameSetupWindow : Window
         return panel;
     }
 
+    private Control MakeExeCandidateRow()
+    {
+        if (!_originalGame.PlatformMetadata.TryGetValue("ExeCandidates", out string? list)
+            || string.IsNullOrWhiteSpace(list))
+        {
+            return new StackPanel();
+        }
+
+        string dir = WindowsExplorer.ParentDirectory(ExecutablePath)
+                     ?? WindowsExplorer.ParentDirectory(_originalGame.ExecutablePath)
+                     ?? string.Empty;
+        string[] names = list.Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (names.Length < 2)
+            return new StackPanel();
+
+        var panel = new StackPanel { Spacing = 4 };
+        panel.Children.Add(new TextBlock
+        {
+            Text = "Detected executables (pick the main one)",
+            Foreground = AppTheme.TextMuted,
+            FontSize = AppTheme.FontSizeLabel,
+        });
+
+        var combo = new ComboBox
+        {
+            ItemsSource = names,
+            SelectedItem = Path.GetFileName(ExecutablePath),
+            Background = AppTheme.PaneBg,
+            Foreground = AppTheme.TextPrimary,
+        };
+        combo.SelectionChanged += (_, _) =>
+        {
+            if (combo.SelectedItem is not string name || string.IsNullOrEmpty(dir))
+                return;
+            ExecutablePath = dir.TrimEnd('\\') + "\\" + name;
+            _userPickedExe = true;
+            RenderFields();
+        };
+        panel.Children.Add(combo);
+        return panel;
+    }
+
     private StackPanel MakeCatalogSection()
     {
         var panel = new StackPanel { Spacing = 4 };
@@ -419,7 +463,7 @@ public partial class GameSetupWindow : Window
         }
 
         // Check if executable path changed
-        if (!_originalGame.ExecutablePath.Equals(ExecutablePath, StringComparison.Ordinal))
+        if (_userPickedExe || !_originalGame.ExecutablePath.Equals(ExecutablePath, StringComparison.Ordinal))
         {
             userOverrides[GameEntryFields.ExecutablePath] = now;
         }
@@ -457,6 +501,13 @@ public partial class GameSetupWindow : Window
             userOverrides[GameEntryFields.Tags] = now;
         }
 
+        Dictionary<string, string> platformMetadata = new(_originalGame.PlatformMetadata);
+        if (userOverrides.ContainsKey(GameEntryFields.ExecutablePath))
+        {
+            platformMetadata.Remove("ExeCandidates");
+            platformMetadata.Remove("ExeCandidateCount");
+        }
+
         var updated = _originalGame with
         {
             DisplayName = DisplayName,
@@ -469,6 +520,7 @@ public partial class GameSetupWindow : Window
             ManifestPath = ManifestPath,
             Tags = newTags,
             UserOverrides = userOverrides,
+            PlatformMetadata = platformMetadata,
         };
 
         _dbService.UpdateGameEntry(_rootPath, updated);

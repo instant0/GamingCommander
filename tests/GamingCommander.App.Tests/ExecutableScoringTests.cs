@@ -235,6 +235,21 @@ public sealed class ExecutableScoringTests : IDisposable
     }
 
     [Fact]
+    public void ScoreExecutable_NumberedOrgHyphen_LosesToGameExe()
+    {
+        string main = CreateTempExe("GAME.exe");
+        string orgCopy = CreateTempExe("12-org-game.exe");
+
+        int mainScore = ExecutableDiscovery.ScoreExecutable(
+            main, "Silent Storm", [], [], _ => 999).Score;
+        int orgScore = ExecutableDiscovery.ScoreExecutable(
+            orgCopy, "Silent Storm", [], [], _ => 999).Score;
+
+        Assert.True(mainScore > orgScore,
+            $"GAME.exe ({mainScore}) should beat 12-org-game.exe ({orgScore})");
+    }
+
+    [Fact]
     public void ScoreExecutable_OrgPrefixExe_Penalizes()
     {
         string original = CreateTempExe("MyGame.exe");

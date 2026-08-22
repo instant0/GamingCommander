@@ -91,6 +91,12 @@ public sealed class ShellPaneItemViewModel
     public string ScanningBadge { get; init; } = string.Empty;
 
     /// <summary>Comma-separated user tags (e.g., "RPG, Open World"). Used by right pane details.</summary>
+    /// <summary>True when the folder has more than one non-noise exe.</summary>
+    public bool HasMultipleExes { get; init; }
+
+    /// <summary>Other exe file names in the folder (not the selected one).</summary>
+    public string AlternateExes { get; init; } = string.Empty;
+
     public string Tags { get; init; } = string.Empty;
 
     /// <summary>Tag badges with configurable colors for rendering. Used by right pane details.</summary>
