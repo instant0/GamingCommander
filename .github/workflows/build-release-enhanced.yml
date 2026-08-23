@@ -7,11 +7,13 @@ on:
         description: 'Version (e.g., 0.4-beta.1)'
         required: true
 
+permissions:
+  contents: write
+  security-events: write
+
 jobs:
   security-scan:
     runs-on: ubuntu-latest
-    permissions:
-      security-events: write
     steps:
       - uses: actions/checkout@v7
       
@@ -65,4 +67,4 @@ jobs:
           prerelease: true
           files: |
             ./publish/**/*
-            ./sbom.json
+            sbom.json
