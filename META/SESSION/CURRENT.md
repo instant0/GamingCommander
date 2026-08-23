@@ -2,13 +2,13 @@
 
 **Nature:** Scratch. **Overwritten** every session handoff.  
 **Audience:** All agents. Read every session.  
-**Updated:** 2026-08-22 — metadata 60-day + identity guard.
+**Updated:** 2026-08-23 — C# Write Epic .item = documented working recipe.
 
 ---
 
 ## This session
 
-Sidecar freshness **60 days**. Failed fetch does not rewrite the file. Different wiki URL / Steam ID is dropped unless F3 picked the page. Same-URL edits still apply (cannot detect a hacked page).
+C# `EpicItemWriter` matches the user-confirmed Update file: AppName from `.manifest` (Boga), catalog ids from `.mancpn`/`.ovt` only, no AppVersionString, no MainGame*, no GraphQL ids. Status: one Epic Update per launcher run.
 
 Published to `./publish`.
 

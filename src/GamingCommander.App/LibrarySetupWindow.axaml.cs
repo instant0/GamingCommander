@@ -103,7 +103,8 @@ public partial class LibrarySetupWindow : Window
             {
                 ItemsSource = GameSourceParser.SourceDisplayNames,
                 SelectedItem = entry.DefaultType,
-                MinWidth = 120,
+                MinWidth = 148,
+                Margin = new Thickness(8, 0, 8, 0),
             };
             combo.SelectionChanged += (_, _) => entry.DefaultType = combo.SelectedItem?.ToString() ?? "Standalone";
 
@@ -137,7 +138,7 @@ public partial class LibrarySetupWindow : Window
                 ColumnDefinitions =
                 [
                     new ColumnDefinition(1, GridUnitType.Star),
-                    new ColumnDefinition(120, GridUnitType.Pixel),
+                    new ColumnDefinition(GridLength.Auto),
                 ],
                 Children =
                 {

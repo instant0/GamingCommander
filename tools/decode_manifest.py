@@ -17,6 +17,47 @@ def read_fstrings(data, off, count):
     return strings, off
 
 
+def folder_leaf(path):
+    """Last path segment; works for Windows paths on Linux."""
+    p = path.replace("\\", "/").rstrip("/")
+    return p.split("/")[-1] if p else path
+
+
+def read_local_catalog_ids(game_folder):
+    """Prefer .mancpn, then .ovt JWT. These belong to THIS install — do not replace with GraphQL."""
+    import glob
+    for pat in (os.path.join(game_folder, ".egstore", "*.mancpn"),
+                os.path.join(game_folder, ".egsstore", "*.mancpn")):
+        for f in glob.glob(pat):
+            try:
+                d = json.load(open(f, encoding="utf-8"))
+                ns, cid, app = d.get("CatalogNamespace"), d.get("CatalogItemId"), d.get("AppName")
+                if ns and cid:
+                    return {"namespace": ns, "catalog_id": cid, "app_name": app or "", "source": "mancpn"}
+            except Exception:
+                pass
+    for root, _, files in os.walk(os.path.join(game_folder, ".egstore")):
+        for name in files:
+            if not name.endswith(".ovt"):
+                continue
+            try:
+                tok = json.load(open(os.path.join(root, name), encoding="utf-8")).get("token") or ""
+                if tok.startswith("egoc1~"):
+                    tok = tok[6:]
+                payload = tok.split(".")[1]
+                payload += "=" * ((4 - len(payload) % 4) % 4)
+                import base64
+                jwt = json.loads(base64.urlsafe_b64decode(payload.replace("-", "+").replace("_", "/")))
+                ent = (jwt.get("ent") or [{}])[0]
+                ns, cid = ent.get("namespace"), ent.get("catalogItemId")
+                app = jwt.get("sub") or os.path.basename(root)
+                if ns and cid:
+                    return {"namespace": ns, "catalog_id": cid, "app_name": app or "", "source": "ovt"}
+            except Exception:
+                pass
+    return {}
+
+
 def normalize_app_name(app_name):
     """Strip 'Staging' suffix from AppName for .item format."""
     if app_name.lower().endswith('staging'):
@@ -42,6 +83,61 @@ def extract_game_name(manifest_data):
     if name.lower().endswith('staging'):
         name = name[:-7]
     return name
+
+
+def search_epic_by_ids(namespace, catalog_id):
+    """searchStore(namespace=...) then pick the offer whose id == catalog_id.
+
+    IDs stay as passed in. This only returns display_name / thumbnail.
+    Dev namespaces may return nothing useful.
+    """
+    if not namespace:
+        return {}
+    endpoint = "https://store.epicgames.com/graphql"
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "*/*",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    }
+    q = (
+        '{ Catalog { searchStore(start: 0, count: 10, namespace: "%s") '
+        "{ elements { title id namespace keyImages { url type } } } } }"
+        % namespace
+    )
+    try:
+        response = requests.post(endpoint, json={"query": q}, headers=headers, timeout=15)
+        if response.status_code != 200:
+            return {}
+        els = (
+            response.json()
+            .get("data", {})
+            .get("Catalog", {})
+            .get("searchStore", {})
+            .get("elements")
+            or []
+        )
+        picked = None
+        for r in els:
+            if catalog_id and r.get("id") == catalog_id:
+                picked = r
+                break
+        if picked is None and els:
+            picked = els[0]
+        if not picked:
+            return {}
+        thumb = ""
+        for img in picked.get("keyImages") or []:
+            if img.get("type") == "Thumbnail":
+                thumb = img.get("url") or ""
+                break
+        return {
+            "display_name": picked.get("title") or "",
+            "vault_thumbnail": thumb,
+            "source": "namespace+id" if catalog_id and picked.get("id") == catalog_id else "namespace",
+        }
+    except Exception as e:
+        print(f"Warning: Epic API id lookup failed: {e}", file=sys.stderr)
+        return {}
 
 
 def search_epic_namespace(query):
@@ -119,44 +215,52 @@ def generate_item(manifest_path, manifest_data, install_location, epic_meta=None
     manifest_folder = os.path.dirname(manifest_path)
     if not install_location:
         install_location = os.path.dirname(manifest_folder)
-    folder_name = os.path.basename(install_location.rstrip('/\\'))
+    folder_name = folder_leaf(install_location)
     
-    display_name = epic_meta.get('display_name', folder_name)
+    display_name = epic_meta.get('display_name') or folder_name
     vault_thumb = epic_meta.get('vault_thumbnail', '')
-    folder_name = os.path.basename(install_location.rstrip('/\\'))
     
+    # Shape confirmed 2026-08-23: user edit of our regen showed as Update in Epic.
+    # AppName = Boga from .manifest (not .ovt sub). No AppVersionString. No MainGame*.
+    # Catalog ids from local .ovt/.mancpn. Epic schema extras present but empty.
+    loc = install_location.replace('/', '\\')
     item = {
         "FormatVersion": 0,
+        "EoshRevision": "",
         "bIsIncompleteInstall": False,
         "LaunchCommand": "",
         "LaunchExecutable": meta['launch_exe'],
-        "ManifestLocation": install_location.replace('/', '\\') + "/.egstore",
-        "ManifestHash": "",  # SHA of manifest file - cannot derive
+        "ManifestLocation": loc + "/.egstore",
+        "CompleteManifestPath": "",
+        "PendingManifestPath": "",
+        "ManifestHash": "",
+        "SDMetaHash": "",
+        "SDMetaLocation": "",
         "bIsApplication": True,
         "bIsExecutable": True,
         "bIsManaged": False,
         "bNeedsValidation": False,
+        "bSDMetaMigrated": False,
         "bRequiresAuth": True,
         "bAllowMultipleInstances": False,
         "bCanRunOffline": True,
         "bAllowUriCmdArgs": False,
         "bLaunchElevated": False,
-        "BaseURLs": [],  # CDN URLs - cannot derive
+        "BaseURLs": [],
         "BuildLabel": "Live",
         "AppCategories": ["public", "games", "applications"],
         "ChunkDbs": [],
         "CompatibleApps": [],
         "DisplayName": display_name,
         "InstallationGuid": os.path.splitext(os.path.basename(manifest_path))[0],
-        "InstallLocation": install_location.replace('/', '\\'),
-        "InstallSessionId": "",
+        "InstallLocation": loc,
+        "InstallSessionId": "00000000000000000000000000000000",
         "InstallTags": [],
         "InstallComponents": [],
         "HostInstallationGuid": "00000000000000000000000000000000",
-        "PrereqIds": [],
         "PrereqSHA1Hash": "",
         "LastPrereqSucceededSHA1Hash": "",
-        "StagingLocation": install_location.replace('/', '\\') + '\\.egstore\\bps',
+        "StagingLocation": loc + "\\.egstore\\bps",
         "TechnicalType": "public,games,applications",
         "VaultThumbnailUrl": vault_thumb,
         "VaultTitleText": "",
@@ -166,19 +270,15 @@ def generate_item(manifest_path, manifest_data, install_location, epic_meta=None
         "BackgroundProcessNames": [],
         "IgnoredProcessNames": [],
         "DlcProcessNames": [],
-        "ExpectingDLCInstalled": {},
         "MandatoryAppFolderName": folder_name,
         "OwnershipToken": "true",
         "SidecarConfigRevision": 0,
+        "SidecarDeploymentId": "",
         "PreloadState": 0,
         "CatalogNamespace": epic_meta.get('namespace', ''),
         "CatalogItemId": epic_meta.get('catalog_id', ''),
         "AppName": normalize_app_name(meta['app_name']),
-        "AppVersionString": meta['build_version'],
-        "MainGameCatalogNamespace": epic_meta.get('namespace', ''),
-        "MainGameCatalogItemId": epic_meta.get('catalog_id', ''),
-        "MainGameAppName": normalize_app_name(meta['app_name']),
-        "AllowedUriEnvVars": []
+        "AllowedUriEnvVars": [],
     }
     
     return item
@@ -331,7 +431,37 @@ if __name__ == "__main__":
             game_query = extract_game_name(result)
         print(f"Extracted game name: {game_query}", file=sys.stderr)
     
-    if game_query:
+    local_ids = {}
+    if install_location:
+        local_ids = read_local_catalog_ids(install_location)
+        if not local_ids and len(install_location) >= 3 and install_location[1] == ":":
+            mapped = "/mnt/" + install_location[0].lower() + install_location[2:].replace("\\", "/")
+            local_ids = read_local_catalog_ids(mapped)
+
+    epic_meta = {}
+    if local_ids:
+        epic_meta = dict(local_ids)
+        print(
+            f"Using local {local_ids.get('source')} ids: "
+            f"Namespace={local_ids.get('namespace')}, CatalogItemId={local_ids.get('catalog_id')}",
+            file=sys.stderr,
+        )
+        if game_query:
+            epic_meta["display_name"] = game_query
+        # Enrich title/art only. Never replace local namespace / catalog id.
+        extra = search_epic_by_ids(local_ids.get("namespace"), local_ids.get("catalog_id"))
+        extra_name = extra.get("display_name") or ""
+        want = (epic_meta.get("display_name") or game_query or "").lower()
+        if extra_name and want and want.split()[0] in extra_name.lower():
+            epic_meta["display_name"] = extra_name
+        if extra.get("vault_thumbnail") and extra_name and want and want.split()[0] in extra_name.lower():
+            epic_meta["vault_thumbnail"] = extra["vault_thumbnail"]
+        print(
+            f"GraphQL enrich ({extra.get('source', 'none')}): {extra_name or '(no title)'} "
+            f"(ids unchanged; display kept if title does not match --game)",
+            file=sys.stderr,
+        )
+    elif game_query:
         print(f"Querying Epic API for: {game_query}", file=sys.stderr)
         epic_meta = search_epic_namespace(game_query)
         if epic_meta.get('namespace') and epic_meta.get('catalog_id'):
@@ -341,8 +471,6 @@ if __name__ == "__main__":
         else:
             print("Could not find game in Epic store", file=sys.stderr)
             epic_meta = {}
-    else:
-        epic_meta = {}
     
     if install_location:
         item = generate_item(manifest_path, result, install_location, epic_meta)

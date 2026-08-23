@@ -108,22 +108,26 @@
                        PointerPressed="OpenGameFolder_PointerPressed"
                        IsVisible="{Binding DetailsGameFolderClickable}" />
 
-            <TextBlock Text="Type" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" Margin="0,12,0,0" />
-            <TextBlock Text="{Binding DetailsType}" Foreground="{DynamicResource TextAccent}" FontSize="{DynamicResource FontSizeBody}"
-                       Margin="12,0,0,0" />
-            <TextBlock Text="Change type (F4)"
-                       Foreground="{DynamicResource TextAccent}" FontSize="{DynamicResource FontSizeLabel}"
-                       Margin="12,2,0,0" Cursor="Hand"
-                       PointerPressed="ChangeType_PointerPressed"
-                       IsVisible="{Binding HasGameSelected}" />
-            <TextBlock Text="User override"
-                       Foreground="{DynamicResource TextSuccess}" FontSize="{DynamicResource FontSizeLabel}"
-                       Margin="12,2,0,0"
-                       IsVisible="{Binding HasOverride}" />
-
-            <TextBlock Text="Last Modified" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" Margin="0,12,0,0" />
-            <TextBlock Text="{Binding DetailsLastModified}" Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeBody}"
-                       Margin="12,0,0,0" />
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,12,0,0"
+                        IsVisible="{Binding HasGameSelected}">
+              <TextBlock Text="{Binding DetailsTypeLine}" Foreground="{DynamicResource TextMuted}"
+                         FontSize="{DynamicResource FontSizeLabel}" VerticalAlignment="Center" />
+              <Border Background="{Binding DetailsStoreBadge.Background, Converter={StaticResource HexToBrush}}"
+                      CornerRadius="3" Padding="6,1" VerticalAlignment="Center" MinWidth="72"
+                      IsVisible="{Binding HasStoreBadge}">
+                <TextBlock Text="{Binding DetailsStoreBadge.Name}"
+                           Foreground="{Binding DetailsStoreBadge.Foreground, Converter={StaticResource HexToBrush}}"
+                           FontSize="10" HorizontalAlignment="Center" />
+              </Border>
+              <TextBlock Text="Change"
+                         Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeSmall}"
+                         Cursor="Hand" TextDecorations="Underline" VerticalAlignment="Center"
+                         PointerPressed="ChangeType_PointerPressed" />
+            </StackPanel>
+            <TextBlock Text="{Binding DetailsDetectedOn, StringFormat='Detected on: {0}'}"
+                       Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeLabel}"
+                       Margin="0,4,0,0"
+                       IsVisible="{Binding HasDetectedOn}" />
 
             <TextBlock Text="Platform ID" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" Margin="0,12,0,0"
                        IsVisible="{Binding HasPlatformId}" />
@@ -146,7 +150,7 @@
                        Margin="12,4,0,0" Cursor="Hand" TextWrapping="Wrap"
                        PointerPressed="WriteSteamAcf_PointerPressed"
                        IsVisible="{Binding IsSteamOrphaned}" />
-            <TextBlock Text="Write Epic .item (from .egstore/.mancpn)"
+            <TextBlock Text="Write Epic .item (one per Epic launch — then Update)"
                        Foreground="{DynamicResource TextAccent}" FontSize="{DynamicResource FontSizeLabel}"
                        Margin="12,4,0,0" Cursor="Hand" TextWrapping="Wrap"
                        PointerPressed="WriteEpicItem_PointerPressed"
@@ -253,9 +257,14 @@
               </StackPanel>
             </StackPanel>
 
-            <TextBlock Text="Executable" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" Margin="0,12,0,0" />
-            <TextBlock Text="{Binding DetailsExecutable}" Foreground="{DynamicResource TextSuccess}" TextWrapping="Wrap"
-                       FontSize="{DynamicResource FontSizeLabel}" Margin="12,0,0,0" />
+            <TextBlock Text="{Binding DetailsExePath, StringFormat='Executable: {0}'}"
+                       Foreground="{DynamicResource TextSuccess}" TextWrapping="Wrap"
+                       FontSize="{DynamicResource FontSizeLabel}" Margin="0,12,0,0"
+                       IsVisible="{Binding HasGameSelected}" />
+            <TextBlock Text="{Binding DetailsExeModified, StringFormat='Modified: {0}'}"
+                       Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeLabel}"
+                       Margin="0,2,0,0"
+                       IsVisible="{Binding HasGameSelected}" />
             <TextBlock Text="{Binding MultipleExeWarning}"
                        Foreground="{DynamicResource TextDanger}" FontSize="{DynamicResource FontSizeLabel}"
                        TextWrapping="Wrap" Cursor="Hand" Margin="0,4,0,0"

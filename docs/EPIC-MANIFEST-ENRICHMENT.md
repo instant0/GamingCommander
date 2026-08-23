@@ -2,7 +2,9 @@
 
 **Nature:** Reference document. Analysis of Epic Games Store detection and metadata enrichment.  
 **Audience:** All agents. Read when modifying Epic detection, manifest parsing, or metadata enrichment.  
-**Status:** ✅ COMPLETE — Plan 109 implemented. 3 bugs (#17, #18, #19) fixed. 289 tests passing. API lookup deferred to future plan.
+**Status:** Plan **109** (folder enrich) COMPLETE. **Not** the live Epic VFS spec.  
+**Read instead for DLC/orphan/regen:** `docs/research/epic_item_format.md`. **Catalog VFS:** `planning/121-epic-manifest-vfs-investigation.md`.  
+API lookup still deferred (tools only).
 
 ---
 

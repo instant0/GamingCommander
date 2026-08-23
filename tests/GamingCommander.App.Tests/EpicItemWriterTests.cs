@@ -32,4 +32,27 @@ public sealed class EpicItemWriterTests : IDisposable
         Assert.Contains("\"CatalogItemId\": \"id\"", json);
         Assert.Contains("Orphan.exe", json);
     }
+
+    [Fact]
+    public void TryWrite_FromOvtWhenMancpnMissing()
+    {
+        string game = Path.Combine(_dir, "DeathLike");
+        string eg = Path.Combine(game, ".egstore", "d460fdcbec4e42f295473e94e96fda11");
+        Directory.CreateDirectory(eg);
+        Directory.CreateDirectory(Path.Combine(game, "Binaries", "Win64"));
+        File.WriteAllBytes(Path.Combine(game, ".egstore", "0C1A9FF244DDA40D209294A46A2F36B6.manifest"), [1]);
+        File.WriteAllBytes(Path.Combine(game, "Binaries", "Win64", "DeathStranding.exe"), new byte[8]);
+        string payload = Convert.ToBase64String(
+                System.Text.Encoding.UTF8.GetBytes(
+                    """{"sub":"d460fdcbec4e42f295473e94e96fda11","ent":[{"catalogItemId":"item1","namespace":"ns1"}]}"""))
+            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        File.WriteAllText(Path.Combine(eg, "token.ovt"),
+            "{\"token\":\"egoc1~aaa." + payload + ".sig\"}");
+        string manifests = Path.Combine(_dir, "Manifests2");
+        Assert.True(EpicItemWriter.TryWrite(game, manifests, out string path, out string err), err);
+        string json = File.ReadAllText(path);
+        Assert.Contains("item1", json);
+        Assert.Contains("ns1", json);
+        Assert.Contains("0C1A9FF244DDA40D209294A46A2F36B6", json);
+    }
 }

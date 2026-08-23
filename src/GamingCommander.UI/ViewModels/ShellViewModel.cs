@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using GamingCommander.Core;
 using GamingCommander.Core.Models;
 using GamingCommander.Core.Services;
@@ -113,15 +114,48 @@ public sealed class ShellViewModel : ReactiveObject
         WindowsExplorer.IsClickableFolder(DetailsGameFolder, SelectedInstallDirectory);
     /// <summary>Source type of the currently selected game (e.g., Steam, GOG).</summary>
     public string DetailsType => SelectedItem?.SourceLabel ?? string.Empty;
+    public string DetailsTypeLine
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(DetailsType))
+                return string.Empty;
+            if (DetailsStoreBadge is not null)
+                return HasOverride ? "Type: (Override)" : "Type:";
+            return HasOverride ? $"Type: {DetailsType} (Override)" : $"Type: {DetailsType}";
+        }
+    }
+    public TagBadgeViewModel? DetailsStoreBadge => SelectedItem?.StoreBadge;
+    public bool HasStoreBadge => DetailsStoreBadge is not null;
     /// <summary>Primary executable path of the currently selected game.</summary>
     public string DetailsExecutable => SelectedItem?.LaunchTarget ?? string.Empty;
+    /// <summary>Exe path for the footer (not steam://).</summary>
+    public string DetailsExePath
+    {
+        get
+        {
+            string? path = SelectedItem?.PathSummary;
+            if (!string.IsNullOrWhiteSpace(path)
+                && !path.StartsWith("steam://", StringComparison.OrdinalIgnoreCase))
+            {
+                return path;
+            }
+
+            return DetailsExecutable;
+        }
+    }
     public bool HasMultipleExes => SelectedItem?.HasMultipleExes == true;
     public string MultipleExeWarning =>
         HasMultipleExes
             ? "Multiple EXE files detected — press F4 to choose the main one."
             : string.Empty;
-    /// <summary>Last modification timestamp of the game's installation directory.</summary>
+    /// <summary>Folder last-write; used as fallback when the exe time is unknown.</summary>
     public string DetailsLastModified => FormatTimestamp(SelectedItem?.LastModified);
+    public string DetailsDetectedOn => FormatDate(SelectedItem?.LastScanned);
+    public bool HasDetectedOn =>
+        SelectedItem is { Kind: FileSystemEntryKind.File } item
+        && item.LastScanned != default;
+    public string DetailsExeModified => ExeOrFolderModified();
     /// <summary>The resolved source type as a human-readable string.</summary>
     public string DetailsResolvedType => SelectedItem?.ResolvedType ?? string.Empty;
     /// <summary>Platform-specific identifier (Steam App ID, Epic Catalog ID, etc.).</summary>
@@ -483,6 +517,7 @@ public sealed class ShellViewModel : ReactiveObject
                     SourceLabel = item.SourceLabel,
                     PathSummary = item.PathSummary,
                     LaunchTarget = item.LaunchTarget,
+                    LastScanned = item.LastScanned,
                     CommandLineArguments = item.CommandLineArguments,
                     Kind = item.Kind,
                     LastModified = item.LastModified,
@@ -590,8 +625,12 @@ public sealed class ShellViewModel : ReactiveObject
                 Subtitle = subtitle,
                 LeftPath = leftPath,
                 SourceLabel = GameSourceParser.ToDisplayName(game.GameSource),
-                PathSummary = game.ExecutablePath,
-                InstallDirectory = WindowsExplorer.ParentDirectory(game.ExecutablePath) ?? string.Empty,
+                PathSummary = string.IsNullOrWhiteSpace(game.ExecutablePath)
+                    ? game.PlatformMetadata.GetValueOrDefault("GameFolder", "")
+                    : game.ExecutablePath,
+                InstallDirectory = game.PlatformMetadata.GetValueOrDefault("GameFolder", "") is { Length: > 0 } gameFolder
+                    ? gameFolder
+                    : WindowsExplorer.ParentDirectory(game.ExecutablePath) ?? string.Empty,
                 HasMultipleExes = game.PlatformMetadata.TryGetValue("ExeCandidateCount", out string? exeCount)
                     && int.TryParse(exeCount, out int n) && n > 1,
                 AlternateExes = game.PlatformMetadata.GetValueOrDefault("ExeCandidates", string.Empty),
@@ -599,6 +638,7 @@ public sealed class ShellViewModel : ReactiveObject
                 CommandLineArguments = game.CommandLineArguments,
                 Kind = FileSystemEntryKind.File,
                 LastModified = game.LastModified,
+                LastScanned = game.LastScanned,
                 ResolvedType = game.IsSourceOverridden
                     ? GameSourceParser.ToDisplayName(game.GameSource) + " (override)"
                     : GameSourceParser.ToDisplayName(game.GameSource),
@@ -678,12 +718,17 @@ public sealed class ShellViewModel : ReactiveObject
                 Subtitle = subtitle,
                 LeftPath = string.IsNullOrEmpty(rootName) ? Path.GetFileName(game.ExecutablePath) : rootName,
                 SourceLabel = GameSourceParser.ToDisplayName(game.GameSource),
-                PathSummary = game.ExecutablePath,
-                InstallDirectory = WindowsExplorer.ParentDirectory(game.ExecutablePath) ?? string.Empty,
+                PathSummary = string.IsNullOrWhiteSpace(game.ExecutablePath)
+                    ? game.PlatformMetadata.GetValueOrDefault("GameFolder", "")
+                    : game.ExecutablePath,
+                InstallDirectory = game.PlatformMetadata.GetValueOrDefault("GameFolder", "") is { Length: > 0 } gameFolder
+                    ? gameFolder
+                    : WindowsExplorer.ParentDirectory(game.ExecutablePath) ?? string.Empty,
                 LaunchTarget = launchTarget,
                 CommandLineArguments = game.CommandLineArguments,
                 Kind = FileSystemEntryKind.File,
                 LastModified = game.LastModified,
+                LastScanned = game.LastScanned,
                 ResolvedType = game.IsSourceOverridden
                     ? GameSourceParser.ToDisplayName(game.GameSource) + " (override)"
                     : GameSourceParser.ToDisplayName(game.GameSource),
@@ -735,10 +780,17 @@ public sealed class ShellViewModel : ReactiveObject
         OnPropertyChanged(nameof(DetailsGameFolder));
         OnPropertyChanged(nameof(DetailsGameFolderClickable));
         OnPropertyChanged(nameof(DetailsType));
+        OnPropertyChanged(nameof(DetailsTypeLine));
+        OnPropertyChanged(nameof(DetailsStoreBadge));
+        OnPropertyChanged(nameof(HasStoreBadge));
+        OnPropertyChanged(nameof(DetailsExePath));
         OnPropertyChanged(nameof(DetailsExecutable));
         OnPropertyChanged(nameof(HasMultipleExes));
         OnPropertyChanged(nameof(MultipleExeWarning));
         OnPropertyChanged(nameof(DetailsLastModified));
+        OnPropertyChanged(nameof(DetailsDetectedOn));
+        OnPropertyChanged(nameof(HasDetectedOn));
+        OnPropertyChanged(nameof(DetailsExeModified));
         OnPropertyChanged(nameof(DetailsPlatformId));
         OnPropertyChanged(nameof(HasPlatformId));
         OnPropertyChanged(nameof(DetailsPlatformStatus));
@@ -822,13 +874,38 @@ public sealed class ShellViewModel : ReactiveObject
         return timestamp.Value.ToString("yyyy-MM-dd HH:mm");
     }
 
+    private static string FormatDate(DateTimeOffset? timestamp)
+    {
+        if (!timestamp.HasValue || timestamp.Value == default) return string.Empty;
+        return timestamp.Value.ToString("yyyy-MM-dd");
+    }
+
+    private string ExeOrFolderModified()
+    {
+        string? exe = SelectedItem?.PathSummary;
+        if (!string.IsNullOrWhiteSpace(exe)
+            && !exe.StartsWith("steam://", StringComparison.OrdinalIgnoreCase)
+            && File.Exists(exe))
+        {
+            try
+            {
+                return FormatTimestamp(new DateTimeOffset(File.GetLastWriteTimeUtc(exe)));
+            }
+            catch
+            {
+            }
+        }
+
+        return DetailsLastModified;
+    }
+
     /// <summary>Formats actionable detail text for Orphaned Steam games (folder exists, no ACF).</summary>
     private static string FormatOrphanedDetail(GameEntry game)
     {
         if (game.GameSource == GameSourceKind.Epic)
         {
             return "Orphaned — Epic folder (.egstore) has no ProgramData .item. " +
-                   "Click Write Epic .item if .mancpn is present (same recipe the launcher already accepted).";
+                    "Write Epic .item from .egstore scraps. Then Update in Epic — only ONE official repair per launcher run.";
         }
 
         string folder = game.PlatformMetadata.GetValueOrDefault("FolderName", game.FolderName);

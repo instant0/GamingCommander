@@ -35,6 +35,21 @@ public sealed class PcgwInfoboxParserTests
     }
 
     [Fact]
+    public void ParseWikitext_GenreRowAllowsSpacesBeforePipe()
+    {
+        string wt = """
+            {{Infobox game
+            {{Infobox game/row/taxonomy/genres            | Open world, Adventure, Action }}
+            }}
+            """;
+        PcgwFacts? facts = PcgwInfoboxParser.ParseWikitext(wt, "Death Stranding");
+        Assert.NotNull(facts);
+        Assert.Contains("Open world", facts.Genres);
+        Assert.Contains("Adventure", facts.Genres);
+        Assert.Contains("Action", facts.Genres);
+    }
+
+    [Fact]
     public void ParseWikitext_ExtractsInfoboxRows()
     {
         string wt = File.ReadAllText(Fixture("pcgw_infobox.wikitext"));

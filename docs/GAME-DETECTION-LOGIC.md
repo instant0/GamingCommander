@@ -1,7 +1,7 @@
 # Game Detection Logic — Complete Reference
 
-**Nature:** Living reference document. Updated when detection logic changes.
-**Audience:** All agents. Read when modifying detection, store signals, or noise filtering.
+**Nature:** Deep reference. **Can lag.** If this file and the code disagree, the code + `META/CODE_MAP.md` win.  
+**Audience:** Agents changing detection. Do not treat as the HTTP/launch contract (`docs/ONLINE-AND-DATA.md`).
 
 ---
 

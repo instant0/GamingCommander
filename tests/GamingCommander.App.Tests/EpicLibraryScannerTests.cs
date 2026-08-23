@@ -37,18 +37,51 @@ public sealed class EpicLibraryScannerTests : IDisposable
     }
 
     [Fact]
-    public void Scan_ListsOrphanFromOtherRoot()
+    public void Scan_DedupsSameCatalogItemId()
     {
-        string games = Path.Combine(_dir, "games");
-        string orphan = Path.Combine(games, "OrphanTitle");
-        Directory.CreateDirectory(Path.Combine(orphan, ".egstore"));
+        const string body = """
+            {"DisplayName":"Dishonored - Definitive Edition","InstallLocation":"/tmp/DishonoredDE",
+             "LaunchExecutable":"Binaries/Win64/Dishonored.exe","CatalogNamespace":"ns",
+             "CatalogItemId":"same-id","AppName":"app","bIsApplication":true,
+             "AppCategories":["games","applications"]}
+            """;
+        File.WriteAllText(Path.Combine(_dir, "a.item"), body);
+        File.WriteAllText(Path.Combine(_dir, "b.item"),
+            body.Replace("Binaries/Win64", "/Binaries/Win64"));
+
+        var games = new EpicLibraryScanner().Scan(_dir);
+        Assert.Single(games);
+        Assert.Equal("Dishonored - Definitive Edition", games[0].DisplayName);
+    }
+
+    [Fact]
+    public void Scan_ReusesFolderScanRowForOrphan()
+    {
         File.WriteAllText(Path.Combine(_dir, "only-dlc.item"), """
             {"DisplayName":"DLC","InstallLocation":"/nope","LaunchExecutable":"",
              "AppCategories":["addons"],"bIsApplication":false}
             """);
+        var known = new GameEntry(
+            Id: "same-id",
+            FolderName: "cavestoryplus",
+            DisplayName: "Cave Story+",
+            GameSource: GameSourceKind.Epic,
+            IsSourceOverridden: false,
+            ExecutablePath: @"D:\games\cavestoryplus\CaveStory+.exe",
+            LauncherPath: "",
+            CommandLineArguments: "",
+            ManifestPath: "",
+            LastScanned: DateTimeOffset.UtcNow,
+            LastModified: DateTimeOffset.UtcNow,
+            PlatformMetadata: [],
+            Tags: [],
+            UserOverrides: []);
 
-        var list = new EpicLibraryScanner().Scan(_dir, [games]);
-        Assert.Contains(list, g => g.PlatformMetadata.GetValueOrDefault("EpicStatus") == "Orphaned"
-            && g.FolderName == "OrphanTitle");
+        var list = new EpicLibraryScanner().Scan(_dir, [(@"D:\games", known)]);
+        GameEntry orphan = Assert.Single(list);
+        Assert.Equal("Orphaned", orphan.PlatformMetadata["EpicStatus"]);
+        Assert.Equal("same-id", orphan.Id);
+        Assert.Equal(@"D:\games\cavestoryplus\CaveStory+.exe", orphan.ExecutablePath);
+        Assert.Equal("Cave Story+", orphan.DisplayName);
     }
 }

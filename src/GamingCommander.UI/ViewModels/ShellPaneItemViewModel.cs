@@ -37,8 +37,11 @@ public sealed class ShellPaneItemViewModel
     /// <summary>True if this item can be drilled into (directory or parent).</summary>
     public bool IsBrowsable => Kind is FileSystemEntryKind.Directory or FileSystemEntryKind.ParentDirectory;
 
-    /// <summary>Timestamp of the last modification to this item.</summary>
+    /// <summary>Folder last-write (opaque). Prefer exe mtime in the details footer.</summary>
     public DateTimeOffset LastModified { get; init; }
+
+    /// <summary>When this row was last scanned into the VFS.</summary>
+    public DateTimeOffset LastScanned { get; init; }
 
     /// <summary>The effective source type after applying overrides.</summary>
     public string ResolvedType { get; init; } = string.Empty;

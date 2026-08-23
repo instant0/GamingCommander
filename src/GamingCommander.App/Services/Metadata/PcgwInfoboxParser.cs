@@ -25,7 +25,7 @@ public static class PcgwInfoboxParser
         @"\{\{Infobox game/row/date\|([^|}]+)\|(.+?)(?:\||\}\})", RegexOptions.IgnoreCase | RegexOptions.Singleline);
 
     private static readonly Regex GenreRow = new(
-        @"\{\{Infobox game/row/taxonomy/genres\|(.+?)(?:\||\}\})", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+        @"\{\{Infobox game/row/taxonomy/genres\s*\|(.+?)(?:\||\}\})", RegexOptions.IgnoreCase | RegexOptions.Singleline);
 
     /// <summary>Extracts the wiki page title from an <c>appid.php</c> HTML document.</summary>
     public static string? ParseHtmlTitle(string html)

@@ -253,9 +253,6 @@ internal static class EpicManifestParser
         if (!Directory.Exists(manifestsPath))
             return null;
 
-        // Normalize game folder path for comparison
-        string target = NormalizePath(gameDir.FullName);
-
         try
         {
             foreach (string itemFile in Directory.GetFiles(manifestsPath, "*.item"))
@@ -265,11 +262,8 @@ internal static class EpicManifestParser
                     continue;
 
                 // Compare InstallLocation against game folder (case-insensitive, trailing separator stripped)
-                string installLoc = NormalizePath(itemData.InstallLocation);
-                if (!string.IsNullOrEmpty(installLoc) && installLoc == target)
-                {
+                if (EpicInstallPath.Same(itemData.InstallLocation, gameDir.FullName))
                     return itemData;
-                }
             }
         }
         catch (IOException)

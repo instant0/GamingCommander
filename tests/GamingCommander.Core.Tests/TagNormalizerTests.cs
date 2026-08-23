@@ -181,6 +181,13 @@ public class TagNormalizerTests
     }
 
     [Fact]
+    public void FromMetadata_DropsArabicGenre()
+    {
+        List<string> tags = TagNormalizer.FromMetadata("أكشن, مغامرة, Adventure", "Decima");
+        Assert.Equal(["Adventure", "Decima"], tags);
+    }
+
+    [Fact]
     public void FromMetadata_SplitsGenreAndKeepsEngine()
     {
         List<string> tags = TagNormalizer.FromMetadata("Action, Adventure, Open world", "Anvil");

@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.RegularExpressions;
+using GamingCommander.Core.Models;
 
 namespace GamingCommander.Core.Services;
 
@@ -68,7 +69,10 @@ public static class TitleText
         var list = new List<string>();
         foreach (string? raw in names)
         {
-            foreach (string variant in new[] { ForSearch(raw), ExpandPacked(raw), FromFolderName(raw) })
+            foreach (string variant in new[]
+                     {
+                         ForSearch(raw), ExpandPacked(raw), FromFolderName(raw), StripEdition(raw),
+                     })
             {
                 if (variant.Length == 0 || IsGenericLabel(variant) || !seen.Add(variant))
                     continue;
@@ -79,10 +83,41 @@ public static class TitleText
         return list;
     }
 
+    /// <summary>
+    /// PCGW search string: Steam ACF / Epic .item display name first, never a launcher PE title.
+    /// </summary>
+    public static string LookupName(string displayName, string folderName, GameSourceKind source)
+    {
+        if (IsStoreNamed(source)
+            && !string.IsNullOrWhiteSpace(displayName)
+            && !IsGenericLabel(displayName))
+        {
+            return displayName.Trim();
+        }
+
+        string fromFolder = FromFolderName(folderName);
+        if (!string.IsNullOrWhiteSpace(fromFolder) && !IsGenericLabel(fromFolder))
+            return fromFolder;
+        if (!string.IsNullOrWhiteSpace(displayName) && !IsGenericLabel(displayName))
+            return displayName.Trim();
+        return displayName?.Trim() ?? folderName ?? string.Empty;
+    }
+
+    private static bool IsStoreNamed(GameSourceKind source) =>
+        source is GameSourceKind.Steam
+            or GameSourceKind.Epic
+            or GameSourceKind.Gog
+            or GameSourceKind.EaApp
+            or GameSourceKind.UbisoftConnect
+            or GameSourceKind.BattleNet
+            or GameSourceKind.Xbox
+            or GameSourceKind.Rockstar;
+
     private static readonly HashSet<string> GenericWords = new(StringComparer.OrdinalIgnoreCase)
     {
         "system", "binaries", "win32", "win64", "wingdk", "shipping", "engine",
-        "common", "redist", "bin", "game", "data", "content", "binaries",
+        "common", "redist", "bin", "game", "data", "content",
+        "launcher", "patcher", "2klauncher", "launcherpatcher",
     };
 
     /// <summary>PE / parent-folder words that must not become the game title (ELEX <c>system\</c>).</summary>
@@ -93,6 +128,22 @@ public static class TitleText
         string key = LettersAndDigits(text);
         return key.Length == 0 || GenericWords.Contains(key);
     }
+
+    /// <summary>
+    /// Drop store SKU tails PCGW does not use
+    /// (<c>Dying Light 2 Stay Human - Reloaded Edition</c> → <c>Dying Light 2 Stay Human</c>).
+    /// </summary>
+    public static string StripEdition(string? name)
+    {
+        string text = ForSearch(name);
+        if (text.Length == 0)
+            return text;
+        return EditionTail.Replace(text, "").Trim();
+    }
+
+    private static readonly Regex EditionTail = new(
+        @"\s*[-:]\s*(Reloaded|Definitive|Complete|Enhanced|Ultimate|Deluxe|Gold|Anniversary|Game of the Year|GOTY)(\s+Edition)?\s*$",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     /// <summary>Folder <c>elexII</c> → <c>elex II</c> for display and PCGW.</summary>
     public static string FromFolderName(string? folderName)

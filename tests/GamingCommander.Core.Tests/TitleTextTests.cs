@@ -1,3 +1,4 @@
+using GamingCommander.Core.Models;
 using GamingCommander.Core.Services;
 
 namespace GamingCommander.Core.Tests;
@@ -37,6 +38,18 @@ public sealed class TitleTextTests
     [Fact]
     public void IsGenericLabel_System() =>
         Assert.True(TitleText.IsGenericLabel("System"));
+
+    [Fact]
+    public void StripEdition_Reloaded() =>
+        Assert.Equal(
+            "Dying Light 2 Stay Human",
+            TitleText.StripEdition("Dying Light 2 Stay Human - Reloaded Edition"));
+
+    [Fact]
+    public void LookupName_EpicUsesItemDisplayName() =>
+        Assert.Equal(
+            "Sid Meier's Civilization VI",
+            TitleText.LookupName("Sid Meier's Civilization VI", "SidMeiersCivilizationVI", GameSourceKind.Epic));
 
     [Fact]
     public void SharesNameToken_RejectsSystemForElex() =>

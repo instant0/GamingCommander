@@ -77,7 +77,11 @@ public static class TagNormalizer
         if (string.IsNullOrWhiteSpace(raw))
             return list;
         foreach (string part in raw.Split(',', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (!IsLatinDisplayTag(part))
+                continue;
             AddDistinct(list, part);
+        }
         return list;
     }
 
@@ -94,5 +98,24 @@ public static class TagNormalizer
         foreach (string tag in metadataTags)
             AddDistinct(list, tag);
         return list;
+    }
+
+    /// <summary>Genre/engine tags from PCGW/Steam: skip Arabic/CJK store-locale strings.</summary>
+    public static bool IsLatinDisplayTag(string? tag)
+    {
+        string n = Normalize(tag ?? "");
+        if (n.Length == 0)
+            return false;
+        int letters = 0, latin = 0;
+        foreach (char c in n)
+        {
+            if (!char.IsLetter(c))
+                continue;
+            letters++;
+            if (c <= 0x024F)
+                latin++;
+        }
+
+        return letters == 0 || latin * 2 >= letters;
     }
 }

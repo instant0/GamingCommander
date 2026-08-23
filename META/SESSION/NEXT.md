@@ -2,12 +2,12 @@
 
 **Nature:** Scratch. **Overwritten** every session handoff.  
 **Audience:** Builder. Read before implementing.  
-**Updated:** 2026-08-22 — Epic VFS first ship.
+**Updated:** 2026-08-23
 
 ---
 
-## Do next
+## Hard rule
 
-Wait for Windows: F2 **+ Epic Games Store**; confirm base games only; Dishonored Write Epic .item then rescan Epic root.
+Documented format/research wins. Ask before changing a documented field source or `.item` shape. Verify with `tools/decode_manifest.py` before more C# Epic writer changes.
 
-Do not add GraphQL. Do not invent catalog UUIDs.
+Wait for the user.

@@ -68,8 +68,24 @@ GamingCommander repairs the store registration after the move.
 | `tools/epic_search.py` (74 lines) | Query Epic API for namespace/catalog metadata |
 | `tools/decrypt_manifest.py` (114 lines) | Decrypt encrypted Epic manifests |
 
+## External reference (binary `.manifest`, not Legendary)
+
+**[meszmate/manifest](https://github.com/meszmate/manifest)** — Go parser our `tools/parse_manifest.py` cites. It decodes the **binary** `.egstore/*.manifest` (header, metadata, file list, chunks). It does **not** call store GraphQL.
+
+From that library, a parsed manifest already has:
+
+- `Metadata.AppName`, `BuildVersion`, `LaunchExe`, `LaunchCommand`, prereqs
+- `Header.SHAHash` (manifest body hash)
+- `TotalInstallSize()` — **sum of file sizes** (real `InstallSize`, not 0, not invented)
+- `TotalDownloadSize()` — sum of chunk sizes
+- Custom fields, file tags, chunk GUIDs
+
+CDN `BaseURLs` are **game-specific and come from the authenticated Epic API**. Their README: auto-discovery is out of scope.
+
+That project does **not** contain a store catalog for “Death Stranding”. Storefront GraphQL is a different API (`store.epicgames.com/graphql`).
+
 ## References
-- `docs/research/epic_item_format.md` — primary format documentation
-- `tools/detect_folder.py` — `_check_epic()` detection function
-- `tools/decode_manifest.py` — Python reference implementation
-- `data/mock/epic/` — mock Epic game data for testing
+- `docs/research/epic_item_format.md` — `.item` JSON + GraphQL stub notes
+- [meszmate/manifest](https://github.com/meszmate/manifest) — binary `.manifest` format
+- `tools/decode_manifest.py` — Python port + `.item` generation
+- `tools/parse_manifest.py` — “Based on meszmate/manifest Go implementation”

@@ -54,7 +54,7 @@ public sealed class SteamStoreLookup : IDisposable
 
         await EnforceRateLimitAsync(cancellationToken).ConfigureAwait(false);
 
-        string url = $"{Endpoint}?appids={Uri.EscapeDataString(appId.Trim())}";
+        string url = $"{Endpoint}?appids={Uri.EscapeDataString(appId.Trim())}&l=english";
         try
         {
             _requestCount++;

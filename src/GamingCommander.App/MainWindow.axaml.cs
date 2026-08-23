@@ -571,11 +571,15 @@ public partial class MainWindow : Window
         string? chosen = null;
         if (TrySteamAppId(game) is null)
         {
-            int? year = PeProductYear.Guess(game.ExecutablePath)
-                ?? (game.LastModified.Year is >= 1995 and <= 2035 ? game.LastModified.Year : null);
+            int? year = TitleText.IsGenericLabel(Path.GetFileNameWithoutExtension(game.ExecutablePath))
+                ? game.LastModified.Year is >= 1995 and <= 2035 ? game.LastModified.Year : null
+                : PeProductYear.Guess(game.ExecutablePath)
+                    ?? (game.LastModified.Year is >= 1995 and <= 2035 ? game.LastModified.Year : null);
             IReadOnlyList<string> pages = [];
             foreach (string query in TitleText.SearchQueries(
-                game.DisplayName, game.FolderName, PeProductYear.TitleHint(game.ExecutablePath)))
+                TitleText.LookupName(game.DisplayName, game.FolderName, game.GameSource),
+                game.DisplayName,
+                game.FolderName))
             {
                 pages = PcgwTitleFilter.Dedupe(
                     await _metadataService!.SearchPagesAsync(query).ConfigureAwait(true));
@@ -799,12 +803,21 @@ public partial class MainWindow : Window
             _viewModel!.NavigateInto();
     }
 
-    private void WriteEpicItem_PointerPressed(object? sender, PointerPressedEventArgs e)
+    private void WriteEpicItem_PointerPressed(object? sender, PointerPressedEventArgs e) =>
+        _ = WriteEpicItemAsync();
+
+    private async Task WriteEpicItemAsync()
     {
         GameEntry? game = GetSelectedGame();
         if (game is null)
         {
             SetStatusWithAutoClear("Select a game first.");
+            return;
+        }
+
+        if (!await EpicRepairDialog.ConfirmAsync(this, game.DisplayName).ConfigureAwait(true))
+        {
+            SetStatusWithAutoClear("Epic .item write cancelled.");
             return;
         }
 
@@ -816,13 +829,38 @@ public partial class MainWindow : Window
         }
 
         string manifests = EpicManifestPaths.DefaultManifestsDir;
-        if (!EpicItemWriter.TryWrite(gameFolder, manifests, out string path, out string error))
+        if (!EpicItemWriter.TryWrite(
+                gameFolder, manifests, out string path, out string error, game.DisplayName))
         {
             SetStatusWithAutoClear(error);
             return;
         }
 
-        SetStatusWithAutoClear($"Wrote {Path.GetFileName(path)}. Add/rescan Epic Games Store (F2) to list it.");
+        foreach (LibraryRoot lib in GetDbService() is { } && _viewModel is not null
+                     ? GetConfigService().Load().LibraryRoots
+                     : [])
+        {
+            foreach (GameEntry row in GetDbService().GetGamesForRoot(lib.RootPath))
+            {
+                if (row.GameSource != GameSourceKind.Epic)
+                    continue;
+                string folder = row.PlatformMetadata.GetValueOrDefault("GameFolder",
+                    Path.Combine(lib.RootPath, row.FolderName));
+                if (!EpicInstallPath.Same(folder, gameFolder))
+                    continue;
+                var extra = new Dictionary<string, string>(row.PlatformMetadata)
+                {
+                    ["EpicStatus"] = "Installed",
+                    ["EpicItemPath"] = path,
+                    ["GameFolder"] = gameFolder,
+                };
+                GetDbService().UpdateGameEntry(lib.RootPath, row with { PlatformMetadata = extra, ManifestPath = path });
+            }
+        }
+
+        _viewModel?.Reload();
+        SetStatusWithAutoClear(
+            $"Wrote {Path.GetFileName(path)}. Epic Update can officialize ONE of these per launcher run. Quit Epic before writing another.");
     }
 
     private void WriteSteamAcf_PointerPressed(object? sender, PointerPressedEventArgs e)

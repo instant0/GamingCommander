@@ -169,10 +169,19 @@ public sealed class LibraryManager : ILibraryManager
 
         if (configuredType == GameSourceKind.Epic || EpicItemCatalog.LooksLikeManifestsDir(rootPath))
         {
-            IEnumerable<string> others = LibraryRoots
-                .Select(r => r.RootPath)
-                .Where(p => !p.Equals(rootPath, StringComparison.OrdinalIgnoreCase));
-            return _epicScanner.Scan(rootPath, others);
+            var known = new List<(string RootPath, GameEntry Game)>();
+            foreach (LibraryRoot root in LibraryRoots)
+            {
+                if (root.RootPath.Equals(rootPath, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                foreach (GameEntry game in _databaseService.GetGamesForRoot(root.RootPath))
+                {
+                    if (game.GameSource == GameSourceKind.Epic)
+                        known.Add((root.RootPath, game));
+                }
+            }
+
+            return _epicScanner.Scan(rootPath, known);
         }
 
         return _scanner.Scan(rootPath, configuredType, ct);
