@@ -43,11 +43,7 @@ jobs:
         run: dotnet restore
 
       - name: Generate SBOM with CycloneDX
-        run: |
-          dotnet tool install --global CycloneDX
-          $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
-          cyclonedx-dotnet -o ./sbom.json
-        shell: pwsh
+        run: dotnet tool run cyclonedx -o sbom.json
 
       - name: Check for vulnerable packages
         run: dotnet list package --vulnerable --include-transitive
