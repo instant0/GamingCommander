@@ -152,7 +152,7 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 
 - `Scan(rootPath, defaultType)` → 10-signal priority-ordered detection for GOG, EA, Ubisoft, Epic, Blizzard, Xbox, Rockstar, Steam, Steam Emu
 - Deep executable discovery (root → child → Binaries/Win64/ → Binaries/WinGDK/)
-- Executable scoring (folder-token match +10, launcher -20, `game.exe` +18, `*-Win64-Shipping.exe` +28 + `\Binaries\Win64\` +12, org-copy -25, filesize)
+- Executable scoring (folder-token match +10, launcher -20, `game.exe` +18, exact/suffix name match +40 — suffix match via platform-token strip, see ADR-012; `*-Win64-Shipping.exe` +28 + `\Binaries\Win64\` +12, org-copy -25, filesize)
 - Container detection (parent with no signals, child has signals → promote child)
 - Nested Steam trees (`steamapps/common` or folder name `steam`) are skipped — not scanned via `SteamLibraryScanner`
 - Uses `GameEntryId.Compute()` and `GameSourceParser` from Core

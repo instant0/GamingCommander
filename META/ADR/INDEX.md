@@ -18,3 +18,4 @@
 | ADR-009 | Executable Detection Pipeline | 2025-03-15 | Accepted |
 | ADR-010 | Local JSON Persistence | 2025-03-01 | Accepted |
 | ADR-011 | Cross-Platform-Safe Development | 2025-01-10 | Accepted |
+| ADR-012 | Platform-Suffixed Binary Precedence | 2026-08-23 | Accepted |

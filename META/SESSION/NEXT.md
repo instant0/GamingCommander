@@ -8,9 +8,7 @@
 
 ## Status
 
-Plan 122 (type-to-search) implemented and marked COMPLETE: `ShellViewModel` search buffer + live `LeftPaneTitle`, `MainWindow.OnKeyDown` printable routing (bare `S`/`T` freed; F8/F4 unchanged), help dialog updated, 7 new tests in `App.Tests/ShellViewModelSearchTests.cs` all passing. Build clean.
-
-Known: 6 pre-existing test failures in App.Tests (ScannerFilter / MockDataIntegration / ExecutableScoring) — confirmed failing on a clean tree before this work; unrelated to Plan 122. Candidate TECH_DEBT entry if user wants it tracked.
+Plan 122 (type-to-search) shipped. Test-suite drift repaired: fixture paths fixed (`testdata/mock`), platform-suffix binary precedence implemented per ADR-012 (`ExecutableDiscovery.StripPlatformTokens`). Full suite green: 539 tests, 0 failures.
 
 ## Next task
 
@@ -20,7 +18,6 @@ User live-smoke-test on Windows (type "assa" with several libraries; verify cros
 
 - SyncMove (Phase 2.1) — top product item per `planning/README.md`.
 - Plan 111 F2 "Enable startup logging" toggle (PLANNED; not in code).
-- Investigate the 6 pre-existing scanner/scoring test failures (see above).
 
 ## Standing hard rule
 

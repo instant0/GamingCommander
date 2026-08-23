@@ -162,6 +162,18 @@ internal static class ExecutableDiscovery
     /// <param name="launcherPatterns">Launcher/updater name substrings (used for penalty scoring).</param>
     /// <param name="noiseExePatterns">Full noise pattern list for tier-based penalty scoring.</param>
     /// <param name="tierLookup">Function to look up the severity tier for a noise pattern.</param>
+    /// <summary>
+    /// Removes platform/binary-type tokens from a letters+digits name key so
+    /// "mygamewin64shipping" compares equal to folder key "mygame".
+    /// </summary>
+    private static string StripPlatformTokens(string lettersAndDigitsKey)
+    {
+        string result = lettersAndDigitsKey;
+        foreach (string token in (string[])["win64", "win32", "wingdk", "shipping"])
+            result = result.Replace(token, string.Empty, StringComparison.Ordinal);
+        return result;
+    }
+
     internal static ExeScoreResult ScoreExecutable(
         string exePath,
         string folderName,
@@ -177,6 +189,8 @@ internal static class ExecutableDiscovery
 
         if (TitleText.MatchesFolderAndExe(folderName, Path.GetFileNameWithoutExtension(exePath)))
             score += 40;
+        else if (folderKey.Length >= 3 && StripPlatformTokens(nameKey) == folderKey)
+            score += 40; // platform-suffixed exact match (MyGame-Win64.exe): the suffix marks the real binary
 
         // Bonus for exe name containing folder name (+15)
         if (name.Contains(folderLower) || (folderKey.Length > 2 && nameKey == folderKey))
