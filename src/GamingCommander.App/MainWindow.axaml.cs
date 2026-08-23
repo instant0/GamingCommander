@@ -218,12 +218,14 @@ public partial class MainWindow : Window
                 break;
 
             case Key.Back:
-                _viewModel.NavigateUp();
+                if (!_viewModel.SearchBackspace())
+                    _viewModel.NavigateUp();
                 e.Handled = true;
                 break;
 
             case Key.Escape:
-                _viewModel.NavigateUp();
+                if (!_viewModel.CancelSearch())
+                    _viewModel.NavigateUp();
                 e.Handled = true;
                 break;
 
@@ -257,31 +259,50 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 break;
 
-            case Key.S:
-                if (e.KeyModifiers == KeyModifiers.None)
-                {
-                    _ = OpenFilterAsync();
-                    e.Handled = true;
-                }
-                break;
-
             case Key.F2:
                 await OpenLibrarySetupAsync();
                 e.Handled = true;
                 break;
 
-            // Legacy shortcut — F4 is now the primary retag key
-            case Key.T:
-                if (!e.KeyModifiers.HasFlag(KeyModifiers.Shift) && !e.KeyModifiers.HasFlag(KeyModifiers.Control))
-                    await OpenGameSetupAsync();
-                else
-                    base.OnKeyDown(e);
-                break;
-
             default:
+                // Plan 122: unbound printable keys silently build a live search query.
+                if (e.KeyModifiers is KeyModifiers.None or KeyModifiers.Shift
+                    && TryMapPrintable(e.Key, out char ch))
+                {
+                    _viewModel.AppendSearchChar(ch);
+                    e.Handled = true;
+                    break;
+                }
                 base.OnKeyDown(e);
                 break;
         }
+    }
+
+    /// <summary>
+    /// Maps unmodified printable keys to characters for type-to-search.
+    /// Letters, digits, space, dash, period, and apostrophe (title punctuation).
+    /// </summary>
+    private static bool TryMapPrintable(Key key, out char ch)
+    {
+        if (key is >= Key.A and <= Key.Z)
+        {
+            ch = (char)('a' + (key - Key.A));
+            return true;
+        }
+        if (key is >= Key.D0 and <= Key.D9)
+        {
+            ch = (char)('0' + (key - Key.D0));
+            return true;
+        }
+        ch = key switch
+        {
+            Key.Space => ' ',
+            Key.OemMinus => '-',
+            Key.OemPeriod => '.',
+            Key.OemQuotes => '\'',
+            _ => default,
+        };
+        return ch != default;
     }
 
     private Task LaunchSelectedGameAsync()
@@ -377,6 +398,10 @@ public partial class MainWindow : Window
         if (_viewModel is null)
             return;
 
+        // Opening the F8 dialog ends any typed search session (Plan 122).
+        if (_viewModel.IsSearching)
+            _viewModel.CancelSearch();
+
         GameFilter? chosen = await FilterWindow.ShowAsync(
             this, _viewModel.CollectFilterOptions(), _viewModel.ActiveFilter).ConfigureAwait(true);
         if (chosen is null)
@@ -397,6 +422,9 @@ public partial class MainWindow : Window
         string? name = control.Tag as string ?? (control.DataContext as TagBadgeViewModel)?.Name;
         if (string.IsNullOrWhiteSpace(name))
             return;
+        // A tag click replaces any typed search session (Plan 122).
+        if (_viewModel.IsSearching)
+            _viewModel.CancelSearch();
         _viewModel.ApplyFilter(new GameFilter(GameFilterKind.Tag, name));
         e.Handled = true;
     }

@@ -6,7 +6,7 @@ namespace GamingCommander.App.Tests;
 public sealed class MockDataIntegrationTests
 {
     private static readonly string MockRoot = Path.Combine(
-        AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "..", "data", "mock");
+        AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "..", "testdata", "mock");
 
     /// <summary>
     /// Scan the standalone mock root. Expected entries:

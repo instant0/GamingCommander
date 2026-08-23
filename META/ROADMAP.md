@@ -2,7 +2,7 @@
 
 **Nature:** Reference. Updated by Planner after milestones.  
 **Audience:** All agents. Read when determining what to work on next.  
-**Updated:** 2026-08-22 — Epic catalog VFS; 60-day sidecar + identity guard.
+**Updated:** 2026-08-23 — Plan 121 marked shipped; docs milestone row added.
 
 ---
 
@@ -86,4 +86,5 @@ GamingCommander is a C# Windows-native game management and launcher application 
 | 2026-08 | Plan 118 + Bugs 10/13/16 | Doc audit; Steam internals skip; nested Steam exclusion; embedded blacklist |
 | 2026-08 | Plans 119 + 120 | Sidecar extras; PCGW details; F3 picker; no SteamDB |
 | 2026-08 | Filter + scan/lookup polish | F8/S; Steam cheap exe; lookup without exe; publish `lib/` |
-| 2026-08 | Plan 121 start | Epic Manifests VFS; orphan `.item`; 60-day metadata guard |
+| 2026-08 | Plan 121 shipped | Epic Manifests VFS (F2); orphan `.item` write; 60-day metadata guard |
+| 2026-08 | Docs: FAQ + Readme | `docs/FAQ.md`; Readme install/first-run/rescan sections; freshness drift fixed to 60 days |

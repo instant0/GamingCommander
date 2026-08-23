@@ -18,8 +18,8 @@ This folder contains implementation plans following the FILE NAMING CONTRACT (`n
 
 | Document | Description | Status |
 | :--- | :--- | :--- |
-| **`121-epic-manifest-vfs-investigation.md`** | Epic catalog VFS + F2 + orphan `.item` | **IMPLEMENTING** (first ship in app) |
-| `04-phase-2-syncmove.md` | SyncMove — repair store registration after user moves files | PLANNED (Phase 2.1) |
+| `122-type-to-search.md` | Silent type-to-search: 3+ chars filters all roots by name + tags (frees S/T keys) | **COMPLETE** (2026-08-23) |
+| **`04-phase-2-syncmove.md`** | SyncMove — repair store registration after user moves files | PLANNED (Phase 2.1) |
 | `102-tags-metadata-display.md` | Tags + local engine | Phases 1+2+4 ✅; Phase 3 → **119/120 COMPLETE** |
 | `103-detect-py-port-status.md` | C# vs detect.py parity gaps | REFERENCE / gaps remain |
 | `104-detect-py-module-split.md` | Split detect.py into modules | PLANNED (P3) |
@@ -36,6 +36,7 @@ This folder contains implementation plans following the FILE NAMING CONTRACT (`n
 
 | Document | Description | Status |
 | :--- | :--- | :--- |
+| `121-epic-manifest-vfs-investigation.md` | Epic catalog VFS (F2 Add Epic Games Store) + Missing/Orphaned + orphan `.item` write | **COMPLETE** |
 | `120-pcgw-identity-and-details.md` | PCGW details sidecar + F3/F4 extras | **COMPLETE** |
 | `119-metadata-sidecar.md` | `games_metadata.json` + Steam Store / PCGW | **COMPLETE** |
 | `117-left-pane-layout.md` | Left pane: badge left, tags as subtitle, path right | **COMPLETE** |

@@ -32,10 +32,12 @@ internal static class HelpDialogBuilder
             ("F3", "Fetch extras (Steam AppID → one PCGW page; else pick if several names match)"),
             ("F4", "Configure game — name, type, pick exe if several were found"),
             ("F5", "Rescan current folder or all roots"),
-            ("F8 / S", "Filter — tags, store labels, or wildcard; Backspace clears"),
+            ("F8", "Filter — tags, store labels, or wildcard; Backspace clears"),
             ("F10", "Quit GamingCommander"),
+            ("A–Z / 0–9", "Type to search all libraries by name and tags (starts at 3 characters)"),
             ("Enter", "Launch game / drill into folder"),
-            ("Esc / Backspace", "Go up one level"),
+            ("Esc", "Cancel search while typing; else go up one level"),
+            ("Backspace", "Erase last search character; else go up one level"),
             ("Up / Down", "Navigate list"),
         };
 

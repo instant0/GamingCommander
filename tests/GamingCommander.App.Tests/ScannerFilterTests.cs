@@ -6,7 +6,7 @@ namespace GamingCommander.App.Tests;
 public sealed class ScannerFilterTests
 {
     private static readonly string MockRoot = Path.Combine(
-        AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "..", "data", "mock");
+        AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "..", "testdata", "mock");
 
     /// <summary>
     /// Folder with no .exe and no game marker files should be excluded.

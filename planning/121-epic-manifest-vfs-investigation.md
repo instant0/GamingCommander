@@ -1,6 +1,6 @@
 # Plan 121 — Epic manifests → VFS, Missing/Orphaned, F2 offer (investigation)
 
-**Status:** IMPLEMENTING — one Epic catalog root (like one Steam library). Split types below.  
+**Status:** COMPLETE (2026-08) — shipped: one Epic catalog root via F2 "Add Epic Games Store", Installed/Missing rows, orphan `.item` write (`EpicItemWriter`). Completion record: `META/COMPLETED/plan-121-epic-catalog-vfs.md`.  
 
 **C# files (new, small):**
 

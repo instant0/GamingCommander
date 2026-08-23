@@ -95,6 +95,7 @@ GamingCommander.sln
 - `NavigateInto()` — drill into selected item (root or "..") or launch game
 - `NavigateUp()` — go up one level (root list or no-op)
 - `RetagSelected(GameSourceKind)` — update game source type
+- `AppendSearchChar(char)` / `SearchBackspace()` / `CancelSearch()` — Plan 122 type-to-search buffer; threshold `ShellViewModel.SearchThreshold` (3); live query shown in `LeftPaneTitle`
 - `Reload()` — refresh current view
 - `HasGameSelected` — true when a game file (not directory) is selected
 
@@ -188,7 +189,8 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 - `F3` → force online extras lookup; picker if several PCGW pages
 - `F4` → GameSetup dialog (name, type, exe, PCGW arg catalog). Does not wait for HTTP.
 - `F5` → Rescan current root or all roots (async; press again to cancel). Then enqueue metadata if Online.
-- `F8` / `S` → filter (tags, store labels, wildcard). Backspace clears.
+- `F8` → filter (tags, store labels, wildcard). Backspace clears.
+- Type-to-search (Plan 122): unmodified printable keys append to a live query; at 3+ chars applies cross-root wildcard filter over names + tags. Backspace erases (below threshold returns to roots), Esc cancels. Bare `S`/`T` bindings removed; opening the F8 dialog or clicking a tag badge ends the typed session.
 - `F10` → Close()
 - No F9 (Esc / Backspace goes up to roots)
 
