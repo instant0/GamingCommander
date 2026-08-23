@@ -53,7 +53,7 @@ SteamDB, PCGW Cargo, Epic store GraphQL, IGDB, telemetry, update servers, crash 
 
 ### 1.5 Cache (not a delete timer)
 
-Results live in `data/games_metadata.json` with `LastUpdated`. If younger than **30 days**, we do not fetch again. Old rows are **kept** until a successful fetch overwrites them. A failed fetch does not wipe the row.
+Results live in `data/games_metadata.json` with `LastUpdated`. If younger than **60 days**, we do not fetch again. Old rows are **kept** until a successful fetch overwrites them. A failed fetch does not wipe the row.
 
 ---
 

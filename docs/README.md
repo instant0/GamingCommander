@@ -7,6 +7,7 @@ Do **not** treat every file here as current. Use this map.
 | File | Role |
 |------|------|
 | [ONLINE-AND-DATA.md](ONLINE-AND-DATA.md) | **Contract** — HTTP, JSON files, launch, ACF/`.item` writes |
+| [FAQ.md](FAQ.md) | User FAQ — install, scanning, caching, troubleshooting, limitations |
 | [../README.md](../README.md) | GitHub / how to build |
 | [../GamingCommander.Readme.txt](../GamingCommander.Readme.txt) | Shipped with the exe |
 | [../META/ROADMAP.md](../META/ROADMAP.md) | Shipped vs not |

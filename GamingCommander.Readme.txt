@@ -58,11 +58,74 @@ What does GamingCommander do?
                thing. Backspace, Esc, Clear, or .. restores the catalogue.
 
    4. CHOOSE EXE — If a folder has more than one .exe, the details pane
-               shows: "Multiple EXE files detected — press F4 to choose
-               the main one." Click that line or press F4. Pick the real
-               game (e.g. GAME.EXE, not 12-org-game.exe). After you save
-               that choice, the warning goes away and the extra names are
-               not stored. A later rescan will not bring them back.
+                shows: "Multiple EXE files detected — press F4 to choose
+                the main one." Click that line or press F4. Pick the real
+                game (e.g. GAME.EXE, not 12-org-game.exe). After you save
+                that choice, the warning goes away and the extra names are
+                not stored. A later rescan will not bring them back.
+
+
+Requirements and installation
+-----------------------------
+
+GamingCommander runs on Windows 10 (1607+) or Windows 11, x64 only.
+The released ZIP is self-contained: the .NET 8 runtime is bundled in the
+lib/ folder, so nothing else needs to be installed. Administrator rights
+are not required.
+
+  INSTALL     Unpack the ZIP into a new folder. There is no installer,
+              no setup program. Pick a folder your user account can
+              write to (for example C:\Tools\GamingCommander), NOT
+              C:\Program Files — all of GamingCommander's own data
+              lives next to the exe in its data\ folder.
+
+  UPDATE      Unpack the new version into the existing folder, keeping
+              your data\ folder. On first start the setup dialog opens
+              again showing your existing roots; just close it.
+
+  BACKUP      Copy the data\ folder. It holds settings, the game
+              catalogue, tags, overrides, and the extras cache —
+              everything that is yours.
+
+  RESET       Exit the app and delete the JSON files in data\ (or the
+              whole data\ folder). It is recreated on next start.
+
+  UNINSTALL   Delete the GamingCommander folder. Nothing was installed
+              anywhere else: no registry entries (the registry is only
+              ever read), no services, no Start Menu shortcuts. One
+              exception: ACF manifest files you asked GamingCommander
+              to write into your Steam library stay there.
+
+
+First run
+---------
+
+On first launch a setup dialog opens. Add the folders that contain
+your games:
+
+  - Steam: pick the LIBRARY ROOT, i.e. the folder that contains
+    steamapps\ (e.g. D:\SteamLibrary) — not ...\steamapps\common.
+  - Everything else: pick the parent folder whose subfolders are the
+    games (e.g. D:\GOG Games).
+
+Each folder is scanned once as you add it. A folder where no games are
+found is rejected. A root cannot sit inside another configured root.
+After closing the dialog you see your roots; Enter drills in and
+launches games. Press F1 any time for the key reference.
+
+
+Rescanning and removed games
+----------------------------
+
+Scans are manual — GamingCommander does not watch folders in the
+background. Press F5 to rescan the current folder (or all roots from
+the root list); press F5 again to cancel. Games installed later appear
+after the next rescan.
+
+Uninstalling a game does NOT remove its catalogue entry automatically
+(a drive may just be temporarily unavailable). Steam games change
+status to Missing or Orphaned; other games keep their entry until you
+delete it via F4, or remove the root in F2.
 
 
 What access does GamingCommander need?
@@ -262,7 +325,7 @@ ACCESS 12: Internet access for metadata (opt-in)
                We do not ping steamdb.info.
 
             2. Per game (F5 queue, F4, or launch if cache is older
-               than 30 days — not when you only highlight a row):
+               than 60 days — not when you only highlight a row):
 
                GET www.pcgamingwiki.com/api/appid.php?appid={Steam AppID}
                    (only if we already have an AppID)
