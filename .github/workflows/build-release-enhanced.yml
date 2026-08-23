@@ -46,9 +46,7 @@ jobs:
         run: |
           dotnet tool install --global CycloneDX
           $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
-        
-      - name: Create SBOM
-        run: cyclonedx-dotnet -o ./sbom.json
+          cyclonedx-dotnet -o ./sbom.json
         shell: pwsh
 
       - name: Check for vulnerable packages
