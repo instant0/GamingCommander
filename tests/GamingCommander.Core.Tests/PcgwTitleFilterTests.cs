@@ -33,6 +33,13 @@ public sealed class PcgwTitleFilterTests
     }
 
     [Fact]
+    public void PickBest_QueryElex_NotElexIi()
+    {
+        string? best = PcgwTitleFilter.PickBest(["ELEX II", "ELEX"], yearHint: null, query: "ELEX");
+        Assert.Equal("ELEX", best);
+    }
+
+    [Fact]
     public void PickBest_YearHint_PrefersRemakeOverOriginal()
     {
         string? title = PcgwTitleFilter.PickBest(

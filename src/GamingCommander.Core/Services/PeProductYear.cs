@@ -91,6 +91,8 @@ public static class PeProductYear
             return false;
         if (t.All(c => char.IsUpper(c) || !char.IsLetter(c)))
             return false;
+        if (TitleText.IsGenericLabel(t))
+            return false;
         return true;
     }
 }

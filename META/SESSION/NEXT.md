@@ -2,12 +2,12 @@
 
 **Nature:** Scratch. **Overwritten** every session handoff.  
 **Audience:** Builder. Read before implementing.  
-**Updated:** 2026-08-22 — docs caught up.
+**Updated:** 2026-08-22 — Plan 121 after I1.
 
 ---
 
 ## Do next
 
-Wait for the user. Next **planned** product work: SyncMove (`planning/04-phase-2-syncmove.md`). Do not implement Plan 101 mode switcher unless asked.
+Plan 121: **I2** (which of the 3 InstallLocation parents are not F2 roots) then **I4** (folders with `.egstore` and no matching `.item`). Then I5 leftover: re-probe GraphQL before any C# writer.
 
-Do not add SteamDB. Do not invert Steam URI launch. Do not HTTP on list select.
+Do not implement Epic VFS/F2/writer yet. Do not log game titles or install paths in repo docs.

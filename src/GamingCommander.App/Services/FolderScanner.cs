@@ -254,7 +254,7 @@ public sealed class FolderScanner
         }
 
         string? launcherPath = ExecutableDiscovery.FindLauncherExecutable(subDir, exePath, _launcherPatterns);
-        string displayName = FileSystemHelper.NormalizeDisplayName(subDir.Name);
+        string displayName = TitleText.FromFolderName(subDir.Name);
         string id = GameEntryId.ComputeId(rootPath, subDir.Name);
         var platformMetadata = new Dictionary<string, string>();
         if (primaryExe.Candidates.Count > 1)
@@ -390,6 +390,14 @@ public sealed class FolderScanner
             }
         }
 
+        if (!storeEnrichedDisplayName
+            && primaryExe.ExePath is not null
+            && TitleText.MatchesFolderAndExe(subDir.Name, Path.GetFileNameWithoutExtension(primaryExe.ExePath)))
+        {
+            platformMetadata["TitleSource"] = "FolderExeMatch";
+            storeEnrichedDisplayName = true;
+        }
+
         // PE FileDescription enrichment for non-store-enriched games (Plan 112 Step 2).
         // Uses FileDescription from the primary exe's PE metadata as the display name
         // when no store parser has provided one and the PE data passes guard conditions.
@@ -408,7 +416,10 @@ public sealed class FolderScanner
                 notPlaceholder = !_peMetadataBlacklist.Any(p => peDescLower.Contains(p));
             }
 
-            if (lengthOk && notPlaceholder)
+            if (lengthOk && notPlaceholder
+                && PeProductYear.IsUsefulTitle(peDesc)
+                && !TitleText.IsGenericLabel(peDesc)
+                && TitleText.SharesNameToken(peDesc, subDir.Name))
             {
                 platformMetadata["AutoDetectedTitle"] = displayName;
                 displayName = peDesc;

@@ -180,7 +180,8 @@
       "appname", "application", "my application", "my project",
       "game", "launcher", "unreal", "unreal engine",
       "shipping", "development", "debug", "test",
-      "ue4", "ue5", "unrealengine"
+      "ue4", "ue5", "unrealengine",
+      "system", "binaries", "win32", "win64", "engine", "redist"
     ],
     "_test_cases": [
       {"value": "AppName",                              "expected_blocked": true,  "reason": "Unreal Engine default"},

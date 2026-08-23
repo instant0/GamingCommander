@@ -347,7 +347,7 @@ internal static class EpicManifestPaths
 - **Epic GraphQL API lookup** — Deferred. Add as fallback when online metadata is enabled (see Phase: DEFERRED above)
 - **PCGW cross-referencing** using Epic `CatalogItemId` → PCGW `Epic_Games_Store_ID`
 - **Cover art download** from Epic `keyImages`
-- **DLC detection** via `MainGameCatalogNamespace` mismatch
+- **DLC detection** — **not** `MainGame*` (empty on live files). Use `AppCategories`/`TechnicalType` = `addons`. See `docs/research/epic_item_format.md`.
 - **Epic launcher process detection** for running game detection
 
 ---

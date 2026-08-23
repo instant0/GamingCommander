@@ -66,7 +66,7 @@ public sealed class PcgwLookup : IDisposable
         if (page is null && !string.IsNullOrWhiteSpace(displayName))
         {
             IReadOnlyList<string> titles = await SearchTitlesAsync(displayName, cancellationToken).ConfigureAwait(false);
-            page = PcgwTitleFilter.PickBest(titles, yearHint);
+            page = PcgwTitleFilter.PickBest(titles, yearHint, displayName);
         }
 
         if (page is null || PcgwTitleFilter.IsNoisy(page))

@@ -193,9 +193,10 @@ public sealed class MetadataLookupQueue : IDisposable
 
         int? year = PeProductYear.Guess(game.ExecutablePath)
             ?? (game.LastModified.Year is >= 1995 and <= 2035 ? game.LastModified.Year : null);
-        string searchName = PeProductYear.TitleHint(game.ExecutablePath)
-            ?? TitleText.ExpandPacked(game.DisplayName);
-        if (string.IsNullOrWhiteSpace(searchName))
+        string searchName = TitleText.FromFolderName(game.FolderName);
+        if (string.IsNullOrWhiteSpace(searchName) || TitleText.IsGenericLabel(searchName))
+            searchName = TitleText.FromFolderName(game.DisplayName);
+        if (string.IsNullOrWhiteSpace(searchName) || TitleText.IsGenericLabel(searchName))
             searchName = game.DisplayName;
         return new WorkItem(game.Id, appId, searchName, year);
     }

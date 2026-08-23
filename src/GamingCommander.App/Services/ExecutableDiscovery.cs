@@ -175,6 +175,9 @@ internal static class ExecutableDiscovery
         string nameKey = TitleText.LettersAndDigits(name);
         string folderKey = TitleText.LettersAndDigits(folderLower);
 
+        if (TitleText.MatchesFolderAndExe(folderName, Path.GetFileNameWithoutExtension(exePath)))
+            score += 40;
+
         // Bonus for exe name containing folder name (+15)
         if (name.Contains(folderLower) || (folderKey.Length > 2 && nameKey == folderKey))
             score += 15;
@@ -460,6 +463,9 @@ internal static class ExecutableDiscovery
     /// </summary>
     internal static bool ExeNameMatchesFolderName(string exePath, string folderName)
     {
+        if (TitleText.MatchesFolderAndExe(folderName, Path.GetFileNameWithoutExtension(exePath)))
+            return true;
+
         string exeStem = Path.GetFileNameWithoutExtension(exePath);
         string folderLower = TitleText.ForSearch(folderName).ToLowerInvariant();
         string exeLower = exeStem.ToLowerInvariant();

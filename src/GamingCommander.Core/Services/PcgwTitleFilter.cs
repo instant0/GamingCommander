@@ -81,11 +81,20 @@ public static class PcgwTitleFilter
     /// Prefer a title whose <c>(YYYY)</c> is closest to <paramref name="yearHint"/>
     /// (exe ProductVersion / last-write). Without a hint, first clean title wins.
     /// </summary>
-    public static string? PickBest(IEnumerable<string> titles, int? yearHint)
+    public static string? PickBest(IEnumerable<string> titles, int? yearHint, string? query = null)
     {
         var clean = titles.Where(t => !IsNoisy(t)).ToList();
         if (clean.Count == 0)
             return null;
+
+        string q = TitleText.LettersAndDigits(query);
+        if (q.Length >= 3)
+        {
+            string? exact = clean.FirstOrDefault(t => TitleText.LettersAndDigits(t) == q);
+            if (exact is not null)
+                return exact;
+        }
+
         if (yearHint is null)
             return clean[0];
 

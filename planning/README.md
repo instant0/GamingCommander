@@ -18,6 +18,7 @@ This folder contains implementation plans following the FILE NAMING CONTRACT (`n
 
 | Document | Description | Status |
 | :--- | :--- | :--- |
+| **`121-epic-manifest-vfs-investigation.md`** | Epic ProgramData `.item` → VFS / Missing / Orphaned / F2 offer | **INVESTIGATE** (no code yet) |
 | `04-phase-2-syncmove.md` | SyncMove — repair store registration after user moves files | PLANNED (Phase 2.1) |
 | `102-tags-metadata-display.md` | Tags + local engine | Phases 1+2+4 ✅; Phase 3 → **119/120 COMPLETE** |
 | `103-detect-py-port-status.md` | C# vs detect.py parity gaps | REFERENCE / gaps remain |

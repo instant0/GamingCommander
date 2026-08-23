@@ -28,6 +28,21 @@ public sealed class ExecutableScoringTests : IDisposable
     // ════════════════════════════════════════════════════════════════
 
     [Fact]
+    public void ScoreExecutable_FolderNamedExeInSystemSubfolder_BeatsOther()
+    {
+        string dir = Path.Combine(_tempDir, "elex");
+        Directory.CreateDirectory(Path.Combine(dir, "system"));
+        string game = Path.Combine(dir, "system", "elex.exe");
+        string other = Path.Combine(dir, "system", "crashreporter.exe");
+        File.WriteAllBytes(game, new byte[200 * 1024]);
+        File.WriteAllBytes(other, new byte[200 * 1024]);
+
+        int gameScore = ExecutableDiscovery.ScoreExecutable(game, "elex", ["launcher"], [], _ => 999).Score;
+        int otherScore = ExecutableDiscovery.ScoreExecutable(other, "elex", ["launcher"], [], _ => 999).Score;
+        Assert.True(gameScore > otherScore, $"elex.exe ({gameScore}) vs crashreporter ({otherScore})");
+    }
+
+    [Fact]
     public void ScoreExecutable_TrademarkFolder_MatchesConcatenatedExe()
     {
         string exe = CreateTempExe("DarkSoulsIII.exe");

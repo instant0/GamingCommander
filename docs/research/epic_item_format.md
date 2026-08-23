@@ -111,6 +111,42 @@ Location: `testdata/samples/DyingLight2.item`
 }
 ```
 
+## Base game vs DLC (live ProgramData, 2026-08)
+
+Sample `.item` files in the research dump set `MainGameAppName` / `MainGameCatalogItemId` to the base game. **Live launcher files on this machine left those three `MainGame*` fields empty** — including DLC. Do **not** use `MainGame*` to find the base `.item`.
+
+| | Base / playable | DLC / addon |
+|---|---|---|
+| `AppCategories` / `TechnicalType` | contains `games` (often `public`) | **`addons`** |
+| `bIsApplication` / `bIsExecutable` | true | **false** |
+| `LaunchExecutable` | set | **empty** |
+| `CatalogNamespace` | product family | **same as base** |
+| `CatalogItemId` / `AppName` | base product | **this addon** |
+| `ExpectingDLCInstalled` | on the **base** `.item` only (`namespace:itemId:appName`) | empty |
+
+**VFS:** one row per **base** `.item` (`games` + launch exe). Skip `addons` and empty `LaunchExecutable`. Exception: some extras (e.g. editor/tools) are `games` + an exe — not the main title; do not treat as the only catalog row for that `InstallLocation` if a `public,games` sibling exists.
+
+**DLC does not reconstruct a missing base `.item`.** Same namespace only. The map of DLC → base is on the **base** file (`ExpectingDLCInstalled`), which is the file that is gone.
+
+## Orphan folder (`.egstore`, no ProgramData `.item`)
+
+Detected as Epic by `.egstore` / `.egsstore` (Plan 109), not by Manifests.
+
+Typical local files:
+
+| File | Use |
+|------|-----|
+| `.egstore/*.mancpn` | `CatalogNamespace`, `CatalogItemId`, `AppName` — enough for an **identification** `.item`. Namespace may be **dev** (§7.4 in `docs/EPIC-MANIFEST-ENRICHMENT.md`). |
+| `.egstore/*.manifest` | Binary. Filename stem = `InstallationGuid`. `tools/decode_manifest.py` can fail on some builds. |
+| Local `.item` | Often **absent** on orphans. |
+
+**Handle:**
+
+1. Status **Orphaned** (folder exists, no matching ProgramData `InstallLocation`).
+2. Identification `.item` (our VFS / optional write): ids from `.mancpn`, path = folder, exe from normal scan, display name from folder / PE / PCGW.
+3. Launcher `.item`: `.mancpn` ids + folder + scanned exe was **accepted by Epic Launcher** (2026-08, no GraphQL). Still never invent UUIDs. Re-probe `searchStore` only when `.mancpn` is missing.
+4. Do not wait for a DLC `.item` to appear — orphans often have **no** Manifests rows at all.
+
 ## Testing
 
 Copy to Windows:
