@@ -42,8 +42,12 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore
 
-      - name: Generate SBOM with CycloneDX
-        run: dotnet tool run cyclonedx -o sbom.json
+      - name: Generate SBOM with Syft
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: json
+          output-file: sbom.json
 
       - name: Check for vulnerable packages
         run: dotnet list package --vulnerable --include-transitive
