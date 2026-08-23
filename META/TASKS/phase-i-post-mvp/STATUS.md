@@ -22,7 +22,7 @@
 |---|------|-------|----------|--------|
 | T72 | [Top-level mode switcher](T72-top-level-mode-switcher.md) | 1 | P2 | Pending |
 | T73 | Flatten library view | 2 | P2 | Pending (not yet written) |
-| T74 | [Game filter (F5) + user-editable tags](T74-game-filter-and-tags.md) | 3 | P2 | Pending |
+| T74 | [Game filter (F5) + user-editable tags](T74-game-filter-and-tags.md) | 3 | P2 | **Superseded in part** — F8/S filter shipped 2026-08-22 (not this task’s F5 design) |
 
 ---
 

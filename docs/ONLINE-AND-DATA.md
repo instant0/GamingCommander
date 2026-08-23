@@ -30,8 +30,8 @@ Failed later PCGW/Steam HTTP (timeout, 5xx, connection error) also flips **Offli
 | | |
 |--|--|
 | **When** | Chip is **Online**, and (a) **F3** on the selected game, or (b) F5 finished a rescan and queued that game, or (c) you open **F4** (background, dialog does not wait), or (d) you **launch** it and its sidecar is older than 30 days. **Not** when you only highlight a row. |
-| **How** | 1. If we have a Steam AppID (Steam library ACF): `GET https://www.pcgamingwiki.com/api/appid.php?appid={id}` — one page, no name picker. 2. Else if F3 chose a page, fetch that title. 3. Else: `GET .../w/api.php?action=opensearch&limit=8&search={display name}`. Soundtrack/demo titles and case-only duplicates are skipped. Year from the exe prefers e.g. Dead Space (2023) over 2008. F3 with several *different* titles: you pick. 4. `GET .../w/api.php?action=parse&prop=wikitext&redirects=1&page={title}`. |
-| **Send** | AppID or the game’s display name. No account, no paths, no files. |
+| **How** | 1. If we have a Steam AppID (Steam library ACF): `GET https://www.pcgamingwiki.com/api/appid.php?appid={id}` — one page, no name picker. Works **without** an exe. 2. Else if F3 chose a page, fetch that title. 3. Else name search: display name, then folder name, then PE ProductName; ®/™ stripped; `DeepRock` → `Deep Rock`. `GET .../w/api.php?action=opensearch&limit=8&search={query}`. If OpenSearch is empty, `list=search`. Soundtrack/demo titles and case-only duplicates are skipped. Year from the exe (or folder date) prefers e.g. Dead Space (2023) over 2008. F3 with several *different* titles: you pick. 4. `GET .../w/api.php?action=parse&prop=wikitext&redirects=1&page={title}`. |
+| **Send** | AppID or a title string. No account, no install paths, no files. |
 | **Receive** | Wiki wikitext. We parse Infobox (dev/engine/date), Availability (Steam/GOG/Epic ids), Game data paths, command-line table, Fixbox args, Video caps. |
 | **Why** | Right-pane paths/args/video; F4 argument catalog; Steam AppID when the folder scan did not have one. |
 | **Rate** | ≥ 0.6s between PCGW calls. Queue is **one game at a time**. |
@@ -69,7 +69,9 @@ Only under the app’s `data/` folder (next to the exe). Never in game installs.
 | `startup.log` | Startup diagnostics | Support | Launch (unless `GC_STARTUP_LOGGING=0`) |
 | `tag_colors.json` | Tag colours | UI | If the app updates colours |
 
-**Never written:** game files, registry, Steam/GOG/Epic client data, Start Menu, `%APPDATA%` outside our folder.
+**Never written:** game files, registry, Start Menu, `%APPDATA%` outside our folder.
+
+**User-started Steam ACF:** if a Steam folder is Orphaned and we have a numeric AppID (usually after F3), **Write Steam ACF** creates `{library}\steamapps\appmanifest_{id}.acf` with the identification fields only (`appid`, `name`, `installdir`, `StateFlags=4`, …). We do not invent an AppID. We do not write depot blocks.
 
 `games.json` does **not** get wiki essays, covers, or scores. Those stay in the sidecar.
 
@@ -90,7 +92,7 @@ Repo `testdata/` is tests/fixtures only — not copied to publish.
 |------|-----|-----|
 | Steam row with `steam://rungameid/{id}` | `Process.Start` that URI | Documented Steam launch. Overlay/cloud stay with Steam. Extra PCGW flags are **not** passed. |
 | Everything else | `ExecutablePath` + `CommandLineArguments` + `ExtraLaunchArguments` | Direct exe. F4 checkboxes build extras. |
-| Click config/save in the pane | `explorer.exe "X:\folder"` only | Clickable **only** under the game install dir, `%USERPROFILE%`, `%APPDATA%`, or `%LOCALAPPDATA%`. Other paths may display. Not clickable: UNC, URLs, `%PROGRAMDATA%`, `%WINDIR%`, `..`, `.exe`. |
+| Click config/save/game folder in the pane | `explorer.exe "X:\folder"` only | Clickable **only** under the game install dir, `%USERPROFILE%`, `%APPDATA%`, or `%LOCALAPPDATA%` (plus Ubisoft `savegames` / Steam `userdata` prefixes). Registry (`HKCU\…`) displays, not clickable. Not clickable: UNC, URLs, `%WINDIR%`, `..`, `.exe`. |
 
 ---
 
@@ -111,8 +113,9 @@ Repo `testdata/` is tests/fixtures only — not copied to publish.
 
 | Key | Meaning |
 |-----|---------|
-| Esc / Backspace | Game list → catalogue (two levels). No F9. |
-| F3 | Fetch extras. Steam AppID → one PCGW page (no picker). Else pick if several names match. |
+| Esc / Backspace | Game list or **filter** → catalogue. No F9. |
+| F3 | Fetch extras. Steam AppID → one PCGW page (no picker). Else name variants + pick if several pages. |
 | F4 | Edit that game; may start a background fetch |
 | F5 | Rescan folders; then metadata queue if Online |
+| F8 / S | Filter: tags (user + PCGW genre/engine), store labels, wildcard. Clear / .. / Backspace restore the list. |
 | F2 | Roots + **Enable online metadata** |

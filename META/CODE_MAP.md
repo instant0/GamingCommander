@@ -124,6 +124,8 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 | `MetadataLookupQueue` | `Metadata/MetadataLookupQueue.cs` | F5 enqueues; one game at a time; sidecar only |
 | `PcgwPathTokens` | Core `PcgwPathTokens.cs` | `{{P|…}}` → Windows env tokens (display only) |
 | `PcgwTitleFilter` | Core | Reject soundtrack/demo/artbook; `PickBest` + year |
+| `GameFilter` / `GameFilterMatcher` | Core | F8 tag / store / wildcard match |
+| `TitleText` | Core | Strip ®/™; camelCase split; letters+digits exe match |
 | `MetadataDetailsFormatter` | Core | Right-pane path/arg/video strings |
 | `CommonMetadataParser` | `Metadata/CommonMetadataParser.cs` | Source facts → `GameMetadataRecord` |
 | `EngineDetector` | `EngineDetector.cs` | Local engine probe (Unreal / Unity / RAGE / Frostbite) — Plan 102 Phase 2 |
@@ -139,6 +141,7 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 | `JsonFileHelper` | `JsonFileHelper.cs` | Shared JSON read/write: ReadFromFile\<T\>, WriteToFile\<T\>, DefaultOptions |
 | `HelpDialogBuilder` | `HelpDialogBuilder.cs` | Builds and shows the help dialog with keyboard shortcuts |
 | `PickPcgwPageWindow` | `PickPcgwPageWindow.cs` | F3: choose among several PCGW titles |
+| `FilterWindow` | `FilterWindow.cs` | F8 / S: tag, store, wildcard |
 | `TagColorService` | `TagColorService.cs` | Reads tag_colors.json, maps tag→color by type (User/Store/Engine), implements ITagColorProvider |
 | `LibrarySetupViewModel` | `.App/ViewModels/LibrarySetupViewModel.cs` | Library root setup dialog logic (F2 + first-run) |
 
@@ -160,6 +163,7 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 - "Moved" games store `AcfExpectedPath` in Extra for cross-library context
 - Stores status in `GameEntry.Extra` dict (SteamStatus, SteamAppId, AcfLibraryPath, AcfExpectedPath, etc.)
 - Skips known non-game `common/` children (`Steam Controller Configs`, `Steamworks Shared`); never skips a game named `steam`
+- Exe: root `*.exe`, else only named folders (`Shipping`, `Binaries\Win64`, `bin`…). No tree walk. Lookup uses ACF name/AppID if exe is empty.
 - Uses `GameEntryId.Compute()` from Core
 
 ---
@@ -182,7 +186,7 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 - `F3` → force online extras lookup; picker if several PCGW pages
 - `F4` → GameSetup dialog (name, type, exe, PCGW arg catalog). Does not wait for HTTP.
 - `F5` → Rescan current root or all roots (async; press again to cancel). Then enqueue metadata if Online.
-- `F8` → "Category view not yet implemented" (placeholder)
+- `F8` / `S` → filter (tags, store labels, wildcard). Backspace clears.
 - `F10` → Close()
 - No F9 (Esc / Backspace goes up to roots)
 

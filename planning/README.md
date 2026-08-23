@@ -22,7 +22,7 @@ This folder contains implementation plans following the FILE NAMING CONTRACT (`n
 | `102-tags-metadata-display.md` | Tags + local engine | Phases 1+2+4 ✅; Phase 3 → **119/120 COMPLETE** |
 | `103-detect-py-port-status.md` | C# vs detect.py parity gaps | REFERENCE / gaps remain |
 | `104-detect-py-module-split.md` | Split detect.py into modules | PLANNED (P3) |
-| `101-top-level-modes-and-filter.md` | Category browse / search (F8, S) | PLANNED (P3) |
+| `101-top-level-modes-and-filter.md` | Mode switcher + flatten + category folders | PLANNED. **F8/S filter shipped** (tags/stores/wildcard; not this plan’s full UI) |
 | `04-phase-2-metadata-lookup.md` | Historical Phase 2.2 (Cargo/SteamDB/IGDB) | **SUPERSEDED** by 119 + 120 |
 | `04-phase-2.md` | Steam & standalone baseline | **Baseline COMPLETE**; leftover = SyncMove |
 | `97-multi-theme-system.md` | Runtime theme switching | PLANNED |

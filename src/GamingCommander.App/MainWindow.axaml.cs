@@ -571,9 +571,17 @@ public partial class MainWindow : Window
         string? chosen = null;
         if (TrySteamAppId(game) is null)
         {
-            int? year = PeProductYear.Guess(game.ExecutablePath);
-            IReadOnlyList<string> pages = PcgwTitleFilter.Dedupe(
-                await _metadataService!.SearchPagesAsync(game.DisplayName).ConfigureAwait(true));
+            int? year = PeProductYear.Guess(game.ExecutablePath)
+                ?? (game.LastModified.Year is >= 1995 and <= 2035 ? game.LastModified.Year : null);
+            IReadOnlyList<string> pages = [];
+            foreach (string query in TitleText.SearchQueries(
+                game.DisplayName, game.FolderName, PeProductYear.TitleHint(game.ExecutablePath)))
+            {
+                pages = PcgwTitleFilter.Dedupe(
+                    await _metadataService!.SearchPagesAsync(query).ConfigureAwait(true));
+                if (pages.Count > 0)
+                    break;
+            }
             if (pages.Count > 1)
             {
                 string? preferred = PcgwTitleFilter.PickBest(pages, year);
@@ -791,6 +799,57 @@ public partial class MainWindow : Window
             _viewModel!.NavigateInto();
     }
 
+    private void WriteSteamAcf_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (_viewModel is null)
+            return;
+
+        GameEntry? game = GetSelectedGame();
+        if (game is null)
+        {
+            SetStatusWithAutoClear("Select a game first.");
+            return;
+        }
+
+        string appId = _viewModel.SteamAppIdForAcf;
+        if (!SteamAcfWriter.IsAppId(appId))
+        {
+            SetStatusWithAutoClear("No Steam AppID yet. F3 lookup first, then write the ACF.");
+            return;
+        }
+
+        string lib = game.PlatformMetadata.GetValueOrDefault("LibraryRoot", "")
+            is { Length: > 0 } stored
+            ? stored
+            : _viewModel.GetCurrentRootPath() ?? "";
+        if (!SteamAcfWriter.TryWrite(
+                lib, appId, game.DisplayName, game.FolderName, out string path, out string error))
+        {
+            SetStatusWithAutoClear(error);
+            return;
+        }
+
+        var extra = new Dictionary<string, string>(game.PlatformMetadata)
+        {
+            ["SteamStatus"] = "Installed",
+            ["SteamAppId"] = appId,
+            ["AcfFilePath"] = path,
+            ["AcfLibraryPath"] = lib,
+        };
+        var updated = game with
+        {
+            CommandLineArguments = $"steam://rungameid/{appId}",
+            ManifestPath = path,
+            PlatformMetadata = extra,
+        };
+        GetDbService().UpdateGameEntry(lib, updated);
+        _viewModel.Reload();
+        SetStatusWithAutoClear($"Wrote {Path.GetFileName(path)}");
+    }
+
+    private void ChangeType_PointerPressed(object? sender, PointerPressedEventArgs e) =>
+        _ = OpenGameSetupAsync();
+
     private void MultipleExeWarning_PointerPressed(object? sender, PointerPressedEventArgs e) =>
         _ = OpenGameSetupAsync();
 
@@ -799,6 +858,9 @@ public partial class MainWindow : Window
 
     private void OpenSavePath_PointerPressed(object? sender, PointerPressedEventArgs e) =>
         OpenFolderFromDisplay(_viewModel?.DetailsSavePath);
+
+    private void OpenGameFolder_PointerPressed(object? sender, PointerPressedEventArgs e) =>
+        OpenFolderFromDisplay(_viewModel?.DetailsGameFolder);
 
     private void OpenFolderFromDisplay(string? displayPath)
     {

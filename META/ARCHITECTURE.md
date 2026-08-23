@@ -155,3 +155,12 @@ Appended after Plans 119/120 shipped. Does not replace ADRs above.
 - **PCGW first**, then Steam Store `appdetails` if an AppID is known. No SteamDB, Cargo, Epic GraphQL, IGDB.
 - **Launch:** `steam://rungameid/{id}` stays a Steam URI (extras unused). Everything else = exe + `CommandLineArguments` + `ExtraLaunchArguments`. Do not invert Steam → raw exe.
 - **Unreal scoring:** `Binaries\Win64\*-Win64-Shipping.exe` beats root `game.exe` / launcher stubs.
+
+---
+
+## Current Reality (2026-08-22, filter + scan)
+
+- **F8 / S** filter games across every library (tags including sidecar genre/engine, store label, wildcard). Not Plan 101 category folders.
+- **Steam scan** stays cheap: ACF + root exe + a few named subfolders. No EngineDetector listing. Metadata does not require an exe.
+- **Publish:** exe + readme + host trio at root; DLLs in `lib/`; defaults in `data/`.
+- Genre/engine from PCGW show as **tags** (engine badge type). Not written into `GameEntry.Tags`.

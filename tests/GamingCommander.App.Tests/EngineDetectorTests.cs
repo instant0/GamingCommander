@@ -37,8 +37,7 @@ public sealed class EngineDetectorTests : IDisposable
     [Fact]
     public void Detect_UnrealChildWin64_ReturnsUnreal()
     {
-        Directory.CreateDirectory(Path.Combine(_tempDir, "Engine"));
-        Directory.CreateDirectory(Path.Combine(_tempDir, "MyGame", "Binaries", "Win64"));
+        Directory.CreateDirectory(Path.Combine(_tempDir, Path.GetFileName(_tempDir), "Binaries", "Win64"));
 
         Assert.Equal(GameEngineKind.UnrealEngine, EngineDetector.Detect(_tempDir));
     }

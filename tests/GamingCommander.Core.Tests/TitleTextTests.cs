@@ -14,4 +14,16 @@ public sealed class TitleTextTests
     [Fact]
     public void LettersAndDigits_MatchesConcatenatedExe() =>
         Assert.Equal("darksoulsiii", TitleText.LettersAndDigits("Dark Souls® III"));
+
+    [Fact]
+    public void ExpandPacked_SplitsCamelCase() =>
+        Assert.Equal("Deep Rock", TitleText.ExpandPacked("DeepRock"));
+
+    [Fact]
+    public void SearchQueries_IncludesFolderAndPacked()
+    {
+        IReadOnlyList<string> q = TitleText.SearchQueries("FSD", "deeprock", "Deep Rock Galactic");
+        Assert.Contains("Deep Rock Galactic", q);
+        Assert.Contains("deeprock", q);
+    }
 }

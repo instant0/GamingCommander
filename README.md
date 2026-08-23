@@ -1,5 +1,7 @@
 # GamingCommander
 
+![GamingCommander](docs/resources/gc-logo.jpg)
+
 © 2026 ins · [github.com/instant0/GamingCommander](https://github.com/instant0/GamingCommander)  
 License: [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)
 
@@ -18,7 +20,7 @@ Current status:
 - ✅ Executable scoring and noise filtering (21-tier blacklist; embedded `blacklist.json` restore)
 - ✅ Game launching: `steam://` URI for Steam, direct `.exe` with args for standalone
 - ✅ GOG metadata extraction, UE-aware exe discovery, `.lnk` shortcut resolution, container detection
-- ✅ Dual-pane NC UI, first-run / F2 setup, F4 configure, **F5** async rescan, Esc/Backspace up (no F9)
+- ✅ Dual-pane NC UI, first-run / F2 setup, F4 configure, **F5** async rescan, **F8/S** filter, Esc/Backspace up (no F9)
 - ✅ Epic local `.item` / `.mancpn` enrichment; right-pane colored tags
 - ✅ Opt-in online extras (PCGW + Steam Store only). Contract: [`docs/ONLINE-AND-DATA.md`](./docs/ONLINE-AND-DATA.md)
 
@@ -82,7 +84,7 @@ Windows Release (from Linux or Windows):
 dotnet publish src/GamingCommander.App/GamingCommander.App.csproj -c Release -r win-x64 --self-contained false -o ./publish
 ```
 
-Needs the .NET 8 Desktop Runtime on the target PC. The folder includes `GamingCommander.Readme.txt`. The Windows application manifest is **embedded** in the exe (`app.manifest`); a loose `.exe.manifest` is not shipped and is not required by Microsoft.
+Needs the .NET 8 Desktop Runtime on the target PC. Publish root is the exe, `GamingCommander.Readme.txt`, and the three host files the apphost requires (`GamingCommander.App.dll`, `.runtimeconfig.json`, `.deps.json`). Support DLLs go in `lib/`; shipped defaults in `data/`. The Windows application manifest is **embedded** in the exe (`app.manifest`); a loose `.exe.manifest` is not shipped.
 
 SBOM: [`docs/sbom/README.md`](./docs/sbom/README.md).
 

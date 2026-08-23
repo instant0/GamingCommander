@@ -107,6 +107,10 @@ public sealed class ShellViewModel : ReactiveObject
     public string DetailsName => SelectedItem?.Title ?? string.Empty;
     /// <summary>Install path of the currently selected game.</summary>
     public string DetailsPath => SelectedItem?.PathSummary ?? string.Empty;
+    /// <summary>Folder that contains the game exe. Empty when unknown.</summary>
+    public string DetailsGameFolder => SelectedInstallDirectory ?? string.Empty;
+    public bool DetailsGameFolderClickable =>
+        WindowsExplorer.IsClickableFolder(DetailsGameFolder, SelectedInstallDirectory);
     /// <summary>Source type of the currently selected game (e.g., Steam, GOG).</summary>
     public string DetailsType => SelectedItem?.SourceLabel ?? string.Empty;
     /// <summary>Primary executable path of the currently selected game.</summary>
@@ -134,6 +138,24 @@ public sealed class ShellViewModel : ReactiveObject
     public string DetailsPlatformStatusDetail => SelectedItem?.PlatformStatusDetail ?? string.Empty;
     /// <summary>True when detailed platform status information is available.</summary>
     public bool HasPlatformStatusDetail => !string.IsNullOrEmpty(SelectedItem?.PlatformStatusDetail);
+    public bool IsSteamOrphaned =>
+        string.Equals(DetailsPlatformStatus, "Orphaned", StringComparison.OrdinalIgnoreCase);
+    /// <summary>Sidecar or ACF AppID — required to write <c>appmanifest_{id}.acf</c>.</summary>
+    public string SteamAppIdForAcf
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(SelectedItem?.PlatformId)
+                && SelectedItem.PlatformId.All(char.IsDigit))
+            {
+                return SelectedItem.PlatformId;
+            }
+
+            string? side = _selectedMetadata?.SteamAppId;
+            return !string.IsNullOrWhiteSpace(side) && side.All(char.IsDigit) ? side.Trim() : string.Empty;
+        }
+    }
+    public bool CanWriteSteamAcf => IsSteamOrphaned && SteamAppIdForAcf.Length > 0;
     /// <summary>True when any item is selected in the left pane.</summary>
     public bool HasSelection => SelectedItem is not null;
     /// <summary>True when a game file (not a directory or parent) is selected.</summary>
@@ -558,7 +580,7 @@ public sealed class ShellViewModel : ReactiveObject
                 Title = game.DisplayName,
                 Subtitle = subtitle,
                 LeftPath = leftPath,
-                SourceLabel = game.GameSource.ToString(),
+                SourceLabel = GameSourceParser.ToDisplayName(game.GameSource),
                 PathSummary = game.ExecutablePath,
                 InstallDirectory = WindowsExplorer.ParentDirectory(game.ExecutablePath) ?? string.Empty,
                 HasMultipleExes = game.PlatformMetadata.TryGetValue("ExeCandidateCount", out string? exeCount)
@@ -568,7 +590,9 @@ public sealed class ShellViewModel : ReactiveObject
                 CommandLineArguments = game.CommandLineArguments,
                 Kind = FileSystemEntryKind.File,
                 LastModified = game.LastModified,
-                ResolvedType = game.IsSourceOverridden ? $"{game.GameSource} (override)" : game.GameSource.ToString(),
+                ResolvedType = game.IsSourceOverridden
+                    ? GameSourceParser.ToDisplayName(game.GameSource) + " (override)"
+                    : GameSourceParser.ToDisplayName(game.GameSource),
                 HasOverride = game.IsSourceOverridden,
                 GameId = game.Id,
                 PlatformId = platformId,
@@ -640,14 +664,16 @@ public sealed class ShellViewModel : ReactiveObject
                 Title = game.DisplayName,
                 Subtitle = subtitle,
                 LeftPath = string.IsNullOrEmpty(rootName) ? Path.GetFileName(game.ExecutablePath) : rootName,
-                SourceLabel = game.GameSource.ToString(),
+                SourceLabel = GameSourceParser.ToDisplayName(game.GameSource),
                 PathSummary = game.ExecutablePath,
                 InstallDirectory = WindowsExplorer.ParentDirectory(game.ExecutablePath) ?? string.Empty,
                 LaunchTarget = launchTarget,
                 CommandLineArguments = game.CommandLineArguments,
                 Kind = FileSystemEntryKind.File,
                 LastModified = game.LastModified,
-                ResolvedType = game.IsSourceOverridden ? $"{game.GameSource} (override)" : game.GameSource.ToString(),
+                ResolvedType = game.IsSourceOverridden
+                    ? GameSourceParser.ToDisplayName(game.GameSource) + " (override)"
+                    : GameSourceParser.ToDisplayName(game.GameSource),
                 HasOverride = game.IsSourceOverridden,
                 GameId = game.Id,
                 PlatformId = platformId,
@@ -693,6 +719,8 @@ public sealed class ShellViewModel : ReactiveObject
         OnPropertyChanged(nameof(SelectedItem));
         OnPropertyChanged(nameof(DetailsName));
         OnPropertyChanged(nameof(DetailsPath));
+        OnPropertyChanged(nameof(DetailsGameFolder));
+        OnPropertyChanged(nameof(DetailsGameFolderClickable));
         OnPropertyChanged(nameof(DetailsType));
         OnPropertyChanged(nameof(DetailsExecutable));
         OnPropertyChanged(nameof(HasMultipleExes));
@@ -705,6 +733,9 @@ public sealed class ShellViewModel : ReactiveObject
         OnPropertyChanged(nameof(DetailsPlatformStatusColor));
         OnPropertyChanged(nameof(DetailsPlatformStatusDetail));
         OnPropertyChanged(nameof(HasPlatformStatusDetail));
+        OnPropertyChanged(nameof(IsSteamOrphaned));
+        OnPropertyChanged(nameof(SteamAppIdForAcf));
+        OnPropertyChanged(nameof(CanWriteSteamAcf));
         OnPropertyChanged(nameof(DetailsResolvedType));
         OnPropertyChanged(nameof(HasSelection));
         OnPropertyChanged(nameof(HasGameSelected));
@@ -760,6 +791,8 @@ public sealed class ShellViewModel : ReactiveObject
         OnPropertyChanged(nameof(DetailsCommandLine));
         OnPropertyChanged(nameof(DetailsVideo));
         OnPropertyChanged(nameof(HasMetadataDetails));
+        OnPropertyChanged(nameof(SteamAppIdForAcf));
+        OnPropertyChanged(nameof(CanWriteSteamAcf));
     }
 
     private static string TruncatePath(string path)
@@ -781,8 +814,9 @@ public sealed class ShellViewModel : ReactiveObject
         string folder = game.PlatformMetadata.GetValueOrDefault("FolderName", game.FolderName);
         string libRoot = game.PlatformMetadata.GetValueOrDefault("LibraryRoot", "unknown library");
         return $"Orphaned — no Steam manifest for '{folder}'. " +
-               $"This folder exists in {libRoot} but is not registered with Steam. " +
-               "To fix: Use ACF Generate to create a manifest, or re-install via Steam.";
+               $"This folder exists in {libRoot} but no ACF in any configured library names that folder. " +
+               "F3 to get the Steam AppID from PCGW, then click Write Steam ACF. " +
+               "Or add the library that already has the ACF (F2).";
     }
 
     /// <summary>Formats actionable detail text for Missing Steam games (ACF exists, no game folder).</summary>

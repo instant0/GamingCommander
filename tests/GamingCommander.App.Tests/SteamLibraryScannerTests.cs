@@ -63,6 +63,23 @@ public sealed class SteamLibraryScannerTests : IDisposable
     // ════════════════════════════════════════════════════════════════
 
     [Fact]
+    public void Scan_FindsExeInBinariesWin64_WithoutWalkingTree()
+    {
+        string root = CreateMockSteamLibrary("UeGame", appId: "480");
+        string win64 = Path.Combine(root, "steamapps", "common", "UeGame", "Binaries", "Win64");
+        Directory.CreateDirectory(win64);
+        File.WriteAllBytes(Path.Combine(win64, "UeGame-Win64-Shipping.exe"), new byte[200 * 1024]);
+
+        var scanner = new SteamLibraryScanner([root]);
+        var results = scanner.Scan(root);
+
+        Assert.Single(results);
+        Assert.Contains("UeGame-Win64-Shipping.exe", results[0].ExecutablePath, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("480", results[0].PlatformMetadata["SteamAppId"]);
+        Assert.Contains("steam://rungameid/480", results[0].CommandLineArguments);
+    }
+
+    [Fact]
     public void Scan_FindsExeInShippingSubfolder()
     {
         string root = CreateMockSteamLibrary("DivinityOriginalSin", appId: "230230");
@@ -196,6 +213,23 @@ public sealed class SteamLibraryScannerTests : IDisposable
         Assert.Single(results);
         Assert.Equal("Installed", results[0].PlatformMetadata["SteamStatus"]);
         Assert.Equal("Steam", results[0].FolderName);
+    }
+
+    [Fact]
+    public void Scan_MissingAcf_OnlyOnOwningLibrary()
+    {
+        string libA = CreateSteamAppsDir("libA");
+        string libB = CreateSteamAppsDir("libB");
+        WriteAcf(libA, "99999", "Ghost", "GhostFolder");
+        Directory.CreateDirectory(Path.Combine(libB, "steamapps", "common", "OtherGame"));
+        WriteAcf(libB, "1", "Other", "OtherGame");
+
+        var scanner = new SteamLibraryScanner([libA, libB]);
+        var fromA = scanner.Scan(libA);
+        var fromB = scanner.Scan(libB);
+
+        Assert.Contains(fromA, g => g.PlatformMetadata.GetValueOrDefault("SteamStatus") == "Missing");
+        Assert.DoesNotContain(fromB, g => g.PlatformMetadata.GetValueOrDefault("SteamStatus") == "Missing");
     }
 
     [Fact]

@@ -57,4 +57,40 @@ public static class PeProductYear
 
         return false;
     }
+
+    /// <summary>
+    /// PE ProductName if it looks like a real title (not <c>FSD</c> / module codes).
+    /// </summary>
+    public static string? TitleHint(string? executablePath)
+    {
+        if (string.IsNullOrWhiteSpace(executablePath))
+            return null;
+
+        try
+        {
+            FileVersionInfo info = FileVersionInfo.GetVersionInfo(executablePath);
+            foreach (string? raw in new[] { info.ProductName, info.FileDescription })
+            {
+                if (IsUsefulTitle(raw))
+                    return raw!.Trim();
+            }
+        }
+        catch
+        {
+        }
+
+        return null;
+    }
+
+    public static bool IsUsefulTitle(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+        string t = text.Trim();
+        if (t.Length <= 4)
+            return false;
+        if (t.All(c => char.IsUpper(c) || !char.IsLetter(c)))
+            return false;
+        return true;
+    }
 }

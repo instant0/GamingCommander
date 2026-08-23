@@ -62,6 +62,18 @@ public sealed class WindowsExplorerTests
     }
 
     [Fact]
+    public void Clickable_GameInstallFolderItself()
+    {
+        Assert.True(WindowsExplorer.IsClickableFolder(@"D:\SteamLibrary\steamapps\common\Foo",
+            @"D:\SteamLibrary\steamapps\common\Foo"));
+        Assert.True(WindowsExplorer.TryBuildOpenFolder(
+            @"D:\SteamLibrary\steamapps\common\Foo",
+            @"D:\SteamLibrary\steamapps\common\Foo",
+            out _, out string args));
+        Assert.Equal("\"D:\\SteamLibrary\\steamapps\\common\\Foo\"", args);
+    }
+
+    [Fact]
     public void Clickable_OnlyGameOrUserProfileRoots()
     {
         string? previous = Environment.GetEnvironmentVariable("USERPROFILE");

@@ -287,9 +287,11 @@ internal static class ExecutableDiscovery
                 string internalName = (peInfo.InternalName ?? "").ToLowerInvariant();
 
                 // Capture FileDescription for display name enrichment (Plan 112 Step 2)
-                string? rawDescription = peInfo.FileDescription;
-                if (!string.IsNullOrWhiteSpace(rawDescription))
-                    fileDescription = rawDescription;
+                fileDescription = PeProductYear.IsUsefulTitle(peInfo.ProductName)
+                    ? peInfo.ProductName!.Trim()
+                    : PeProductYear.IsUsefulTitle(peInfo.FileDescription)
+                        ? peInfo.FileDescription!.Trim()
+                        : null;
 
                 // Penalize noise in FileDescription (-25)
                 if (desc.Contains("setup") || desc.Contains("microsoft") ||

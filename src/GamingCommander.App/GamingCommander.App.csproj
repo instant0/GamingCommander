@@ -36,4 +36,23 @@
     <ProjectReference Include="..\GamingCommander.Detection\GamingCommander.Detection.csproj" />
     <ProjectReference Include="..\GamingCommander.Migration\GamingCommander.Migration.csproj" />
   </ItemGroup>
+
+  <!-- Host files stay at publish root. Everything else managed/native goes to lib/. -->
+  <Target Name="OrganizePublishLayout" AfterTargets="Publish">
+    <PropertyGroup>
+      <_Pub>$([MSBuild]::EnsureTrailingSlash('$(PublishDir)'))</_Pub>
+      <_Lib>$(_Pub)lib</_Lib>
+    </PropertyGroup>
+    <MakeDir Directories="$(_Lib)" />
+    <ItemGroup>
+      <_Stay Include="$(_Pub)GamingCommander.App.exe" />
+      <_Stay Include="$(_Pub)GamingCommander.App.dll" />
+      <_Stay Include="$(_Pub)GamingCommander.App.runtimeconfig.json" />
+      <_Stay Include="$(_Pub)GamingCommander.App.deps.json" />
+      <_Stay Include="$(_Pub)GamingCommander.Readme.txt" />
+      <_Move Include="$(_Pub)*.dll" Exclude="$(_Pub)GamingCommander.App.dll" />
+      <_Move Include="$(_Pub)*.pdb" />
+    </ItemGroup>
+    <Move SourceFiles="@(_Move)" DestinationFolder="$(_Lib)" Condition="'@(_Move)' != ''" />
+  </Target>
 </Project>

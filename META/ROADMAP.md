@@ -2,7 +2,7 @@
 
 **Nature:** Reference. Updated by Planner after milestones.  
 **Audience:** All agents. Read when determining what to work on next.  
-**Updated:** 2026-08-22 — Plans 119/120 metadata sidecar shipped.
+**Updated:** 2026-08-22 — F8 filter + metadata sidecar shipped.
 
 ---
 
@@ -28,7 +28,7 @@ GamingCommander is a C# Windows-native game management and launcher application 
 | Phase 3.5: Category Browsing & Search | 🔮 FUTURE | F8 category view, S key quick search, cross-root aggregation |
 | Phase 4: Advanced Features & Polish | 🔮 FUTURE | PCGamingWiki integration, metadata sync, UX polish |
 
-**Post-MVP product track (current):** Plans 117 + 119 + 120 shipped. Next product plan: SyncMove (2.1). F8/S category browse remains future.
+**Post-MVP product track (current):** Plans 117 + 119 + 120 shipped. F8/S **filter** shipped (tags / store / wildcard). Next product plan: SyncMove (2.1). Plan 101 mode switcher / category folders remain future.
 
 ---
 
@@ -56,7 +56,7 @@ GamingCommander is a C# Windows-native game management and launcher application 
 |---------|-------------|
 | Dual-pane VFS over `data/games.json` | SyncMove manifest repair |
 | F2 / first-run `LibrarySetupWindow` | SteamDB / IGDB / Cargo / Epic GraphQL |
-| F5 async rescan + cancel | Category browse / search (F8, S) |
+| F5 async rescan + cancel | Plan 101 mode switcher / category folders |
 | Steam ACF + multi-library | Full GOG/Epic/EA/Ubisoft *clients* |
 | FolderScanner + registry fallback | Nested Steam “add as root” UX |
 | Epic local manifests + global cross-ref | Cover-art image UI |
@@ -64,6 +64,7 @@ GamingCommander is a C# Windows-native game management and launcher application 
 | Embedded `blacklist.json` restore (Bug 16) | Writing extras into `GameEntry.Tags` |
 | Sidecar extras (`games_metadata.json`, flag off) | Auto-applying PCGW launch args |
 | F3 lookup + F4 arg catalog; Steam URI launch | Inverting Steam → raw exe |
+| F8 / S filter (tags, store, wildcard) | |
 
 ---
 
@@ -82,3 +83,4 @@ GamingCommander is a C# Windows-native game management and launcher application 
 | 2026-07 | Post-MVP 109/114–116 | Epic manifests, detection bugfixes B23–B33, registry fallback, BattleNet signals |
 | 2026-08 | Plan 118 + Bugs 10/13/16 | Doc audit; Steam internals skip; nested Steam exclusion; embedded blacklist |
 | 2026-08 | Plans 119 + 120 | Sidecar extras; PCGW details; F3 picker; no SteamDB |
+| 2026-08 | Filter + scan/lookup polish | F8/S; Steam cheap exe; lookup without exe; publish `lib/` |

@@ -191,7 +191,13 @@ public sealed class MetadataLookupQueue : IDisposable
         if (game.PlatformMetadata.TryGetValue("SteamAppId", out string? id) && !string.IsNullOrWhiteSpace(id))
             appId = id.Trim();
 
-        return new WorkItem(game.Id, appId, game.DisplayName, PeProductYear.Guess(game.ExecutablePath));
+        int? year = PeProductYear.Guess(game.ExecutablePath)
+            ?? (game.LastModified.Year is >= 1995 and <= 2035 ? game.LastModified.Year : null);
+        string searchName = PeProductYear.TitleHint(game.ExecutablePath)
+            ?? TitleText.ExpandPacked(game.DisplayName);
+        if (string.IsNullOrWhiteSpace(searchName))
+            searchName = game.DisplayName;
+        return new WorkItem(game.Id, appId, searchName, year);
     }
 
     private readonly record struct WorkItem(string GameEntryId, string? SteamAppId, string DisplayName, int? YearHint);

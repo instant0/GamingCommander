@@ -80,10 +80,18 @@ public sealed class PcgwLookup : IDisposable
         string displayName,
         CancellationToken cancellationToken = default)
     {
-        string query = TitleText.ForSearch(displayName);
-        if (query.Length == 0)
-            return [];
+        foreach (string query in TitleText.SearchQueries(displayName))
+        {
+            IReadOnlyList<string> titles = await SearchOnceAsync(query, cancellationToken).ConfigureAwait(false);
+            if (titles.Count > 0)
+                return titles;
+        }
 
+        return [];
+    }
+
+    private async Task<IReadOnlyList<string>> SearchOnceAsync(string query, CancellationToken cancellationToken)
+    {
         string encoded = Uri.EscapeDataString(query);
         string url = Api + "?action=opensearch&limit=8&format=json&search=" + encoded;
         string? json = await GetStringAsync(url, cancellationToken).ConfigureAwait(false);

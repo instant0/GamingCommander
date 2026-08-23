@@ -92,26 +92,43 @@
           <StackPanel Spacing="4" Margin="0,4,8,0">
             <TextBlock Text="Name" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" />
             <TextBlock Text="{Binding DetailsName}" FontWeight="Bold" FontSize="{DynamicResource FontSizeHeader}" TextWrapping="Wrap"
-                       Foreground="{DynamicResource TextPrimary}" />
+                       Foreground="{DynamicResource TextPrimary}" Margin="12,0,0,0" />
 
-            <TextBlock Text="Path" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" Margin="0,12,0,0" />
+            <TextBlock Text="Path" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" Margin="0,12,0,0"
+                       IsVisible="{Binding DetailsGameFolderClickable, Converter={x:Static BoolConverters.Not}}" />
             <TextBlock Text="{Binding DetailsPath}" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeLabel}"
-                       Foreground="{DynamicResource TextSecondary}" />
+                       Foreground="{DynamicResource TextSecondary}" Margin="12,0,0,0"
+                       IsVisible="{Binding DetailsGameFolderClickable, Converter={x:Static BoolConverters.Not}}" />
+            <TextBlock Text="Game folder (click to open)"
+                       Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" Margin="0,12,0,0"
+                       IsVisible="{Binding DetailsGameFolderClickable}" />
+            <TextBlock Text="{Binding DetailsGameFolder}"
+                       Foreground="{DynamicResource TextAccent}" FontSize="{DynamicResource FontSizeLabel}"
+                       TextWrapping="Wrap" Cursor="Hand" Margin="12,0,0,0"
+                       PointerPressed="OpenGameFolder_PointerPressed"
+                       IsVisible="{Binding DetailsGameFolderClickable}" />
 
             <TextBlock Text="Type" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" Margin="0,12,0,0" />
-            <TextBlock Text="{Binding DetailsType}" Foreground="{DynamicResource TextAccent}" FontSize="{DynamicResource FontSizeBody}" />
-
-            <StackPanel IsVisible="{Binding HasOverride}" Spacing="0">
-              <TextBlock Text="Override" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" Margin="0,12,0,0" />
-              <TextBlock Text="{Binding DetailsResolvedType}" Foreground="{DynamicResource TextSuccess}" FontSize="{DynamicResource FontSizeBody}" />
-            </StackPanel>
+            <TextBlock Text="{Binding DetailsType}" Foreground="{DynamicResource TextAccent}" FontSize="{DynamicResource FontSizeBody}"
+                       Margin="12,0,0,0" />
+            <TextBlock Text="Change type (F4)"
+                       Foreground="{DynamicResource TextAccent}" FontSize="{DynamicResource FontSizeLabel}"
+                       Margin="12,2,0,0" Cursor="Hand"
+                       PointerPressed="ChangeType_PointerPressed"
+                       IsVisible="{Binding HasGameSelected}" />
+            <TextBlock Text="User override"
+                       Foreground="{DynamicResource TextSuccess}" FontSize="{DynamicResource FontSizeLabel}"
+                       Margin="12,2,0,0"
+                       IsVisible="{Binding HasOverride}" />
 
             <TextBlock Text="Last Modified" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" Margin="0,12,0,0" />
-            <TextBlock Text="{Binding DetailsLastModified}" Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeBody}" />
+            <TextBlock Text="{Binding DetailsLastModified}" Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeBody}"
+                       Margin="12,0,0,0" />
 
             <TextBlock Text="Platform ID" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" Margin="0,12,0,0"
                        IsVisible="{Binding HasPlatformId}" />
             <TextBlock Text="{Binding DetailsPlatformId}" Foreground="{DynamicResource TextSuccess}" FontSize="{DynamicResource FontSizeBody}"
+                       Margin="12,0,0,0"
                        IsVisible="{Binding HasPlatformId}" />
 
             <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,12,0,0"
@@ -123,12 +140,17 @@
 
             <TextBlock Text="{Binding DetailsPlatformStatusDetail}" TextWrapping="Wrap"
                        Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeLabel}"
-                       Margin="0,2,0,0" IsVisible="{Binding HasPlatformStatusDetail}" />
+                       Margin="12,2,0,0" IsVisible="{Binding HasPlatformStatusDetail}" />
+            <TextBlock Text="Write Steam ACF (needs AppID — F3 first)"
+                       Foreground="{DynamicResource TextAccent}" FontSize="{DynamicResource FontSizeLabel}"
+                       Margin="12,4,0,0" Cursor="Hand" TextWrapping="Wrap"
+                       PointerPressed="WriteSteamAcf_PointerPressed"
+                       IsVisible="{Binding IsSteamOrphaned}" />
 
             <!-- B33: Tags -->
             <StackPanel IsVisible="{Binding HasTags}" Margin="0,12,0,0">
               <TextBlock Text="Tags" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" Margin="0,0,0,4" />
-              <ItemsControl ItemsSource="{Binding DetailsTagBadges}">
+              <ItemsControl ItemsSource="{Binding DetailsTagBadges}" Margin="12,0,0,0">
                 <ItemsControl.ItemsPanel>
                   <ItemsPanelTemplate>
                     <WrapPanel Orientation="Horizontal" />
@@ -152,84 +174,83 @@
             <!-- Plan 119: sidecar extras — hidden when games_metadata.json has no row -->
             <StackPanel IsVisible="{Binding HasMetadataExtras}" Margin="0,12,0,0" Spacing="4">
               <TextBlock Text="Metadata" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" />
-              <TextBlock Text="{Binding DetailsDeveloper, StringFormat='Developer: {0}'}"
-                         Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeBody}"
-                         IsVisible="{Binding DetailsDeveloper, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-              <TextBlock Text="{Binding DetailsPublisher, StringFormat='Publisher: {0}'}"
-                         Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeBody}"
-                         IsVisible="{Binding DetailsPublisher, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-              <TextBlock Text="{Binding DetailsGenre, StringFormat='Genre: {0}'}"
-                         Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeBody}"
-                         IsVisible="{Binding DetailsGenre, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-              <TextBlock Text="{Binding DetailsEngine, StringFormat='Engine: {0}'}"
-                         Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeBody}"
-                         IsVisible="{Binding DetailsEngine, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-              <TextBlock Text="{Binding DetailsReleaseDate, StringFormat='Released: {0}'}"
-                         Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeBody}"
-                         IsVisible="{Binding DetailsReleaseDate, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-              <TextBlock Text="{Binding DetailsMetacritic, StringFormat='Metacritic: {0}'}"
-                         Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeBody}"
-                         IsVisible="{Binding DetailsMetacritic, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-              <TextBlock Text="{Binding DetailsPcgwUrl}"
-                         Foreground="{DynamicResource TextAccent}" FontSize="{DynamicResource FontSizeLabel}"
-                         TextWrapping="Wrap"
-                         IsVisible="{Binding DetailsPcgwUrl, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+              <StackPanel Margin="12,0,0,0" Spacing="4">
+                <TextBlock Text="{Binding DetailsDeveloper, StringFormat='Developer: {0}'}"
+                           Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeBody}"
+                           IsVisible="{Binding DetailsDeveloper, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                <TextBlock Text="{Binding DetailsPublisher, StringFormat='Publisher: {0}'}"
+                           Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeBody}"
+                           IsVisible="{Binding DetailsPublisher, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                <TextBlock Text="{Binding DetailsReleaseDate, StringFormat='Released: {0}'}"
+                           Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeBody}"
+                           IsVisible="{Binding DetailsReleaseDate, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                <TextBlock Text="{Binding DetailsMetacritic, StringFormat='Metacritic: {0}'}"
+                           Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeBody}"
+                           IsVisible="{Binding DetailsMetacritic, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                <TextBlock Text="{Binding DetailsPcgwUrl}"
+                           Foreground="{DynamicResource TextAccent}" FontSize="{DynamicResource FontSizeLabel}"
+                           TextWrapping="Wrap"
+                           IsVisible="{Binding DetailsPcgwUrl, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+              </StackPanel>
             </StackPanel>
 
             <StackPanel IsVisible="{Binding HasMetadataDetails}" Margin="0,12,0,0" Spacing="4">
               <TextBlock Text="PCGW details" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" />
-              <TextBlock Text="Config (click to open)"
-                         Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}"
-                         IsVisible="{Binding DetailsConfigPathClickable}" />
-              <TextBlock Text="Config (registry)"
-                         Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}"
-                         IsVisible="{Binding DetailsConfigPathIsRegistry}" />
-              <TextBlock Text="Config"
-                         Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}"
-                         IsVisible="{Binding DetailsConfigPathDisplayOnly}" />
-              <TextBlock Text="{Binding DetailsConfigPath}"
-                         Foreground="{DynamicResource TextAccent}" FontSize="{DynamicResource FontSizeLabel}"
-                         TextWrapping="Wrap" Cursor="Hand"
-                         PointerPressed="OpenConfigPath_PointerPressed"
-                         IsVisible="{Binding DetailsConfigPathClickable}" />
-              <TextBlock Text="{Binding DetailsConfigPath}"
-                         Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeLabel}"
-                         TextWrapping="Wrap"
-                         IsVisible="{Binding DetailsConfigPathDisplayOnly}" />
-              <TextBlock Text="{Binding DetailsConfigPath}"
-                         Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeLabel}"
-                         TextWrapping="Wrap"
-                         IsVisible="{Binding DetailsConfigPathIsRegistry}" />
-              <TextBlock Text="Saves (click to open)"
-                         Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}"
-                         IsVisible="{Binding DetailsSavePathClickable}" />
-              <TextBlock Text="Saves"
-                         Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}"
-                         IsVisible="{Binding DetailsSavePathDisplayOnly}" />
-              <TextBlock Text="{Binding DetailsSavePath}"
-                         Foreground="{DynamicResource TextAccent}" FontSize="{DynamicResource FontSizeLabel}"
-                         TextWrapping="Wrap" Cursor="Hand"
-                         PointerPressed="OpenSavePath_PointerPressed"
-                         IsVisible="{Binding DetailsSavePathClickable}" />
-              <TextBlock Text="{Binding DetailsSavePath}"
-                         Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeLabel}"
-                         TextWrapping="Wrap"
-                         IsVisible="{Binding DetailsSavePathDisplayOnly}" />
-              <TextBlock Text="Video"
-                         Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}"
-                         IsVisible="{Binding DetailsVideo, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-              <TextBlock Text="{Binding DetailsVideo}"
-                         Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeLabel}"
-                         TextWrapping="Wrap"
-                         IsVisible="{Binding DetailsVideo, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-              <TextBlock Text="{Binding DetailsCommandLine}"
-                         Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeLabel}"
-                         TextWrapping="Wrap"
-                         IsVisible="{Binding DetailsCommandLine, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+              <StackPanel Margin="12,0,0,0" Spacing="4">
+                <TextBlock Text="Config (click to open)"
+                           Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}"
+                           IsVisible="{Binding DetailsConfigPathClickable}" />
+                <TextBlock Text="Config (registry)"
+                           Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}"
+                           IsVisible="{Binding DetailsConfigPathIsRegistry}" />
+                <TextBlock Text="Config"
+                           Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}"
+                           IsVisible="{Binding DetailsConfigPathDisplayOnly}" />
+                <TextBlock Text="{Binding DetailsConfigPath}"
+                           Foreground="{DynamicResource TextAccent}" FontSize="{DynamicResource FontSizeLabel}"
+                           TextWrapping="Wrap" Cursor="Hand"
+                           PointerPressed="OpenConfigPath_PointerPressed"
+                           IsVisible="{Binding DetailsConfigPathClickable}" />
+                <TextBlock Text="{Binding DetailsConfigPath}"
+                           Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeLabel}"
+                           TextWrapping="Wrap"
+                           IsVisible="{Binding DetailsConfigPathDisplayOnly}" />
+                <TextBlock Text="{Binding DetailsConfigPath}"
+                           Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeLabel}"
+                           TextWrapping="Wrap"
+                           IsVisible="{Binding DetailsConfigPathIsRegistry}" />
+                <TextBlock Text="Saves (click to open)"
+                           Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}"
+                           IsVisible="{Binding DetailsSavePathClickable}" />
+                <TextBlock Text="Saves"
+                           Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}"
+                           IsVisible="{Binding DetailsSavePathDisplayOnly}" />
+                <TextBlock Text="{Binding DetailsSavePath}"
+                           Foreground="{DynamicResource TextAccent}" FontSize="{DynamicResource FontSizeLabel}"
+                           TextWrapping="Wrap" Cursor="Hand"
+                           PointerPressed="OpenSavePath_PointerPressed"
+                           IsVisible="{Binding DetailsSavePathClickable}" />
+                <TextBlock Text="{Binding DetailsSavePath}"
+                           Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeLabel}"
+                           TextWrapping="Wrap"
+                           IsVisible="{Binding DetailsSavePathDisplayOnly}" />
+                <TextBlock Text="Video"
+                           Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}"
+                           IsVisible="{Binding DetailsVideo, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                <TextBlock Text="{Binding DetailsVideo}"
+                           Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeLabel}"
+                           TextWrapping="Wrap"
+                           IsVisible="{Binding DetailsVideo, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                <TextBlock Text="{Binding DetailsCommandLine}"
+                           Foreground="{DynamicResource TextSecondary}" FontSize="{DynamicResource FontSizeLabel}"
+                           TextWrapping="Wrap"
+                           IsVisible="{Binding DetailsCommandLine, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+              </StackPanel>
             </StackPanel>
 
             <TextBlock Text="Executable" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" Margin="0,12,0,0" />
-            <TextBlock Text="{Binding DetailsExecutable}" Foreground="{DynamicResource TextSuccess}" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeLabel}" />
+            <TextBlock Text="{Binding DetailsExecutable}" Foreground="{DynamicResource TextSuccess}" TextWrapping="Wrap"
+                       FontSize="{DynamicResource FontSizeLabel}" Margin="12,0,0,0" />
             <TextBlock Text="{Binding MultipleExeWarning}"
                        Foreground="{DynamicResource TextDanger}" FontSize="{DynamicResource FontSizeLabel}"
                        TextWrapping="Wrap" Cursor="Hand" Margin="0,4,0,0"

@@ -97,7 +97,8 @@ public sealed class SteamLibraryScanner
                 }
             }
 
-            if (!found)
+            if (!found
+                && acfInfo.LibraryPath.Equals(root, StringComparison.OrdinalIgnoreCase))
             {
                 entries.Add(CreateMissingAcfEntry(root, acfInfo));
             }
@@ -269,12 +270,7 @@ public sealed class SteamLibraryScanner
             extra["AcfFilePath"] = acf.AcfFilePath;
         }
 
-        GameEngineKind engine = EngineDetector.Detect(gameDir.FullName);
-        var tags = new List<string>();
-        string engineTag = EngineDetector.ToTag(engine);
-        if (engineTag.Length > 0)
-            tags.Add(engineTag);
-
+        // No EngineDetector here — it lists every child folder. PCGW fills engine after lookup.
         return new GameEntry(
             Id: id,
             FolderName: folderName,
@@ -288,9 +284,8 @@ public sealed class SteamLibraryScanner
             LastScanned: DateTimeOffset.UtcNow,
             LastModified: FileSystemHelper.GetLastWriteTimeSafe(gameDir),
             PlatformMetadata: extra,
-            Tags: tags,
-            UserOverrides: [],
-            GameEngine: engine);
+            Tags: [],
+            UserOverrides: []);
     }
 
     /// <summary>
@@ -368,18 +363,60 @@ public sealed class SteamLibraryScanner
     // ════════════════════════════════════════════════════════════════
 
     /// <summary>
-    /// Finds the primary executable in a Steam game's common/ directory.
+    /// Steam launch is <c>steam://</c>; the exe is display / F4 / year only.
+    /// Fast path: root *.exe. Else a few known relative folders only
+    /// (<c>Shipping</c>, <c>Binaries\Win64</c>, …). Never list the whole tree.
+    /// Lookup uses ACF name / AppID even when this returns empty.
     /// </summary>
+    private static readonly string[] s_cheapExeFolders =
+    [
+        "Shipping",
+        "Binaries/Win64",
+        "Binaries/Win32",
+        "Win64",
+        "bin",
+        "bin/x64",
+        "Game/Binaries/Win64",
+    ];
+
     private static string FindPrimaryExe(DirectoryInfo dir)
     {
-        string[] top = FileSystemHelper.GetFilesSafe(dir, "*.exe");
-        var found = ExecutableDiscovery.FindPrimaryExecutable(
-            dir,
-            top,
-            ["unins", "setup", "vcredist", "dxsetup", "oalinst"],
-            FileSystemHelper.NoiseSubDirNames,
-            ["launcher", "crashhandler"]);
-        return found.ExePath ?? string.Empty;
+        string? root = FirstUsableExe(FileSystemHelper.GetFilesSafe(dir, "*.exe"));
+        if (root is not null)
+            return root;
+
+        foreach (string rel in s_cheapExeFolders)
+        {
+            string folder = Path.Combine(dir.FullName, rel.Replace('/', Path.DirectorySeparatorChar));
+            if (!Directory.Exists(folder))
+                continue;
+            string? nested = FirstUsableExe(FileSystemHelper.GetFilesSafe(new DirectoryInfo(folder), "*.exe"));
+            if (nested is not null)
+                return nested;
+        }
+
+        return string.Empty;
+    }
+
+    private static string? FirstUsableExe(string[] exes)
+    {
+        foreach (string exe in exes)
+        {
+            if (ExecutableDiscovery.IsForbiddenLaunchExe(exe))
+                continue;
+            string name = Path.GetFileNameWithoutExtension(exe);
+            if (name.Equals("setup", StringComparison.OrdinalIgnoreCase)
+                || name.Equals("vcredist", StringComparison.OrdinalIgnoreCase)
+                || name.Equals("dxsetup", StringComparison.OrdinalIgnoreCase)
+                || name.Equals("oalinst", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            return exe;
+        }
+
+        return null;
     }
 
     /// <summary>

@@ -41,32 +41,25 @@ public static class EngineDetector
 
     private static bool HasUnrealEngine(DirectoryInfo d)
     {
-        if (!Directory.Exists(Path.Combine(d.FullName, "Engine")))
-            return false;
         if (Directory.Exists(Path.Combine(d.FullName, "Engine", "Binaries")))
             return true;
-
-        foreach (DirectoryInfo child in FileSystemHelper.GetDirectoriesSafe(d.FullName))
-        {
-            if (Directory.Exists(Path.Combine(child.FullName, "Binaries", "Win64")))
-                return true;
-        }
-
-        return false;
+        return Directory.Exists(Path.Combine(d.FullName, d.Name, "Binaries", "Win64"));
     }
 
     private static bool HasUnity(DirectoryInfo d)
     {
         if (!File.Exists(Path.Combine(d.FullName, "UnityPlayer.dll")))
             return false;
-
-        foreach (DirectoryInfo child in FileSystemHelper.GetDirectoriesSafe(d.FullName))
+        if (Directory.Exists(Path.Combine(d.FullName, d.Name + "_Data")))
+            return true;
+        try
         {
-            if (child.Name.EndsWith("_Data", StringComparison.OrdinalIgnoreCase))
-                return true;
+            return Directory.EnumerateDirectories(d.FullName, "*_Data").Any();
         }
-
-        return false;
+        catch
+        {
+            return false;
+        }
     }
 
     private static bool HasRage(DirectoryInfo d)

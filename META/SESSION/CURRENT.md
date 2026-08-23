@@ -2,13 +2,14 @@
 
 **Nature:** Scratch. **Overwritten** every session handoff.  
 **Audience:** All agents. Read every session.  
-**Updated:** 2026-08-22 — F8 filter wired.
+**Updated:** 2026-08-22 — README md logo; ACF writer.
 
 ---
 
 ## This session
 
-Filter is live: click a details tag, or **F8** / **S**. List is every matching game across all roots. Options = tags (user + PCGW genre/engine) + store labels + wildcard. **Clear** / **Backspace** / **Esc** / **..** return to library roots.
+- README logo is GitHub markdown (`![…](docs/resources/gc-logo.jpg)`).
+- We **can** write the identification ACF (schema fields). Still need a numeric AppID. Orphaned: F3 then **Write Steam ACF** → `steamapps/appmanifest_{id}.acf`. No depot blocks. Does not invent AppID.
 
 Published to `./publish`.
 

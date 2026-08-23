@@ -1,9 +1,9 @@
 # Plan 101 — Top-Level Mode Switcher, Flatten Library, and Game Filter
 
-**Status:** DRAFT — awaiting approval  
+**Status:** DRAFT — mode switcher / flatten / category folders **not** built.  
+**Shipped outside this plan (2026-08-22):** F8 / S filter — click a details tag, or pick tag/store/wildcard. Backspace/Esc/Clear/.. return to library roots. Cross-root list. Not the F9 mode switcher or category tree in this file.  
 **Audience:** Planner / Builder  
 **Priority:** P2 (post-MVP feature)  
-**Effort:** 3 phases, ~4–6 sessions total  
 **Depends on:** MVP complete (T61–T70)
 
 ---
