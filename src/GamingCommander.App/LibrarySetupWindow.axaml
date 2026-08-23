@@ -34,6 +34,9 @@
         </TextBlock>
       </CheckBox>
       <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12">
+        <Button x:Name="AddEpicButton" Content="+ Epic Games Store" Background="{DynamicResource ButtonBgAction}" Foreground="{DynamicResource TextAccent}"
+                Padding="12,8"
+                IsVisible="{Binding CanAddEpicCatalog}" />
         <Button x:Name="AddRootButton" Content="+ Add Root" Background="{DynamicResource ButtonBgAction}" Foreground="{DynamicResource TextAccent}"
                 Padding="16,8" />
         <Button x:Name="CloseButton" Content="Close" Background="{DynamicResource ButtonBgSecondary}" Foreground="{DynamicResource TextAccent}"

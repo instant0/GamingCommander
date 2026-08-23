@@ -114,7 +114,7 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 |---------|------|---------|
 | `LibraryManager` | `LibraryManager.cs` | Routes scanning to appropriate scanner, manages roots, delegates to IGamesDatabaseService |
 | `MetadataStore` | `Metadata/MetadataStore.cs` | Plan 119 sidecar `data/games_metadata.json` |
-| `MetadataService` | `Metadata/MetadataService.cs` | PCGW then Steam Store; `EnableOnlineMetadata`; 30-day cache; never writes `games.json` |
+| `MetadataService` | `Metadata/MetadataService.cs` | PCGW then Steam Store; `EnableOnlineMetadata`; 60-day cache; identity guard; never writes `games.json` |
 | `SteamStoreLookup` | `Metadata/SteamStoreLookup.cs` | Raw `appdetails` GET (injectable HttpClient) |
 | `SteamStoreParser` | `Metadata/SteamStoreParser.cs` | Envelope → `SteamStoreFacts` |
 | `PcgwLookup` | `Metadata/PcgwLookup.cs` | appid.php / OpenSearch / Parse / `pageTitleOverride` — **not Cargo** |
@@ -133,6 +133,8 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 | `StoreSignalDetector` | `StoreSignalDetector.cs` | DetectType + 10 store/platform signal checks (GOG, EA, Ubisoft, Epic, Blizzard, Xbox, Rockstar, Steam) |
 | `ExecutableDiscovery` | `ExecutableDiscovery.cs` | Deep exe search, primary exe selection, launcher detection, Epic manifest discovery |
 | `SteamLibraryScanner` | `SteamLibraryScanner.cs` | Dedicated Steam scanner: ACF cross-ref, library path discovery, Installed/Moved/Orphaned/Missing; skips Steam-internal `common/` folders (Bug 10) |
+| `EpicLibraryScanner` | `EpicLibraryScanner.cs` | ProgramData `*.item` → VFS (base games only) |
+| `EpicItemCatalog` / `EpicItemClassifier` / `EpicItemWriter` | same folder | Catalog, DLC skip, orphan `.item` write |
 | `SteamAcfParser` | `SteamAcfParser.cs` | Parses Steam ACF files and libraryfolders.vdf; AcfInfo record |
 | `GamesDatabaseService` | `GamesDatabaseService.cs` | JSON-file CRUD for game entries via private DTOs, in-memory cache |
 | `JsonConfigService` | `JsonConfigService.cs` | JSON-file persistence for AppConfig |

@@ -139,7 +139,15 @@ public sealed class ShellViewModel : ReactiveObject
     /// <summary>True when detailed platform status information is available.</summary>
     public bool HasPlatformStatusDetail => !string.IsNullOrEmpty(SelectedItem?.PlatformStatusDetail);
     public bool IsSteamOrphaned =>
-        string.Equals(DetailsPlatformStatus, "Orphaned", StringComparison.OrdinalIgnoreCase);
+        string.Equals(DetailsPlatformStatus, "Orphaned", StringComparison.OrdinalIgnoreCase)
+        && SelectedItem?.SourceLabel is not "Epic"
+        && !string.Equals(SelectedItem?.ResolvedType, "Epic", StringComparison.OrdinalIgnoreCase)
+        && !string.Equals(SelectedItem?.ResolvedType, "Epic (override)", StringComparison.OrdinalIgnoreCase);
+
+    public bool IsEpicOrphaned =>
+        string.Equals(DetailsPlatformStatus, "Orphaned", StringComparison.OrdinalIgnoreCase)
+        && (SelectedItem?.SourceLabel == "Epic"
+            || (SelectedItem?.ResolvedType?.StartsWith("Epic", StringComparison.OrdinalIgnoreCase) ?? false));
     /// <summary>Sidecar or ACF AppID — required to write <c>appmanifest_{id}.acf</c>.</summary>
     public string SteamAppIdForAcf
     {
@@ -291,7 +299,7 @@ public sealed class ShellViewModel : ReactiveObject
             Items.Add(new ShellPaneItemViewModel
             {
                 // Plan 117: folder name in title; full path in LeftPath (disambiguates D:\Games vs E:\Games).
-                Title = folderName,
+                Title = root.DefaultType == GameSourceKind.Epic ? "Epic Games Store" : folderName,
                 Subtitle = gameCountText,
                 LeftPath = root.RootPath,
                 SourceLabel = root.DefaultType.ToString(),
@@ -530,6 +538,7 @@ public sealed class ShellViewModel : ReactiveObject
             string platformStatus = game.GameSource switch
             {
                 GameSourceKind.Steam => game.PlatformMetadata.TryGetValue("SteamStatus", out var status) ? status : string.Empty,
+                GameSourceKind.Epic => game.PlatformMetadata.TryGetValue("EpicStatus", out var epicStatus) ? epicStatus : string.Empty,
                 _ => string.Empty,
             };
 
@@ -656,8 +665,12 @@ public sealed class ShellViewModel : ReactiveObject
                 _ => string.Empty,
             };
             string platformStatus = game.GameSource == GameSourceKind.Steam
-                && game.PlatformMetadata.TryGetValue("SteamStatus", out var status)
-                ? status : string.Empty;
+                && game.PlatformMetadata.TryGetValue("SteamStatus", out var steamSt)
+                ? steamSt
+                : game.GameSource == GameSourceKind.Epic
+                    && game.PlatformMetadata.TryGetValue("EpicStatus", out var epicSt)
+                    ? epicSt
+                    : string.Empty;
 
             Items.Add(new ShellPaneItemViewModel
             {
@@ -734,6 +747,7 @@ public sealed class ShellViewModel : ReactiveObject
         OnPropertyChanged(nameof(DetailsPlatformStatusDetail));
         OnPropertyChanged(nameof(HasPlatformStatusDetail));
         OnPropertyChanged(nameof(IsSteamOrphaned));
+        OnPropertyChanged(nameof(IsEpicOrphaned));
         OnPropertyChanged(nameof(SteamAppIdForAcf));
         OnPropertyChanged(nameof(CanWriteSteamAcf));
         OnPropertyChanged(nameof(DetailsResolvedType));
@@ -811,6 +825,12 @@ public sealed class ShellViewModel : ReactiveObject
     /// <summary>Formats actionable detail text for Orphaned Steam games (folder exists, no ACF).</summary>
     private static string FormatOrphanedDetail(GameEntry game)
     {
+        if (game.GameSource == GameSourceKind.Epic)
+        {
+            return "Orphaned — Epic folder (.egstore) has no ProgramData .item. " +
+                   "Click Write Epic .item if .mancpn is present (same recipe the launcher already accepted).";
+        }
+
         string folder = game.PlatformMetadata.GetValueOrDefault("FolderName", game.FolderName);
         string libRoot = game.PlatformMetadata.GetValueOrDefault("LibraryRoot", "unknown library");
         return $"Orphaned — no Steam manifest for '{folder}'. " +

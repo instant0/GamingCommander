@@ -365,6 +365,8 @@ public sealed class FolderScanner
                     platformMetadata["EpicAppName"] = localIds.AppName;
             }
 
+            platformMetadata["EpicStatus"] = globalItem is null ? "Orphaned" : "Installed";
+
             // Resolve LaunchExecutable from .item if available (and no exe found yet)
             if (globalItem is not null
                 && !string.IsNullOrEmpty(globalItem.LaunchExecutable)

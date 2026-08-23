@@ -100,6 +100,36 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
         }
     }
 
+    /// <summary>True when ProgramData Manifests exist and are not already a root.</summary>
+    public bool CanAddEpicCatalog
+    {
+        get
+        {
+            string dir = EpicManifestPaths.DefaultManifestsDir;
+            if (!EpicItemCatalog.LooksLikeManifestsDir(dir))
+                return false;
+            return !Entries.Any(e => e.Path.Equals(dir, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    /// <summary>Add the default Epic Manifests folder as its own library (Steam-style catalog).</summary>
+    public async Task AddEpicCatalogAsync()
+    {
+        string dir = EpicManifestPaths.DefaultManifestsDir;
+        if (!CanAddEpicCatalog)
+        {
+            ScanStatus = "Epic Manifests folder not found, or already added.";
+            return;
+        }
+
+        var entry = new LibraryRootEntry(dir, "Epic", 0);
+        Entries.Add(entry);
+        bool added = await ScanAndSaveAsync(dir, GameSourceKind.Epic, entry);
+        if (!added)
+            Entries.Remove(entry);
+        OnPropertyChanged(nameof(CanAddEpicCatalog));
+    }
+
     /// <summary>Opens a folder picker, scans the folder, and adds it as a library root.</summary>
     public async Task AddRootAsync()
     {

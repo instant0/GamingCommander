@@ -2,12 +2,12 @@
 
 **Nature:** Scratch. **Overwritten** every session handoff.  
 **Audience:** Builder. Read before implementing.  
-**Updated:** 2026-08-22 — Plan 121 after I1.
+**Updated:** 2026-08-22 — Epic VFS first ship.
 
 ---
 
 ## Do next
 
-Plan 121: **I2** (which of the 3 InstallLocation parents are not F2 roots) then **I4** (folders with `.egstore` and no matching `.item`). Then I5 leftover: re-probe GraphQL before any C# writer.
+Wait for Windows: F2 **+ Epic Games Store**; confirm base games only; Dishonored Write Epic .item then rescan Epic root.
 
-Do not implement Epic VFS/F2/writer yet. Do not log game titles or install paths in repo docs.
+Do not add GraphQL. Do not invent catalog UUIDs.

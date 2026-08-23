@@ -799,6 +799,32 @@ public partial class MainWindow : Window
             _viewModel!.NavigateInto();
     }
 
+    private void WriteEpicItem_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        GameEntry? game = GetSelectedGame();
+        if (game is null)
+        {
+            SetStatusWithAutoClear("Select a game first.");
+            return;
+        }
+
+        string gameFolder = game.PlatformMetadata.GetValueOrDefault("GameFolder", "");
+        if (string.IsNullOrWhiteSpace(gameFolder))
+        {
+            string root = _viewModel?.GetCurrentRootPath() ?? "";
+            gameFolder = Path.Combine(root, game.FolderName);
+        }
+
+        string manifests = EpicManifestPaths.DefaultManifestsDir;
+        if (!EpicItemWriter.TryWrite(gameFolder, manifests, out string path, out string error))
+        {
+            SetStatusWithAutoClear(error);
+            return;
+        }
+
+        SetStatusWithAutoClear($"Wrote {Path.GetFileName(path)}. Add/rescan Epic Games Store (F2) to list it.");
+    }
+
     private void WriteSteamAcf_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (_viewModel is null)

@@ -146,6 +146,11 @@
                        Margin="12,4,0,0" Cursor="Hand" TextWrapping="Wrap"
                        PointerPressed="WriteSteamAcf_PointerPressed"
                        IsVisible="{Binding IsSteamOrphaned}" />
+            <TextBlock Text="Write Epic .item (from .egstore/.mancpn)"
+                       Foreground="{DynamicResource TextAccent}" FontSize="{DynamicResource FontSizeLabel}"
+                       Margin="12,4,0,0" Cursor="Hand" TextWrapping="Wrap"
+                       PointerPressed="WriteEpicItem_PointerPressed"
+                       IsVisible="{Binding IsEpicOrphaned}" />
 
             <!-- B33: Tags -->
             <StackPanel IsVisible="{Binding HasTags}" Margin="0,12,0,0">

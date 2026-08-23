@@ -9,7 +9,7 @@ namespace GamingCommander.App.Services.Metadata;
 /// </summary>
 public sealed class MetadataService : IMetadataService
 {
-    public static readonly TimeSpan Freshness = TimeSpan.FromDays(30);
+    public static readonly TimeSpan Freshness = TimeSpan.FromDays(60);
 
     private readonly IMetadataStore _store;
     private readonly IConfigService _config;
@@ -64,6 +64,8 @@ public sealed class MetadataService : IMetadataService
         }
 
         GameMetadataRecord? merged = existing;
+        bool userPickedPage = force && !string.IsNullOrWhiteSpace(pcgwPage);
+        bool gotIncoming = false;
 
         if (_pcgw is not null)
         {
@@ -71,6 +73,9 @@ public sealed class MetadataService : IMetadataService
                     steamAppId, displayName, cancellationToken, yearHint, pcgwPage)
                 .ConfigureAwait(false);
             GameMetadataRecord? rec = page is null ? null : CommonMetadataParser.ToRecord(page, gameEntryId);
+            rec = FilterIncoming(existing, rec, userPickedPage);
+            if (rec is not null)
+                gotIncoming = true;
             merged = Merge(merged, rec, MetadataSource.Pcgw);
         }
 
@@ -80,10 +85,13 @@ public sealed class MetadataService : IMetadataService
             string? raw = await _steam.FetchRawAsync(appId, cancellationToken).ConfigureAwait(false);
             SteamStoreFacts? facts = raw is null ? null : SteamStoreParser.Parse(raw, appId);
             GameMetadataRecord? rec = facts is null ? null : CommonMetadataParser.ToRecord(facts, gameEntryId);
+            rec = FilterIncoming(existing, rec, userPickedPage);
+            if (rec is not null)
+                gotIncoming = true;
             merged = Merge(merged, rec, MetadataSource.Steam);
         }
 
-        if (merged is not null)
+        if (merged is not null && (gotIncoming || existing is null))
         {
             merged = merged with
             {
@@ -147,6 +155,17 @@ public sealed class MetadataService : IMetadataService
             LastMetadataSource = incoming.LastMetadataSource ?? existing.LastMetadataSource,
             Details = incoming.Details is { HasAny: true } ? incoming.Details : existing.Details,
         };
+    }
+
+    /// <summary>Drop a fetch that looks like a different game. F3 page pick always accepted.</summary>
+    internal static GameMetadataRecord? FilterIncoming(
+        GameMetadataRecord? existing,
+        GameMetadataRecord? incoming,
+        bool userPickedPage)
+    {
+        if (incoming is null || existing is null || userPickedPage)
+            return incoming;
+        return MetadataIdentity.Compatible(existing, incoming) ? incoming : null;
     }
 
     private static string? FirstNonEmpty(params string?[] values)

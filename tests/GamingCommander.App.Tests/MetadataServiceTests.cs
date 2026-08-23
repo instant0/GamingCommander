@@ -114,7 +114,47 @@ public sealed class MetadataServiceTests : IDisposable
         Assert.True(MetadataService.IsStale(null));
         Assert.True(MetadataService.IsStale(new GameMetadataRecord()));
         Assert.False(MetadataService.IsStale(new GameMetadataRecord { LastUpdated = DateTimeOffset.UtcNow }));
-        Assert.True(MetadataService.IsStale(new GameMetadataRecord { LastUpdated = DateTimeOffset.UtcNow.AddDays(-31) }));
+        Assert.False(MetadataService.IsStale(new GameMetadataRecord { LastUpdated = DateTimeOffset.UtcNow.AddDays(-31) }));
+        Assert.True(MetadataService.IsStale(new GameMetadataRecord { LastUpdated = DateTimeOffset.UtcNow.AddDays(-61) }));
+    }
+
+    [Fact]
+    public void FilterIncoming_RejectsDifferentWikiPage()
+    {
+        var existing = new GameMetadataRecord
+        {
+            Developer = "Piranha Bytes",
+            PcGamingWikiUrl = "https://www.pcgamingwiki.com/wiki/ELEX",
+        };
+        var incoming = new GameMetadataRecord
+        {
+            Developer = "Nightdive",
+            PcGamingWikiUrl = "https://www.pcgamingwiki.com/wiki/System_Shock_2_Enhanced_Edition",
+            Engine = "Void",
+        };
+        Assert.Null(MetadataService.FilterIncoming(existing, incoming, userPickedPage: false));
+        Assert.NotNull(MetadataService.FilterIncoming(existing, incoming, userPickedPage: true));
+    }
+
+    [Fact]
+    public void FilterIncoming_SameUrlButUnrelatedText_Rejected()
+    {
+        var existing = new GameMetadataRecord
+        {
+            Developer = "Piranha Bytes",
+            Engine = "Genome",
+            PcGamingWikiUrl = "https://www.pcgamingwiki.com/wiki/ELEX",
+        };
+        var vandal = new GameMetadataRecord
+        {
+            Developer = "HELLO PONY",
+            Engine = "Gibberish",
+            PcGamingWikiUrl = "https://www.pcgamingwiki.com/wiki/ELEX",
+        };
+        Assert.Null(MetadataService.FilterIncoming(existing, vandal, userPickedPage: false));
+
+        var legit = existing with { Engine = "Genome 2", ReleaseDate = "2017" };
+        Assert.NotNull(MetadataService.FilterIncoming(existing, legit, userPickedPage: false));
     }
 
     [Fact]

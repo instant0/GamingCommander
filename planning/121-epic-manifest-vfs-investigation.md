@@ -1,6 +1,21 @@
 # Plan 121 — Epic manifests → VFS, Missing/Orphaned, F2 offer (investigation)
 
-**Status:** INVESTIGATE — I1 done on this machine. Regen is **not unknown**: Python already generated `.item` via store GraphQL.  
+**Status:** IMPLEMENTING — one Epic catalog root (like one Steam library). Split types below.  
+
+**C# files (new, small):**
+
+| File | Job |
+|------|-----|
+| `EpicItemClassifier.cs` | Base vs `addons` |
+| `EpicItemCatalog.cs` | Read all `*.item` from a Manifests dir |
+| `EpicLibraryScanner.cs` | Catalog → `GameEntry` (Installed / Missing) |
+| `EpicItemWriter.cs` | `.mancpn` + exe → ProgramData `.item` |
+
+Wire: `LibraryManager` if type Epic or folder is a Manifests dir; F2 **Add Epic Games Store**; details **Write Epic .item** on Orphaned. Launch = resolved exe (not a new URI policy).  
+
+---
+
+**Previous status:** I1 done. Regen via `.mancpn` accepted by launcher.  
 **Depends on:** Plan 109 (folder enrich).  
 **Live C# today:** Folder scan only. ProgramData `*.item` **enriches** a folder you already added. No VFS rows from manifests. No F2 Epic offer. No Epic Missing/Orphaned. No C# `.item` writer.
 

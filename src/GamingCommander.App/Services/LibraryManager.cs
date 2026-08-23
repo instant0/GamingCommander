@@ -19,6 +19,7 @@ public sealed class LibraryManager : ILibraryManager
     private readonly IGamesDatabaseService _databaseService;
     private readonly FolderScanner _scanner;
     private readonly SteamLibraryScanner? _steamScanner;
+    private readonly EpicLibraryScanner _epicScanner = new();
 
     /// <summary>Creates a new LibraryManager with the specified services.</summary>
     public LibraryManager(
@@ -165,6 +166,14 @@ public sealed class LibraryManager : ILibraryManager
     {
         if (_steamScanner != null && (LooksLikeSteamLibrary(rootPath) || configuredType == GameSourceKind.Steam))
             return _steamScanner.Scan(rootPath);
+
+        if (configuredType == GameSourceKind.Epic || EpicItemCatalog.LooksLikeManifestsDir(rootPath))
+        {
+            IEnumerable<string> others = LibraryRoots
+                .Select(r => r.RootPath)
+                .Where(p => !p.Equals(rootPath, StringComparison.OrdinalIgnoreCase));
+            return _epicScanner.Scan(rootPath, others);
+        }
 
         return _scanner.Scan(rootPath, configuredType, ct);
     }

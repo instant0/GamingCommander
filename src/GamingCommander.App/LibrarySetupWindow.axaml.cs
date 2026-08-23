@@ -27,6 +27,22 @@ public partial class LibrarySetupWindow : Window
         var addBtn = this.FindControl<Button>("AddRootButton")!;
         var statusText = this.FindControl<TextBlock>("ScanStatusText")!;
 
+        var epicBtn = this.FindControl<Button>("AddEpicButton");
+        if (epicBtn is not null)
+        {
+            epicBtn.Click += async (_, _) =>
+            {
+                epicBtn.IsEnabled = false;
+                statusText.Text = "Adding Epic catalog...";
+                await _vm.AddEpicCatalogAsync();
+                statusText.Text = string.IsNullOrEmpty(_vm.ScanStatus)
+                    ? "Epic catalog added."
+                    : _vm.ScanStatus;
+                RenderRoots();
+                epicBtn.IsEnabled = true;
+            };
+        }
+
         addBtn.Click += async (_, _) =>
         {
             addBtn.IsEnabled = false;

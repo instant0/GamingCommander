@@ -29,7 +29,7 @@ Failed later PCGW/Steam HTTP (timeout, 5xx, connection error) also flips **Offli
 
 | | |
 |--|--|
-| **When** | Chip is **Online**, and (a) **F3** on the selected game, or (b) F5 finished a rescan and queued that game, or (c) you open **F4** (background, dialog does not wait), or (d) you **launch** it and its sidecar is older than 30 days. **Not** when you only highlight a row. |
+| **When** | Chip is **Online**, and (a) **F3** on the selected game, or (b) F5 finished a rescan and queued that game, or (c) you open **F4** (background, dialog does not wait), or (d) you **launch** it and its sidecar is older than **60 days**. **Not** when you only highlight a row. Failed HTTP or a *different* wiki/AppID does not replace a good sidecar. F3 page pick can. Same-URL page edits still update. |
 | **How** | 1. If we have a Steam AppID (Steam library ACF): `GET https://www.pcgamingwiki.com/api/appid.php?appid={id}` — one page, no name picker. Works **without** an exe. 2. Else if F3 chose a page, fetch that title. 3. Else name search: display name, then folder name, then PE ProductName; ®/™ stripped; `DeepRock` → `Deep Rock`. `GET .../w/api.php?action=opensearch&limit=8&search={query}`. If OpenSearch is empty, `list=search`. Soundtrack/demo titles and case-only duplicates are skipped. Year from the exe (or folder date) prefers e.g. Dead Space (2023) over 2008. F3 with several *different* titles: you pick. 4. `GET .../w/api.php?action=parse&prop=wikitext&redirects=1&page={title}`. |
 | **Send** | AppID or a title string. No account, no install paths, no files. |
 | **Receive** | Wiki wikitext. We parse Infobox (dev/engine/date), Availability (Steam/GOG/Epic ids), Game data paths, command-line table, Fixbox args, Video caps. |

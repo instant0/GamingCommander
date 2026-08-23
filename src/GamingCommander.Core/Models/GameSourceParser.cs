@@ -24,7 +24,7 @@ public static class GameSourceParser
     {
         string lower = path.ToLowerInvariant();
         if (lower.Contains("steam")) return GameSourceKind.Steam;
-        if (lower.Contains("epic")) return GameSourceKind.Epic;
+        if (lower.Contains("epicgameslauncher") || lower.Contains("epic")) return GameSourceKind.Epic;
         if (lower.Contains("gog")) return GameSourceKind.Gog;
         if (lower.Contains("ea ") || lower.Contains("electronic arts")) return GameSourceKind.EaApp;
         if (lower.Contains("ubisoft")) return GameSourceKind.UbisoftConnect;

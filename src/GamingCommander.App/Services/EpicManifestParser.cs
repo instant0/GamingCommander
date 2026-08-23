@@ -24,7 +24,10 @@ internal static class EpicManifestParser
         string CatalogNamespace,
         string CatalogItemId,
         string AppName,
-        bool IsIncompleteInstall);
+        bool IsIncompleteInstall,
+        bool IsApplication = true,
+        IReadOnlyList<string>? AppCategories = null,
+        string ItemFilePath = "");
 
     /// <summary>
     /// Result of parsing an Epic .mancpn file — contains catalog identifiers only.
@@ -66,6 +69,17 @@ internal static class EpicManifestParser
             string catalogNamespace = root.TryGetProperty("CatalogNamespace", out var cn) ? cn.GetString() ?? "" : "";
             string catalogItemId = root.TryGetProperty("CatalogItemId", out var ci) ? ci.GetString() ?? "" : "";
             string appName = root.TryGetProperty("AppName", out var an) ? an.GetString() ?? "" : "";
+            bool isApplication = !root.TryGetProperty("bIsApplication", out var app) || app.ValueKind != JsonValueKind.False;
+            var categories = new List<string>();
+            if (root.TryGetProperty("AppCategories", out var cats) && cats.ValueKind == JsonValueKind.Array)
+            {
+                foreach (JsonElement c in cats.EnumerateArray())
+                {
+                    string? s = c.GetString();
+                    if (!string.IsNullOrWhiteSpace(s))
+                        categories.Add(s);
+                }
+            }
 
             return new EpicItemData(
                 DisplayName: displayName,
@@ -74,7 +88,10 @@ internal static class EpicManifestParser
                 CatalogNamespace: catalogNamespace,
                 CatalogItemId: catalogItemId,
                 AppName: appName,
-                IsIncompleteInstall: isIncomplete);
+                IsIncompleteInstall: isIncomplete,
+                IsApplication: isApplication,
+                AppCategories: categories,
+                ItemFilePath: filePath);
         }
         catch (JsonException)
         {
