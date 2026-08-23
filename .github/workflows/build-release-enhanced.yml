@@ -58,6 +58,11 @@ jobs:
       - name: Build Release
         run: dotnet publish -c Release -o ./publish --self-contained --runtime win-x64
 
+      - name: Compress build artifacts
+        run: |
+          Compress-Archive -Path ./publish/* -DestinationPath GamingCommander-${{ github.event.inputs.version }}.zip
+        shell: pwsh
+
       - name: Create Release with Assets
         uses: softprops/action-gh-release@v3
         with:
@@ -66,5 +71,5 @@ jobs:
           draft: false
           prerelease: true
           files: |
-            ./publish/**/*
+            GamingCommander-${{ github.event.inputs.version }}.zip
             sbom.json
