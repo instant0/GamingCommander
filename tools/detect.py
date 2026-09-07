@@ -252,6 +252,20 @@ NOISE_DIR_PARTS: tuple[str, ...] = (
     "dotnet", "physx", "support", "_installer", "install", "installer",
 )
 
+# Child directories that belong to the PARENT game, never separate entries.
+#  - Platform/build dirs (E4): system/, bin/, win64/, Binaries/, ...
+#    Their exes are the parent's own exes (Elex/system/ELEX.exe → Elex).
+#  - Installer/redist dirs (E5): their exes may be the ONLY real game exe
+#    (Penumbra/redist/PENUMBRA.EXE → Penumbra).
+# Found by --probe, 2026-09-06. These must NOT trigger the container check.
+_PARENT_BOUND_CHILD_DIRS: frozenset[str] = frozenset({
+    "system", "bin", "bin64", "win32", "win64", "x86", "x64",
+    "binaries", "boot", "core", "game", "run", "app", "client",
+    "engine", "crashsender", "common",
+    "redist", "redistributable", "_installer", "install", "installer",
+    "support", "directx", "vcredist",
+})
+
 
 # ── Noise helpers ──────────────────────────────────────────────
 
@@ -351,13 +365,19 @@ def _pick_best_root_exe(d: Path, exe_names: list[str]) -> str | None:
     scored: list[tuple[int, str]] = []
     for name in exe_names:
         score = 0
-        lower = name.lower()
+        # Name analysis uses the BASE filename (a relative path like
+        # "redist/PENUMBRA.EXE" must match tokens against "PENUMBRA.EXE").
+        base = name.replace("\\", "/").rsplit("/", 1)[-1]
+        lower = base.lower()
 
         # Backup/copy penalties
         if "copy of" in lower or lower.startswith("copy of "):
             score -= 30
         if "_copy" in lower or lower.endswith(" copy") or " - copy" in lower:
             score -= 25
+        # Leading-dash backup pattern: "-Name.exe" is a copy of "Name.exe"
+        if lower.startswith("-") and lower[1:].endswith(".exe"):
+            score -= 15
         # "org" as backup indicator — penalize heavily if there's a clean alternative
         if "org" in lower:
             penalty = -40 if has_clean_exe else -20
@@ -417,7 +437,11 @@ def _pick_best_root_exe(d: Path, exe_names: list[str]) -> str | None:
 
         scored.append((score, name))
 
-    scored.sort(key=lambda x: x[0], reverse=True)
+    # Deterministic tie-break: score descending, then base filename ascending.
+    # Python sort is stable, so WITHOUT a secondary key a tie resolves to
+    # filesystem order (nondeterministic). This keeps the pick reproducible
+    # across machines/scans — generic, no per-folder rules.
+    scored.sort(key=lambda x: (-x[0], x[1].replace("\\", "/").rsplit("/", 1)[-1].lower()))
     return scored[0][1]
 
 
@@ -1016,7 +1040,9 @@ def _pick_primary_executable(d: Path) -> tuple[str | None, dict, list[str]]:
 
         scored.append((score, exe))
 
-    scored.sort(key=lambda x: x[0], reverse=True)
+    # Deterministic tie-break: score descending, then base filename ascending
+    # (see _pick_best_root_exe — stable sort + filesystem order is nondeterministic).
+    scored.sort(key=lambda x: (-x[0], x[1].name.lower()))
     best_score, best = scored[0]
     best_metadata: dict = pe_cache.get(best, {})
 
@@ -1278,6 +1304,33 @@ def _is_non_game_folder(d: Path, child_dirs) -> bool:
 # Subdirectory exe scan (reusable)
 # ══════════════════════════════════════════════════════════════
 
+def _find_game_exe_anywhere(start: Path, max_depth: int = 6) -> Path | None:
+    """Find the first non-noise .exe anywhere under *start* (bounded recursion).
+
+    Used for container/collection detection where the game exe may be several
+    levels deep (e.g. epicgames/gameA/binaries/win64/gameA.exe). A collection
+    level must NOT consume the game's depth budget, so this walks relative to
+    the candidate game folder, not the scan root. Returns the first exe Path
+    or None. Bounded to avoid pathological deep trees."""
+    if not start.is_dir():
+        return None
+    stack: list[tuple[Path, int]] = [(start, 0)]
+    while stack:
+        cur, depth = stack.pop()
+        if depth > max_depth:
+            continue
+        try:
+            for entry in os.scandir(cur):
+                if entry.is_file() and entry.name.lower().endswith(".exe"):
+                    if not _is_noise_exe(entry.name):
+                        return Path(entry.path)
+                elif entry.is_dir() and not _is_noise_dir(entry.name):
+                    stack.append((Path(entry.path), depth + 1))
+        except PermissionError:
+            continue
+    return None
+
+
 def _find_exe_in_subdirs(child: Path, child_dirs: list) -> list[str]:
     """Scan child directories for game exes. Used when root has no exe
     or only a launcher. Returns list of relative exe paths."""
@@ -1476,17 +1529,25 @@ def scan_directory(
                         _detlog.skipped(f"Container non-game dir name ({name_lower_check})")
                     continue  # Known non-game folder name — skip
                 if not has_root_exe and not has_root_lnk:
-                    # Check if any child has a store signal or exe
+                    # Check if any child has a store signal, exe, OR a deep
+                    # game-shaped subtree (win64/binaries/...). A child with a
+                    # deeper exe is a game folder (its path "diverges" into a
+                    # game layout) — NOT data-only. (User model 2026-09-06.)
                     has_store_child = False
                     for c in child_dirs:
                         c_path = Path(c.path)
-                        c_store, _, c_has_exe, _, _, _ = _scan_root(c_path)
+                        c_store, _, c_has_exe, _, _, c_child_dirs = _scan_root(c_path)
                         if c_store is not None or c_has_exe:
                             has_store_child = True
                             break
+                        if c_child_dirs:
+                            deep_exes = _find_exe_in_subdirs(c_path, c_child_dirs)
+                            if deep_exes:
+                                has_store_child = True
+                                break
                     if not has_store_child:
                         if log_path:
-                            _detlog.skipped("Container data-only subfolder (no exe, no store child)")
+                            _detlog.skipped("Container data-only subfolder (no exe, no store child, no deep exe)")
                         continue  # Data-only subfolder inside container — skip
 
             # Tier 1: Store signal found → classify immediately
@@ -1549,12 +1610,35 @@ def scan_directory(
                 continue
 
             # ── Phase 3: Container check ──
-            # Check children for store markers OR game executables
+            # Check children for store markers OR game executables.
+            # Parent-bound children (system/, bin/, redist/, ...) belong to the
+            # PARENT game — their exes are candidates for the parent, never a
+            # container trigger and never separate entries (E4/E5, 2026-09-06).
             is_container = False
             has_game_child = False
+            parent_bound_exes: list[str] = []
 
             for c in child_dirs:
                 c_path = Path(c.path)
+                if c.name.lower() in _PARENT_BOUND_CHILD_DIRS:
+                    # Collect the child's non-noise exes (direct AND deep:
+                    # win64/binaries/...) as parent candidates (E4, 2026-09-06).
+                    try:
+                        for se in os.scandir(c_path):
+                            if (se.is_file()
+                                    and se.name.lower().endswith(".exe")
+                                    and not _is_noise_exe(se.name)):
+                                parent_bound_exes.append(f"{c.name}/{se.name}")
+                        for se in os.scandir(c_path):
+                            if se.is_dir() and not _is_noise_dir(se.name):
+                                for sse in os.scandir(se.path):
+                                    if (sse.is_file()
+                                            and sse.name.lower().endswith(".exe")
+                                            and not _is_noise_exe(sse.name)):
+                                        parent_bound_exes.append(f"{c.name}/{se.name}/{sse.name}")
+                    except PermissionError:
+                        pass
+                    continue
                 c_store, c_signal, c_has_exe, c_exe, _, _ = _scan_root(c_path)
                 if c_store is not None:
                     is_container = True
@@ -1563,45 +1647,50 @@ def scan_directory(
                 if c_has_exe and not _is_non_game_folder(c_path, []):
                     has_game_child = True
 
-            # Store/publisher container: root has ONLY dirs, no files at root
-            # Examples: Blizzard/, UBI/, Epic Games/ at top level
+            # Store/publisher collection: root may contain stray launcher residue
+            # (EpicGamesLauncher.url, readme.txt). The container signal is the
+            # GAME-SHAPED CHILDREN (child with a deeper exe), NOT the absence of
+            # root files — real collection folders often have files at root.
+            # (Found by user scenario 2026-09-06: epicgames/snuffbox/binaries/…)
             if not is_container and not has_game_child and len(child_dirs) > 0:
-                has_files_at_root = False
-                try:
-                    for se in os.scandir(child):
-                        if se.is_file() and not se.name.startswith("."):
-                            has_files_at_root = True
-                            break
-                except PermissionError:
-                    pass
-                if not has_files_at_root:
-                    # Check if any child has game-like structure (subdir with exe)
-                    for c in child_dirs:
-                        c_path = Path(c.path)
-                        try:
-                            for se in os.scandir(c_path):
-                                if se.is_dir() and not _is_noise_dir(se.name):
-                                    try:
-                                        for gse in os.scandir(se.path):
-                                            if (gse.is_file()
-                                                    and gse.name.lower().endswith(".exe")
-                                                    and not _is_noise_exe(gse.name)):
-                                                is_container = True
-                                                break
-                                    except PermissionError:
-                                        pass
-                                if is_container:
-                                    break
-                        except PermissionError:
-                            pass
-                        if is_container:
-                            break
+                # Check if any NON-parent-bound child has game-like structure
+                # (recursive exe search). Parent-bound children (win64/, bin/, ...)
+                # belong to the parent game and must NOT mark the parent as a
+                # collection/container (E4; monsterhunter/win64/binaries case).
+                # Recursion is bounded by _find_game_exe_anywhere (default 6 levels)
+                # so a collection level does NOT consume the game's depth budget.
+                for c in child_dirs:
+                    if c.name.lower() in _PARENT_BOUND_CHILD_DIRS:
+                        continue
+                    c_path = Path(c.path)
+                    if _find_game_exe_anywhere(c_path, max_depth=6):
+                        is_container = True
+                        break
 
             if is_container or has_game_child:
                 if log_path:
                     _detlog.tier3_container([c.name for c in child_dirs])
                 _scan(child, prefix=f"{prefix}{entry.name}/", container=True)
                 continue
+
+            # ── Parent-bound child (E4/E5): parent IS the game ──
+            # The only exes live in a platform/build/redist child (Elex/system,
+            # Penumbra/redist).  The parent folder wins; score those exes against
+            # the PARENT folder name and pick the best as primary.
+            if parent_bound_exes:
+                best = _pick_best_root_exe(child, parent_bound_exes)
+                if best:
+                    if log_path:
+                        _detlog.tier2_standalone(
+                            best, "parent_bound_child_exe",
+                            engine=_detect_engine(child),
+                        )
+                    games.append(_build_result(
+                        child, "Standalone", "parent_bound_child_exe",
+                        [best], folder=folder_label, container=container_label,
+                        engine=_detect_engine(child),
+                    ))
+                    continue
 
             # ── Non-game folder check ──
             # Quick check: is this folder clearly not a game?
@@ -1948,6 +2037,12 @@ def _probe_exe_candidates(d: Path) -> tuple[list[dict], str | None, dict]:
             if lower.startswith(token) or token.startswith(lower.replace(".exe", "")):
                 _add(5, "stem prefix match")
                 break
+        # Exact stem match: "MultiRunner.exe" ↔ folder "MultiRunner" (+15, as in
+        # _pick_best_root_exe). Prevents a tie with "MultiRunnerTool.exe" being
+        # broken by filesystem order (E6, 2026-09-06).
+        exe_stem = lower.replace(".exe", "")
+        if exe_stem in folder_tokens:
+            _add(15, "exact folder-name stem match")
 
         # UE path bonus
         if "shipping" in lower or "win64" in lower:
@@ -1964,7 +2059,7 @@ def _probe_exe_candidates(d: Path) -> tuple[list[dict], str | None, dict]:
 
         admitted.append((exe, score, factors, metadata))
 
-    admitted.sort(key=lambda x: x[1], reverse=True)
+    admitted.sort(key=lambda x: (-x[1], x[0].name.lower()))  # deterministic tie-break
     best: Path | None = admitted[0][0] if admitted else None
     best_metadata: dict = admitted[0][3] if admitted else {}
 

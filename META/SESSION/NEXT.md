@@ -28,17 +28,30 @@ Status 2026-09-06:
 
 Remaining in Phase 2:
 
-1. **§2.4.7 validation matrix — DONE** (9 PASS + 1 DIVERG; findings recorded in plan Phase 2).
-2. **Selective folder visits** — use the Phase 1 inventory to choose which corpus folders need
-   physical probing (PE reads, store-signal checks). Next step.
-3. **Baseline runs** — Python vs C# over the scenario corpus; emit divergence report per scenario
-   and per symptom (S1–S9).
+1. **§2.4.7 validation matrix — DONE** (10/10 PASS after E4/E5; findings recorded in plan Phase 2).
+2. **Selective folder visits — DONE** (14 symptom-driven visits, `tools/selective_visits.py`,
+   JSON at `testdata/samples/selective-visits.json`; executed on a Windows machine).
+3. **Baseline runs — DONE (Python side, 10/10 clean).** `tools/baseline_compare.py`; report:
+   `testdata/samples/baseline-report.json`. C# side deferred to Phase 4 (Python-first method).
+4. **E4/E5 production fixes — APPLIED in Python** (parent-bound children; base-name scoring;
+   dash-backup penalty). Python is now the correct reference for detection logic.
+5. **Findings + gate review — NEXT.** Present the decision model + taxonomy + scenario catalog +
+   probe contract + baseline divergence for review.
 
-Then: Phase 3 (experiments, Python) → Phase 4 (C# port) → Phase 5 (tests).
+Then: Phase 3 remaining experiments (E1/E2/E3/E6/E7/E8) → Phase 4 (C# port) → Phase 5 (tests).
 
-**Pending model corrections to carry into Phase 3 experiments:** E4 (platform-child parent rule —
-probe fixed the model, port to container/exe discovery), E5 (redist fallback admission — penumbra
-proves it), E6 (bare `"tool"` penalty — Python+C# both missing it).
+**Experiment status:**
+- **DONE in Python:** E4 (platform-child parent rule), E5 (redist fallback), deterministic tie-break, store-coverage fixtures (matrix 17/17), collection fixes (stray root files; deep-nested games via proof/path-divergence model).
+- **E1** (collection/nesting): partial — stray-files + deep-nested collection handled; the **path-divergence/aggregate** signal ("many sibling game folders diverging from one parent ⇒ collection") noted as optimization candidate (avoid re-parsing confirmed collection parent).
+- **E2** (store typing via child signals + global manifests): pending fixture work for child-of-container `.item`/ACF cross-ref.
+- **E3** (nesting depth / 3-level fallback): the `_find_exe_in_subdirs` deep search now covers the deep-nested collection; UE-layout (2-level) still a gap.
+- **E6a** (bare `"tool"` penalty): deferred pending corpus justification.
+- **E6** (PE-title guard, S5/S9): C# title-selection logic; needs Windows PE data (P2.2).
+- **E7/E8** (identity pipeline, title persistence): pending.
+
+**Path-handling note (2026-09-06):** Windows `\` path normalization belongs ONLY to the Python
+analysis tools (`selective_visits.py`, fixture parsing). C#/Windows code is untouched; Linux
+fixture dirs are real directories scanned natively.
 
 ## Standing hard rule
 

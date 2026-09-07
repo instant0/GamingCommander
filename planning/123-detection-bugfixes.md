@@ -229,7 +229,7 @@ any scanner change. Counts shown are from the Phase 1 inventory of full-d.txt (2
 | S-D deep-nested game | exe 2–3 levels down (`game/`, `run/`, `app/`, scummvm) | game entry, not folder-as-title | ~12–15 |
 | S-E engine-subfolder game | exe under `system`/`win32`/`bin` (ELEX, Deadlight, TrappedDead) | parent titled as game, child not promoted | **4–5 confirmed** (ELEX, elexII, Deadlight, trapped, …) |
 | S-F redist-only | only redist/support exes | not a game | **1 confirmed (penumbra)** — S4 IS real; **corrected model (probe 2026-09-06): game IS recoverable → Candidate, primary `PENUMBRA.EXE`** (E5 target) |
-| S-G multi-exe | several competing exes | single best primary exe | 95 of 103 — **probe DIVERG 2026-09-06: bare `"tool"` not penalized (Python+C#) → nondeterministic tie (E6)** |
+| S-G multi-exe | several competing exes | single best primary exe | 95 of 103 — **probe DIVERG 2026-09-06: bare `"tool"` not penalized (Python+C#) → tie broken by exact-stem bonus (scoring gap, see E6a below)** |
 | S-H acronym title | acronym folder + PE title available | PE title applied, not acronym | mmxl, ja2 (S5/S9) |
 | S-I no signal | no marker, no exe | Unknown/review | 3 of 106 |
 | S-J false game folder | non-game name/data-only folder | excluded | 0 observed (no noise-only folders) |
@@ -545,9 +545,12 @@ problem is real but bounded (78 exes have a redist/install-like ancestor of 720)
    **Candidate with primary `redist/PENUMBRA.EXE`** — `super_secret.exe` and `-Penumbra.exe`
    correctly not selected. The corrected model admits the redist fallback; E5 must port this
    into `ExecutableDiscovery`/`FolderScanner`.
-4. **S-G / E6 divergence:** `MultiRunnerTool.exe` ties `MultiRunner.exe` because **bare `"tool"`
-   is not penalized** in either Python `_TOOL_NAMES` or C# `tier_10_dev_editor_tools`; the tie is
-   broken by filesystem order (nondeterministic). E6 candidate: add `"tool"` to the penalty tier.
+4. **S-G scoring gap (E6a, not E6):** `MultiRunnerTool.exe` ties `MultiRunner.exe` because **bare
+   `"tool"` is not penalized** in either Python `_TOOL_NAMES` or C# `tier_10_dev_editor_tools`.
+   The tie is now broken deterministically by the exact-folder-stem `+15` bonus (so `MultiRunner.exe`
+   wins), but the missing penalty remains a latent scoring gap. **E6a candidate:** add `"tool"` to the
+   penalty tier in both scanners. (Note: this is separate from **E6** — the PE-title guard relaxation
+   for acronym titles S5/S9.)
 
 ### Phase 2 — Diagnostics & baseline (tooling only; no production behavior change)
 
@@ -557,10 +560,79 @@ problem is real but bounded (78 exes have a redist/install-like ancestor of 720)
    (§2.4.7). **DONE 2026-09-06** — implementation complete and verified; exposed a real ordering
    flaw (container analysis must precede the non-game filter; §2.1 corrected).
 2. **Selective folder visits.** Use the Phase 1 inventory to choose which corpus folders need
-   physical probing (PE reads, store-signal checks) — not "scan every exe".
+   physical probing (PE reads, store-signal checks) — not "scan every exe". **DONE 2026-09-06:**
+   `tools/selective_visits.py` emits 14 curated visits covering S1–S6/S8/S9 (symptom-driven,
+   one or two folders each) → `testdata/samples/selective-visits.json`. Executed on a Windows
+   machine (PE reads/manifest contents); S7 (F3 pick persistence) is app-level, not detection.
 3. **Baseline runs.** Run Python and C# scanners over the scenario corpus; emit a divergence report:
    missed entries, false positives, wrong primary-exe picks, wrong titles, wrong store types — per
-   scenario (S-A..S-J) and per §1 symptom (S1–S9).
+   scenario (S-A..S-J) and per §1 symptom (S1–S9). **DONE 2026-09-06 (Python side):**
+   `tools/baseline_compare.py` → `testdata/samples/baseline-report.json`. Python production
+   `scan_directory` vs corrected model (`--probe`) over the 10 scenario fixtures:
+
+   | Scenario | Production | Corrected | Divergence |
+   |----------|-----------|-----------|------------|
+   | S-A standalone | GameAlpha | Candidate | — |
+   | S-B Epic | EpicGameGamma | Secure | — |
+   | S-C container | SubGame* (children) | Unknown parent | — (children ARE the entries) |
+   | S-D deep-nested | Neverwinter/neverwinter_en | Candidate | — |
+   | S-E engine-subfolder | **Elex/system** | Candidate | **WRONG FOLDER — child `system` promoted (S3)** |
+   | S-F redist-only | **Penumbra/redist** | Candidate | **WRONG FOLDER — child `redist` promoted (S4)** |
+   | S-G multi-exe | MultiRunner | Candidate | — (but both pick MultiRunnerTool.exe — E6, see §2.3) |
+   | S-H acronym | Mmxl | Candidate | — |
+   | S-I no signal | — | Unknown | — |
+   | S-J false game | — | Unknown | — |
+
+   **Summary: 2 wrong-folder promotions (S3, S4), 0 missed games, 0 false positives.** The two
+   divergences are exactly the E4/E5 experiment targets: production promotes the platform/build
+   child (`system/`, `redist/`) instead of the parent game. Deep-nested (S2) and container
+   recursion (S1) already work in Python. C# side runs in Phase 4 (Python-first method).
+
+   **E4/E5 PRODUCTION FIXES APPLIED 2026-09-06 (Python first):**
+   - `_PARENT_BOUND_CHILD_DIRS` added: platform/build/redist children (`system`, `bin`, `win64`,
+     `Binaries`, `redist`, …) belong to the **parent** game — they no longer trigger the container
+     check and their exes are collected as parent candidates.
+   - Container check skips parent-bound children; after it, if parent-bound exes exist and the
+     folder is not a container, the **parent is promoted** (`parent_bound_child_exe` Tier 2 path)
+     with the exes scored against the parent folder name.
+   - `_pick_best_root_exe` now analyzes the **base filename** (so `redist/PENUMBRA.EXE` matches
+     tokens against `PENUMBRA.EXE`) and penalizes leading-dash backups (`-Penumbra.exe`, `-15`).
+   - Probe `_probe_exe_candidates` gained the exact-folder-stem `+15` bonus to match production
+     scoring (S-G tie is now deterministic: `MultiRunner.exe` beats `MultiRunnerTool.exe`).
+   - **Deterministic tie-break (generic, no hardcoded paths):** all three scorers
+     (`_pick_best_root_exe`, `_pick_primary_executable`, `_probe_exe_candidates`) now sort by
+     `(-score, base_name)` instead of relying on Python's stable sort over `os.scandir`
+     order. A score tie now resolves to the alphabetically-first candidate reproducibly
+     across machines/scans (verified: `['Zzz.exe','Aaa.exe']` and reversed input both → `Aaa.exe`).
+     User-pick fallback (candidate list + `UserOverrides`) remains the UI surface for genuine ties.
+   - **Collection folder with stray root files (E1 finding, user scenario 2026-09-06):** the
+     store-collection detection was gated on `not has_files_at_root` — a collection folder
+     containing launcher residue (`EpicGamesLauncher.url`, `readme.txt`) was misread as a single
+     "Unknown" game and its children were missed. Removed the gate: the collection signal is now
+     **game-shaped children** (child containing a deeper exe, e.g. `epicgames/snuffbox/binaries/
+     snuffbox.exe`), regardless of stray root files. Verified: `epicgames/` with stray files →
+     both children found; clean 200-game collection (93ms); all existing fixtures unchanged.
+     This is exactly the "once the first deep finding proves it's a collection, the parent is a
+     collection" rule from the user's model — the parent is never an entry; children are the games.
+   - **Deep-nested collection games (E1 finding, user model 2026-09-06):** a collection whose games
+     have DEEP exes (`monsterhunter/win64/binaries/monsterhunter.exe`) was MISSED — the container
+     data-only check looked only at direct children and skipped `monsterhunter` as "data-only"; the
+     deep container check then wrongly promoted `win64`. Fixed: (a) the container data-only check now
+     searches deep exes via `_find_exe_in_subdirs`; (b) the deep container check skips
+     parent-bound children (`win64/`, `bin/`, …); (c) parent-bound exe collection now reaches 2 levels
+     (`win64/binaries/`). Result: `monsterhunter` → `win64/binaries/monsterhunter.exe` (parent wins).
+     Regression fixture `CollectionDeepNest/` + baseline check added.
+   - **Proof-based collection model (user model, 2026-09-06):** "1 proof / 2 proof" — the first
+     game-shaped finding under a folder tentatively marks it a collection; a second confirms it
+     (`epiccollection` is a collection, not a game); subsequent children are handled with the
+     simplified "each child is a game-folder base" rule. The **path-divergence** observation (many
+     sibling game folders diverging from one parent, e.g. `game1/game2/game3`) is an aggregate
+     signal reinforcing collection status. Current implementation discovers this per-folder via
+     game-shaped children; the divergence/aggregate signal is noted as an E1 optimization candidate
+     (avoid re-parsing the collection parent once confirmed) but is not yet an explicit counter.
+   - **Result: baseline now 10/10 clean (0 wrong-folder, 0 missed, 0 false positives) + collection
+     regression PASS; validation matrix 10/10 PASS.** User-pick fallback remains for genuinely
+     ambiguous installs (candidate list + `UserOverrides`).
 
 ### Phase 3 — Scenario experiments (Python only; each gated on acceptance)
 
@@ -573,7 +645,8 @@ Ordered **safe-first**: folder/exe false-positive reduction before identity/clou
 - **E2 — Store typing via child signals + global manifests (S1/S2).** Type children by their own signals (`.item`/`.mancpn` cross-ref to ProgramData for Epic, ACF for Steam, `.build.info` for BattleNet, etc.). No path/name-based store guessing.
 - **E3 — Nesting depth (S2).** One-level-below publisher/launcher trees: test recursion depth and signal propagation rules against corpus; verify the `install` substring pattern's actual impact before touching it.
 - **E5 — Fallback exe admission (S4).** Test admitting exes in redist-like subfolders when nothing else exists, with installer-noise filtering intact; measure false-positive risk on corpus.
-- **E6 — PE-title guard relaxation (S5/S9).** Test relaxing the folder-token-share guard for acronym/short-folder cases; measure wrong-title risk on corpus (pe_metadata_blacklist + generic-label checks stay).
+- **E6 — PE-title guard relaxation (S5/S9).** Test relaxing the folder-token-share guard for acronym/short-folder cases; measure wrong-title risk on corpus (pe_metadata_blacklist + generic-label checks stay). **Note: this is C# title-selection logic (`FolderScanner` `SharesNameToken` guard) — the Python scanner has no equivalent guard (Python title resolution is ExeStem/manifest only; see 2026-09-06 probe finding). Implementation requires PE metadata, i.e. the Windows selective-visit data (P2.2).**
+- **E6a — bare `"tool"` scoring penalty (S-G).** Distinct from E6. Python `_TOOL_NAMES` and C# `tier_10_dev_editor_tools` both lack bare `"tool"`; currently masked by the exact-folder-stem `+15` bonus (deterministic pick). Add `"tool"` to the penalty tier in both scanners once corpus evidence justifies it (no false-positive regression).
 - **E8 — Title persistence (S7).** Write-policy experiment: explicit pick always writes DisplayName; confident auto-resolve (single clean page / exact-stem match) writes too. Verify rescan merge preserves the title.
 - **E7 — Identity query pipeline (S6/S8/S9) — LAST.** Ordered candidates: PE title → exe stem (extension stripped) → exe stem with separators → display name → folder name; first clean PCGW result set wins; exact-match on exe stem. Spot-check queries against PCGW (rate-limited) on corpus cases.
 
@@ -649,8 +722,10 @@ Ordered **safe-first**: folder/exe false-positive reduction before identity/clou
 - [x] Phase 1: Probe contract recorded (§2.4) — full JSON schema, chain ordering, tier derivation, validation plan — **DONE 2026-09-06**
 - [ ] **Gate: decision model + taxonomy + scenario catalog reviewed; no detection behavior change before review**
 - [x] Phase 2: `--probe <folder>` renders the §0.3 decision path (rule → evidence → kept/rejected with reason → next → tier) — **DONE 2026-09-06**, verified on Steam/Epic/standalone/container/penumbra/ELEX fixtures
-- [x] Phase 2: Probe validation per §2.4.7 (one fixture per scenario S-A..S-J asserting tier == expected) — **DONE 2026-09-06**: `tools/validate_probe_matrix.py` → 9 PASS + 1 DIVERG (S-G, E6 finding: bare `"tool"` not penalized in Python `_TOOL_NAMES` **or** C# `tier_10_dev_editor_tools`; tie broken by filesystem order)
-- [ ] Phase 2: Baseline runs (Python vs C#) over the scenario corpus emit divergence per scenario and per symptom
+- [x] Phase 2: Probe validation per §2.4.7 (one fixture per scenario S-A..S-J asserting tier == expected) — **DONE 2026-09-06**: `tools/validate_probe_matrix.py` → **17/17 PASS** after E4/E5 + deterministic tie-break + **store-coverage fixtures added for all 9 corpus store types (GOG, EA, Ubisoft, Blizzard, SteamEmu, Xbox, Rockstar)** — regression guard so detection fixes cannot silently break store typing. (S-G latent scoring gap recorded as **E6a**: bare `"tool"` not penalized in Python `_TOOL_NAMES` **or** C# `tier_10_dev_editor_tools` — currently masked by the exact-stem bonus; separate from E6 PE-title guard.)
+- [x] Phase 2: Selective-visit list produced from the inventory (no "scan every exe", no scanner behavior change) — **DONE 2026-09-06**: `tools/selective_visits.py` → 14 symptom-driven visits, JSON at `testdata/samples/selective-visits.json`
+- [x] Phase 2: Baseline runs (Python vs C#) over the scenario corpus emit divergence per scenario and per symptom — **DONE 2026-09-06 (Python side, now 10/10 clean)**: `tools/baseline_compare.py`; E4/E5 production fixes applied in Python → 0 wrong-folder promotions (Elex→`system/ELEX.exe`, Penumbra→`redist/PENUMBRA.EXE`), 0 missed, 0 false positives. Report: `testdata/samples/baseline-report.json`. C# side deferred to Phase 4 (Python-first)
+- [x] Phase 3 (partial): E4/E5 implemented in Python production scanner (parent-bound children; base-name scoring; dash-backup penalty); validation matrix now 10/10 PASS — **DONE 2026-09-06**
 - [ ] Phase 3: Each experiment recorded with before/after corpus metrics (recall, false positives) and acceptance decision
 - [ ] No hardcoded path/store-name detection rules introduced anywhere
 - [ ] No blacklist/filter change without corpus evidence

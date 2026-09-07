@@ -1,0 +1,132 @@
+[
+  {
+    "scenario": "S-A valid standalone",
+    "fixture": "GameAlpha",
+    "production_found": true,
+    "production_entry": "GameAlpha",
+    "production_store": "Standalone",
+    "corrected_tier": "Candidate",
+    "corrected_primary": "GameAlpha.exe",
+    "expected_tier": "Candidate",
+    "divergences": [
+      "\u2014"
+    ]
+  },
+  {
+    "scenario": "S-B store game (Epic)",
+    "fixture": "EpicGameGamma",
+    "production_found": true,
+    "production_entry": "EpicGameGamma",
+    "production_store": "Epic",
+    "corrected_tier": "Secure",
+    "corrected_primary": "GameGamma.exe",
+    "expected_tier": "Secure",
+    "divergences": [
+      "\u2014"
+    ]
+  },
+  {
+    "scenario": "S-C container",
+    "fixture": "PublisherCollection",
+    "production_found": true,
+    "production_entry": "PublisherCollection/SubGameOne",
+    "production_store": "Standalone",
+    "corrected_tier": "Unknown",
+    "corrected_primary": null,
+    "expected_tier": "Unknown",
+    "divergences": [
+      "\u2014"
+    ]
+  },
+  {
+    "scenario": "S-D deep-nested game",
+    "fixture": "Neverwinter/neverwinter_en",
+    "production_found": true,
+    "production_entry": "Neverwinter/neverwinter_en",
+    "production_store": "Standalone",
+    "corrected_tier": "Candidate",
+    "corrected_primary": "neverwinter.exe",
+    "expected_tier": "Candidate",
+    "divergences": [
+      "\u2014"
+    ]
+  },
+  {
+    "scenario": "S-E engine-subfolder game",
+    "fixture": "Elex",
+    "production_found": true,
+    "production_entry": "Elex",
+    "production_store": "Standalone",
+    "corrected_tier": "Candidate",
+    "corrected_primary": "system/ELEX.exe",
+    "expected_tier": "Candidate",
+    "divergences": [
+      "\u2014"
+    ]
+  },
+  {
+    "scenario": "S-F redist-only (E5)",
+    "fixture": "Penumbra",
+    "production_found": true,
+    "production_entry": "Penumbra",
+    "production_store": "Standalone",
+    "corrected_tier": "Candidate",
+    "corrected_primary": "redist/PENUMBRA.EXE",
+    "expected_tier": "Candidate",
+    "divergences": [
+      "\u2014"
+    ]
+  },
+  {
+    "scenario": "S-G multi-exe",
+    "fixture": "MultiRunner",
+    "production_found": true,
+    "production_entry": "MultiRunner",
+    "production_store": "Standalone",
+    "corrected_tier": "Candidate",
+    "corrected_primary": "MultiRunner.exe",
+    "expected_tier": "Candidate",
+    "divergences": [
+      "\u2014"
+    ]
+  },
+  {
+    "scenario": "S-H acronym title",
+    "fixture": "Mmxl",
+    "production_found": true,
+    "production_entry": "Mmxl",
+    "production_store": "Standalone",
+    "corrected_tier": "Candidate",
+    "corrected_primary": "Mmxl.exe",
+    "expected_tier": "Candidate",
+    "divergences": [
+      "\u2014"
+    ]
+  },
+  {
+    "scenario": "S-I no signal",
+    "fixture": "NoSignal",
+    "production_found": false,
+    "production_entry": null,
+    "production_store": null,
+    "corrected_tier": "Unknown",
+    "corrected_primary": null,
+    "expected_tier": "Unknown",
+    "divergences": [
+      "\u2014"
+    ]
+  },
+  {
+    "scenario": "S-J false game folder",
+    "fixture": "SoundtrackFolder",
+    "production_found": false,
+    "production_entry": null,
+    "production_store": null,
+    "corrected_tier": "Unknown",
+    "corrected_primary": null,
+    "expected_tier": "Unknown",
+    "divergences": [
+      "\u2014"
+    ]
+  }
+]

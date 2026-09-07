@@ -31,6 +31,14 @@ MATRIX: dict[str, tuple[str, str, str | None]] = {
     "S-H acronym title": ("Mmxl", "Candidate", None),
     "S-I no signal": ("NoSignal", "Unknown", None),
     "S-J false game folder": ("SoundtrackFolder", "Unknown", None),  # excluded
+    # ── Store-signal coverage (corpus: 9 store types; regression guard) ──
+    "Store GOG": ("StoreGog", "Secure", "GOG"),
+    "Store EA": ("StoreEa", "Secure", "EA"),
+    "Store Ubisoft": ("StoreUbi", "Secure", "Ubisoft"),
+    "Store Blizzard": ("StoreBlizzard", "Secure", "Blizzard"),
+    "Store SteamEmu": ("StoreSteamEmu", "Secure", "Steam Emulator"),
+    "Store Xbox": ("StoreXbox", "Secure", "Xbox"),
+    "Store Rockstar": ("StoreRockstar", "Secure", "Rockstar"),
 }
 
 # Additional assertions beyond tier/store (primary-exe expectations per §2.3).
