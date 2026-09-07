@@ -1725,6 +1725,583 @@ def _enrich_unknowns(
 
 
 # ══════════════════════════════════════════════════════════════
+# Probe — single-folder decision-chain diagnostics (Plan 123 §2.4)
+# ══════════════════════════════════════════════════════════════
+
+# Stage numbers follow §0.3 phases A–F (1–12), corrected 2026-09-06:
+# container analysis (6) runs BEFORE the non-game filter (7).
+_STAGE_NAMES = {
+    1: "User override",
+    2: "Steam structural path",
+    3: "Epic manifest scan",
+    4: "Other store signal",
+    5: "Registry fallback",
+    6: "Container analysis",
+    7: "Non-game folder filter",
+    8: "Executable discovery",
+    9: "Executable selection",
+    10: "Fallback / engine layout",
+    11: "Title selection",
+    12: "PE-scan + cloud lookup",
+}
+
+# Platform/build subdirs that belong to the PARENT game — never container children
+# (S3 finding 2026-09-06: ELEX.exe in system/ must resolve to the parent, not a child).
+_PLATFORM_DIR_NAMES = frozenset({
+    "system", "bin", "bin64", "win32", "win64", "x86", "x64",
+    "binaries", "boot", "core", "game", "run", "app", "client",
+    "engine", "crashsender", "redist", "redistributable", "_installer",
+    "install", "installer", "support", "directx", "vcredist", "common",
+})
+
+# Store markers to probe at folder + immediate children (stage 4).
+_CHILD_STORE_MARKERS = {
+    "GOG": ("goggame.dll", "gog.ico"),
+    "Epic": (".egstore", ".egsstore"),
+    "Blizzard": (".battle.net",),
+    "Rockstar": ("title.rgl",),
+}
+
+
+def _probe_store_at(folder: Path) -> tuple[str | None, str | None, list[str]]:
+    """Run the §0.3 store-signal probes (folder root only; single scandir).
+    Returns (store, signal_label, found_evidence)."""
+    store, signal, has_exe, _, has_lnk, _ = _scan_root(folder)
+    evidence: list[str] = []
+    if has_exe:
+        evidence.append("root exe present")
+    if has_lnk:
+        evidence.append("root .lnk present")
+    if store:
+        evidence.append(f"{signal} matched")
+    return store, signal, evidence
+
+
+def _probe_child_store(folder: Path) -> tuple[str | None, str | None, list[str]]:
+    """Probe immediate children for store markers (depth ≤ 2 per §0.3 stage 4
+    corpus correction). Returns (store, signal, evidence)."""
+    try:
+        children = [c for c in os.scandir(folder) if c.is_dir(follow_symlinks=False)]
+    except PermissionError:
+        return None, None, []
+    found: list[str] = []
+    for child in children:
+        cl = child.name.lower()
+        for store, markers in _CHILD_STORE_MARKERS.items():
+            if any(m in cl or (folder / child.name / m).exists() for m in markers):
+                found.append(f"{store} marker in child {child.name}")
+                return store, store.lower(), found
+        # .mancpn / .item / .info are file markers
+        for fn in os.scandir(child.path):
+            if fn.is_file():
+                fl = fn.name.lower()
+                if fl.endswith(".mancpn"):
+                    found.append(f"epic .mancpn in child {child.name}")
+                    return "Epic", "mancpn", found
+                if fl.endswith(".info"):
+                    found.append(f"gog .info in child {child.name}")
+                    return "GOG", "goginfo", found
+    return None, None, found
+
+
+def _probe_epic_manifest(folder: Path) -> tuple[str | None, list[str]]:
+    """Stage 3 — Epic manifest scan. Returns (tier_hint, evidence)."""
+    evidence: list[str] = []
+    egstore = (folder / ".egstore").is_dir() or (folder / ".egsstore").is_dir()
+    local_item = list(folder.glob("*.item")) + list((folder / ".egstore").glob("*.item")) if egstore else list(folder.glob("*.item"))
+    mancpn = list(folder.glob("*.mancpn")) if not egstore else []
+    if egstore:
+        evidence.append(".egstore present")
+    if local_item:
+        evidence.append(f"local .item: {len(local_item)}")
+        return "Secure", evidence
+    if mancpn:
+        evidence.append(f".mancpn: {len(mancpn)}")
+        return "Secure", evidence
+    if egstore:
+        # Epic installation signal only — no manifest ids
+        evidence.append("Epic signal, no .item/.mancpn (orphan candidate O4)")
+        return "Secure", evidence
+    return None, evidence
+
+
+def _probe_exe_candidates(d: Path) -> tuple[list[dict], str | None, dict]:
+    """Stages 8/9 — collect exe candidates, score with reasons, pick primary.
+    Enumerates raw exes (including noise dirs) so REJECTED candidates are visible
+    with their admission reason (Plan 123 §2.4.5). Returns (candidates, primary_rel,
+    primary_metadata)."""
+    # Raw enumeration: root + immediate children + child/bin + Binaries/Win64|WinGDK
+    # + 2-level recursive fallback (mirrors _find_game_executables scope).
+    raw: list[tuple[Path, str]] = []  # (exe_path, admission_reason_if_rejected)
+    seen: set[str] = set()
+
+    def _collect(folder: Path, depth: int = 0, max_depth: int = 2) -> None:
+        if not folder.is_dir() or depth > max_depth:
+            return
+        try:
+            for item in folder.iterdir():
+                if item.is_file() and item.suffix.lower() == ".exe":
+                    key = str(item)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    reason = _classify_exe_admission(item.name)
+                    raw.append((item, reason))
+                elif item.is_dir() and depth < max_depth:
+                    _collect(item, depth + 1, max_depth)
+        except PermissionError:
+            pass
+
+    # Root + children (depth 1) + UE Binaries paths (depth 2-3)
+    _collect(d, depth=0, max_depth=1)
+    for child in d.iterdir():
+        if not child.is_dir():
+            continue
+        for subdir_name in ("Binaries/Win64", "Binaries/WinGDK"):
+            b64 = child / subdir_name
+            if b64.is_dir():
+                _collect(b64, depth=2, max_depth=2)
+        bin_dir = child / "bin"
+        if bin_dir.is_dir():
+            _collect(bin_dir, depth=2, max_depth=2)
+
+    # If root has no non-noise exes, walk 2 levels deep (S4 redist case becomes visible)
+    root_has_exes = any(not reason for _, reason in raw
+                        if _rel_depth(_, d) == 0)
+    if not root_has_exes and not any(not reason for _, reason in raw):
+        _collect(d, depth=0, max_depth=2)
+
+    # Build candidate records: admitted (no rejection reason) are scored; rejected carry reason.
+    candidates: list[dict] = []
+    admitted: list[tuple[Path, int, list[dict], dict]] = []  # (exe, score, factors, pe)
+
+    folder_tokens = {p.lower() for p in d.name.replace("_", " ").replace("-", " ").split() if p}
+    pe_cache: dict[Path, dict] = {}
+    if pefile is not None:
+        for exe, _ in raw[:5]:
+            pe_cache[exe] = _read_pe_metadata(exe)
+
+    for exe, reason in raw:
+        if reason:
+            candidates.append({
+                "exe": str(exe.relative_to(d)),
+                "admitted": False,
+                "admission_reason": reason,
+                "score": None,
+                "score_factors": [],
+                "pe": pe_cache.get(exe, {}) if pefile is not None else {},
+                "selected": False,
+            })
+            continue
+
+        score = 0
+        factors: list[dict] = []
+        lower = exe.name.lower()
+
+        def _add(delta: int, why: str) -> None:
+            nonlocal score
+            score += delta
+            factors.append({"delta": delta, "why": why})
+
+        # Backup/copy penalties
+        if "copy of" in lower or lower.startswith("copy of "):
+            _add(-30, "copy-of backup")
+        if "_copy" in lower or lower.endswith(" copy") or " - copy" in lower:
+            _add(-25, "copy backup")
+        if "_org_" in lower or lower.startswith("org_") or lower.endswith("_org"):
+            _add(-20, "org backup")
+        if "original" in lower:
+            _add(-15, "original backup")
+        if "crack" in lower:
+            _add(-25, "crack indicator")
+
+        # Tool/launcher penalties
+        if "launcher" in lower:
+            _add(-20, "launcher")
+        _TOOL_NAMES = {
+            "faces viewer", "ini editor", "luaedit", "map editor",
+            "profile editor", "xml editor", "configtool", "config tool",
+            "autorun", "setupanox", "dparse", "particleman",
+        }
+        if any(tool in lower for tool in _TOOL_NAMES):
+            _add(-25, "tool/utility")
+        if "unins" in lower or "uninstal" in lower:
+            _add(-30, "uninstaller")
+
+        # Small-exe / size heuristics
+        try:
+            size = exe.stat().st_size
+            if size < 100_000:
+                _add(-15, "small exe <100KB")
+            elif size < 500_000:
+                _add(-5, "small exe <500KB")
+            bonus = min(size // 10_000_000, 10)
+            if bonus:
+                _add(bonus, "size bonus")
+        except OSError:
+            pass
+
+        # Folder-name matching
+        if any(token in lower for token in folder_tokens):
+            _add(10, "folder token match")
+        for token in folder_tokens:
+            if lower.startswith(token) or token.startswith(lower.replace(".exe", "")):
+                _add(5, "stem prefix match")
+                break
+
+        # UE path bonus
+        if "shipping" in lower or "win64" in lower:
+            _add(5, "UE shipping/win64")
+
+        # PE metadata tiebreaker
+        metadata = pe_cache.get(exe, {})
+        desc = metadata.get("FileDescription", "").lower()
+        product = metadata.get("ProductName", "").lower()
+        if desc and any(token in desc for token in folder_tokens):
+            _add(15, "PE description matches folder")
+        if product and any(token in product for token in folder_tokens):
+            _add(10, "PE product matches folder")
+
+        admitted.append((exe, score, factors, metadata))
+
+    admitted.sort(key=lambda x: x[1], reverse=True)
+    best: Path | None = admitted[0][0] if admitted else None
+    best_metadata: dict = admitted[0][3] if admitted else {}
+
+    for exe, score, factors, metadata in admitted:
+        candidates.append({
+            "exe": str(exe.relative_to(d)),
+            "admitted": True,
+            "admission_reason": "accepted",
+            "score": score,
+            "score_factors": factors,
+            "pe": metadata if pefile is not None else {},
+            "selected": exe == best,
+        })
+
+    return candidates, str(best.relative_to(d)) if best else None, best_metadata
+
+
+def _rel_depth(p: Path, root: Path) -> int:
+    """Depth of a path relative to the probe root."""
+    try:
+        return len(p.relative_to(root).parts)
+    except ValueError:
+        return 99
+
+
+def _classify_exe_admission(name: str) -> str | None:
+    """Classify why an exe is rejected from candidacy, or None if admitted.
+    Mirrors _is_noise_exe + forbidden-launch guard (Plan 123 §2.2)."""
+    lower = name.lower()
+    # Forbidden launcher / uninstaller guard
+    if any(k in lower for k in ("unins", "uninstall", "unwise")):
+        return "forbidden_launch"
+    if _is_noise_exe(name):
+        return "noise_tier"
+    return None
+
+
+def _probe_folder(path: str) -> dict:
+    """Render the §0.3 phased decision chain for one folder (Plan 123 §2.4)."""
+    d = Path(path)
+    notes: list[str] = []
+    chain: list[dict] = []
+    signals: dict[str, list[dict]] = {}
+
+    def _step(stage: int, hit: bool, accepted=None, rejected=None, deferred=None,
+              reason: str = "", next_: int | None = None) -> None:
+        chain.append({
+            "stage": stage,
+            "rule": _STAGE_NAMES.get(stage, str(stage)),
+            "hit": hit,
+            "accepted": accepted,
+            "rejected": rejected or [],
+            "deferred": deferred or [],
+            "reason": reason,
+            "next": next_,
+        })
+
+    if not d.is_dir():
+        return {"folder": str(d), "tier": "Unknown", "store": None,
+                "title_source": None, "display_name": None, "primary_exe": None,
+                "chain": [], "exe_candidates": [], "signals": {},
+                "notes": ["not a directory"]}
+
+    folder_label = d.name
+    tier: str | None = None
+    store: str | None = None
+    title_source: str | None = None
+    display_name: str | None = None
+    primary_exe: str | None = None
+    exe_candidates: list[dict] = []
+
+    # ── Phase A: structural identity ──
+    # Stage 1 — user override (not tracked in this tool; always pass-through)
+    _step(1, False, reason="User overrides are app-level; not evaluated here", next_=2)
+
+    # Stage 2 — Steam structural path
+    steam_sig = any(p.lower() == "steamapps" for p in d.parts) and any(
+        p.lower() == "common" for p in d.parts)
+    signals["steam_structural"] = [{"signal": "steamapps/common in path", "found": steam_sig, "evidence": []}]
+    if steam_sig:
+        tier = "Locked"
+        store = "Steam"
+        _step(2, True, accepted="Steam", reason="Structural steamapps/common path",
+              next_=None)
+        return _probe_result(folder_label, tier, store, title_source, display_name,
+                             primary_exe, chain, exe_candidates, signals, notes)
+
+    _step(2, False, deferred=["Epic manifest"], reason="No steamapps/common in path", next_=3)
+
+    # Stage 3 — Epic manifest
+    epic_tier, epic_evidence = _probe_epic_manifest(d)
+    signals["epic_manifest"] = [{"signal": ".item/.mancpn/.egstore", "found": bool(epic_tier),
+                                 "evidence": epic_evidence}]
+    if epic_tier:
+        tier = epic_tier
+        store = "Epic"
+        _step(3, True, accepted=f"Epic ({epic_tier})",
+              reason="; ".join(epic_evidence) or "Epic manifest present",
+              next_=6 if epic_tier != "Locked" else None)
+        if epic_tier == "Locked":
+            return _probe_result(folder_label, tier, store, title_source, display_name,
+                                 primary_exe, chain, exe_candidates, signals, notes)
+    else:
+        _step(3, False, deferred=["Other store signal"], reason="No Epic manifest files", next_=4)
+
+    # ── Phase B: store / source classification ──
+    if not store:
+        # Stage 4 — other store signal at folder + immediate children
+        root_store, root_signal, root_ev = _probe_store_at(d)
+        child_store, child_signal, child_ev = _probe_child_store(d)
+        signals["other_store_root"] = [{"signal": root_signal or "none", "found": bool(root_store),
+                                        "evidence": root_ev}]
+        signals["other_store_child"] = [{"signal": child_signal or "none", "found": bool(child_store),
+                                         "evidence": child_ev}]
+        if root_store:
+            store = root_store
+            tier = "Secure"
+            _step(4, True, accepted=root_store, reason="; ".join(root_ev) or f"{root_signal} matched",
+                  next_=6)
+        elif child_store:
+            store = child_store
+            tier = "Secure"
+            _step(4, True, accepted=f"{child_store} (child)", reason="; ".join(child_ev) or "child store marker",
+                  next_=6)
+        else:
+            _step(4, False, deferred=["Registry fallback"], reason="No store marker at folder or child", next_=5)
+
+            # Stage 5 — registry fallback
+            if os.name != "nt":
+                _step(5, False, reason="Registry not available on non-Windows (probe limitation)", next_=6)
+                notes.append("Registry fallback not evaluated (non-Windows)")
+            else:
+                _step(5, False, deferred=["Non-game filter"], reason="Registry probe not wired in CLI tool", next_=6)
+                notes.append("Registry fallback is app-level; not wired in tools/detect.py")
+
+    # ── Phase C: container decision ──
+    child_dirs: list = []
+    try:
+        child_dirs = [c for c in os.scandir(d) if c.is_dir(follow_symlinks=False)]
+    except PermissionError:
+        pass
+
+    # Stage 6 — container analysis FIRST (children typed by own signals).
+    # A container has no self-signals by definition; running the non-game filter
+    # before this would reject it (S1/S2 — found by probe, 2026-09-06).
+    # Platform/build dirs (system, bin, win64, Binaries, ...) belong to the
+    # PARENT game — they never make a folder a container (S3 — found by probe).
+    store_children = 0
+    game_children = 0
+    container_hit = False
+    for c in child_dirs:
+        cl = c.name.lower()
+        if cl in _PLATFORM_DIR_NAMES:
+            continue  # platform/build dir — part of the parent game, not a child
+        c_store, _, _ = _probe_store_at(Path(c.path))
+        if c_store:
+            store_children += 1
+        elif _find_game_executables(Path(c.path))[0]:
+            game_children += 1
+    if store_children >= 1 or game_children >= 1:
+        container_hit = True
+        _step(6, True, accepted=f"{store_children} store children, {game_children} game children",
+              reason="Container: children have own signals; parent NOT promoted. "
+                     "Children are scanned recursively (scan_directory); this folder "
+                     "is not registered as an entry.",
+              next_=None)
+        notes.append("Container detected — parent not promoted; children handled recursively")
+        return _probe_result(folder_label, "Unknown", store, title_source, display_name,
+                             primary_exe, chain, exe_candidates, signals, notes)
+    else:
+        _step(6, False, deferred=["Non-game filter"], reason="No game-signal children", next_=7)
+
+    # Stage 7 — non-game folder filter (only for non-container folders)
+    # Corrected model (§2.1): the filter uses "composed contents" — a platform/build
+    # child (system/, bin/, ...) holding a non-noise exe makes the PARENT a game, not
+    # data-only. Python's _is_non_game_folder only scans root files, which would
+    # reject ELEX (S3 finding 2026-09-06). The probe renders the corrected model.
+    non_game_rejected = _is_non_game_folder(d, child_dirs)
+    if non_game_rejected and not _platform_child_has_game_exe(d, child_dirs):
+        tier = "Unknown"
+        _step(7, True, rejected=[d.name], reason="Non-game folder filter matched",
+              next_=None)
+        # Diagnostic mode: continue collecting exe evidence so the chain shows
+        # WHY (and what) the filter rejected — the probe never hides candidates.
+        _probe_exe_diagnostics(d, chain, exe_candidates)
+        notes.append("Folder rejected at stage 7; exe collection ran in diagnostic mode")
+        return _probe_result(folder_label, tier, store, title_source, display_name,
+                             primary_exe, chain, exe_candidates, signals, notes)
+    if non_game_rejected and _platform_child_has_game_exe(d, child_dirs):
+        notes.append("Non-game filter matched by name, but a platform child holds a "
+                     "real game exe — parent treated as game (S3/E4 correction)")
+    _step(7, False, reason="Folder passes non-game filter", next_=8)
+
+    # ── Phase D: executable collection & selection ──
+    if tier is None or tier == "Candidate" or store in ("Epic",):
+        exe_candidates, primary_exe, pe_meta = _probe_exe_candidates(d)
+        _step(8, bool(exe_candidates),
+              accepted=[c["exe"] for c in exe_candidates if c["selected"]] or None,
+              rejected=[c["exe"] for c in exe_candidates if not c["admitted"]],
+              reason=f"{len(exe_candidates)} candidates collected",
+              next_=9 if exe_candidates else None)
+        if primary_exe:
+            _step(9, True, accepted=primary_exe, reason="Top-scored executable", next_=10)
+        else:
+            _step(9, False, reason="No viable primary executable", next_=10)
+    else:
+        # Locked/Secure already registered; only gather exe info for display
+        exe_candidates, primary_exe, pe_meta = _probe_exe_candidates(d)
+        _step(8, bool(exe_candidates), accepted=primary_exe,
+              reason=f"Store-Secure: exe collection for display only", next_=10)
+
+    # Stage 10 — fallback/engine layout
+    engine = _detect_engine(d)
+    if engine != "Unknown":
+        _step(10, True, accepted=engine, reason="Engine layout detected", next_=11)
+    elif primary_exe:
+        _step(10, False, accepted=None, reason="No engine layout; root exe/.lnk already handled", next_=11)
+    else:
+        _step(10, False, reason="No fallback layout", next_=11)
+
+    # ── Phase E: title resolution ──
+    if store in ("Epic",) and epic_tier:
+        title_source = "Manifest"
+        display_name = folder_label  # manifest title is app-level; folder label as placeholder
+        notes.append("Epic manifest title resolution is app-level (EpicManifestParser)")
+        _step(11, True, accepted=display_name, reason="Epic manifest title (app-level parser)",
+              next_=None)
+    elif pe_meta.get("FileDescription"):
+        title_source = "PeDescription"
+        display_name = pe_meta["FileDescription"]
+        _step(11, True, accepted=display_name, reason="PE FileDescription", next_=None)
+    elif primary_exe:
+        title_source = "ExeStem"
+        display_name = Path(primary_exe).stem
+        _step(11, True, accepted=display_name, reason="Exe stem fallback", next_=None)
+    else:
+        title_source = None
+        display_name = None
+        _step(11, False, reason="No title evidence", next_=12)
+
+    # ── Phase F: enrichment (last resort) ──
+    if title_source is None:
+        _step(12, False, reason="PE-scan + cloud lookup is app-level enrichment (E7); not run in probe",
+              next_=None)
+
+    # Final tier derivation (must match §0.1/§2.4.6)
+    if tier is None:
+        tier = "Candidate" if (primary_exe or engine != "Unknown") else "Unknown"
+
+    return _probe_result(folder_label, tier, store, title_source, display_name,
+                         primary_exe, chain, exe_candidates, signals, notes)
+
+
+def _platform_child_has_game_exe(d: Path, child_dirs) -> bool:
+    """True if any platform/build child (system/, bin/, win64/, ...) of the probe
+    folder contains a non-noise game exe — meaning the PARENT is a game, not a
+    data-only folder (S3/E4 correction, 2026-09-06)."""
+    for c in child_dirs:
+        if c.name.lower() not in _PLATFORM_DIR_NAMES:
+            continue
+        try:
+            for item in os.scandir(c.path):
+                if item.is_file() and item.name.lower().endswith(".exe") \
+                        and not _is_noise_exe(item.name):
+                    return True
+        except PermissionError:
+            continue
+    return False
+
+
+def _probe_exe_diagnostics(d: Path, chain: list[dict], candidates_out: list[dict]) -> None:
+    """Diagnostic-only exe collection for folders rejected earlier in the chain.
+    Lists every raw candidate with its admission reason so §2.4.5 holds even when
+    the folder was already rejected. Does not change the decision."""
+    raw: list[tuple[Path, str]] = []
+    seen: set[str] = set()
+    # Enumerate root + immediate children + 2-level recursive (redist included)
+    def _collect(folder: Path, depth: int = 0, max_depth: int = 2) -> None:
+        if not folder.is_dir() or depth > max_depth:
+            return
+        try:
+            for item in folder.iterdir():
+                if item.is_file() and item.suffix.lower() == ".exe":
+                    key = str(item)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    raw.append((item, _classify_exe_admission(item.name)))
+                elif item.is_dir() and depth < max_depth:
+                    _collect(item, depth + 1, max_depth)
+        except PermissionError:
+            pass
+    _collect(d, 0, 2)
+
+    if raw:
+        for exe, reason in raw:
+            candidates_out.append({
+                "exe": str(exe.relative_to(d)),
+                "admitted": reason is None,
+                "admission_reason": reason or "accepted",
+                "score": None,
+                "score_factors": [],
+                "pe": {},
+                "selected": False,
+            })
+        admitted = sum(1 for _, r in raw if r is None)
+        chain.append({
+            "stage": 8,
+            "rule": _STAGE_NAMES[8],
+            "hit": False,
+            "accepted": None,
+            "rejected": [e.name for e, r in raw if r],
+            "deferred": [],
+            "reason": f"DIAGNOSTIC: {len(raw)} exes found ({admitted} admitted) but "
+                      f"folder was already rejected at a prior stage",
+            "next": None,
+        })
+
+
+def _probe_result(folder, tier, store, title_source, display_name, primary_exe,
+                  chain, exe_candidates, signals, notes) -> dict:
+    return {
+        "folder": folder,
+        "root": None,  # never publish absolute paths
+        "tier": tier,
+        "store": store,
+        "title_source": title_source,
+        "display_name": display_name,
+        "primary_exe": primary_exe,
+        "chain": chain,
+        "exe_candidates": exe_candidates,
+        "signals": signals,
+        "notes": notes,
+    }
+
+
+# ══════════════════════════════════════════════════════════════
 # Output formatting
 # ══════════════════════════════════════════════════════════════
 
@@ -1780,11 +2357,26 @@ def main() -> None:
             "  --metadata            Enable PE metadata extraction for unknowns\n"
             "  --pcgw                Enable PCGamingWiki lookup for unknowns\n"
             "  --steam-libraries P   Exclude Steam library paths\n"
+            "  --probe FOLDER        Render the §0.3 decision chain for one folder (JSON)\n"
             "  -h, --help            Show this help\n\n"
             "Phases 1-3 (always run): fast signal detection + deep scan for unknowns.\n"
             "Phase 4 (--metadata / --pcgw): enrichment only for needs_review folders.\n"
+            "--probe: Plan 123 §2.4 decision-chain diagnostics; no scan behavior change.\n"
         )
         sys.exit(1 if args and "-h" not in args else 0)
+
+    # --probe mode: single-folder decision chain, exits before scan_directory
+    if "--probe" in args:
+        try:
+            probe_idx = args.index("--probe")
+            probe_target = args[probe_idx + 1]
+            if probe_target.startswith("-"):
+                raise IndexError
+            print(json.dumps(_probe_folder(probe_target), indent=2, default=str))
+            return
+        except (IndexError, ValueError):
+            print("--probe requires a folder argument", file=sys.stderr)
+            sys.exit(2)
 
     root = args[0]
     output_json = "--json" in args

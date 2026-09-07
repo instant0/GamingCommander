@@ -2,24 +2,43 @@
 
 **Nature:** Scratch. **Overwritten** every session handoff.  
 **Audience:** Builder. Read before implementing.  
-**Updated:** 2026-08-29
+**Updated:** 2026-09-06
 
 ---
 
 ## Status
 
-User live-smoke-test on `d:\games` reported 9 detection/identity failures. Plan **`planning/123-detection-bugfixes.md`** rewritten per review: **analysis-first, Python-first**. No speculative filter removal, no hardcoded store-folder/path rules (scanner must work on any system). Phase 1 = realign `tools/detect.py` with the C# scanner and measure both against a scenario corpus before designing any fix.
+Plan **`planning/123-detection-bugfixes.md`** — Detection Tightening (confidence tiers, safe-identifications-first).
+
+- **Phase 0 COMPLETE** (steam LOCKED declaration + Epic Missing-Manifest spec).
+- **Phase 1 thinking phase IN PROGRESS.** Reframed 2026-09-06: **no detection code changes until the detection/exclusion model is written down and the real corpus is classified on paper, then reviewed.**
+- T3 parity audit already complete (`planning/103-detect-py-port-status.md`). The next step is **not** code — it is the paper specification + corpus classification.
 
 ## Next task
 
-Execute Plan 123 **Phase 1 — Realignment & baseline (analysis only, zero behavior change)**:
+Execute Plan 123 **Phase 2 — Diagnostics & baseline (tooling only; no production behavior change)**.
+Status 2026-09-06:
 
-1. Parity audit both directions: `detect.py` (`_scan`, `_is_non_game_folder`, `_find_game_executables`, `_pick_primary_executable`, `_read_pe_metadata`, `_build_name_candidates`, `_pcgw_lookup`) vs C# (`FolderScanner`, `ContainerScanner`, `ExecutableDiscovery`, `StoreSignalDetector`, `FallbackSignalDetector`, PE enrichment, `TitleText`, `PcgwTitleFilter`); refresh `planning/103-detect-py-port-status.md`.
-2. Add `--probe <folder>` decision-chain diagnostics to `detect.py`.
-3. Build scenario corpus: `testdata/samples/d-games.txt` (user-provided sample EXE list — harness input only, no manual reads) + `testdata/mock/` + new fixtures as needed.
-4. **Sample-list structure analysis (scripted, from the list alone):** per-path exe counts, nesting-depth histogram, exe-in-subfolder patterns (redist/system/bin/Binaries), acronym/locale stems, blacklist-noise ratio. Output = scenario pattern catalog for E1–E7 + selective-visit list (no "scan every exe").
-5. Run Python vs C# over the corpus; produce divergence report (missed/extra entries, wrong exe picks, wrong titles/types) for S1–S9.
-6. Write findings; **gate — no fixes designed until report is reviewed.**
+- **`--probe` IMPLEMENTED and VERIFIED** (`tools/detect.py`, additive). Renders the §0.3 decision
+  chain (rule → evidence → kept/rejected with reason → next → tier) per §2.4 contract.
+- Probe **exposed a real ordering flaw**: container analysis must run BEFORE the non-game filter
+  (else every container is rejected — S1/S2). §0.3/§2.1 corrected (container = stage 6, filter =
+  stage 7); verified against PublisherCollection, Steam/Epic/standalone/penumbra/ELEX fixtures.
+- `scan_directory` regression-checked (4 games, unchanged); `test_detection_patterns.py` unchanged.
+
+Remaining in Phase 2:
+
+1. **§2.4.7 validation matrix — DONE** (9 PASS + 1 DIVERG; findings recorded in plan Phase 2).
+2. **Selective folder visits** — use the Phase 1 inventory to choose which corpus folders need
+   physical probing (PE reads, store-signal checks). Next step.
+3. **Baseline runs** — Python vs C# over the scenario corpus; emit divergence report per scenario
+   and per symptom (S1–S9).
+
+Then: Phase 3 (experiments, Python) → Phase 4 (C# port) → Phase 5 (tests).
+
+**Pending model corrections to carry into Phase 3 experiments:** E4 (platform-child parent rule —
+probe fixed the model, port to container/exe discovery), E5 (redist fallback admission — penumbra
+proves it), E6 (bare `"tool"` penalty — Python+C# both missing it).
 
 ## Standing hard rule
 
