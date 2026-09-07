@@ -166,6 +166,37 @@ public sealed class FolderScanner
                 }
             }
 
+            // Pass 1.5: Exact folder-name match — TERMINATING rule (Plan 123 E1,
+            // parity with detect.py _find_exact_folder_match, 2026-09-07).
+            // If an exe at/below this folder has a stem exactly matching the folder
+            // name (token OR whole-name normalized), the folder IS the game folder
+            // and that exe IS the game exe. Deeper candidates (nested GameClient.exe,
+            // x64/Diablo III64.exe backups) are excluded from the working set, and
+            // the folder is never misread as a container. Runs BEFORE the container
+            // check. A store-Secure tier from Pass 1/1c already won (continue above),
+            // so this never downgrades a store result.
+            string? exactMatch = ExecutableDiscovery.FindExactFolderMatch(subDir);
+            if (exactMatch is not null)
+            {
+                AddGameEntry(entries, subDir, rootPath, GameSourceKind.Standalone, defaultType,
+                    forceExePath: exactMatch);
+                continue;
+            }
+
+            // Pass 1.6: Parent-bound child promotion (E4/E5 — parity with detect.py,
+            // 2026-09-07). The only exes live inside a platform/build/redist child
+            // (Elex/system, Penumbra/redist, Diablo III/x64). The parent folder wins;
+            // score those exes against the PARENT name and pick the best as primary.
+            // This runs before the container check so a folder whose exes are all in
+            // parent-bound children is never misread as a data-only folder.
+            string? parentBoundExe = ExecutableDiscovery.FindParentBoundExe(subDir, _noiseExePatterns);
+            if (parentBoundExe is not null)
+            {
+                AddGameEntry(entries, subDir, rootPath, GameSourceKind.Standalone, defaultType,
+                    forceExePath: parentBoundExe);
+                continue;
+            }
+
             // Pass 2: Check for standalone signals (root exe, unreal layout, etc.)
             GameSourceKind fallbackType = DetectFallbackType(subDir);
 
@@ -239,13 +270,21 @@ public sealed class FolderScanner
     /// <summary>Creates a GameEntry from a scanned folder and adds it to the results list.</summary>
     private void AddGameEntry(
         List<GameEntry> entries, DirectoryInfo subDir,
-        string rootPath, GameSourceKind resolvedType, GameSourceKind rootDefault)
+        string rootPath, GameSourceKind resolvedType, GameSourceKind rootDefault,
+        string? forceExePath = null)
     {
         bool isOverride = resolvedType != rootDefault;
         string[] exeFiles = FileSystemHelper.GetFilesSafe(subDir, "*.exe");
         var primaryExe = ExecutableDiscovery.FindPrimaryExecutable(
             subDir, exeFiles, _noiseExePatterns, _noiseDirectoryPatterns, _launcherPatterns, GetExePatternTier);
         string? exePath = primaryExe.ExePath;
+
+        // Terminating rule: the exact match is a relative path under the folder;
+        // make it absolute so ExecutablePath is consistent with other entries.
+        if (forceExePath is not null)
+        {
+            exePath = Path.GetFullPath(Path.Combine(subDir.FullName, forceExePath));
+        }
 
         // LNK fallback — if no exe found, try resolving from .lnk shortcuts
         if (string.IsNullOrEmpty(exePath))

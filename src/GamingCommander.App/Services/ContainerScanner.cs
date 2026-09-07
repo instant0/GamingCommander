@@ -125,10 +125,98 @@ internal static class ContainerScanner
         }
     }
 
-    /// <summary>Checks if a folder is clearly not a game (non-game name, data-only, etc.).</summary>
+    /// <summary>
+    /// Checks if a folder is clearly not a game (non-game name, data-only, etc.).
+    /// Mirrors detect.py _is_non_game_folder (three layers, 2026-09-07):
+    ///   1. Exact name match (s_nonGameFolderNames / NoiseSubDirNames)
+    ///   2. Child-all-non-game: ALL children are non-game subdirs → skip
+    ///   3. File-type analysis: no non-noise exe + no meaningful file → skip
+    /// Layers 2-3 are false-positive suppressors (folder promoted as game title).
+    /// </summary>
     internal static bool IsNonGameFolder(DirectoryInfo dir)
     {
-        return s_nonGameFolderNames.Contains(dir.Name)
-            || FileSystemHelper.NoiseSubDirNames.Contains(dir.Name);
+        // Layer 1: exact name match
+        if (s_nonGameFolderNames.Contains(dir.Name)
+            || FileSystemHelper.NoiseSubDirNames.Contains(dir.Name))
+        {
+            return true;
+        }
+
+        // Layer 2: all children are non-game subdirectories
+        var children = FileSystemHelper.GetDirectoriesSafe(dir.FullName);
+        if (children.Length > 0)
+        {
+            bool allNonGame = true;
+            foreach (DirectoryInfo child in children)
+            {
+                if (!s_nonGameFolderNames.Contains(child.Name)
+                    && !FileSystemHelper.NoiseSubDirNames.Contains(child.Name))
+                {
+                    allNonGame = false;
+                    break;
+                }
+            }
+            if (allNonGame)
+                return true;
+        }
+
+        // Layer 3: file-type analysis — only non-game files (music/docs/data),
+        // no non-noise exe, no unknown-meaningful files → not a game.
+        // NOTE: a folder with NO files at all (dirs-only, e.g. a UE game wrapper
+        // whose exe lives deep in Game/Binaries/Win64) is NOT rejected here —
+        // deeper resolution decides it. Layer 3 only suppresses folders that
+        // contain files and none are game evidence.
+        try
+        {
+            bool hasNonNoiseExe = false;
+            bool hasMeaningfulFile = false;
+            bool hasAnyFile = false;
+            foreach (FileInfo file in FileSystemHelper.GetFilesSafe(dir))
+            {
+                hasAnyFile = true;
+                string ext = file.Extension.ToLowerInvariant();
+                if (ext == ".exe")
+                {
+                    if (!FileSystemHelper.IsNoiseExeName(file.Name, s_noiseExePatternsForNonGame))
+                        hasNonNoiseExe = true;
+                }
+                else if (ext is ".mp3" or ".flac" or ".ogg" or ".wav" or ".pdf" or ".txt" or ".md" or ".dll" or ".dat" or ".db" or ".ini" or ".json" or ".png" or ".jpg")
+                {
+                    // music / docs / support — neutral, not game evidence
+                }
+                else
+                {
+                    hasMeaningfulFile = true; // unknown ext — might be game data
+                }
+            }
+            if (hasAnyFile && !hasNonNoiseExe && !hasMeaningfulFile)
+            {
+                // A store marker (goggame.dll, .egstore/, title.rgl, .build.info,
+                // uplay_install.manifest, etc.) makes this a game regardless of
+                // file types — never reject a store-typed folder (GogGame + goggame.dll).
+                if (StoreSignalDetector.DetectType(dir) == GameSourceKind.Unknown)
+                    return true;
+            }
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+
+        return false;
     }
+
+    /// <summary>
+    /// Noise patterns used by the non-game file-type layer (layer 3). A root exe
+    /// matching these is not game evidence; otherwise a folder with only support
+    /// files is data-only, not a game.
+    /// </summary>
+    private static readonly string[] s_noiseExePatternsForNonGame =
+    [
+        "install", "setup", "unins", "redist", "vcredist", "dxsetup", "oalinst",
+        "launcher", "updater", "bootstrap", "crash", "error", "service", "tool",
+        "editor", "config", "helper", "update",
+    ];
 }

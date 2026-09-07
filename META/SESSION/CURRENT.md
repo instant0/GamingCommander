@@ -67,6 +67,15 @@
 - **E3:** re-evaluated vs corpora. (a) `epicgames` noise substring was wrongly rejecting the real game `IndianaEpicGameStore-Win64-Shipping.exe` — now only launcher/bootstrap variants are noise; (b) probe `_platform_child_has_game_exe` now descends 2 levels (UE `Binaries/Win64/`) so probe=production on UE-wrapped games; (c) `install` substring audit: safe (only installers/anti-cheat); (d) Neverwinter resolution re-verified. New `UEShipping/Indiana` fixture (S-D4). Matrix 22/22, baseline 13 scenarios clean.
 - **Documentation (2026-09-07):** full detection logic documented in NEW `docs/detection/` split docs (01-overview, 02-noise-filtering, 03-store-signals, 04-containers, 05-executable-discovery, 06-deep-scan-fallbacks, 07-csharp-parity, 08-validation + README). CODE_MAP updated. This is the single source for detection logic — no need to re-derive from txt/py files.
 
+**C# ALIGNMENT COMPLETE (2026-09-07) — Python parity fixes ported to C#:**
+- **Terminating rule (T1.5):** `ExecutableDiscovery.FindExactFolderMatch` (token + whole-name normalized + backup guard) + `FolderScanner.Scan` Pass 1.5. Nested GameClient/Diablo III64 backups excluded from working set.
+- **Parent-bound promotion (E4/E5):** `ExecutableDiscovery.FindParentBoundExe` + Pass 1.6. Penumbra/redist/PENUMBRA.EXE, Elex/system/ELEX.exe resolve to the parent.
+- **`epicgames` noise refinement (E3):** `FileSystemHelper.IsNoiseExeName` — only launcher/bootstrap variants are noise; IndianaEpicGameStore-Win64-Shipping.exe kept.
+- **BattleNet `.patch.result` (E2):** added to `StoreSignalDetector.HasBlizzardSignal` (parity).
+- **Non-game layers 2-3:** `ContainerScanner.IsNonGameFolder` — child-all-non-game + file-type analysis + store-marker guard; dirs-only UE wrappers NOT rejected.
+- **New tests:** `tests/GamingCommander.App.Tests/PythonParityDetectionTests.cs` (10 tests) mirroring Python fixtures (ArcInstall, Diablo III, Dead Space 3, Penumbra, Ashen UE-wrap, epicgames, .patch.result, data-only skip).
+- **Verification: C# 549 tests pass (402+146+1), 0 errors; Python matrix 22/22; baseline 13 clean.** Parity doc §2/§3 updated (all HIGH gaps closed).
+
 ---
 
 **Next session: Read `META/SESSION/NEXT.md`.**

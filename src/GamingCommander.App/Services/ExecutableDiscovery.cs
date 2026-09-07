@@ -147,21 +147,184 @@ internal static class ExecutableDiscovery
     }
 
     /// <summary>
+    /// Parent-bound child promotion (E4/E5 — parity with detect.py, 2026-09-07).
+    /// When the ONLY non-noise exes live inside a platform/build/redist child
+    /// (system/, bin/, win64/, Binaries/, redist/, ...), the PARENT folder IS the
+    /// game and the child is never promoted. Returns the relative path of the best
+    /// exe scored against the PARENT folder name, or null when no parent-bound
+    /// children hold a non-noise exe.
+    /// Covers: Elex\system\ELEX.exe, Penumbra\redist\PENUMBRA.EXE.
+    /// </summary>
+    internal static string? FindParentBoundExe(DirectoryInfo dir, IReadOnlyList<string> noiseExePatterns)
+    {
+        var candidates = new List<string>();
+        string root = dir.FullName;
+
+        foreach (string childDirName in ParentBoundChildNames)
+        {
+            string childPath = Path.Combine(root, childDirName);
+            if (!Directory.Exists(childPath))
+                continue;
+
+            try
+            {
+                // Direct children of the parent-bound dir
+                foreach (string exe in Directory.EnumerateFiles(childPath, "*.exe", SearchOption.TopDirectoryOnly))
+                {
+                    if (!IsNoiseExeByPath(exe, noiseExePatterns))
+                        candidates.Add(exe);
+                }
+                // One level deeper (win64/binaries/, x64/, ...)
+                foreach (string subDir in Directory.EnumerateDirectories(childPath))
+                {
+                    if (FileSystemHelper.NoiseSubDirNames.Contains(Path.GetFileName(subDir)))
+                        continue;
+                    foreach (string exe in Directory.EnumerateFiles(subDir, "*.exe", SearchOption.TopDirectoryOnly))
+                    {
+                        if (!IsNoiseExeByPath(exe, noiseExePatterns))
+                            candidates.Add(exe);
+                    }
+                }
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+            catch (IOException)
+            {
+            }
+        }
+
+        if (candidates.Count == 0)
+            return null;
+
+        // Score against the PARENT folder name (not the child) and pick the best.
+        var best = candidates
+            .OrderByDescending(exe => ScoreExecutable(exe, dir.Name, [], noiseExePatterns, _ => 999).Score)
+            .First();
+        return Path.GetRelativePath(root, best);
+    }
+
+    /// <summary>
+    /// Parent-bound child dir names (mirror of detect.py _PARENT_BOUND_CHILD_DIRS).
+    /// These belong to the parent game — never separate entries, never container
+    /// triggers. Their exes are candidates for the parent (E4/E5).
+    /// </summary>
+    private static readonly string[] ParentBoundChildNames =
+    [
+        "system", "bin", "bin64", "win32", "win64", "x86", "x64",
+        "binaries", "boot", "core", "game", "run", "app", "client",
+        "engine", "crashsender", "common",
+        "redist", "redistributable", "_installer", "install", "installer",
+        "support", "directx", "vcredist",
+    ];
+
+    /// <summary>
     /// Result of scoring an executable for primary selection.
     /// Contains the numeric score and the PE FileDescription (if read successfully).
     /// </summary>
     internal sealed record ExeScoreResult(int Score, string? FileDescription);
 
     /// <summary>
-    /// Scores an executable for primary selection. Higher score = more likely to be the real game.
-    /// Considers folder-name token match, launcher penalty, noise pattern penalty (tier-based),
-    /// shipping/win64 bonus, file size, and PE metadata.
+    /// Terminating rule (Plan 123 E1, user model 2026-09-07; parity with
+    /// detect.py `_find_exact_folder_match`).
+    ///
+    /// If an exe at or under *dir* (bounded depth) has a stem that EXACTLY matches
+    /// the folder name, then the folder IS the game folder and that exe IS the
+    /// game exe. Returns the shallowest matching relative path, or null.
+    ///
+    /// Two match forms (both terminating):
+    ///   - TOKEN match:  stem == one folder token  (`Neverwinter_en` + `neverwinter.exe`)
+    ///   - WHOLE-NAME match: stem, separators stripped, == folder name, separators
+    ///     stripped (`Diablo III` + `Diablo III.exe`, `Dead Space 3` + `deadspace3.exe`)
+    ///
+    /// Backup exes (leading dash, "copy of", "- copy", numbered "10 org") are
+    /// EXCLUDED — a backup must never satisfy the terminating rule (E5 guard:
+    /// redist/PENUMBRA.EXE wins over redist/-Penumbra.exe).
+    ///
+    /// Search is bounded to rel depth 4 (81/102 real game exes sit at rel 1-4;
+    /// deeper is noise — no deep walk). Noise-dir filters deliberately do NOT
+    /// apply: the exact stem match is itself the guard (redist/penumbra,
+    /// system/elex, subfolder/x64/bin/gamename.exe).
     /// </summary>
-    /// <param name="exePath">Full path to the executable.</param>
-    /// <param name="folderName">Name of the game folder (used for token matching).</param>
-    /// <param name="launcherPatterns">Launcher/updater name substrings (used for penalty scoring).</param>
-    /// <param name="noiseExePatterns">Full noise pattern list for tier-based penalty scoring.</param>
-    /// <param name="tierLookup">Function to look up the severity tier for a noise pattern.</param>
+    internal static string? FindExactFolderMatch(DirectoryInfo dir, int maxRelDepth = 4)
+    {
+        string folderName = dir.Name.ToLowerInvariant();
+        string[] folderTokens = folderName
+            .Replace("_", " ").Replace("-", " ")
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        string folderWhole = Regex.Replace(folderName, @"[\s_\-]+", string.Empty);
+        if (folderTokens.Length == 0 && folderWhole.Length == 0)
+            return null;
+
+        static bool StemMatches(string stem, string[] tokens, string whole)
+        {
+            // Backups never terminate (E5 guard)
+            if (stem.StartsWith("-", StringComparison.Ordinal)
+                || stem.StartsWith("copy of ", StringComparison.Ordinal)
+                || stem.Contains(" - copy", StringComparison.Ordinal))
+            {
+                return false;
+            }
+            // Token match
+            foreach (string t in tokens)
+            {
+                if (stem == t)
+                    return true;
+            }
+            // Whole-name normalized match (GAP A)
+            string stemNorm = Regex.Replace(stem, @"[\s_\-]+", string.Empty);
+            return stemNorm.Length > 0 && stemNorm == whole;
+        }
+
+        // Bounded walk: root + subdirs up to maxRelDepth. Track shallowest match.
+        (int Depth, string RelPath)? best = null;
+        string rootFull = dir.FullName;
+        try
+        {
+            foreach (string file in Directory.EnumerateFiles(rootFull, "*.exe", SearchOption.AllDirectories))
+            {
+                string full = file;
+                // Compute rel depth from the folder
+                string rel = Path.GetRelativePath(rootFull, full);
+                int depth = rel.Count(c => c == Path.DirectorySeparatorChar || c == Path.AltDirectorySeparatorChar);
+                if (depth > maxRelDepth)
+                    continue;
+
+                string fname = Path.GetFileName(full);
+                if (!fname.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                // Python noise gate equivalent: skip clearly-noise exes
+                if (IsNoiseExeByPath(full, NoiseSkipForTerminating))
+                    continue;
+
+                string stem = Path.GetFileNameWithoutExtension(fname).ToLowerInvariant();
+                if (StemMatches(stem, folderTokens, folderWhole))
+                {
+                    if (best is null || depth < best.Value.Depth)
+                        best = (depth, rel);
+                }
+            }
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+        catch (IOException)
+        {
+        }
+
+        return best?.RelPath;
+    }
+
+    /// <summary>
+    /// Noise patterns used ONLY by the terminating rule. Kept deliberately small:
+    /// the exact stem match is the guard. Installers/updaters/bootstraps that
+    /// happen to share the folder name must not terminate.
+    /// </summary>
+    private static readonly string[] NoiseSkipForTerminating =
+    [
+        "install", "setup", "updater", "launcher", "bootstrap", "unins",
+        "redist", "vcredist", "dxsetup", "oalinst", "crash",
+    ];
     /// <summary>
     /// Removes platform/binary-type tokens from a letters+digits name key so
     /// "mygamewin64shipping" compares equal to folder key "mygame".

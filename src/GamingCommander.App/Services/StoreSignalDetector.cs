@@ -175,6 +175,8 @@ internal static class StoreSignalDetector
     /// Primary: .battle.net/ directory (BattleNet Agent runtime data)
     /// Secondary: .build.info file (created during game installation — unique to BattleNet games)
     /// Tertiary: .product.db file (created during game installation)
+    /// Quaternary: .patch.result file (parity with detect.py _scan_root, E2 2026-09-07 —
+    /// present in real BattleNet games: Blizzard/Diablo III, COD/Call of Duty, Diablo Immortal)
     /// </summary>
     internal static bool HasBlizzardSignal(DirectoryInfo dir)
     {
@@ -189,6 +191,10 @@ internal static class StoreSignalDetector
 
         // Tertiary: .product.db file (created during game installation)
         if (File.Exists(Path.Combine(dir.FullName, ".product.db")))
+            return true;
+
+        // Quaternary: .patch.result (corpus-verified BattleNet marker)
+        if (File.Exists(Path.Combine(dir.FullName, ".patch.result")))
             return true;
 
         return false;

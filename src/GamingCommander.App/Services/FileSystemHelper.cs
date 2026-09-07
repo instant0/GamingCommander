@@ -102,6 +102,22 @@ internal static class FileSystemHelper
     /// </summary>
     internal static bool IsNoiseExeName(string name, IReadOnlyList<string> patterns)
     {
+        // E3 (2026-09-07): "epicgames" must only match launcher-style names, NOT any
+        // exe containing the string. Real game exes use the Epic SDK in their name
+        // (IndianaEpicGameStore-Win64-Shipping.exe) and are NOT noise. Matches the
+        // Python _is_noise_exe special-case.
+        if (name.Contains("epicgames", StringComparison.OrdinalIgnoreCase))
+        {
+            bool isLauncherVariant =
+                name.Contains("launcher", StringComparison.OrdinalIgnoreCase)
+                || name.Contains("updater", StringComparison.OrdinalIgnoreCase)
+                || name.Contains("bootstrapper", StringComparison.OrdinalIgnoreCase)
+                || name.Contains("bootstrap", StringComparison.OrdinalIgnoreCase)
+                || name.Contains("overlay", StringComparison.OrdinalIgnoreCase)
+                || name.Contains("webhelper", StringComparison.OrdinalIgnoreCase);
+            if (!isLauncherVariant)
+                return false;
+        }
         return patterns.Any(p => name.Contains(p, StringComparison.OrdinalIgnoreCase));
     }
 
