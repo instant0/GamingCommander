@@ -269,9 +269,17 @@ _PARENT_BOUND_CHILD_DIRS: frozenset[str] = frozenset({
 
 # ── Noise helpers ──────────────────────────────────────────────
 
+# In _is_noise_exe, "epicgames" must only match launcher-style names, NOT any exe
+# containing the string. Real game exes use the Epic SDK in their name
+# (IndianaEpicGameStore-Win64-Shipping.exe — full-d.txt, E3 2026-09-07).
 def _is_noise_exe(name: str) -> bool:
     """True for filenames that are clearly not game executables."""
     lower = name.lower()
+    if "epicgames" in lower:
+        # Epic launcher/bootstrap/updater only — never a game exe that merely
+        # references the Epic SDK in its name.
+        if not any(s in lower for s in ("launcher", "updater", "bootstrapper", "bootstrap", "overlay", "webhelper")):
+            return False
     return any(part in lower for part in _NOISE_EXE_PARTS)
 
 
@@ -635,6 +643,13 @@ def _scan_root(path: Path):
     # Blizzard: .battle.net dir
     if ".battle.net" in names_lower:
         return "Blizzard", "battle_net", has_root_exe, root_exe, has_root_lnk, child_dirs
+    # Blizzard/BattleNet: .build.info + .product.db + .patch.result at the game
+    # folder (real corpus shape — Blizzard/Diablo III, COD/Call of Duty; the
+    # .battle.net dir is NOT present in these, E2 2026-09-07).
+    if (".build.info" in names_lower
+            or ".patch.result" in names_lower
+            or ".product.db" in names_lower):
+        return "Blizzard", "bnet_manifest", has_root_exe, root_exe, has_root_lnk, child_dirs
 
     # Xbox: default-metadata.json
     if "default-metadata.json" in names_lower:
@@ -955,6 +970,78 @@ def _find_game_executables(d: Path) -> tuple[list[Path], list[Path]]:
         _add_exes_recursive(d, max_depth=2)
 
     return candidates, bat_launchers
+
+
+def _find_exact_folder_match(d: Path, max_rel: int = 4) -> tuple[str | None, str | None]:
+    """Terminating rule (Plan 123 E1, user model 2026-09-07).
+
+    If an exe at or under *d* (bounded depth) has a stem that EXACTLY matches the
+    folder name, then the folder IS the game folder and that exe IS the game exe.
+    Returns (rel_path, matched_token) of the SHALLOWEST match (most
+    authoritative), or (None, None).
+
+    Two match forms (both terminating):
+      - TOKEN match:  stem == one folder token  (`Neverwinter_en` + `neverwinter.exe`)
+      - WHOLE-NAME match: stem, with separators stripped, equals the folder name
+        with separators stripped (`Diablo III` + `Diablo III.exe`,
+        `Dead Space 3` + `deadspace3.exe`, `Dungeon Siege 2` + `DungeonSiege2.exe`)
+    Whole-name matching is corpus-grounded (full-d.txt: 7 real cases) — a
+    `_`/`-`/space separator difference must not defeat the terminating signal.
+
+    This is a TERMINATING signal, not a scoring bonus: once it fires, deeper
+    candidates are excluded from the working set (e.g. Diablo III's nested
+    `x64/Diablo III64.exe` and `x64 - Copy/Diablo III64.exe` backup are never
+    promoted).  Search is bounded to rel depth `max_rel` (81/102 real game exes
+    are at rel 1-4; deeper is noise — no WALK_MAX_DEPTH increase).  Noise-dir
+    filters deliberately do NOT apply here: the exact stem match is itself the
+    guard (covers redist/penumbra, system/elex, subfolder/x64/bin/gamename.exe).
+    """
+    folder_name = d.name.lower()
+    folder_tokens = {
+        p.lower()
+        for p in d.name.replace("_", " ").replace("-", " ").split()
+        if p
+    }
+    folder_whole = re.sub(r"[\s_\-]+", "", folder_name)
+    if not folder_tokens and not folder_whole:
+        return None, None
+
+    def _stem_matches(stem: str) -> bool:
+        """Token match OR whole-name normalized match (GAP A, 2026-09-07).
+
+        Leading-dash / 'copy of' / numbered backups are EXCLUDED — a backup
+        (`-Penumbra.exe`, `copy of X.exe`, `10 org X.exe`) must never satisfy
+        the terminating rule (E5 guard: redist/PENUMBRA.EXE wins over
+        redist/-Penumbra.exe).  Only the real game exe terminates.
+        """
+        if stem.startswith("-") or stem.startswith("copy of ") or " - copy" in stem:
+            return False
+        if stem in folder_tokens:
+            return True
+        stem_norm = re.sub(r"[\s_\-]+", "", stem)
+        return bool(stem_norm) and stem_norm == folder_whole
+
+    best: tuple[int, str, str] | None = None  # (depth, rel_path, matched)
+    for root_dir, dirs, files in os.walk(d):
+        root = Path(root_dir)
+        try:
+            rel_depth = len(root.relative_to(d).parts)
+        except ValueError:
+            rel_depth = 99
+        if rel_depth > max_rel:
+            dirs[:] = []
+            continue
+        for fname in files:
+            if not fname.lower().endswith(".exe"):
+                continue
+            if _is_noise_exe(fname):
+                continue
+            stem = fname.lower()[:-4]
+            if _stem_matches(stem):
+                rel_path = str(root.relative_to(d) / fname) if rel_depth else fname
+                if best is None or rel_depth < best[0]:
+                    best = (rel_depth, rel_path, stem)
+    return (best[1], best[2]) if best else (None, None)
 
 
 def _pick_primary_executable(d: Path) -> tuple[str | None, dict, list[str]]:
@@ -1304,33 +1391,6 @@ def _is_non_game_folder(d: Path, child_dirs) -> bool:
 # Subdirectory exe scan (reusable)
 # ══════════════════════════════════════════════════════════════
 
-def _find_game_exe_anywhere(start: Path, max_depth: int = 6) -> Path | None:
-    """Find the first non-noise .exe anywhere under *start* (bounded recursion).
-
-    Used for container/collection detection where the game exe may be several
-    levels deep (e.g. epicgames/gameA/binaries/win64/gameA.exe). A collection
-    level must NOT consume the game's depth budget, so this walks relative to
-    the candidate game folder, not the scan root. Returns the first exe Path
-    or None. Bounded to avoid pathological deep trees."""
-    if not start.is_dir():
-        return None
-    stack: list[tuple[Path, int]] = [(start, 0)]
-    while stack:
-        cur, depth = stack.pop()
-        if depth > max_depth:
-            continue
-        try:
-            for entry in os.scandir(cur):
-                if entry.is_file() and entry.name.lower().endswith(".exe"):
-                    if not _is_noise_exe(entry.name):
-                        return Path(entry.path)
-                elif entry.is_dir() and not _is_noise_dir(entry.name):
-                    stack.append((Path(entry.path), depth + 1))
-        except PermissionError:
-            continue
-    return None
-
-
 def _find_exe_in_subdirs(child: Path, child_dirs: list) -> list[str]:
     """Scan child directories for game exes. Used when root has no exe
     or only a launcher. Returns list of relative exe paths."""
@@ -1580,6 +1640,27 @@ def scan_directory(
                 ))
                 continue
 
+            # Tier 1.5: Exact folder-name match — TERMINATING rule (E1, 2026-09-07).
+            # If an exe at/below this folder has a stem exactly matching the folder
+            # name, then folder = game folder and exe = game exe; DO NOT process
+            # deeper.  This runs BEFORE the container check and deep scan so that
+            # nested duplicates (Neverwinter\Live\x64\GameClient.exe) are excluded
+            # from the working set, and so the folder is never misread as a
+            # collection.  Also provides the catalog signal: a sibling at the same
+            # level (othergame_en) is a SEPARATE entity — not this game.
+            exact_match_rel, exact_match_token = _find_exact_folder_match(child)
+            if exact_match_rel:
+                if log_path:
+                    _detlog.note(f"Exact folder-name match (terminating): {exact_match_rel} "
+                                 f"(stem '{exact_match_token}' == folder token)")
+                engine = _detect_engine(child)
+                games.append(_build_result(
+                    child, "Standalone", "exact_folder_match",
+                    [exact_match_rel], folder=folder_label, container=container_label,
+                    engine=engine,
+                ))
+                continue
+
             # Tier 2: Root exe or .lnk → standalone
             if has_root_exe or has_root_lnk:
                 exe_list = [root_exe] if root_exe else []
@@ -1652,18 +1733,27 @@ def scan_directory(
             # GAME-SHAPED CHILDREN (child with a deeper exe), NOT the absence of
             # root files — real collection folders often have files at root.
             # (Found by user scenario 2026-09-06: epicgames/snuffbox/binaries/…)
+            # Depth: real game exes sit at rel 1-4 (43/28/10/14 folders);
+            # deeper exes are noise/emulators/backups — not worth hunting.
+            # So a bounded 2-level child search is sufficient to recognize a
+            # collection; the game child itself is resolved by the recursion.
             if not is_container and not has_game_child and len(child_dirs) > 0:
                 # Check if any NON-parent-bound child has game-like structure
-                # (recursive exe search). Parent-bound children (win64/, bin/, ...)
+                # (subdir with exe). Parent-bound children (win64/, bin/, ...)
                 # belong to the parent game and must NOT mark the parent as a
                 # collection/container (E4; monsterhunter/win64/binaries case).
-                # Recursion is bounded by _find_game_exe_anywhere (default 6 levels)
-                # so a collection level does NOT consume the game's depth budget.
+                # Reuses _find_exe_in_subdirs so UE layouts (Ashen/Binaries/Win64/
+                # *-Shipping.exe) are recognized as game-shaped children — the
+                # old manual 2-level loop missed them (real corpus, 2026-09-07).
                 for c in child_dirs:
                     if c.name.lower() in _PARENT_BOUND_CHILD_DIRS:
                         continue
                     c_path = Path(c.path)
-                    if _find_game_exe_anywhere(c_path, max_depth=6):
+                    c_store, _, c_has_exe, _, _, c_child_dirs = _scan_root(c_path)
+                    if c_store is not None or c_has_exe:
+                        is_container = True
+                        break
+                    if c_child_dirs and _find_exe_in_subdirs(c_path, c_child_dirs):
                         is_container = True
                         break
 
@@ -1832,6 +1922,7 @@ _STAGE_NAMES = {
     10: "Fallback / engine layout",
     11: "Title selection",
     12: "PE-scan + cloud lookup",
+    13: "Exact folder-name match (terminating)",
 }
 
 # Platform/build subdirs that belong to the PARENT game — never container children
@@ -2195,6 +2286,45 @@ def _probe_folder(path: str) -> dict:
                 _step(5, False, deferred=["Non-game filter"], reason="Registry probe not wired in CLI tool", next_=6)
                 notes.append("Registry fallback is app-level; not wired in tools/detect.py")
 
+    # ── Phase B.5: exact folder-name match (terminating rule, E1 2026-09-07) ──
+    # If an exe at/below this folder has a stem exactly matching the folder name,
+    # the folder IS the game folder and that exe IS the game exe.  Fires BEFORE
+    # container analysis so nested duplicates (Neverwinter/Live/x64/GameClient.exe)
+    # are excluded from the working set and the folder is never misread as a
+    # collection.  The match also provides the catalog signal: a sibling at the
+    # same level is a SEPARATE entity (possibly a game, but NOT this one).
+    exact_match_rel, exact_match_token = _find_exact_folder_match(d)
+    signals["exact_folder_match"] = [{
+        "signal": "exe stem == folder token (terminating)",
+        "found": bool(exact_match_rel),
+        "evidence": [exact_match_rel] if exact_match_rel else [],
+    }]
+    if exact_match_rel:
+        # A store-Secure/Locked tier from earlier stages must NOT be downgraded
+        # by the terminating rule (E2 2026-09-07: Diablo III has BOTH .build.info
+        # store signal AND a folder-name match — tier stays Secure, not Candidate).
+        if tier is None:
+            tier = "Candidate"
+        primary_exe = exact_match_rel
+        _step(13, True, accepted=exact_match_rel,
+              reason=f"Exact folder-name match: stem '{exact_match_token}' == folder "
+                     "token → folder IS game folder, exe IS game exe; deeper "
+                     "candidates excluded from working set",
+              next_=11)
+        # Engine layout for display (not a container trigger here)
+        engine = _detect_engine(d)
+        if engine != "Unknown":
+            _step(10, True, accepted=engine, reason="Engine layout detected", next_=11)
+        _step(11, True, accepted=Path(exact_match_rel).stem,
+              reason="Exe stem (exact folder-name match)", next_=None)
+        title_source = "ExeStem"
+        display_name = Path(exact_match_rel).stem
+        return _probe_result(folder_label, tier, store, title_source, display_name,
+                             primary_exe, chain, exe_candidates, signals, notes)
+    else:
+        _step(13, False, deferred=["Container analysis"],
+              reason="No exe stem exactly matches the folder name", next_=6)
+
     # ── Phase C: container decision ──
     child_dirs: list = []
     try:
@@ -2314,9 +2444,11 @@ def _probe_folder(path: str) -> dict:
 
 
 def _platform_child_has_game_exe(d: Path, child_dirs) -> bool:
-    """True if any platform/build child (system/, bin/, win64/, ...) of the probe
-    folder contains a non-noise game exe — meaning the PARENT is a game, not a
-    data-only folder (S3/E4 correction, 2026-09-06)."""
+    """True if any platform/build child (system/, bin/, win64/, Binaries/, ...) of
+    the probe folder contains a non-noise game exe — meaning the PARENT is a game,
+    not a data-only folder (S3/E4 correction, 2026-09-06; E3 UE-layout 2026-09-07:
+    Binaries/Win64/*-Shipping.exe is a real game exe one level inside the
+    platform child)."""
     for c in child_dirs:
         if c.name.lower() not in _PLATFORM_DIR_NAMES:
             continue
@@ -2325,6 +2457,19 @@ def _platform_child_has_game_exe(d: Path, child_dirs) -> bool:
                 if item.is_file() and item.name.lower().endswith(".exe") \
                         and not _is_noise_exe(item.name):
                     return True
+            # UE layout: platform child holds a deeper game exe
+            # (Binaries/Win64/Game-Win64-Shipping.exe) — bounded to rel 2.
+            c_path = Path(c.path)
+            for se in os.scandir(c_path):
+                if not se.is_dir() or _is_noise_dir(se.name):
+                    continue
+                try:
+                    for gse in os.scandir(se.path):
+                        if gse.is_file() and gse.name.lower().endswith(".exe") \
+                                and not _is_noise_exe(gse.name):
+                            return True
+                except PermissionError:
+                    continue
         except PermissionError:
             continue
     return False

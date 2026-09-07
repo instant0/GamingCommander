@@ -289,3 +289,19 @@ Count last snapshotted mid-2026 (~217). Metadata / PCGW / scoring tests added af
 | `ubisoft_format.md` | Ubisoft format documentation | ✅ Done |
 | `pcgamingwiki_notes.md` | PCGamingWiki research notes | ✅ Done |
 | `launcher_discovery.md` | Launcher registry discovery notes | ✅ Done |
+
+## Detection Logic Docs (docs/detection/) — primary reference (2026-09-07)
+
+Fresh, code-accurate detection documentation. Start at `docs/detection/01-overview.md`.
+
+| Doc | Content |
+|-----|---------|
+| `README.md` | Index of the detection docs |
+| `01-overview.md` | Decision pipeline (gates T1/T1.5/T2/C1/C2/N1/D1), working-set reduction, confidence tiers |
+| `02-noise-filtering.md` | Noise exe/dir tiers, `epicgames` special case, non-game names, parent-bound dirs |
+| `03-store-signals.md` | 9-store priority chain, BattleNet `.build.info`, tier preservation |
+| `04-containers.md` | Container/collection/publisher-wrapper logic + fixes + dropped P3c-2 |
+| `05-executable-discovery.md` | Discovery order, terminating rule, scoring, parent-bound promotion |
+| `06-deep-scan-fallbacks.md` | Deep scan, engines, .lnk, GOG metadata, non-game layers, UE-aware filter |
+| `07-csharp-parity.md` | C# gaps, fixes to port, port order |
+| `08-validation.md` | Verification tools, green results, fixtures, corpora, regression rules |

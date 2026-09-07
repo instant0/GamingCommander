@@ -24,7 +24,10 @@ MATRIX: dict[str, tuple[str, str, str | None]] = {
     "S-A valid standalone": ("GameAlpha", "Candidate", None),
     "S-B store game (Epic)": ("EpicGameGamma", "Secure", "Epic"),
     "S-C container": ("PublisherCollection", "Unknown", None),  # parent not promoted
-    "S-D deep-nested game": ("Neverwinter/neverwinter_en", "Candidate", None),
+    "S-D deep-nested game": ("ArcInstall/neverwinter_en", "Candidate", None),
+    "S-D2 exact-match terminating (E1)": ("ArcInstall", "Unknown", None),  # container: children are separate entities
+    "S-D3 publisher wrapper (real: SquareEnix/Stardock/qfg5)": ("PublisherWrapper/Stardock", "Unknown", None),  # single-game-child wrapper
+    "S-D4 UE-shipping deep exe (real: Indiana/Binaries/Win64)": ("UEShipping/Indiana", "Candidate", None),
     "S-E engine-subfolder game": ("Elex", "Candidate", None),
     "S-F redist-only (E5 target)": ("Penumbra", "Candidate", None),  # corrected: game recoverable
     "S-G multi-exe": ("MultiRunner", "Candidate", None),
@@ -36,6 +39,7 @@ MATRIX: dict[str, tuple[str, str, str | None]] = {
     "Store EA": ("StoreEa", "Secure", "EA"),
     "Store Ubisoft": ("StoreUbi", "Secure", "Ubisoft"),
     "Store Blizzard": ("StoreBlizzard", "Secure", "Blizzard"),
+    "Store Blizzard bnet-manifest (real: Diablo III/COD)": ("StoreBlizzardBnet/Diablo III", "Secure", "Blizzard"),
     "Store SteamEmu": ("StoreSteamEmu", "Secure", "Steam Emulator"),
     "Store Xbox": ("StoreXbox", "Secure", "Xbox"),
     "Store Rockstar": ("StoreRockstar", "Secure", "Rockstar"),
@@ -44,6 +48,7 @@ MATRIX: dict[str, tuple[str, str, str | None]] = {
 # Additional assertions beyond tier/store (primary-exe expectations per §2.3).
 PRIMARY_EXPECTED: dict[str, str | None] = {
     "S-A valid standalone": "GameAlpha.exe",
+    "S-D deep-nested game": "neverwinter.exe",  # terminating rule: nested GameClient.exe excluded
     "S-F redist-only (E5 target)": "redist/PENUMBRA.EXE",  # not super_secret / -Penumbra
     # S-G is a KNOWN divergence (E6): MultiRunnerTool.exe ties MultiRunner.exe because
     # neither Python _TOOL_NAMES nor C# tier_10_dev_editor_tools penalize bare "tool".

@@ -66,6 +66,10 @@ data/cache/
 data/scans/
 data/private/
 
+# Private corpus listings (real library file listings — never track)
+testdata/samples/full-*.txt
+testdata/samples/*-games.txt
+
 # Explicit binaries (edge-case)
 **/*.dll
 **/*.DLL

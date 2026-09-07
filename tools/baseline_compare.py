@@ -42,8 +42,22 @@ SCENARIOS: dict[str, dict] = {
         "child_is_game": True,
     },
     "S-D deep-nested game": {
-        "fixture": "Neverwinter/neverwinter_en", "tier": "Candidate",
+        "fixture": "ArcInstall/neverwinter_en", "tier": "Candidate",
         "primary": "neverwinter.exe", "store": None,
+    },
+    "S-D2 exact-match terminating (E1)": {
+        "fixture": "ArcInstall", "tier": "Unknown", "primary": None,
+        "store": None,  # container: neverwinter_en + othergame_en are separate entities
+        "child_is_game": True,
+    },
+    "S-D3 publisher wrapper (real)": {
+        "fixture": "PublisherWrapper/Stardock", "tier": "Unknown", "primary": None,
+        "store": None,  # real corpus shape: Stardock/TotalGaming/GalCiv2
+        "child_is_game": True,
+    },
+    "S-D4 UE-shipping deep exe (real)": {
+        "fixture": "UEShipping/Indiana", "tier": "Candidate",
+        "primary": "Binaries/Win64/IndianaEpicGameStore-Win64-Shipping.exe", "store": None,
     },
     "S-E engine-subfolder game": {
         "fixture": "Elex", "tier": "Candidate", "primary": "system/ELEX.exe",
@@ -122,7 +136,8 @@ def main() -> int:
     for scenario, spec in SCENARIOS.items():
         fixture = PROBE_DIR / spec["fixture"]
         if not fixture.is_dir():
-            report.append({"scenario": scenario, "error": "fixture missing"})
+            report.append({"scenario": scenario, "error": "fixture missing",
+                           "divergences": ["FIXTURE MISSING"]})
             continue
 
         probe = run_probe(fixture)

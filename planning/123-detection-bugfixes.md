@@ -2,9 +2,11 @@
 
 **Created:** 2026-08-29
 **Priority:** P1
-**Status:** Phase 0 COMPLETE (2026-09-06). **Next: Phase 1 — Paper specification & corpus analysis (the "thinking phase"; no detection code changes).** T3 parity audit already done. Analysis-first, Python-first; C# changes only after validated experiments.
+**Status:** Phase 0 COMPLETE (2026-09-06). Phase 1 paper spec DONE; Phase 2 (probe, matrix 17/17, selective visits, baseline) DONE; E4/E5 + collection fixes applied in Python. **Next: review gate (amended 2026-09-07: reviews the final Python scanner as reference), then E1/E2/E3 experiments, then C# port.** Analysis-first, Python-first; C# changes only after validated experiments. **Scope (2026-09-07): this plan covers ONLY the messy standalone `d:\games` corpus. The organized "Program Files (x86)" layout (`full-p.txt`) is a SEPARATE scenario — see §8.3. Fix this plan fully first, then tackle the P-layout.**
 **Source:** User live-smoke-test on `d:\games` (9 reported failures) + code trace
 **Revision:** 2026-09-06 (v2) — inserted an explicit thinking phase **before** any detection code: we document the detection/exclusion model and classify the real corpus on paper first, *then* implement diagnostics. Confidence tiers (`Locked`/`Secure`/`Candidate`/`Unknown`), Steam locked + ACF deferred, Epic manifest Secure all unchanged. Symptoms (S1–S9) and experiments (E1–E8) unchanged; phases renumbered to make room for the thinking phase.
+**Revision:** 2026-09-07 (v3) — post-implementation correction pass: E1 amended (single-child-not-a-collection + proof-counter/re-scan; Steam ACF out of E2 scope), E3 rewritten (depth premise overturned by non-noise-filtered corpus analysis — no WALK_MAX_DEPTH increase), Phase 4 reordered (proven Python fixes ported first), gate rescheduled to review the final Python scanner as reference.
+**Revision:** 2026-09-07 (v4) — second corpus added (`testdata/samples/full-p.txt` = `P:\Program Files (x86)` listing, 18,106 lines). Declared a **separate scenario** from the messy standalone `d:\games` corpus: organized store-fixture layout. New §8.3 "Program Files (x86) known-fixture layout" plan. This plan (123) is scoped to `d:\games` only; P-layout issues are NOT mixed in.
 
 ---
 
@@ -128,6 +130,11 @@ Live testing of `d:\games` reported 9 failures. They are treated as **symptoms t
 
 **Product requirement (user):** GamingCommander must work on **any** system. The FolderScanner, exe scanner, PE scanner, and store scanner must be correct generically. No hardcoded drive paths, no hardcoded store-folder names (e.g. `epic games`) as detection rules, no speculative removal of filters we intentionally added.
 
+**Scope boundary (2026-09-07):** this plan targets the messy standalone `d:\games` corpus only. The
+organized "Program Files (x86)" store-fixture layout (`full-p.txt`) is a DIFFERENT scenario and is
+deliberately excluded — it is planned separately in §8.3 (known store-client fixtures, like Steam's
+locked `steamapps/common` path). Do not introduce P-layout handling into this plan's experiments.
+
 The most critical false-positive sources (from the user's last test) are **exe detection** and
 **folder-name-as-title**. Both are addressed by the analysis path (§0.3) and Phases 1–4 below, in
 that priority order.
@@ -242,7 +249,7 @@ and a pass/fail expectation is written before any experiment runs.
 | Symptom | Scenario | Corpus evidence |
 |---------|----------|-----------------|
 | S1 container with 17 game subfolders → 0 entries | S-C | 9 container parents; children store-typed |
-| S2 `arc-install\neverwinter_en\…` not detected | S-C/S-D | ARC-INSTALL is a container; neverwinter is a child |
+| S2 `arc-install\neverwinter_en\…` not detected | S-C/S-D | ARC-INSTALL is a container; neverwinter is a child. **FIXED by exact-match terminating rule (2026-09-07, DONE):** `Neverwinter_en\Neverwinter.exe` stem ≡ folder → game folder, primary exe; nested `Neverwinter\Live\x64\GameClient.exe` (rel-4) + double-nested duplicate never promoted (excluded from working set). Match checked BEFORE deep processing. Siblings at the same level are separate entities (catalog signal) |
 | S3 ELEX-style game becomes "system" | S-E | **confirmed**: ELEX (`system/ELEX.exe`), elexII, Deadlight (`win32/LOTDGame.exe`), trapped (`bin/TrappedDead.exe`) — parent must win |
 | S4 Penumbra exe only in `redist` | S-F | **confirmed (corrected)**: penumbra has only `PENUMBRA.EXE`/`-Penumbra.exe` in `redist/` — E5 must test redist fallback |
 | S5 mmxl keeps acronym | S-H | mmxl has `Might and Magic X Legacy.exe` at root — PE title available, guard blocked it |
@@ -622,6 +629,15 @@ problem is real but bounded (78 exes have a redist/install-like ancestor of 720)
      parent-bound children (`win64/`, `bin/`, …); (c) parent-bound exe collection now reaches 2 levels
      (`win64/binaries/`). Result: `monsterhunter` → `win64/binaries/monsterhunter.exe` (parent wins).
      Regression fixture `CollectionDeepNest/` + baseline check added.
+   - **Depth analysis (CORRECTED 2026-09-07, user asked for evidence):** an earlier claim of "games
+     13 levels deep" was WRONG — those were noise/emulator/installer paths (Cemu, fceux, steambackup,
+     vcredist, `resize 66%.exe`, CrashReportClient). Real (non-noise) game exe depth relative to the
+     game folder: 43 at depth 1, 28 at d2, 10 at d3, 14 at d4, 4 at d5, 2 at d6, 1 at d8 (Cemu
+     emulator — not a game). 81/102 real exes at depth 1-4. A depth-6 container walk was added based
+     on the wrong claim and was REVERTED — it would surface ~20 tools for ~4 real deep games. The
+     genuine deep cases (UE `*-Shipping.exe`, Neverwinter `GameClient.exe` rel 5-6) are found via the
+     existing UE fast-path and container recursion; Neverwinter's correct entry is the rel-2
+     `Neverwinter.exe` (already handled), not the nested duplicate `GameClient.exe`.
    - **Proof-based collection model (user model, 2026-09-06):** "1 proof / 2 proof" — the first
      game-shaped finding under a folder tentatively marks it a collection; a second confirms it
      (`epiccollection` is a collection, not a game); subsequent children are handled with the
@@ -640,10 +656,34 @@ Each experiment states a hypothesis, measures before/after against the scenario 
 gained, false positives introduced), and is only accepted if it improves or holds both metrics.
 Ordered **safe-first**: folder/exe false-positive reduction before identity/cloud.
 
+**Status 2026-09-07:** E4 and E5 are **DONE in Python** (applied as production fixes with
+regression coverage). The **exact-match terminating rule** (E1, user model 2026-09-07) is **DONE in
+Python**: Tier 1.5 in `scan_directory` + probe stage 13; working-set pruning + catalog/sibling-entity
+signal verified via `ArcInstall/` fixture (S-D2). **P3c-2 (single-child rule + proof-counter) DROPPED
+2026-09-07** — corpus (full-d + full-e) shows production already handles every real single-child
+chain (Ashen, SquareEnix, Stardock, qfg5). Replaced by three corpus-grounded fixes, all DONE:
+**GAP A** whole-name match in terminating rule (`Diablo III`↔`Diablo III.exe`, `Dead Space 3`↔
+`deadspace3.exe`, 7 real cases) with backup-exclusion guard (`-Penumbra.exe` never matches);
+**GAP B** deep container check now reuses `_find_exe_in_subdirs` (UE-wrapped `Ashen/Binaries/Win64/`
+recognized — was missed); **GAP C** `PublisherWrapper/` fixture (real SquareEnix/Stardock/qfg5/COD
+shapes) added to matrix + baseline. Matrix **20/20 PASS**; baseline **12 scenarios, 0 missed / 0
+wrong-folder / 0 FP**. Remaining E1: none (P3c-2 dropped). E3's premise was corrected (see E3 below).
+
 - **E4 — Engine-subfolder parent decision (S3).** When a child has the only exe and that exe scores strongly against the **parent** folder name, promote the parent, not the child. Scoring-driven, name-agnostic; validate against engine-layout games in the corpus (no hardcoded `system`/`bin` names).
-- **E1 — Organizer-container generalization (S1/S2).** Hypothesis: any folder with no self-signals but ≥N game-signal children is an organizer; recurse into children — name-agnostic, no store-name lists. Measure which currently-skipped folder shapes the generic signal path would correctly recover, and what noise/filters are actually blocking them (measure before proposing any filter change).
-- **E2 — Store typing via child signals + global manifests (S1/S2).** Type children by their own signals (`.item`/`.mancpn` cross-ref to ProgramData for Epic, ACF for Steam, `.build.info` for BattleNet, etc.). No path/name-based store guessing.
-- **E3 — Nesting depth (S2).** One-level-below publisher/launcher trees: test recursion depth and signal propagation rules against corpus; verify the `install` substring pattern's actual impact before touching it.
+- **E1 — Organizer-container generalization (S1/S2).** Hypothesis: any folder with no self-signals but ≥N game-signal children is an organizer; recurse into children — name-agnostic, no store-name lists. Measure which currently-skipped folder shapes the generic signal path would correctly recover, and what noise/filters are actually blocking them (measure before proposing any filter change). **Amended 2026-09-07 (user model):**
+  - **Exact-match terminating rule (the Neverwinter fix, refined 2026-09-07):** if an exe at the folder root has a stem that matches the folder name, then **folder name = game folder, that exe = game exe, DO NOT process deeper.** This is a *terminating signal*, not just a +15 scoring bonus. Concretely: `Neverwinter_en\Neverwinter.exe` → `neverwinter` stem ≡ `neverwinter_en` token → folder is the game, `Neverwinter.exe` is the primary; `Neverwinter_en\Neverwinter\Live\x64\GameClient.exe` (rel-4) and the double-nested duplicate are **never promoted**. The match check MUST run **before** any deep-exe processing: when 3+ candidate exes exist at various subfolder depths, evaluate signals **and** the `foldername ≡ gamename` match first; if it hits, skip deeper candidates outright.
+  - **Working-set pruning (2026-09-07):** the terminating rule shrinks the working set the client sees — matched folder + matched exe are the ONLY candidates; deeper exes (nested `GameClient.exe`) are excluded before collection. Pipeline principle: large data → classify/categorize quickly → dedicated per-scenario processing → filter → understand hierarchy → iterate → process. Do NOT run full scoring on every entry.
+  - **Catalog / sibling-entity signal (2026-09-07):** a terminating match identifies not just the game folder + exe, but the *level* at which the match fired. Siblings at that level (`othergame_en` beside `neverwinter_en`) are separate entities — possibly games, but NOT this game. This is the container/catalog recognition (like the existing collection logic): parent = catalog, matched children = distinct game entries. **IMPLEMENTED in Python (Tier 1.5 / probe stage 13); fixture `ArcInstall/` + S-D2 matrix + baseline entries added.**
+  - **Whole-name match + backup guard (2026-09-07):** the match accepts TOKEN (`neverwinter`≡`neverwinter_en`) AND WHOLE-NAME normalized forms (`Diablo III`↔`Diablo III.exe`, `Dead Space 3`↔`deadspace3.exe` — 7 real corpus cases). Leading-dash/copy-of backups (`-Penumbra.exe`, `copy of X.exe`, numbered `10 org X.exe`) NEVER satisfy the terminating rule (E5 guard preserved).
+  - **Single-child folders are NOT collections.** A folder with exactly ONE child that contains a deep game exe is a *game with deep nesting*, not a collection. The current code treats single-child chains as containers and can promote a deep subfolder (e.g. Neverwinter `Live` instead of `Neverwinter_en`). E1 must test: a single-child chain collapses to the game folder.
+  - **Proof-counter / re-scan mechanism.** Implement the "1 proof / 2 proof" model: the first game-shaped finding under a folder tentatively marks it a collection (proof 1); a second confirms it (proof 2); once confirmed, previously-skipped children are re-scanned with the simplified "each child is a game-folder base" rule.
+  - **Path-divergence / aggregate signal.** Many sibling game folders diverging from one parent (`game1/game2/game3`) is a collection signal. Optimization candidate: avoid re-parsing a confirmed collection parent for each child.
+  - **Depth budget note:** a collection level consumes recursion depth, but the corrected depth analysis (2026-09-07) shows real game exes are at rel 1-4; collection recognition only needs the shallow game-shaped-child signal. No depth increase.
+- **E2 — Store typing via child signals + global manifests (S1/S2).** Type children by their own signals (`.item`/`.mancpn` cross-ref to ProgramData for Epic, `.build.info`/`.product.db` for BattleNet). No path/name-based store guessing. **Amended 2026-09-07: Steam ACF is OUT OF SCOPE** — Steam is a separate locked detection mechanism (`steamapps/common/` + ACF); Steam children never appear in the generic scanner (SteamLibraryScanner handles them). E2 covers only non-Steam store typing (Epic, BattleNet, and child-of-container manifest cross-ref).
+- **E3 — Nesting depth (S2).** One-level-below publisher/launcher trees: test recursion depth and signal propagation rules against corpus; verify the `install` substring pattern's actual impact before touching it. **Rewritten 2026-09-07 (depth analysis corrected):**
+  - **Premise overturned.** Real (non-noise) game exes sit at rel 1-4 (43/28/10/14 folders); deeper paths are noise/emulators/backups (Cemu, fceux, steambackup, vcredist, `resize 66%.exe`, CrashReportClient). The deepest real games are UE `*-Shipping.exe` (rel 5) and Neverwinter `GameClient.exe` (rel 5-6, a duplicate-install artifact — the real entry is rel-2 `Neverwinter.exe`).
+  - **Do NOT raise WALK_MAX_DEPTH or add deep-walk container logic.** A depth-6 container walk was tried and REVERTED (would surface ~20 tools for ~4 real deep games).
+  - **E3 scope now:** (a) validate depth-1-4 coverage is complete for the scenario catalog; (b) confirm the UE-shipping fast-path handles rel-5 `*-Shipping.exe` cases; (c) verify the `install` substring pattern's impact; (d) ensure Neverwinter resolves to `Neverwinter.exe` (rel 2), not the nested `GameClient.exe` duplicate.
 - **E5 — Fallback exe admission (S4).** Test admitting exes in redist-like subfolders when nothing else exists, with installer-noise filtering intact; measure false-positive risk on corpus.
 - **E6 — PE-title guard relaxation (S5/S9).** Test relaxing the folder-token-share guard for acronym/short-folder cases; measure wrong-title risk on corpus (pe_metadata_blacklist + generic-label checks stay). **Note: this is C# title-selection logic (`FolderScanner` `SharesNameToken` guard) — the Python scanner has no equivalent guard (Python title resolution is ExeStem/manifest only; see 2026-09-06 probe finding). Implementation requires PE metadata, i.e. the Windows selective-visit data (P2.2).**
 - **E6a — bare `"tool"` scoring penalty (S-G).** Distinct from E6. Python `_TOOL_NAMES` and C# `tier_10_dev_editor_tools` both lack bare `"tool"`; currently masked by the exact-folder-stem `+15` bonus (deterministic pick). Add `"tool"` to the penalty tier in both scanners once corpus evidence justifies it (no false-positive regression).
@@ -652,7 +692,15 @@ Ordered **safe-first**: folder/exe false-positive reduction before identity/clou
 
 ### Phase 4 — C# port (accepted experiments only)
 
-5. Port accepted E1–E8 into C#:
+Port order (2026-09-07): **proven Python production fixes first**, then remaining accepted
+experiments.
+
+5. Port the **already-accepted Python fixes** (highest value, corpus-verified):
+   - Parent-bound children rule (E4): platform/build/redist children belong to the parent game; container check skips them; parent promoted with their exes.
+   - Redist fallback admission (E5): admit a redist-only real exe as primary when no root exe exists (penumbra shape).
+   - Deterministic tie-break (`-score, base_name`) in all scorers.
+   - Collection rules: stray root files do not break collection detection; deep-nested collection games resolve to the parent (never the platform child); single-child folders are games, not collections.
+6. Then port remaining accepted E1/E2/E3/E6/E7/E8 experiments:
    - `FolderScanner.cs`, `ContainerScanner.cs`, `ExecutableDiscovery.cs` — structural container logic, depth/signal rules, fallback admission, PE-title guard.
    - `FileSystemHelper.cs` + `data/blacklist.json` — only pattern changes proven necessary by E1/E3/E5/E6 measurements.
    - Persist PE FileDescription in `PlatformMetadata` at scan (single source of truth for F3 + auto queue).
@@ -682,8 +730,10 @@ Ordered **safe-first**: folder/exe false-positive reduction before identity/clou
 | File | Change |
 |------|--------|
 | `tools/detect.py` | `--probe` mode; parity realignment; experiments E1–E8 (Python only until accepted) |
+| `tools/validate_probe_matrix.py` | Validation matrix (now **18 scenarios** incl. S-D2 exact-match terminating) |
 | `testdata/samples/d-games.txt` | Sample EXE list fixture (harness input; already copied by user — no manual reads) |
 | `testdata/samples/full-d.txt` | Full filtered file listing fixture (12,193 lines; harness input — aggregate-only, no paths in docs) |
+| `testdata/samples/full-p.txt` | SECOND corpus: `P:\Program Files (x86)` listing (18,106 lines, added 2026-09-07). **Separate scenario (§8.3)** — stored for future fixture-path plan, NOT consumed by this plan's experiments |
 | `tools/` or `scripts/` | Sample-list structure analyzer (path/exe patterns, nesting histogram, noise ratio from the list alone) |
 | `scripts/` or `tools/` | Corpus comparison harness (Python vs C# divergence report) |
 | `planning/103-detect-py-port-status.md` | Parity divergence table refresh (Phase 1 + final) |
@@ -720,17 +770,21 @@ Ordered **safe-first**: folder/exe false-positive reduction before identity/clou
 - [x] Phase 1: Corpus inventory produced from full-d.txt (nesting histogram, exe-in-subfolder, acronym stems, blacklist-noise ratio) — aggregate only, no paths published — **DONE 2026-09-06**
 - [x] Phase 1: Scenario catalog (S-A..S-J) with expected outcomes; each §1 symptom mapped to a scenario — **DONE 2026-09-06 (S4 CONFIRMED — penumbra redist-only; S-F count 1)**
 - [x] Phase 1: Probe contract recorded (§2.4) — full JSON schema, chain ordering, tier derivation, validation plan — **DONE 2026-09-06**
-- [ ] **Gate: decision model + taxonomy + scenario catalog reviewed; no detection behavior change before review**
+- [ ] **Gate: decision model + taxonomy + scenario catalog reviewed; no detection behavior change before review** — **Amended 2026-09-07: the gate now reviews the FINAL Python scanner as the reference** (the paper model PLUS the 7 applied production fixes: E4/E5, deterministic tie-break, store-coverage, collection×2, depth correction). No further behavior change until this is reviewed.
 - [x] Phase 2: `--probe <folder>` renders the §0.3 decision path (rule → evidence → kept/rejected with reason → next → tier) — **DONE 2026-09-06**, verified on Steam/Epic/standalone/container/penumbra/ELEX fixtures
 - [x] Phase 2: Probe validation per §2.4.7 (one fixture per scenario S-A..S-J asserting tier == expected) — **DONE 2026-09-06**: `tools/validate_probe_matrix.py` → **17/17 PASS** after E4/E5 + deterministic tie-break + **store-coverage fixtures added for all 9 corpus store types (GOG, EA, Ubisoft, Blizzard, SteamEmu, Xbox, Rockstar)** — regression guard so detection fixes cannot silently break store typing. (S-G latent scoring gap recorded as **E6a**: bare `"tool"` not penalized in Python `_TOOL_NAMES` **or** C# `tier_10_dev_editor_tools` — currently masked by the exact-stem bonus; separate from E6 PE-title guard.)
 - [x] Phase 2: Selective-visit list produced from the inventory (no "scan every exe", no scanner behavior change) — **DONE 2026-09-06**: `tools/selective_visits.py` → 14 symptom-driven visits, JSON at `testdata/samples/selective-visits.json`
 - [x] Phase 2: Baseline runs (Python vs C#) over the scenario corpus emit divergence per scenario and per symptom — **DONE 2026-09-06 (Python side, now 10/10 clean)**: `tools/baseline_compare.py`; E4/E5 production fixes applied in Python → 0 wrong-folder promotions (Elex→`system/ELEX.exe`, Penumbra→`redist/PENUMBRA.EXE`), 0 missed, 0 false positives. Report: `testdata/samples/baseline-report.json`. C# side deferred to Phase 4 (Python-first)
 - [x] Phase 3 (partial): E4/E5 implemented in Python production scanner (parent-bound children; base-name scoring; dash-backup penalty); validation matrix now 10/10 PASS — **DONE 2026-09-06**
+- [x] Phase 3 (partial): Collection fixes applied in Python — stray root files no longer break collection detection; deep-nested collection games resolve to the parent; regression fixtures `CollectionWithStray/` + `CollectionDeepNest/` + baseline checks — **DONE 2026-09-06/07**
+- [x] Phase 3 (partial): **Exact-match terminating rule (E1)** implemented in Python — Tier 1.5 in `scan_directory`, probe stage 13, working-set pruning (nested `GameClient.exe` excluded), catalog/sibling-entity signal; fixture `ArcInstall/`; matrix **18/18 PASS**; baseline **11 scenarios, 0 missed / 0 wrong-folder / 0 FP** — **DONE 2026-09-07**
+- [ ] Phase 3: Single-child-not-a-collection rule + proof-counter/re-scan mechanism (E1) — **PENDING (amended 2026-09-07)**
+- [ ] Phase 3: Depth-1-4 coverage validation + UE-shipping rel-5 fast-path confirmation; NO WALK_MAX_DEPTH increase (E3, rewritten 2026-09-07)
 - [ ] Phase 3: Each experiment recorded with before/after corpus metrics (recall, false positives) and acceptance decision
 - [ ] No hardcoded path/store-name detection rules introduced anywhere
 - [ ] No blacklist/filter change without corpus evidence
 - [ ] Every entry carries a tier (Locked/Secure/Candidate/Unknown) derived from its signals; no folder name becomes a confident title alone
-- [ ] Accepted experiments show: neverwinter-style single-child nesting, engine-subfolder games titled as the game (not the subfolder), redist-only exes resolved, acronym PE titles applied (mmxl/ja2), exe-driven PCGW identity (aamfp/ja2/dungeonoftheendless), F3 picks persist through rescan
+- [ ] Accepted experiments show: neverwinter-style single-child nesting (**resolved by the exact-match terminating rule: `Neverwinter_en\Neverwinter.exe` → game folder + primary, nested `GameClient.exe` never promoted**), engine-subfolder games titled as the game (not the subfolder), redist-only exes resolved, acronym PE titles applied (mmxl/ja2), exe-driven PCGW identity (aamfp/ja2/dungeonoftheendless), F3 picks persist through rescan
 - [ ] C# port matches Python outcomes on all corpus fixtures
 - [ ] Full C# suite green (539 + new, 0 regressions); `planning/103` parity notes updated
 
@@ -741,10 +795,149 @@ Ordered **safe-first**: folder/exe false-positive reduction before identity/clou
 Steam path detection is Locked and correct. ACF issues — mismatched/missing/moved ACFs, cross-library
 `appmanifest_*.acf` resolution, orphaned `common/` folders — are a simple, self-contained process and
 should get their own plan once detection tightening lands. Reference: `planning/94-game-detection-overhaul.md`
-(SteamLibraryScanner) and `docs/` Steam notes.
+(SteamLibraryScanner) and `docs/` Steam notes. **Update 2026-09-07:** the §8.3 Program Files plan
+adds `libraryfolders.vcf` parsing as the master Steam library index — cross-library ACF resolution
+and orphaned-`common/` reconciliation become a single-file pass, so §8.1 is subsumed by §8.3 rather
+than a separate effort.
 
 ### 8.2 Epic catalog deep-dive (if Missing-Manifest work grows)
 
 Plan 121 (`planning/121-epic-manifest-vfs-investigation.md`) already models Installed/Missing/Orphaned.
 If Phase 0.3 reveals more than a contained fix, promote it to a dedicated plan rather than expanding
 this one.
+
+### 8.3 Program Files (x86) known-fixture layout — SEPARATE SCENARIO (planned 2026-09-07)
+
+**Do NOT fold into this plan.** The messy standalone `d:\games` corpus (Plan 123) is a DIFFERENT
+scenario from the organized "Program Files (x86)" layout. Fix Plan 123 fully first, then tackle this
+as its own plan.
+
+**Corpus:** `testdata/samples/full-p.txt` (18,106-line listing of `P:\Program Files (x86)`, copied
+2026-09-07; aggregate analysis only — no raw paths in docs).
+
+**Key insight (user, 2026-09-07):** when the user points the scanner at a "Program Files" folder
+(rather than a dedicated games folder), the **store-client folders are KNOWN FIXTURES** — same idea
+as Steam's locked `steamapps/common/<GameFolder>` structural path. The store clients install games
+under fixed, well-known sub-paths, so the fixture path itself is a strong signal:
+
+| Fixture root (under scan root) | Games land at | Observed in full-p.txt |
+|--------------------------------|---------------|------------------------|
+| `GOG Galaxy\` | `GOG Galaxy\Games\<Game>\` (each has `goggame-<id>.info` = Secure marker) | 13 games: Arx Fatalis, Baldurs Gate 3, Cyberpunk 2077, Deus Ex Mankind Divided, Fallout 4 GOTY, God's Trigger, Gothic 1 Remake, Metro Exodus, Monkey Island 2 SE, System Shock Remake, The Witcher 3, beneath_a_steel_sky, gothic_2_gold_edition |
+| `Ubisoft\` | `Ubisoft\Ubisoft Game Launcher\games\<Game>\` | 2 games: Immortals Fenyx Rising, Tom Clancy's The Division 2 |
+| `Steam\` | **`Steam\steamapps\libraryfolders.vcf` → ALL Steam libraries on ALL disks** (see below); games at `<library>\steamapps\common\<Game>\` | already LOCKED (Steam scanner); note `Steamworks Shared` = known non-game (redist-only) |
+| `EA\` | `EA Games\<Game>\` / `Origin Games\<Game>\` (registry-driven) | folder empty in this snapshot |
+| Everything else | **not games** | Microsoft SDKs, Microsoft Visual Studio, Windows Kits, uTorrent = pure tooling/noise |
+
+**Steam library bootstrap — `libraryfolders.vcf` (user insight, 2026-09-07):**
+`P:\Program Files (x86)\Steam\steamapps\libraryfolders.vcf` is a VDF file that enumerates **every**
+Steam library folder on **every** disk (each `"path"` entry = a library root containing
+`steamapps\common\<Game>\` + `appmanifest_<appid>.acf`). From this **single file** the scanner can
+populate the complete Steam library set — all drives, all libraries — without scanning each disk
+root or guessing locations. This is the *master index* for Steam:
+- Read `libraryfolders.vcf` → one entry per library root (path + library id).
+- For each library root: enumerate `<library>\steamapps\common\*` (Locked games) + cross-ref
+  `appmanifest_*.acf` (appid → folder mapping, install state).
+- Note: `full-p.txt` is a filtered listing (dll/txt/exe/manifest/info/acf/lnk) so `.vcf` files are
+  absent from the corpus text, but the file exists on any real Steam install.
+- This also resolves the deferred §8.1 Steam ACF cross-library work: with `libraryfolders.vcf` as the
+  index, "orphaned `common/` folders" and "mismatched/moved ACFs" become a single-file reconciliation
+  pass instead of a guess.
+
+**Steam registry bootstrap — how we FIND the Steam install (user, 2026-09-07):**
+The only registry signal needed is the Steam **install path**:
+- `HKLM\SOFTWARE\Valve\Steam` → `InstallPath` = `P:\Program Files (x86)\Steam`
+  (verified in `/mnt/r/hklmvalve.reg`; the HKCU `valve.reg` `SteamPath`/`SteamExe` are equivalent
+  but the HKLM `InstallPath` is the canonical one — **ignore all `Apps\*` subkeys**, they are
+  irrelevant to path discovery).
+- Chain: `InstallPath` → `<InstallPath>\steamapps\libraryfolders.vdf` → all library roots.
+- This is a **known-fixture lookup** (like `EpicManifestPaths.DefaultManifestsDir`), NOT a
+  detection-scoring rule — it only locates the Steam client, then the existing locked
+  `SteamLibraryScanner` takes over.
+
+**`libraryfolders.vdf` structure — PATH LOCATOR ONLY (parsed from `/mnt/r/libraryfolders.vdf`, 2026-09-07):**
+```
+"libraryfolders"
+{
+    "0" { "path" "P:\\Program Files (x86)\\Steam"  "apps" { "10110" "..." ... } }   ← 7 apps
+    "1" { "path" "E:\\SteamLibrary"                 "apps" { "730" "..." ... } }    ← 65 apps
+    "2" { "path" "D:\\SteamLibrary"                 "apps" { "2320" "..." ... } }   ← 63 apps
+}
+```
+**Authority rules (user, 2026-09-07):**
+- `libraryfolders.vdf` answers ONE question: **WHERE are the Steam libraries?** It is a *path
+  locator* — it does NOT say what a library contains.
+- The catalogue structure is identical for every library regardless of which key:
+  `<library>\steamapps\appmanifest_*.acf` + `<library>\steamapps\common\<GameFolder>\`.
+- **ACF + folder scan is the ONLY authority on content.** `libraryfolders.vdf` never overrides,
+  augments, or contradicts ACF+folder findings. The `apps` blocks inside the vdf are
+  **informational only (appid → size-on-disk) and are ignored** — the ACF scan is authoritative.
+- Consequence: the bootstrap produces ONLY a list of library paths. Every library path is then
+  scanned with the existing `SteamLibraryScanner.Scan(root)` (ACF cross-ref + `common/`
+  enumeration), which already implements the correct authority model.
+
+**Virtual catalog goal (user, 2026-09-07):** the launcher shows ONE catalog per source type —
+**"Standalone"**, **"Epic"**, **"Steam"** — NOT one catalog per physical library root
+(`Steam-1`, `Steam-2`, …). Multiple Steam library paths all feed the single "Steam" catalog:
+- The game database already records which physical root each game belongs to (`LibraryRoot`); the
+  catalog grouping is by `GameSourceKind`, not by root path.
+- So "add all Steam libraries" adds N roots internally, but the UI presents them under ONE "Steam"
+  node. The root paths remain metadata (per-game), never a catalog axis.
+- Implication for `SteamLibraryScanner`: it already scans ALL configured paths and cross-refs ACFs
+  (`ScanAll`); the catalog is the natural single grouping. No per-root UI entries.
+
+**ACF cross-library remediation (user, 2026-09-07):** with all library paths + all ACF paths known
+(`<lib>\steamapps\appmanifest_*.acf`), cross-library mismatches become detectable and plan-able:
+- Example: game folder on `D:\SteamLibrary\steamapps\common\<Game>\` but its `appmanifest_<id>.acf`
+  lives on `E:\SteamLibrary\steamapps\` (Moved status today).
+- The bootstrap knows every ACF path, so we can report the mismatch and plan a **remediation
+  action** (e.g., move the ACF from E to D, or vice versa) rather than just displaying "Moved".
+- This is a plan-time/UX proposal: detect → propose remedy → user-confirmed action. It does NOT
+  change detection authority (ACF+folder still decides content); it adds a repair pathway on top.
+
+**First-launch / F4 offer-to-add UX (planned, mirrors Epic):**
+`LibrarySetupViewModel` already offers `AddEpicCatalogAsync` (parse ProgramData manifests, add as a
+root). Add the Steam equivalent — with TWO affordances:
+- **Offer "Add all Steam libraries" (fresh setup).** `CanAddSteamLibraries` — true when the
+  registry `InstallPath` resolves and `libraryfolders.vdf` yields ≥1 library path. `AddSteamLibrariesAsync`
+  parses the vdf → install path + all other library roots → adds EACH **not already configured**
+  as a `GameSourceKind.Steam` root, then scans each with `SteamLibraryScanner` (ACF+folder).
+  Mirrors `AddEpicCatalogAsync` (add entry → `ScanAndSaveAsync` → remove on failure → refresh
+  `CanAdd*`). On a fresh setup no root is configured, so all library paths are added.
+- **Offer "Rescan Steam libraries" (existing setup).** When ≥1 Steam root is ALREADY configured,
+  the same bootstrap detects paths in the vdf that are **not yet added** (user added a library in
+  Steam) and paths that are configured but **no longer in the vdf** (user removed a library) —
+  offer to add/remove accordingly. This is a *reconciliation*, not a re-authority: the vdf still
+  only tells us WHERE; ACF+folder scan decides what each (new) library contains.
+- Surfaced on first-run onboarding AND the F4 Library Setup dialog, next to the existing Epic offer.
+- Registry access via the existing `IRegistryReader` abstraction (mock-able, no hardcoded paths in
+  tests); Windows-only production path already gated by `OperatingSystem.IsWindows()`.
+- **Test plan:** mock `IRegistryReader` + a fixture `libraryfolders.vdf` mirroring the real 3-root
+  shape (install-as-`"0"` + 2 external libs). Assert: (a) fresh setup → all 3 roots added;
+  (b) a root already configured is NOT double-added; (c) a vdf path absent from config is offered
+  by "rescan"; (d) a configured root absent from the vdf is offered for removal; (e) `apps` blocks
+  are ignored (a library with `apps` but no `common/` yields no games).
+
+**Why fixtures are legitimate here (distinct from "hardcoded game paths"):** the fixture is a
+**store-client layout contract**, not a per-game rule. `GOG Galaxy\Games\<X>` means "X is a GOG game"
+for ANY X — exactly like Steam's `steamapps/common/<X>`. The child count/signals do not need to be
+re-scored from scratch; the store knows its own layout. `goggame-*.info` and Ubisoft manifests make
+them **Secure** under the existing tier model (§0.1).
+
+**Plan shape (new plan, after 123 completes):**
+1. Recognize store-client fixture roots under a user-pointed root (GOG Galaxy, Ubisoft, EA, Steam).
+2. **Steam bootstrap first (highest value):** read `HKLM\SOFTWARE\Valve\Steam\InstallPath` (registry)
+   → `<InstallPath>\steamapps\libraryfolders.vdf` → all library roots → enumerate
+   `steamapps\common\*` per library (Locked) + ACF cross-ref; reconciles §8.1.
+3. **Offer-to-add UX (F4 + first-run):** `CanAddSteamLibraries` / `AddSteamLibrariesAsync` in
+   `LibrarySetupViewModel`, mirroring the existing Epic manifests offer.
+4. Each remaining fixture's known games sub-path yields Locked/Secure game entries directly (GOG
+   `Games\`, Ubisoft `...\games\`).
+5. Non-fixture top-level folders (Microsoft SDKs, Visual Studio, Windows Kits, uTorrent) are
+   excluded as non-game tooling — the generic scanner must not attempt deep-dive scoring inside them.
+6. Registry-driven stores (EA/Origin/Ubisoft install dirs) cross-ref registry fixtures
+   (`testdata/mock/registry/`) for game locations outside the fixture path.
+7. Reuse the probe/validation matrix approach from this plan's Phase 2.
+
+**Fixture type vs. generic scanner:** the generic signal-scoring path stays for the messy standalone
+case (this plan); the fixture path is a structural fast-path that fires only when the user points at
+a known store-client root layout. Both feed the same tier model.
