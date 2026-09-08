@@ -171,15 +171,15 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
         Dictionary<string, string> platformMetadata = new(scanned.PlatformMetadata);
         if (existing.UserOverrides.ContainsKey(GameEntryFields.ExecutablePath))
         {
-            platformMetadata.Remove("ExeCandidates");
-            platformMetadata.Remove("ExeCandidateCount");
+            platformMetadata.Remove(PlatformMetadataKeys.ExeCandidates);
+            platformMetadata.Remove(PlatformMetadataKeys.ExeCandidateCount);
         }
 
         // E8: preserve a title-pin marker through a rescan merge.
-        if (existing.PlatformMetadata.TryGetValue("TitleSource", out string? titleSource)
-            && titleSource is "PcgwPick" or "UserOverride")
+        if (existing.PlatformMetadata.TryGetValue(PlatformMetadataKeys.TitleSource, out string? titleSource)
+            && titleSource is TitleSourceValues.PcgwPick or TitleSourceValues.UserOverride)
         {
-            platformMetadata["TitleSource"] = titleSource;
+            platformMetadata[PlatformMetadataKeys.TitleSource] = titleSource;
         }
 
         return scanned with

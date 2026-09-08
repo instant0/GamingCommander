@@ -16,7 +16,6 @@ namespace GamingCommander.App.ViewModels;
 /// </summary>
 public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.ReactiveObject
 {
-    private readonly ILibrariesService _librariesService;
     private readonly IGamesDatabaseService _dbService;
     private readonly ILibraryManager _libraryManager;
     private readonly Window _window;
@@ -100,7 +99,7 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
         foreach (Library lib in _libraryManager.Libraries)
         {
             IReadOnlyList<GameEntry> games = _dbService.GetGamesForLibrary(lib.Name);
-            Entries.Add(new LibraryEntry(lib.Name, lib.Type.ToString(), games.Count)
+            Entries.Add(new LibraryEntry(lib.Name, GameSourceParser.ToDisplayName(lib.Type), games.Count)
             {
                 IsScanned = true,
                 FolderCount = lib.Folders.Count,
@@ -117,7 +116,7 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
             if (!EpicItemCatalog.LooksLikeManifestsDir(dir))
                 return false;
             return !Entries.Any(e => e.DefaultType.Equals(
-                GameSourceKind.Epic.ToString(), StringComparison.OrdinalIgnoreCase));
+                GameSourceParser.ToDisplayName(GameSourceKind.Epic), StringComparison.OrdinalIgnoreCase));
         }
     }
 
@@ -155,7 +154,7 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
             if (!_steamLocator.IsSteamAvailable)
                 return false;
             return !Entries.Any(e =>
-                e.DefaultType.Equals(GameSourceKind.Steam.ToString(), StringComparison.OrdinalIgnoreCase));
+                e.DefaultType.Equals(GameSourceParser.ToDisplayName(GameSourceKind.Steam), StringComparison.OrdinalIgnoreCase));
         }
     }
 
@@ -288,7 +287,7 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
     private async Task<LibraryEntry?> AddLibraryAsync(
         string name, GameSourceKind type, IReadOnlyList<string> folders)
     {
-        var entry = new LibraryEntry(name, type.ToString(), 0) { IsScanning = true };
+        var entry = new LibraryEntry(name, GameSourceParser.ToDisplayName(type), 0) { IsScanning = true };
         Entries.Add(entry);
 
         // Register the anchor, then scan all its folders into it.

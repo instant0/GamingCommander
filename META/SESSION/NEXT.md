@@ -1,29 +1,14 @@
-# META/SESSION/NEXT.md — Next Action
-
-**Nature:** Scratch. **Overwritten** every session handoff.
-**Audience:** Builder. Read before implementing.
-**Updated:** 2026-09-08
-
----
-
 ## Status
 
-Plan **`planning/124-anchor-library-game-db.md`** — Anchor-based Library + Game Database (two-file split).
+**Plan `125-stabilization-refactor.md` — COMPLETE (2026-09-09).**
 
-- App implementation COMPLETE (`libraries.json` anchors + flat `games.json`; Steam single-anchor bootstrap; scan-context + re-anchoring).
-- Test alignment COMPLETE (all old path-anchored APIs removed from tests; rewritten to anchor API).
-- **Full solution build: 0 errors.** `dotnet test`: App 394 + Core 156 + Migration 1 = **562 pass / 0 fail**.
-- Plan 123 (detection) closed previously: Python matrix 22/22, baseline 13 clean.
+All phases + final stage delivered, every success criterion met:
+- Phase 0 identity contract, 1a composition root, 1b projection dedup, 1c MainWindow partials (base 1,022→113 L), Phase 2 (enrichers 526→352; ContainerScanner `SignalSummary`; 2a scoring partial 749→533; 2b `PlatformMetadataKeys`; 2c `CheapExeFinder`; 2d `GameSourceParser`), final stage ShellViewModel domain split (1,023→178 L + 9 partials), App warning cleanup (8→3, only pre-existing AVLN3001), and the user-approved constants round: `TitleSourceValues` (8), `SteamAcfFields` (10), `EpicItemSchema` (9) + 6 Core pin tests. Phase 3 `TestGameFactory` DROPPED (plan gate → audit found only 3 single constructions; P1b `CreateViewModel` fixture already shared).
+- Build: full solution **0 errors** (UI 0 warnings; App 3 × AVLN3001 designer notices — accepted). `dotnet test` **App 398 + Core 165 + Migration 1 = 564 pass / 0 fail**.
+- Deviations (recorded in plan): 2a partial-file naming (`ExecutableDiscovery.Scoring.cs`); ShellViewModel criterion resolved by domain cohesion per user direction; FolderScanner 352 vs "~300" (within <400).
 
-## Next task
+## Next: Plan 123 — Detection bugfixes (PLANNED in planning/README)
 
-1. **Review gate for Plan 124** — Reviewer: verify app code against `docs/DATA-FORMAT.md` schema (libraries.json + games.json), anchor linkage, single-`Steam`-anchor semantics, and the pruned/updated test suite. Log any tech debt in `META/BACKLOG/TECH_DEBT.md`.
-2. **Plan completion** — Planner: on review pass, move `planning/124-anchor-library-game-db.md` to `META/COMPLETED/`, update `META/ROADMAP.md`, and set the next backlog item.
+`planning/123-detection-bugfixes.md`: detection tightening — confidence tiers (Locked/Secure), Steam locked, Epic manifest Secure, Missing-Manifest fix, safe-first. Not started; read the plan before implementing.
 
-## Standing hard rules (unchanged)
-
-- No regex / line-based VDF parsing — Steam bootstrap is structural (libraryfolders.vdf = path locator only; ACF+folder scan = content authority).
-- No hardcoded path/store-name detection rules; no filter changes without corpus evidence.
-- `DisplayName` via `UpdateGameEntry` is the one deliberate metadata VFS-write exception (identity-guarded, `TitleSource`).
-- Windows paths are opaque strings in C# code; no Linux-specific filesystem logic.
-- Do not reintroduce `LibraryRoot`-style path anchors; games link by anchor name, physical path lives in `GameEntry.FolderPath`.
+Standing rules unchanged: one file at a time; new files before removal; behavior-preserving (constants values pinned by contract tests — never rename persisted strings); Windows paths opaque; full build + suite after each step.

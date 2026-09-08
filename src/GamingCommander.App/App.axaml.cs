@@ -72,16 +72,16 @@ public partial class App : Application
                 string baseDir = AppDomain.CurrentDomain.BaseDirectory;
 
                 Log("Creating GamesDatabaseService...");
-                var dbService = new GamesDatabaseService(GetGamesDbPath());
-                Log($"  GamesDbPath: {GetGamesDbPath()}");
+                var dbService = new GamesDatabaseService(AppDataPaths.GetGamesDbPath());
+                Log($"  GamesDbPath: {AppDataPaths.GetGamesDbPath()}");
 
                 Log("Creating JsonConfigService...");
-                var configService = new JsonConfigService(GetConfigPath());
-                Log($"  ConfigPath: {GetConfigPath()}");
+                var configService = new JsonConfigService(AppDataPaths.GetConfigPath());
+                Log($"  ConfigPath: {AppDataPaths.GetConfigPath()}");
 
                 Log("Creating LibrariesDatabaseService...");
-                var librariesService = new LibrariesDatabaseService(GetLibrariesPath());
-                Log($"  LibrariesPath: {GetLibrariesPath()}");
+                var librariesService = new LibrariesDatabaseService(AppDataPaths.GetLibrariesPath());
+                Log($"  LibrariesPath: {AppDataPaths.GetLibrariesPath()}");
 
                 Log("Loading config...");
                 AppConfig config = configService.Load();
@@ -122,7 +122,7 @@ public partial class App : Application
                 Log("Creating ShellViewModel...");
                 string tagColorsPath = Path.Combine(AppContext.BaseDirectory, "data", "tag_colors.json");
                 var tagColorService = new TagColorService(tagColorsPath);
-                var metadataStore = new MetadataStore(GetMetadataDbPath());
+                var metadataStore = new MetadataStore(AppDataPaths.GetMetadataDbPath());
                 var steamLookup = new SteamStoreLookup();
                 var pcgwLookup = new PcgwLookup();
                 var onlineGate = new MetadataOnlineGate(configService);
@@ -138,7 +138,8 @@ public partial class App : Application
                 Log("  ShellViewModel created");
 
                 Log("Creating MainWindow...");
-                var mainWindow = new MainWindow(shellVm, dbService, librariesService, metadataService, onlineGate);
+                var mainWindow = new MainWindow(
+                    shellVm, dbService, librariesService, libraryManager, configService, metadataService, onlineGate);
                 Log("  MainWindow created");
 
                 desktop.MainWindow = mainWindow;
@@ -207,42 +208,6 @@ public partial class App : Application
 
         Log("OnFrameworkInitializationCompleted() - END");
         base.OnFrameworkInitializationCompleted();
-    }
-
-    private static string GetConfigPath()
-    {
-        string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-        string dataDir = Path.Combine(baseDir, "data");
-        if (!Directory.Exists(dataDir))
-            Directory.CreateDirectory(dataDir);
-        return Path.Combine(dataDir, "settings.json");
-    }
-
-    private static string GetGamesDbPath()
-    {
-        string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-        string dataDir = Path.Combine(baseDir, "data");
-        if (!Directory.Exists(dataDir))
-            Directory.CreateDirectory(dataDir);
-        return Path.Combine(dataDir, "games.json");
-    }
-
-    private static string GetLibrariesPath()
-    {
-        string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-        string dataDir = Path.Combine(baseDir, "data");
-        if (!Directory.Exists(dataDir))
-            Directory.CreateDirectory(dataDir);
-        return Path.Combine(dataDir, "libraries.json");
-    }
-
-    private static string GetMetadataDbPath()
-    {
-        string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-        string dataDir = Path.Combine(baseDir, "data");
-        if (!Directory.Exists(dataDir))
-            Directory.CreateDirectory(dataDir);
-        return Path.Combine(dataDir, "games_metadata.json");
     }
 
     /// <summary>Returns -1 if leftVersion &lt; rightVersion, 0 if equal, 1 if leftVersion &gt; rightVersion.</summary>

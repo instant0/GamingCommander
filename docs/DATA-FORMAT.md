@@ -105,7 +105,7 @@ Top-level shape:
 ### Game-entry object (`games[]`)
 | Property | Type | Meaning |
 |----------|------|---------|
-| `Id` | string (16 hex) | Deterministic ID; `first 16 hex of MD5("{Library}\|{folderPath}")`, lowercase |
+| `Id` | string (16 hex) | Deterministic ID; `first 16 hex of MD5("{physicalLibraryRoot\|folderName}")`, lowercase. `physicalLibraryRoot` is the **physical library folder being scanned** (e.g. `d:\steamlibrary` — NOT the anchor name); `folderName` is the game folder name (Epic catalog scans key on the Manifests folder + catalog item id/folder). Anchor name plays no part — see §6 |
 | `Library` | string | **Anchor name** the game belongs to / is displayed under (e.g. `Steam`, `GOG`, `d:\games`) |
 | `FolderName` | string | Installation folder name |
 | `FolderPath` | string | Absolute **physical** path of the game folder. Equals the anchor's sole folder ONLY for 1:1 Standalone anchors; for virtual/multi-folder anchors it is the real game location, not the anchor |
@@ -248,3 +248,9 @@ The `merged` record corresponds to `GameMetadataRecord`:
   `TitleSource` pinned to `PcgwPick`/`UserOverride` is preserved.
 - **Steam aggregation:** one `Steam` anchor owns many physical folders; games are
   linked to the `Steam` anchor, not to any single folder.
+- **Identity is physical, not anchor-based:** `GameEntry.Id` derives from
+  `MD5("{physicalLibraryRoot|folderName}")` — the anchor (`Library`) name is
+  **metadata, not identity**. IDs never change when a game is re-anchored
+  (e.g. an Epic game relinked from `d:\games` to `EPIC`), which keeps
+  `games_metadata.json` sidecars attached. Two physically identical folder
+  names under two different library roots therefore have distinct IDs.

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using GamingCommander.Core.Models;
 
 namespace GamingCommander.App.Services;
 
@@ -20,16 +21,16 @@ internal static class SteamAcfWriter
         string unix = lastUpdated ?? DateTimeOffset.UtcNow.ToUnixTimeSeconds()
             .ToString(CultureInfo.InvariantCulture);
         var sb = new StringBuilder();
-        sb.AppendLine("\"AppState\"");
+        sb.AppendLine($"\"{SteamAcfFields.AppState}\"");
         sb.AppendLine("{");
-        Append(sb, "appid", appId.Trim());
-        Append(sb, "Universe", "1");
-        Append(sb, "name", name.Trim());
-        Append(sb, "StateFlags", "4");
-        Append(sb, "installdir", installdir.Trim());
-        Append(sb, "LastUpdated", unix);
-        Append(sb, "SizeOnDisk", string.IsNullOrWhiteSpace(sizeOnDisk) ? "0" : sizeOnDisk.Trim());
-        Append(sb, "buildid", string.IsNullOrWhiteSpace(buildId) ? "0" : buildId.Trim());
+        Append(sb, SteamAcfFields.AppId, appId.Trim());
+        Append(sb, SteamAcfFields.Universe, "1");
+        Append(sb, SteamAcfFields.Name, name.Trim());
+        Append(sb, SteamAcfFields.StateFlags, "4");
+        Append(sb, SteamAcfFields.InstallDir, installdir.Trim());
+        Append(sb, SteamAcfFields.LastUpdated, unix);
+        Append(sb, SteamAcfFields.SizeOnDisk, string.IsNullOrWhiteSpace(sizeOnDisk) ? "0" : sizeOnDisk.Trim());
+        Append(sb, SteamAcfFields.BuildId, string.IsNullOrWhiteSpace(buildId) ? "0" : buildId.Trim());
         sb.AppendLine("}");
         return sb.ToString();
     }

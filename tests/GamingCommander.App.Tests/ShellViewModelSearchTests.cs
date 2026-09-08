@@ -122,19 +122,76 @@ public sealed class ShellViewModelSearchTests
         Assert.Equal("Library Roots", vm.LeftPaneTitle);
     }
 
-    private static ShellViewModel CreateViewModel()
+    [Fact]
+    public void Projection_LibraryDetailAndFilteredRows_ShareCoreSurface()
+    {
+        // Plan 125 Phase 1b: both loaders call ToPaneItem, so the library-detail
+        // row and the cross-library filter row for the same game carry the same
+        // core surface (Title/SourceLabel/Tags/StoreBadge/PlatformStatus).
+        // LeftPath intentionally differs (exe filename vs library name).
+        const string lib = "SteamLib";
+        var libraries = new List<Library> { new(lib, GameSourceKind.Steam, [@"C:\SteamLib"]) };
+        var steamGame = new GameEntry(
+            Id: "s1",
+            Library: lib,
+            FolderPath: @"C:\SteamLib\common\HalfLife",
+            FolderName: "HalfLife",
+            DisplayName: "Half-Life",
+            GameSource: GameSourceKind.Steam,
+            IsSourceOverridden: false,
+            ExecutablePath: @"C:\SteamLib\common\HalfLife\hl.exe",
+            LauncherPath: string.Empty,
+            CommandLineArguments: string.Empty,
+            ManifestPath: string.Empty,
+            LastScanned: DateTimeOffset.UtcNow,
+            LastModified: DateTimeOffset.UtcNow,
+            PlatformMetadata: new Dictionary<string, string>
+            {
+                ["SteamAppId"] = "70",
+                ["SteamStatus"] = "Moved",
+            },
+            Tags: ["FPS"],
+            UserOverrides: new Dictionary<string, string>());
+        var games = new Dictionary<string, IReadOnlyList<GameEntry>> { [lib] = [steamGame] };
+
+        // Library-detail row: drill into the anchor.
+        ShellViewModel detailVm = CreateViewModel(libraries, games);
+        detailVm.NavigateInto();
+        Assert.False(detailVm.IsAtRootLevel);
+        var detailRow = detailVm.Items.Single(i => i.Kind == FileSystemEntryKind.File);
+
+        // Cross-library filter row: type-to-search (3-char threshold).
+        ShellViewModel filterVm = CreateViewModel(libraries, games);
+        TypeText(filterVm, "half");
+        var filteredRow = filterVm.Items.Skip(1).Single(i => i.Kind == FileSystemEntryKind.File);
+
+        Assert.Equal(detailRow.Title, filteredRow.Title);
+        Assert.Equal(detailRow.SourceLabel, filteredRow.SourceLabel);
+        Assert.Equal(detailRow.Tags, filteredRow.Tags);
+        Assert.Equal(detailRow.StoreBadge?.Name, filteredRow.StoreBadge?.Name);
+        Assert.Equal(detailRow.PlatformStatus, filteredRow.PlatformStatus);
+        Assert.Equal(detailRow.LibraryName, filteredRow.LibraryName);
+
+        // Detail-only extras pin the collapsed color switch (one computation).
+        Assert.Equal("#E8C547", detailRow.PlatformStatusColor);
+        Assert.Equal("#E8C547", detailRow.ItemStatusColor);
+    }
+
+    private static ShellViewModel CreateViewModel(
+        IReadOnlyList<Library>? libraries = null,
+        Dictionary<string, IReadOnlyList<GameEntry>>? gamesByLibrary = null)
     {
         var config = new AppConfig(
             HiddenFolders: [],
             IsFirstRun: false);
 
-        var libraries = new List<Library>
-        {
+        libraries ??=
+        [
             new(LibA, GameSourceKind.Standalone, [RootA]),
             new(LibB, GameSourceKind.Standalone, [RootB]),
-        };
+        ];
 
-        var gamesByLibrary = new Dictionary<string, IReadOnlyList<GameEntry>>
+        gamesByLibrary ??= new Dictionary<string, IReadOnlyList<GameEntry>>
         {
             [LibA] =
             [

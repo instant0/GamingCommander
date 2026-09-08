@@ -327,6 +327,28 @@ public sealed class SteamLibraryScannerTests : IDisposable
     }
 
     // ════════════════════════════════════════════════════════════════
+    //  P0 — Identity contract (physical-root-based IDs)
+    // ════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void Scan_SameFolderNameInTwoLibraryRoots_DistinctIds()
+    {
+        // Collision guard: IDs are MD5("{physicalLibraryRoot|folder}"). The same
+        // folder name in different physical roots must yield distinct IDs, so a
+        // single multi-folder Steam anchor can never collide.
+        string libA = CreateMockSteamLibrary("SharedName", appId: "100");
+        string libB = CreateMockSteamLibrary("SharedName", appId: "200");
+
+        var scanner = new SteamLibraryScanner([libA, libB]);
+        var fromA = scanner.Scan(libA);
+        var fromB = scanner.Scan(libB);
+
+        Assert.Single(fromA);
+        Assert.Single(fromB);
+        Assert.NotEqual(fromA[0].Id, fromB[0].Id);
+    }
+
+    // ════════════════════════════════════════════════════════════════
     //  Helpers
     // ════════════════════════════════════════════════════════════════
 

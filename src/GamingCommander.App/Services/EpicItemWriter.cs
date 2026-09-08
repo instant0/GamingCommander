@@ -1,4 +1,5 @@
 using System.Text.Json;
+using GamingCommander.Core.Models;
 
 namespace GamingCommander.App.Services;
 
@@ -85,16 +86,16 @@ internal static class EpicItemWriter
         {
             ["FormatVersion"] = 0,
             ["EoshRevision"] = "",
-            ["bIsIncompleteInstall"] = false,
+            [EpicItemSchema.BIsIncompleteInstall] = false,
             ["LaunchCommand"] = "",
-            ["LaunchExecutable"] = launch,
+            [EpicItemSchema.LaunchExecutable] = launch,
             ["ManifestLocation"] = install + "/.egstore",
             ["CompleteManifestPath"] = "",
             ["PendingManifestPath"] = "",
             ["ManifestHash"] = "",
             ["SDMetaHash"] = "",
             ["SDMetaLocation"] = "",
-            ["bIsApplication"] = true,
+            [EpicItemSchema.BIsApplication] = true,
             ["bIsExecutable"] = launch.Length > 0,
             ["bIsManaged"] = false,
             ["bNeedsValidation"] = false,
@@ -106,12 +107,12 @@ internal static class EpicItemWriter
             ["bLaunchElevated"] = false,
             ["BaseURLs"] = Array.Empty<string>(),
             ["BuildLabel"] = "Live",
-            ["AppCategories"] = new[] { "public", "games", "applications" },
+            [EpicItemSchema.AppCategories] = new[] { "public", "games", "applications" },
             ["ChunkDbs"] = Array.Empty<object>(),
             ["CompatibleApps"] = Array.Empty<string>(),
-            ["DisplayName"] = title,
+            [EpicItemSchema.DisplayName] = title,
             ["InstallationGuid"] = guid,
-            ["InstallLocation"] = install,
+            [EpicItemSchema.InstallLocation] = install,
             ["InstallSessionId"] = "00000000000000000000000000000000",
             ["InstallTags"] = Array.Empty<string>(),
             ["InstallComponents"] = Array.Empty<string>(),
@@ -133,9 +134,9 @@ internal static class EpicItemWriter
             ["SidecarConfigRevision"] = 0,
             ["SidecarDeploymentId"] = "",
             ["PreloadState"] = 0,
-            ["CatalogNamespace"] = ns,
-            ["CatalogItemId"] = itemId,
-            ["AppName"] = app,
+            [EpicItemSchema.CatalogNamespace] = ns,
+            [EpicItemSchema.CatalogItemId] = itemId,
+            [EpicItemSchema.AppName] = app,
             ["AllowedUriEnvVars"] = Array.Empty<string>(),
         };
 
@@ -222,9 +223,9 @@ internal static class EpicItemWriter
             {
                 using var doc = JsonDocument.Parse(File.ReadAllText(files[0]));
                 JsonElement r = doc.RootElement;
-                ns = r.TryGetProperty("CatalogNamespace", out var a) ? a.GetString() ?? "" : "";
-                itemId = r.TryGetProperty("CatalogItemId", out var b) ? b.GetString() ?? "" : "";
-                app = r.TryGetProperty("AppName", out var c) ? c.GetString() ?? "" : "";
+                ns = r.TryGetProperty(EpicItemSchema.CatalogNamespace, out var a) ? a.GetString() ?? "" : "";
+                itemId = r.TryGetProperty(EpicItemSchema.CatalogItemId, out var b) ? b.GetString() ?? "" : "";
+                app = r.TryGetProperty(EpicItemSchema.AppName, out var c) ? c.GetString() ?? "" : "";
                 guid = Path.GetFileNameWithoutExtension(files[0]);
                 if (ns.Length > 0 && itemId.Length > 0 && app.Length > 0)
                     return true;
@@ -341,34 +342,23 @@ internal static class EpicItemWriter
 
     private static string FindLaunchExe(string gameFolder)
     {
-        foreach (string rel in new[] { "Binaries/Win64", "Binaries/Win32", "Binaries", "" })
-        {
-            string dir = string.IsNullOrEmpty(rel) ? gameFolder : Path.Combine(gameFolder, rel.Replace('/', Path.DirectorySeparatorChar));
-            if (!Directory.Exists(dir))
-                continue;
-            string[] exes;
-            try
-            {
-                exes = Directory.GetFiles(dir, "*.exe");
-            }
-            catch
-            {
-                continue;
-            }
+        // Prefer Binaries/* over the game root; the root ("") is the last resort.
+        string exe = CheapExeFinder.FindFirst(
+            gameFolder,
+            ["Binaries/Win64", "Binaries/Win32", "Binaries", string.Empty],
+            IsEpicNoiseExe);
+        return exe.Length == 0 ? string.Empty : Path.GetRelativePath(gameFolder, exe).Replace('/', '\\');
+    }
 
-            foreach (string exe in exes)
-            {
-                if (ExecutableDiscovery.IsForbiddenLaunchExe(exe))
-                    continue;
-                string stem = Path.GetFileNameWithoutExtension(exe);
-                if (stem.Equals("UE3Redist", StringComparison.OrdinalIgnoreCase)
-                    || stem.Contains("crashpad", StringComparison.OrdinalIgnoreCase)
-                    || stem.Contains("crashreporter", StringComparison.OrdinalIgnoreCase))
-                    continue;
-                return Path.GetRelativePath(gameFolder, exe).Replace('/', '\\');
-            }
-        }
-
-        return "";
+    /// <summary>
+    /// Epic-specific extra exe-name skips beyond IsForbiddenLaunchExe: middleware
+    /// installers and crash-report helpers that must never become the launch exe.
+    /// </summary>
+    private static bool IsEpicNoiseExe(string exe)
+    {
+        string stem = Path.GetFileNameWithoutExtension(exe);
+        return stem.Equals("UE3Redist", StringComparison.OrdinalIgnoreCase)
+            || stem.Contains("crashpad", StringComparison.OrdinalIgnoreCase)
+            || stem.Contains("crashreporter", StringComparison.OrdinalIgnoreCase);
     }
 }

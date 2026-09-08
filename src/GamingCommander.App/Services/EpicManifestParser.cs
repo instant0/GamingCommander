@@ -1,4 +1,5 @@
 using System.Text.Json;
+using GamingCommander.Core.Models;
 
 namespace GamingCommander.App.Services;
 
@@ -58,20 +59,20 @@ internal static class EpicManifestParser
             JsonElement root = doc.RootElement;
 
             // Skip incomplete installs (games being downloaded/updated)
-            bool isIncomplete = root.TryGetProperty("bIsIncompleteInstall", out var incomplete)
+            bool isIncomplete = root.TryGetProperty(EpicItemSchema.BIsIncompleteInstall, out var incomplete)
                 && incomplete.GetBoolean();
             if (isIncomplete)
                 return null;
 
-            string displayName = root.TryGetProperty("DisplayName", out var dn) ? dn.GetString() ?? "" : "";
-            string installLocation = root.TryGetProperty("InstallLocation", out var il) ? il.GetString() ?? "" : "";
-            string launchExecutable = root.TryGetProperty("LaunchExecutable", out var le) ? le.GetString() ?? "" : "";
-            string catalogNamespace = root.TryGetProperty("CatalogNamespace", out var cn) ? cn.GetString() ?? "" : "";
-            string catalogItemId = root.TryGetProperty("CatalogItemId", out var ci) ? ci.GetString() ?? "" : "";
-            string appName = root.TryGetProperty("AppName", out var an) ? an.GetString() ?? "" : "";
-            bool isApplication = !root.TryGetProperty("bIsApplication", out var app) || app.ValueKind != JsonValueKind.False;
+            string displayName = root.TryGetProperty(EpicItemSchema.DisplayName, out var dn) ? dn.GetString() ?? "" : "";
+            string installLocation = root.TryGetProperty(EpicItemSchema.InstallLocation, out var il) ? il.GetString() ?? "" : "";
+            string launchExecutable = root.TryGetProperty(EpicItemSchema.LaunchExecutable, out var le) ? le.GetString() ?? "" : "";
+            string catalogNamespace = root.TryGetProperty(EpicItemSchema.CatalogNamespace, out var cn) ? cn.GetString() ?? "" : "";
+            string catalogItemId = root.TryGetProperty(EpicItemSchema.CatalogItemId, out var ci) ? ci.GetString() ?? "" : "";
+            string appName = root.TryGetProperty(EpicItemSchema.AppName, out var an) ? an.GetString() ?? "" : "";
+            bool isApplication = !root.TryGetProperty(EpicItemSchema.BIsApplication, out var app) || app.ValueKind != JsonValueKind.False;
             var categories = new List<string>();
-            if (root.TryGetProperty("AppCategories", out var cats) && cats.ValueKind == JsonValueKind.Array)
+            if (root.TryGetProperty(EpicItemSchema.AppCategories, out var cats) && cats.ValueKind == JsonValueKind.Array)
             {
                 foreach (JsonElement c in cats.EnumerateArray())
                 {
@@ -123,9 +124,9 @@ internal static class EpicManifestParser
 
             JsonElement root = doc.RootElement;
 
-            string catalogNamespace = root.TryGetProperty("CatalogNamespace", out var cn) ? cn.GetString() ?? "" : "";
-            string catalogItemId = root.TryGetProperty("CatalogItemId", out var ci) ? ci.GetString() ?? "" : "";
-            string appName = root.TryGetProperty("AppName", out var an) ? an.GetString() ?? "" : "";
+            string catalogNamespace = root.TryGetProperty(EpicItemSchema.CatalogNamespace, out var cn) ? cn.GetString() ?? "" : "";
+            string catalogItemId = root.TryGetProperty(EpicItemSchema.CatalogItemId, out var ci) ? ci.GetString() ?? "" : "";
+            string appName = root.TryGetProperty(EpicItemSchema.AppName, out var an) ? an.GetString() ?? "" : "";
 
             // .mancpn files don't have DisplayName or LaunchExecutable
             return new EpicIdentifiers(

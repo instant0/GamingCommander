@@ -54,6 +54,20 @@ public sealed class GameEntryIdTests
         Assert.NotEqual(id1, id2);
     }
 
+    [Fact]
+    public void Compute_ReAnchor_KeepsId_AnchorNameIsNotAHashInput()
+    {
+        // P0 contract (Plan 125): ComputeId has NO anchor-name parameter —
+        // ID = MD5("{physicalLibraryRoot|folder}"). Re-anchoring only changes
+        // GameEntry.Library, which cannot feed the hash, so the same physical
+        // root + folder always produce the same ID on every call.
+        string root = "D:\\SteamLibrary";
+        string id1 = GameEntryId.ComputeId(root, "Cyberpunk2077");
+        string id2 = GameEntryId.ComputeId(root, "Cyberpunk2077");
+
+        Assert.Equal(id1, id2);
+    }
+
     // ════════════════════════════════════════════════════════════════
     //  Format
     // ════════════════════════════════════════════════════════════════

@@ -73,21 +73,26 @@ public sealed class ShellPaneItemViewModel
     /// <summary>
     /// Color hex string for PlatformStatus (e.g. "#7FB7A5" for Installed).
     /// Empty when no status is present.
+    /// Set post-projection by the library-detail loader (Plan 125 Phase 1b);
+    /// filter rows intentionally leave it empty.
     /// </summary>
-    public string PlatformStatusColor { get; init; } = string.Empty;
+    public string PlatformStatusColor { get; set; } = string.Empty;
 
     /// <summary>
     /// Descriptive status detail (e.g. "Moved (ACF in D:\SteamLibrary)", "Missing — ACF exists but game files not found").
     /// Shown in the right-pane details panel for richer context.
+    /// Set post-projection by the library-detail loader (Plan 125 Phase 1b).
     /// </summary>
-    public string PlatformStatusDetail { get; init; } = string.Empty;
+    public string PlatformStatusDetail { get; set; } = string.Empty;
 
     /// <summary>
     /// Foreground color hex for the game title in the left-pane list.
     /// Set when game has a non-normal status (Moved, Orphaned, Missing).
     /// Empty for normal (Installed) or non-platform games — converter returns default text color.
+    /// Set post-projection by the library-detail loader (Plan 125 Phase 1b);
+    /// filter rows intentionally leave it empty.
     /// </summary>
-    public string ItemStatusColor { get; init; } = string.Empty;
+    public string ItemStatusColor { get; set; } = string.Empty;
 
     /// <summary>Number of games in this root (only set for root-level entries).</summary>
     public int GameCount { get; init; }
@@ -100,11 +105,11 @@ public sealed class ShellPaneItemViewModel
     public string ScanningBadge { get; init; } = string.Empty;
 
     /// <summary>Comma-separated user tags (e.g., "RPG, Open World"). Used by right pane details.</summary>
-    /// <summary>True when the folder has more than one non-noise exe.</summary>
-    public bool HasMultipleExes { get; init; }
+    /// <summary>True when the folder has more than one non-noise exe. Set post-projection by the library-detail loader (Plan 125 Phase 1b).</summary>
+    public bool HasMultipleExes { get; set; }
 
-    /// <summary>Other exe file names in the folder (not the selected one).</summary>
-    public string AlternateExes { get; init; } = string.Empty;
+    /// <summary>Other exe file names in the folder (not the selected one). Set post-projection by the library-detail loader (Plan 125 Phase 1b).</summary>
+    public string AlternateExes { get; set; } = string.Empty;
 
     public string Tags { get; init; } = string.Empty;
 

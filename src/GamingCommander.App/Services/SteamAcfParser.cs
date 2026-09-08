@@ -1,4 +1,5 @@
 using System.Globalization;
+using GamingCommander.Core.Models;
 using GamingCommander.Core.Services;
 
 namespace GamingCommander.App.Services;
@@ -10,7 +11,9 @@ namespace GamingCommander.App.Services;
 internal static class SteamAcfParser
 {
     private static readonly IReadOnlyList<string> RequiredAcfFields =
-        ["appid", "name", "installdir", "StateFlags", "LastUpdated", "SizeOnDisk", "buildid"];
+        [SteamAcfFields.AppId, SteamAcfFields.Name, SteamAcfFields.InstallDir,
+         SteamAcfFields.StateFlags, SteamAcfFields.LastUpdated, SteamAcfFields.SizeOnDisk,
+         SteamAcfFields.BuildId];
 
     /// <summary>
     /// Parses a Steam ACF (appmanifest) file and returns structured metadata.
@@ -26,19 +29,19 @@ internal static class SteamAcfParser
             var fields = VdfParser.ExtractFields(text, RequiredAcfFields.ToArray());
             if (fields == null) return null;
 
-            string installDir = fields.GetValueOrDefault("installdir", string.Empty);
+            string installDir = fields.GetValueOrDefault(SteamAcfFields.InstallDir, string.Empty);
             if (string.IsNullOrWhiteSpace(installDir)) return null;
 
             return new AcfInfo(
                 LibraryPath: libraryPath,
                 AcfFilePath: acfPath,
-                AppId: fields.GetValueOrDefault("appid", string.Empty),
-                Name: fields.GetValueOrDefault("name", string.Empty),
+                AppId: fields.GetValueOrDefault(SteamAcfFields.AppId, string.Empty),
+                Name: fields.GetValueOrDefault(SteamAcfFields.Name, string.Empty),
                 Installdir: installDir,
-                StateFlags: fields.GetValueOrDefault("StateFlags", string.Empty),
-                LastUpdated: fields.GetValueOrDefault("LastUpdated", string.Empty),
-                SizeOnDisk: fields.GetValueOrDefault("SizeOnDisk", string.Empty),
-                BuildId: fields.GetValueOrDefault("buildid", string.Empty));
+                StateFlags: fields.GetValueOrDefault(SteamAcfFields.StateFlags, string.Empty),
+                LastUpdated: fields.GetValueOrDefault(SteamAcfFields.LastUpdated, string.Empty),
+                SizeOnDisk: fields.GetValueOrDefault(SteamAcfFields.SizeOnDisk, string.Empty),
+                BuildId: fields.GetValueOrDefault(SteamAcfFields.BuildId, string.Empty));
         }
         catch
         {
@@ -75,7 +78,7 @@ internal static class SteamAcfParser
         foreach (var line in File.ReadLines(filename))
         {
             var parts = line.Split('"');
-            if (parts.Length >= 4 && parts[1] == "path")
+            if (parts.Length >= 4 && parts[1] == SteamAcfFields.Path)
                 yield return parts[3].Replace(@"\\", @"\");
         }
     }

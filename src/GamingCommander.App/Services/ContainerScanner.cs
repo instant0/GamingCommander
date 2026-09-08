@@ -60,34 +60,42 @@ internal static class ContainerScanner
 
         var children = FileSystemHelper.GetDirectoriesSafe(containerDir.FullName);
 
-        // Count children with game signals (for organization detection)
-        int gameSignalCount = 0;
+        // Classify each child ONCE per call; both the counting pass and the
+        // promotion pass consume the same summary (Plan 125 Phase 2 — previously
+        // DetectType/HasRootExecutableSignal/HasUnrealLayoutSignal and the
+        // non-game check were each re-evaluated in both passes).
+        var classified = new List<(DirectoryInfo Child, SignalSummary Summary)>(children.Length);
         foreach (DirectoryInfo child in children)
         {
-            if (IsNonGameFolder(child)) continue;
-            if (StoreSignalDetector.DetectType(child) != GameSourceKind.Unknown
-                || FallbackSignalDetector.HasRootExecutableSignal(child, noiseExePatterns)
-                || FallbackSignalDetector.HasUnrealLayoutSignal(child, noiseExePatterns))
+            classified.Add((child, Summarize(child, noiseExePatterns)));
+        }
+
+        // Count children with game signals (for organization detection)
+        int gameSignalCount = 0;
+        foreach ((_, SignalSummary summary) in classified)
+        {
+            if (summary.IsNonGame) continue;
+            if (summary.StoreType != GameSourceKind.Unknown
+                || summary.HasRootExe
+                || summary.HasUnreal)
             {
                 gameSignalCount++;
             }
         }
 
-        foreach (DirectoryInfo child in children)
+        foreach ((DirectoryInfo child, SignalSummary summary) in classified)
         {
             ct.ThrowIfCancellationRequested();
 
             if (hiddenFolderNames.Contains(child.Name))
                 continue;
-            if (IsNonGameFolder(child))
+            if (summary.IsNonGame)
                 continue;
 
-            GameSourceKind childType = StoreSignalDetector.DetectType(child);
-
             // Store signals — always promote
-            if (childType != GameSourceKind.Unknown)
+            if (summary.StoreType != GameSourceKind.Unknown)
             {
-                addGameEntry(entries, child, rootPath, childType);
+                addGameEntry(entries, child, rootPath, summary.StoreType);
                 continue;
             }
 
@@ -99,8 +107,7 @@ internal static class ContainerScanner
             // Organization (≥2 game children) or single game child — promote standalone
             if (gameSignalCount >= 1)
             {
-                if (FallbackSignalDetector.HasRootExecutableSignal(child, noiseExePatterns)
-                    || FallbackSignalDetector.HasUnrealLayoutSignal(child, noiseExePatterns))
+                if (summary.HasRootExe || summary.HasUnreal)
                 {
                     addGameEntry(entries, child, rootPath, GameSourceKind.Standalone);
                     continue;
@@ -126,6 +133,32 @@ internal static class ContainerScanner
     }
 
     /// <summary>
+    /// One-time classification of a container child, consumed by both the counting
+    /// and promotion passes of <see cref="ScanContainerChildren"/> (Plan 125 Phase 2).
+    /// </summary>
+    private readonly record struct SignalSummary(
+        GameSourceKind StoreType,
+        bool HasRootExe,
+        bool HasUnreal,
+        bool IsNonGame);
+
+    /// <summary>
+    /// Classifies a child folder once: store type, root-exe signal, unreal layout
+    /// signal, and the layer-1/2/3 non-game verdict. The non-game check receives
+    /// <paramref name="noiseExePatterns"/> and internally uses the already-computed
+    /// store type, so DetectType runs exactly once per child per call.
+    /// </summary>
+    private static SignalSummary Summarize(DirectoryInfo child, IReadOnlyList<string> noiseExePatterns)
+    {
+        GameSourceKind storeType = StoreSignalDetector.DetectType(child);
+        return new SignalSummary(
+            StoreType: storeType,
+            HasRootExe: FallbackSignalDetector.HasRootExecutableSignal(child, noiseExePatterns),
+            HasUnreal: FallbackSignalDetector.HasUnrealLayoutSignal(child, noiseExePatterns),
+            IsNonGame: IsNonGameFolder(child, storeType));
+    }
+
+    /// <summary>
     /// Checks if a folder is clearly not a game (non-game name, data-only, etc.).
     /// Mirrors detect.py _is_non_game_folder (three layers, 2026-09-07):
     ///   1. Exact name match (s_nonGameFolderNames / NoiseSubDirNames)
@@ -133,7 +166,9 @@ internal static class ContainerScanner
     ///   3. File-type analysis: no non-noise exe + no meaningful file → skip
     /// Layers 2-3 are false-positive suppressors (folder promoted as game title).
     /// </summary>
-    internal static bool IsNonGameFolder(DirectoryInfo dir)
+    /// <param name="dir">Folder to classify.</param>
+    /// <param name="storeType">Already-computed store type of <paramref name="dir"/> (avoids re-running DetectType for layer 3).</param>
+    internal static bool IsNonGameFolder(DirectoryInfo dir, GameSourceKind storeType)
     {
         // Layer 1: exact name match
         if (s_nonGameFolderNames.Contains(dir.Name)
@@ -194,7 +229,7 @@ internal static class ContainerScanner
                 // A store marker (goggame.dll, .egstore/, title.rgl, .build.info,
                 // uplay_install.manifest, etc.) makes this a game regardless of
                 // file types — never reject a store-typed folder (GogGame + goggame.dll).
-                if (StoreSignalDetector.DetectType(dir) == GameSourceKind.Unknown)
+                if (storeType == GameSourceKind.Unknown)
                     return true;
             }
         }

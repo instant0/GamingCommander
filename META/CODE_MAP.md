@@ -82,7 +82,7 @@ GamingCommander.sln
 | ViewModel | File | Purpose |
 |-----------|------|---------|
 | `ReactiveObject` | `ReactiveObject.cs` (25 L) | Base INotifyPropertyChanged with `SetProperty<T>` |
-| `ShellViewModel` | `ShellViewModel.cs` | Dual-pane shell: navigation, details, status bar, command bar |
+| `ShellViewModel` | `ShellViewModel.cs` (178 L) + 9 domain partials | Dual-pane shell: navigation, details, status bar, command bar. Partials (Plan 125 final stage): `ShellViewModel.Navigation.cs` (roots/drill/reload/retag), `.Filtering.cs` (F8 filter + option list), `.Search.cs` (Plan 122 type-to-search), `.Loading.cs` (library/filter loaders + shared `ToPaneItem` projection), `.Scanning.cs` (F5 scan badges), `.Details.cs` (right-pane surface + refresh batch), `.Details.Status.cs` (Orphaned/Missing/Moved detail text), `.Details.Metadata.cs` (sidecar extras + config/save/args/video), `.Tags.cs` (tag badges + store badge map) |
 | `ShellPaneItemViewModel` | `ShellPaneItemViewModel.cs` | Item model: Title, SourceLabel, PathSummary, Kind, IsBrowsable, GameId, PlatformId, PlatformStatus, PlatformStatusColor, PlatformStatusDetail, ItemStatusColor, HasGameSelected, Tags, TagBadges |
 | `ShellCommandViewModel` | `ShellCommandViewModel.cs` (8 L) | Hotkey + Label for command bar |
 | `TagBadgeViewModel` | `TagBadgeViewModel.cs` | Tag badge with configurable colors (Name, Background, Foreground) |
@@ -90,13 +90,15 @@ GamingCommander.sln
 
 ### ShellViewModel Key Methods
 
-- `JumpToLibraryRoots()` — populate item list from configured roots
-- `LoadGamesForRoot(string rootPath)` — populate item list from a root's game entries; maps SteamStatus to PlatformStatusColor, PlatformStatusDetail, and ItemStatusColor
+- `JumpToLibraryRoots()` — populate item list from configured roots (Navigation partial)
+- `LoadGamesForLibrary(string)` — populate item list from a root's game entries; maps SteamStatus to PlatformStatusColor, PlatformStatusDetail, and ItemStatusColor; filter rows share the `ToPaneItem` projection (Loading partial)
 - `NavigateInto()` — drill into selected item (root or "..") or launch game
 - `NavigateUp()` — go up one level (root list or no-op)
 - `RetagSelected(GameSourceKind)` — update game source type
 - `AppendSearchChar(char)` / `SearchBackspace()` / `CancelSearch()` — Plan 122 type-to-search buffer; threshold `ShellViewModel.SearchThreshold` (3); live query shown in `LeftPaneTitle`
+- `ApplyFilter(GameFilter)` / `ClearFilter()` / `CollectFilterOptions()` — F8 cross-library filter (Filtering partial)
 - `Reload()` — refresh current view
+- `SetScanning` / `ClearScanning` — F5 background-scan state + root badges (Scanning partial)
 - `HasGameSelected` — true when a game file (not directory) is selected
 
 ### ShellPaneItemViewModel.IsBrowsable
@@ -124,16 +126,24 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 | `PcgwLookup.LookupAsync` | `Metadata/PcgwLookup.cs` | Infobox + sections from one Parse payload |
 | `MetadataLookupQueue` | `Metadata/MetadataLookupQueue.cs` | F5 enqueues; one game at a time; sidecar only |
 | `PcgwPathTokens` | Core `PcgwPathTokens.cs` | `{{P|…}}` → Windows env tokens (display only) |
+| `PlatformMetadataKeys` | Core `Models/PlatformMetadataKeys.cs` | Plan 125 Ph 2b: `const string` keys for all persisted platform metadata (values = current on-disk literals, no renames) |
+| `TitleSourceValues` | Core `Models/TitleSourceValues.cs` | Plan 125 final stage: `const string` values for the persisted TitleSource key (GogInfo/EaInstallLog/EpicItemManifest/FolderExeMatch/PeFileDescription/UbisoftReadme/PcgwPick/UserOverride), pin-tested |
+| `SteamAcfFields` | Core `Models/SteamAcfFields.cs` | Plan 125 final stage: `const string` names of the Steam ACF / libraryfolders.vdf key=value format, shared by `SteamAcfParser` + `SteamAcfWriter`, pin-tested |
+| `EpicItemSchema` | Core `Models/EpicItemSchema.cs` | Plan 125 final stage: `const string` JSON member names of the Epic .item/.mancpn format, shared by `EpicManifestParser` + `EpicItemWriter` (writer/reader drift = compile error), pin-tested. Write-only .item members (FormatVersion, ChunkDbs, …) stay literals in `EpicItemWriter` — no reader, no drift surface |
 | `PcgwTitleFilter` | Core | Reject soundtrack/demo/artbook; `PickBest` + year |
 | `GameFilter` / `GameFilterMatcher` | Core | F8 tag / store / wildcard match |
 | `TitleText` | Core | Strip ®/™; camelCase split; letters+digits exe match |
 | `MetadataDetailsFormatter` | Core | Right-pane path/arg/video strings |
 | `CommonMetadataParser` | `Metadata/CommonMetadataParser.cs` | Source facts → `GameMetadataRecord` |
 | `EngineDetector` | `EngineDetector.cs` | Local engine probe (Unreal / Unity / RAGE / Frostbite) — Plan 102 Phase 2 |
-| `FolderScanner` | `FolderScanner.cs` | Generic folder scanner: detection chain, exe noise filtering, container detection, nested Steam exclusion (`IsNestedSteamTree`) |
+| `FolderScanner` | `FolderScanner.cs` | Generic folder scanner: detection chain, exe noise filtering, container detection, nested Steam exclusion (`IsNestedSteamTree`). Entry construction delegated to `StoreMetadataEnricher` / `TitleEnricher` (Plan 125 Ph 2) — `AddGameEntry` is a thin assembler |
+| `ContainerScanner` | `ContainerScanner.cs` | Container/publisher folder scan: bounded depth-2 recursion, org detection, `IsNonGameFolder` 3-layer suppression. Children classified once per call via `SignalSummary` (Plan 125 Ph 2) |
+| `StoreMetadataEnricher` | `StoreMetadataEnricher.cs` | Plan 125 Ph 2: GOG→EA→Epic→BattleNet enrichment blocks extracted from `FolderScanner.AddGameEntry`; operates on `GameEntryBuildContext`; read-only |
+| `TitleEnricher` | `TitleEnricher.cs` | Plan 125 Ph 2: FolderExeMatch → PE FileDescription (with guards) → Ubisoft readme title rules; read-only |
 | `StoreSignalDetector` | `StoreSignalDetector.cs` | DetectType + 10 store/platform signal checks (GOG, EA, Ubisoft, Epic, Blizzard, Xbox, Rockstar, Steam) |
-| `ExecutableDiscovery` | `ExecutableDiscovery.cs` | Deep exe search, primary exe selection, launcher detection, Epic manifest discovery |
-| `SteamLibraryScanner` | `SteamLibraryScanner.cs` | Dedicated Steam scanner: ACF cross-ref, library path discovery, Installed/Moved/Orphaned/Missing; skips Steam-internal `common/` folders (Bug 10) |
+| `ExecutableDiscovery` | `ExecutableDiscovery.cs` (+ `ExecutableDiscovery.Scoring.cs` partial) | Deep exe search, primary exe selection, launcher detection, Epic manifest discovery. Scoring half (`ScoreExecutable`, `RomanNumeralBonus`, `AbbreviationBonus`, `ExeScoreResult`) in the `.Scoring.cs` partial (Plan 125 Ph 2a) |
+| `SteamLibraryScanner` | `SteamLibraryScanner.cs` | Dedicated Steam scanner: ACF cross-ref, library path discovery, Installed/Moved/Orphaned/Missing; skips Steam-internal `common/` folders (Bug 10); cheap exe picking via `CheapExeFinder` |
+| `CheapExeFinder` | `CheapExeFinder.cs` | Plan 125 Ph 2c: root-exe-first + relative-folder cheap finder shared by Steam scanner and Epic `.item` writer (per-caller forbidden-exe skips) |
 | `EpicLibraryScanner` | `EpicLibraryScanner.cs` | ProgramData `*.item` → VFS (base games only) |
 | `EpicItemCatalog` / `EpicItemClassifier` / `EpicItemWriter` | same folder | Catalog, DLC skip, orphan `.item` write |
 | `SteamAcfParser` | `SteamAcfParser.cs` | Parses Steam ACF files and libraryfolders.vdf; AcfInfo record |
@@ -175,7 +185,7 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 
 | Window | AXAML (lines) | Code-behind (lines) | Purpose |
 |--------|--------------|---------------------|---------|
-| `MainWindow` | — | — | Dual-pane shell, keyboard handlers, command bar, details panel |
+| `MainWindow` | — | — | Dual-pane shell, keyboard handlers, command bar, details panel. Split into partials (Plan 125 Ph 1c): `MainWindow.Status.cs` (status bar + auto-clear), `MainWindow.Navigation.cs` (keys/type-to-search/double-click), `MainWindow.Launching.cs`, `MainWindow.LibrarySetup.cs` (F2/F4/F8 dialogs), `MainWindow.Scanning.cs` (F5 rescan + `_scanCts`), `MainWindow.Metadata.cs` (F3 lookup queue + `_metadataCts`), `MainWindow.PlatformRepair.cs` (Epic .item / Steam ACF writes, folder-open), `MainWindow.Commands.cs` (command bar). Base file = ctor + wiring only. |
 | `LibrarySetupWindow` | 31 L | 140 L | Library root setup (F2 + first-run onboarding) |
 | `GameSetupWindow` | 19 L | ~225 L | F4 game editing |
 

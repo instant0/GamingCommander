@@ -1,6 +1,7 @@
 using GamingCommander.App.Services;
 using GamingCommander.Core;
 using GamingCommander.Core.Models;
+using GamingCommander.Core.Services;
 using Xunit;
 
 namespace GamingCommander.App.Tests;
@@ -242,5 +243,46 @@ public sealed class GamesDatabaseServiceTests : IDisposable
         // Persisted via the same cache update.
         var svc2 = CreateService();
         Assert.Equal(GameSourceKind.Epic, svc2.Load().Games.Single(g => g.Id == "g1").GameSource);
+    }
+
+    [Fact]
+    public void RetagGame_PreservesEntryId()
+    {
+        // P0 contract: re-anchoring (RetagGame) changes GameSource only — the
+        // entry ID is identity and must never be regenerated.
+        var svc = CreateService();
+        string id = "g1";
+        svc.SetGamesForLibrary(@"d:\games", [MakeGame(id, @"d:\games")]);
+
+        svc.RetagGame(id, GameSourceKind.Epic);
+
+        var games = svc.GetGamesForLibrary(@"d:\games");
+        Assert.Single(games);
+        Assert.Equal(id, games[0].Id);
+        Assert.Equal(GameSourceKind.Epic, games[0].GameSource);
+    }
+
+    [Fact]
+    public void EpicCatalogRescan_MatchedByPhysicalFolder_KeepsFolderScanId()
+    {
+        // P0 contract: ID = MD5("{physicalLibraryRoot|folder}"). An Epic catalog
+        // rescan that matches the same physical folder emits the folder-scan ID
+        // (matched by install location), so the merge keeps the entry singular
+        // and sidecar/overrides stay attached — the anchor is metadata, not identity.
+        var svc = CreateService();
+        string physicalRoot = @"d:\games";
+        string folder = "MyGame";
+        string folderScanId = GameEntryId.ComputeId(physicalRoot, folder);
+
+        svc.SetGamesForLibrary(@"d:\games", [MakeGame(folderScanId, @"d:\games", folder)]);
+
+        var epicRescan = MakeGame(folderScanId, @"d:\games", folder, "Epic Title Name")
+            with { GameSource = GameSourceKind.Epic };
+        svc.SetGamesForLibrary(@"d:\games", [epicRescan]);
+
+        var entries = svc.GetGamesForLibrary(@"d:\games");
+        Assert.Single(entries);
+        Assert.Equal(folderScanId, entries[0].Id);
+        Assert.Equal(GameSourceKind.Epic, entries[0].GameSource);
     }
 }

@@ -277,7 +277,7 @@ public partial class GameSetupWindow : Window
 
     private Control MakeExeCandidateRow()
     {
-        if (!_originalGame.PlatformMetadata.TryGetValue("ExeCandidates", out string? list)
+        if (!_originalGame.PlatformMetadata.TryGetValue(PlatformMetadataKeys.ExeCandidates, out string? list)
             || string.IsNullOrWhiteSpace(list))
         {
             return new StackPanel();
@@ -481,8 +481,8 @@ public partial class GameSetupWindow : Window
         }
 
         // Check if executable path changed
-        bool hadCandidates = _originalGame.PlatformMetadata.ContainsKey("ExeCandidates")
-            || _originalGame.PlatformMetadata.ContainsKey("ExeCandidateCount");
+        bool hadCandidates = _originalGame.PlatformMetadata.ContainsKey(PlatformMetadataKeys.ExeCandidates)
+            || _originalGame.PlatformMetadata.ContainsKey(PlatformMetadataKeys.ExeCandidateCount);
         if (hadCandidates
             || _userPickedExe
             || !_originalGame.ExecutablePath.Equals(ExecutablePath, StringComparison.Ordinal))
@@ -533,8 +533,8 @@ public partial class GameSetupWindow : Window
 
         if (userOverrides.ContainsKey(GameEntryFields.ExecutablePath))
         {
-            platformMetadata.Remove("ExeCandidates");
-            platformMetadata.Remove("ExeCandidateCount");
+            platformMetadata.Remove(PlatformMetadataKeys.ExeCandidates);
+            platformMetadata.Remove(PlatformMetadataKeys.ExeCandidateCount);
         }
 
         var updated = _originalGame with

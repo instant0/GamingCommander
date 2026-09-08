@@ -72,14 +72,14 @@ public sealed class IdentityPipelineTests
             ManifestPath: string.Empty,
             LastScanned: DateTimeOffset.UtcNow,
             LastModified: DateTimeOffset.UtcNow,
-            PlatformMetadata: new Dictionary<string, string> { ["TitleSource"] = "PcgwPick" },
+            PlatformMetadata: new Dictionary<string, string> { [PlatformMetadataKeys.TitleSource] = TitleSourceValues.PcgwPick },
             Tags: [],
             UserOverrides: []);
 
         var scanned = existing with
         {
             DisplayName = "jag2",
-            PlatformMetadata = new Dictionary<string, string> { ["TitleSource"] = "FolderExeMatch" },
+            PlatformMetadata = new Dictionary<string, string> { [PlatformMetadataKeys.TitleSource] = TitleSourceValues.FolderExeMatch },
         };
 
         // GamesDatabaseService.MergeGameEntries is private; verify the public
@@ -93,7 +93,7 @@ public sealed class IdentityPipelineTests
 
             var merged = svc.GetGamesForLibrary("root").Single();
             Assert.Equal("Jagged Alliance 2", merged.DisplayName);   // picked title survives
-            Assert.Equal("PcgwPick", merged.PlatformMetadata["TitleSource"]);
+            Assert.Equal(TitleSourceValues.PcgwPick, merged.PlatformMetadata[PlatformMetadataKeys.TitleSource]);
         }
         finally
         {

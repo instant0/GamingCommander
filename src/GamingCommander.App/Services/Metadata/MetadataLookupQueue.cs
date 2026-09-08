@@ -188,7 +188,7 @@ public sealed class MetadataLookupQueue : IDisposable
     private static WorkItem ToWork(GameEntry game)
     {
         string? appId = null;
-        if (game.PlatformMetadata.TryGetValue("SteamAppId", out string? id) && !string.IsNullOrWhiteSpace(id))
+        if (game.PlatformMetadata.TryGetValue(PlatformMetadataKeys.SteamAppId, out string? id) && !string.IsNullOrWhiteSpace(id))
             appId = id.Trim();
 
         int? year = TitleText.IsGenericLabel(Path.GetFileNameWithoutExtension(game.ExecutablePath))

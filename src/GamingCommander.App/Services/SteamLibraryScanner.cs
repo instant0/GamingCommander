@@ -190,21 +190,21 @@ public sealed class SteamLibraryScanner
 
         var extra = new Dictionary<string, string>
         {
-            ["SteamStatus"] = status,
-            ["SteamAppId"] = acf.AppId,
-            ["AcfLibraryPath"] = acf.LibraryPath,
-            ["AcfSizeOnDisk"] = acf.SizeOnDisk,
-            ["AcfBuildId"] = acf.BuildId,
-            ["AcfStateFlags"] = acf.StateFlags,
-            ["FolderName"] = folderName,
+            [PlatformMetadataKeys.SteamStatus] = status,
+            [PlatformMetadataKeys.SteamAppId] = acf.AppId,
+            [PlatformMetadataKeys.AcfLibraryPath] = acf.LibraryPath,
+            [PlatformMetadataKeys.AcfSizeOnDisk] = acf.SizeOnDisk,
+            [PlatformMetadataKeys.AcfBuildId] = acf.BuildId,
+            [PlatformMetadataKeys.AcfStateFlags] = acf.StateFlags,
+            [PlatformMetadataKeys.FolderName] = folderName,
         };
 
         // For Moved games, store the expected path so the UI can show cross-library context
         if (status == "Moved")
         {
-            extra["AcfExpectedPath"] = Path.Combine(acf.LibraryPath, "steamapps", "common", folderName);
-            extra["ActualLibraryRoot"] = libraryRoot;
-            extra["AcfFilePath"] = acf.AcfFilePath;
+            extra[PlatformMetadataKeys.AcfExpectedPath] = Path.Combine(acf.LibraryPath, "steamapps", "common", folderName);
+            extra[PlatformMetadataKeys.ActualLibraryRoot] = libraryRoot;
+            extra[PlatformMetadataKeys.AcfFilePath] = acf.AcfFilePath;
         }
 
         // No EngineDetector here — it lists every child folder. PCGW fills engine after lookup.
@@ -251,10 +251,10 @@ public sealed class SteamLibraryScanner
             LastModified: FileSystemHelper.GetLastWriteTimeSafe(gameDir),
             PlatformMetadata: new Dictionary<string, string>
             {
-                ["SteamStatus"] = "Orphaned",
-                ["SteamAppId"] = string.Empty,
-                ["FolderName"] = folderName,
-                ["LibraryRoot"] = libraryRoot,
+                [PlatformMetadataKeys.SteamStatus] = "Orphaned",
+                [PlatformMetadataKeys.SteamAppId] = string.Empty,
+                [PlatformMetadataKeys.FolderName] = folderName,
+                [PlatformMetadataKeys.LibraryRoot] = libraryRoot,
             },
             Tags: [],
             UserOverrides: []);
@@ -286,15 +286,15 @@ public sealed class SteamLibraryScanner
             LastModified: DateTimeOffset.MinValue,
             PlatformMetadata: new Dictionary<string, string>
             {
-                ["SteamStatus"] = "Missing",
-                ["SteamAppId"] = acf.AppId,
-                ["AcfLibraryPath"] = acf.LibraryPath,
-                ["AcfFilePath"] = acf.AcfFilePath,
-                ["AcfSizeOnDisk"] = acf.SizeOnDisk,
-                ["AcfBuildId"] = acf.BuildId,
-                ["AcfStateFlags"] = acf.StateFlags,
-                ["FolderName"] = acf.Installdir,
-                ["AcfExpectedPath"] = Path.Combine(
+                [PlatformMetadataKeys.SteamStatus] = "Missing",
+                [PlatformMetadataKeys.SteamAppId] = acf.AppId,
+                [PlatformMetadataKeys.AcfLibraryPath] = acf.LibraryPath,
+                [PlatformMetadataKeys.AcfFilePath] = acf.AcfFilePath,
+                [PlatformMetadataKeys.AcfSizeOnDisk] = acf.SizeOnDisk,
+                [PlatformMetadataKeys.AcfBuildId] = acf.BuildId,
+                [PlatformMetadataKeys.AcfStateFlags] = acf.StateFlags,
+                [PlatformMetadataKeys.FolderName] = acf.Installdir,
+                [PlatformMetadataKeys.AcfExpectedPath] = Path.Combine(
                     acf.LibraryPath, "steamapps", "common", acf.Installdir),
             },
             Tags: [],
@@ -324,42 +324,22 @@ public sealed class SteamLibraryScanner
 
     private static string FindPrimaryExe(DirectoryInfo dir)
     {
-        string? root = FirstUsableExe(FileSystemHelper.GetFilesSafe(dir, "*.exe"));
-        if (root is not null)
-            return root;
-
-        foreach (string rel in s_cheapExeFolders)
-        {
-            string folder = Path.Combine(dir.FullName, rel.Replace('/', Path.DirectorySeparatorChar));
-            if (!Directory.Exists(folder))
-                continue;
-            string? nested = FirstUsableExe(FileSystemHelper.GetFilesSafe(new DirectoryInfo(folder), "*.exe"));
-            if (nested is not null)
-                return nested;
-        }
-
-        return string.Empty;
+        // Root *.exe first ("" entry), then the known cheap subfolders.
+        string[] folders = [string.Empty, .. s_cheapExeFolders];
+        return CheapExeFinder.FindFirst(dir.FullName, folders, IsSteamNoiseExe);
     }
 
-    private static string? FirstUsableExe(string[] exes)
+    /// <summary>
+    /// Steam-specific extra exe-name skips beyond IsForbiddenLaunchExe: installer /
+    /// redistributable exes that commonly sit next to the real game exe.
+    /// </summary>
+    private static bool IsSteamNoiseExe(string exe)
     {
-        foreach (string exe in exes)
-        {
-            if (ExecutableDiscovery.IsForbiddenLaunchExe(exe))
-                continue;
-            string name = Path.GetFileNameWithoutExtension(exe);
-            if (name.Equals("setup", StringComparison.OrdinalIgnoreCase)
-                || name.Equals("vcredist", StringComparison.OrdinalIgnoreCase)
-                || name.Equals("dxsetup", StringComparison.OrdinalIgnoreCase)
-                || name.Equals("oalinst", StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            return exe;
-        }
-
-        return null;
+        string name = Path.GetFileNameWithoutExtension(exe);
+        return name.Equals("setup", StringComparison.OrdinalIgnoreCase)
+            || name.Equals("vcredist", StringComparison.OrdinalIgnoreCase)
+            || name.Equals("dxsetup", StringComparison.OrdinalIgnoreCase)
+            || name.Equals("oalinst", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

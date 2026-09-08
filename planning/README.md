@@ -18,6 +18,7 @@ This folder contains implementation plans following the FILE NAMING CONTRACT (`n
 
 | Document | Description | Status |
 | :--- | :--- | :--- |
+| **`125-stabilization-refactor.md`** | Code architecture refactor: split oversized files, dedup composition/projection, settle GameEntryId contract | **COMPLETE** (2026-09-09) — all phases + final stage; 564 tests green; Phase 3 dropped (N/A) |
 | **`123-detection-bugfixes.md`** | Detection tightening: confidence tiers (Locked/Secure), Steam locked, Epic manifest Secure, Missing-Manifest fix, safe-first | **PLANNED** (2026-09-06) |
 | `122-type-to-search.md` | Silent type-to-search: 3+ chars filters all roots by name + tags (frees S/T keys) | **COMPLETE** (2026-08-23) |
 | **`04-phase-2-syncmove.md`** | SyncMove — repair store registration after user moves files | PLANNED (Phase 2.1) |

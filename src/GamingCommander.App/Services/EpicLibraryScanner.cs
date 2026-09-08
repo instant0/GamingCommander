@@ -22,17 +22,21 @@ internal sealed class EpicLibraryScanner
 
         foreach (EpicManifestParser.EpicItemData item in catalog.Playable)
         {
-            string folderName = FolderName(item.InstallLocation);
-            GameEntry? match = FindKnown(known, item.InstallLocation);
-            bool folderOk = !string.IsNullOrWhiteSpace(item.InstallLocation)
-                && Directory.Exists(item.InstallLocation);
+            // EpicItemData.InstallLocation is a non-nullable string; the Parser
+            // substitutes "" for a missing JSON member, so this never flows null.
+            // Capture the invariant once so every usage below is null-flow clean.
+            string installLocation = item.InstallLocation ?? string.Empty;
+            string folderName = FolderName(installLocation);
+            GameEntry? match = FindKnown(known, installLocation);
+            bool folderOk = !string.IsNullOrWhiteSpace(installLocation)
+                && Directory.Exists(installLocation);
             string exe = "";
             string launcher = "";
             IReadOnlyList<string> candidates = [];
             if (folderOk)
             {
                 (exe, launcher, candidates) = EpicLaunchResolver.Resolve(
-                    item.InstallLocation, item.LaunchExecutable, folderName);
+                    installLocation, item.LaunchExecutable, folderName);
             }
             if (string.IsNullOrEmpty(exe) && match is { } m1
                 && !EpicLaunchResolver.IsStoreLauncher(m1.ExecutablePath))
@@ -44,10 +48,10 @@ internal sealed class EpicLibraryScanner
                 : GameEntryId.ComputeId(catalog.ManifestsDir,
                     string.IsNullOrEmpty(item.CatalogItemId) ? folderName : item.CatalogItemId);
 
-            if (!string.IsNullOrWhiteSpace(item.InstallLocation))
+            if (!string.IsNullOrWhiteSpace(installLocation))
             {
-                claimedFolders.Add(EpicInstallPath.Normalize(item.InstallLocation));
-                claimedFolders.Add(EpicInstallPath.FolderName(item.InstallLocation));
+                claimedFolders.Add(EpicInstallPath.Normalize(installLocation));
+                claimedFolders.Add(EpicInstallPath.FolderName(installLocation));
             }
             if (match is { } m3)
             {
@@ -57,18 +61,18 @@ internal sealed class EpicLibraryScanner
 
             var extra = new Dictionary<string, string>
             {
-                ["EpicStatus"] = folderOk ? "Installed" : "Missing",
-                ["EpicItemPath"] = item.ItemFilePath,
-                ["EpicCatalogItemId"] = item.CatalogItemId,
-                ["EpicCatalogNamespace"] = item.CatalogNamespace,
-                ["EpicAppName"] = item.AppName,
-                ["LibraryRoot"] = catalog.ManifestsDir,
-                ["GameFolder"] = item.InstallLocation,
+                [PlatformMetadataKeys.EpicStatus] = folderOk ? "Installed" : "Missing",
+                [PlatformMetadataKeys.EpicItemPath] = item.ItemFilePath,
+                [PlatformMetadataKeys.EpicCatalogItemId] = item.CatalogItemId,
+                [PlatformMetadataKeys.EpicCatalogNamespace] = item.CatalogNamespace,
+                [PlatformMetadataKeys.EpicAppName] = item.AppName,
+                [PlatformMetadataKeys.LibraryRoot] = catalog.ManifestsDir,
+                [PlatformMetadataKeys.GameFolder] = installLocation,
             };
             if (candidates.Count > 1)
             {
-                extra["ExeCandidateCount"] = candidates.Count.ToString();
-                extra["ExeCandidates"] = string.Join('|',
+                extra[PlatformMetadataKeys.ExeCandidateCount] = candidates.Count.ToString();
+                extra[PlatformMetadataKeys.ExeCandidates] = string.Join('|',
                     candidates.Select(Path.GetFileName).Where(n => !string.IsNullOrEmpty(n))!);
             }
 
@@ -107,9 +111,9 @@ internal sealed class EpicLibraryScanner
 
             var extra = new Dictionary<string, string>(game.PlatformMetadata)
             {
-                ["EpicStatus"] = "Orphaned",
-                ["GameFolder"] = folder,
-                ["LibraryRoot"] = Path.GetDirectoryName(folder) ?? "",
+                [PlatformMetadataKeys.EpicStatus] = "Orphaned",
+                [PlatformMetadataKeys.GameFolder] = folder,
+                [PlatformMetadataKeys.LibraryRoot] = Path.GetDirectoryName(folder) ?? "",
             };
 
             list.Add(game with

@@ -293,13 +293,13 @@ public sealed class FolderScanner
         }
 
         string? launcherPath = ExecutableDiscovery.FindLauncherExecutable(subDir, exePath, _launcherPatterns);
-        string displayName = TitleText.FromFolderName(subDir.Name);
         string id = GameEntryId.ComputeId(rootPath, subDir.Name);
-        var platformMetadata = new Dictionary<string, string>();
+
+        var ctx = new GameEntryBuildContext(TitleText.FromFolderName(subDir.Name)) { ExePath = exePath };
         if (primaryExe.Candidates.Count > 1)
         {
-            platformMetadata["ExeCandidateCount"] = primaryExe.Candidates.Count.ToString();
-            platformMetadata["ExeCandidates"] = string.Join('|',
+            ctx.PlatformMetadata[PlatformMetadataKeys.ExeCandidateCount] = primaryExe.Candidates.Count.ToString();
+            ctx.PlatformMetadata[PlatformMetadataKeys.ExeCandidates] = string.Join('|',
                 primaryExe.Candidates
                     .Select(Path.GetFileName)
                     .Where(n => !string.IsNullOrEmpty(n))
@@ -310,192 +310,17 @@ public sealed class FolderScanner
         // the primary exe's PE title is query candidate #1 for PCGW lookups.
         if (!string.IsNullOrWhiteSpace(primaryExe.FileDescription))
         {
-            platformMetadata["PeFileDescription"] = primaryExe.FileDescription;
-        }
-        string commandLineArgs = string.Empty;
-
-        // Track whether display name was enriched by a store parser (used for PE FileDescription guard)
-        bool storeEnrichedDisplayName = false;
-
-        // GOG enrichment: parse goggame-*.info for title, exe, args, and game ID
-        if (resolvedType == GameSourceKind.Gog
-            && GogInfoParser.TryParse(subDir, _noiseDirectoryPatterns, out var gogInfo)
-            && gogInfo is not null)
-        {
-            // Title: GOG .info is the official source
-            if (!string.IsNullOrEmpty(gogInfo.Title))
-            {
-                platformMetadata["AutoDetectedTitle"] = displayName;
-                displayName = gogInfo.Title;
-                platformMetadata["TitleSource"] = "GogInfo";
-                storeEnrichedDisplayName = true;
-            }
-
-            // Exe: GOG .info is a fallback when ExecutableDiscovery finds nothing
-            if (string.IsNullOrEmpty(exePath) && !string.IsNullOrEmpty(gogInfo.ExePath))
-            {
-                exePath = gogInfo.ExePath;
-            }
-
-            // Launch args
-            if (!string.IsNullOrEmpty(gogInfo.LaunchArgs))
-            {
-                commandLineArgs = gogInfo.LaunchArgs;
-            }
-
-            // Platform metadata
-            platformMetadata["GogGameId"] = gogInfo.GameId;
+            ctx.PlatformMetadata[PlatformMetadataKeys.PeFileDescription] = primaryExe.FileDescription;
         }
 
-        // EA enrichment: parse __Installer/InstallLog.txt for game name, display name, studio.
-        // The Install Location field may reference an old/wrong path, but game name and studio are reliable.
-        if (resolvedType == GameSourceKind.EaApp
-            && EaInstallLogParser.TryParse(subDir, out var eaInfo)
-            && eaInfo is not null)
-        {
-            // Display name: EA display name is authoritative (e.g., "Dragon Age™: Inquisition")
-            if (!string.IsNullOrEmpty(eaInfo.DisplayName))
-            {
-                platformMetadata["AutoDetectedTitle"] = displayName;
-                displayName = eaInfo.DisplayName;
-                platformMetadata["TitleSource"] = "EaInstallLog";
-                storeEnrichedDisplayName = true;
-            }
+        // Store enrichment (GOG/EA/Epic/BattleNet) runs BEFORE title enrichment —
+        // a store-provided title is authoritative over folder/PE-derived titles.
+        StoreMetadataEnricher.Enrich(resolvedType, subDir, _noiseDirectoryPatterns, ctx);
 
-            // Studio metadata
-            if (!string.IsNullOrEmpty(eaInfo.Studio))
-            {
-                platformMetadata["Studio"] = eaInfo.Studio;
-            }
-
-            // Game name (non-trademarked)
-            if (!string.IsNullOrEmpty(eaInfo.GameName))
-            {
-                platformMetadata["EaGameName"] = eaInfo.GameName;
-            }
-        }
-
-        // Epic enrichment: extract metadata from .mancpn/.item files, cross-reference global manifests
-        if (resolvedType == GameSourceKind.Epic)
-        {
-            // Strategy 1: Local identifier extraction from .egstore/ or .egsstore/
-            var localIds = EpicManifestParser.ExtractLocalIdentifiers(subDir);
-
-            // Strategy 2: Global .item cross-reference from ProgramData
-            var globalItem = EpicManifestParser.CrossReferenceGlobalManifests(subDir);
-            if (globalItem is not null && !string.IsNullOrEmpty(globalItem.DisplayName))
-            {
-                platformMetadata["AutoDetectedTitle"] = displayName;
-                displayName = globalItem.DisplayName;
-                platformMetadata["TitleSource"] = "EpicItemManifest";
-                storeEnrichedDisplayName = true;
-
-                // Override local namespace with correct public namespace from global .item
-                localIds = new EpicManifestParser.EpicIdentifiers(
-                    CatalogNamespace: globalItem.CatalogNamespace,
-                    CatalogItemId: globalItem.CatalogItemId,
-                    AppName: globalItem.AppName,
-                    DisplayName: globalItem.DisplayName,
-                    LaunchExecutable: globalItem.LaunchExecutable);
-            }
-
-            // Store GUID identifiers in platform metadata
-            if (localIds is not null)
-            {
-                if (!string.IsNullOrEmpty(localIds.CatalogItemId))
-                    platformMetadata["EpicCatalogItemId"] = localIds.CatalogItemId;
-                if (!string.IsNullOrEmpty(localIds.CatalogNamespace))
-                    platformMetadata["EpicCatalogNamespace"] = localIds.CatalogNamespace;
-                if (!string.IsNullOrEmpty(localIds.AppName))
-                    platformMetadata["EpicAppName"] = localIds.AppName;
-            }
-
-            platformMetadata["EpicStatus"] = globalItem is null ? "Orphaned" : "Installed";
-
-            // Resolve LaunchExecutable from .item if available (and no exe found yet)
-            if (globalItem is not null
-                && !string.IsNullOrEmpty(globalItem.LaunchExecutable)
-                && !string.IsNullOrEmpty(globalItem.InstallLocation)
-                && string.IsNullOrEmpty(exePath))
-            {
-                string resolvedExe = EpicManifestParser.ResolveLaunchExecutable(
-                    globalItem.InstallLocation, globalItem.LaunchExecutable);
-                if (!string.IsNullOrEmpty(resolvedExe))
-                {
-                    exePath = resolvedExe;
-                }
-            }
-        }
-
-        // BattleNet enrichment: extract product codename from .build.info
-        if (resolvedType == GameSourceKind.BattleNet)
-        {
-            string? product = StoreSignalDetector.ExtractBlizzardProduct(subDir);
-            if (!string.IsNullOrEmpty(product))
-            {
-                platformMetadata["BlizzardProduct"] = product;
-            }
-        }
-
-        if (!storeEnrichedDisplayName
-            && primaryExe.ExePath is not null
-            && TitleText.MatchesFolderAndExe(subDir.Name, Path.GetFileNameWithoutExtension(primaryExe.ExePath)))
-        {
-            platformMetadata["TitleSource"] = "FolderExeMatch";
-            storeEnrichedDisplayName = true;
-        }
-
-        // PE FileDescription enrichment for non-store-enriched games (Plan 112 Step 2).
-        // Uses FileDescription from the primary exe's PE metadata as the display name
-        // when no store parser has provided one and the PE data passes guard conditions.
-        if (!storeEnrichedDisplayName && !string.IsNullOrWhiteSpace(primaryExe.FileDescription))
-        {
-            string peDesc = primaryExe.FileDescription;
-
-            // Guard: reject short strings (likely noise like single/double chars)
-            bool lengthOk = peDesc.Length > 2;
-
-            // Guard: reject generic placeholders from pe_metadata_blacklist
-            bool notPlaceholder = true;
-            if (_peMetadataBlacklist.Count > 0)
-            {
-                string peDescLower = peDesc.ToLowerInvariant();
-                notPlaceholder = !_peMetadataBlacklist.Any(p => peDescLower.Contains(p));
-            }
-
-            // Guard: token share with the folder — replaced by the acronym
-            // relaxation for SHORT folders (E6, 2026-09-07). An acronym folder
-            // (jag2, mmxl) has no substring share with the full PE title by
-            // definition; AcronymMatchesTitle validates via initial letters.
-            // elexII ↔ "System" still fails both and stays blocked.
-            bool nameMatches = TitleText.SharesNameToken(peDesc, subDir.Name)
-                || TitleText.AcronymMatchesTitle(peDesc, subDir.Name);
-
-            if (lengthOk && notPlaceholder
-                && PeProductYear.IsUsefulTitle(peDesc)
-                && !TitleText.IsGenericLabel(peDesc)
-                && nameMatches)
-            {
-                platformMetadata["AutoDetectedTitle"] = displayName;
-                displayName = peDesc;
-                platformMetadata["TitleSource"] = "PeFileDescription";
-                storeEnrichedDisplayName = true;
-            }
-        }
-
-        // Ubisoft Support/Readme enrichment (Plan 112 Step 3B).
-        // Ubisoft games ship Support/Readme/ with publisher and game title on lines 1-2.
-        // Applied only for Ubisoft Connect games and only when no store/PE enrichment was used.
-        if (!storeEnrichedDisplayName && resolvedType == GameSourceKind.UbisoftConnect)
-        {
-            var ubiInfo = UbisoftReadmeParser.TryParse(subDir);
-            if (ubiInfo?.GameTitle is not null)
-            {
-                platformMetadata["AutoDetectedTitle"] = displayName;
-                displayName = ubiInfo.GameTitle;
-                platformMetadata["TitleSource"] = "UbisoftReadme";
-            }
-        }
+        // Title enrichment (FolderExeMatch → PE FileDescription → Ubisoft readme),
+        // applied only when no store enrichment set the title.
+        TitleEnricher.EnrichNonStore(
+            subDir, primaryExe.ExePath, primaryExe.FileDescription, resolvedType, _peMetadataBlacklist, ctx);
 
         GameEngineKind engine = EngineDetector.Detect(subDir.FullName);
         var tags = new List<string>();
@@ -508,19 +333,20 @@ public sealed class FolderScanner
             Library: string.Empty,
             FolderPath: subDir.FullName,
             FolderName: subDir.Name,
-            DisplayName: displayName,
+            DisplayName: ctx.DisplayName,
             GameSource: resolvedType,
             IsSourceOverridden: isOverride,
-            ExecutablePath: exePath ?? string.Empty,
+            ExecutablePath: ctx.ExePath ?? string.Empty,
             LauncherPath: launcherPath ?? string.Empty,
-            CommandLineArguments: commandLineArgs,
+            CommandLineArguments: ctx.CommandLineArgs,
             ManifestPath: string.Empty,
             LastScanned: DateTimeOffset.UtcNow,
             LastModified: FileSystemHelper.GetLastWriteTimeSafe(subDir),
-            PlatformMetadata: platformMetadata,
+            PlatformMetadata: ctx.PlatformMetadata,
             Tags: tags,
             UserOverrides: [],
             GameEngine: engine));
     }
+
 
 }

@@ -7,14 +7,37 @@ namespace GamingCommander.Core.Models;
 public static class GameSourceParser
 {
     /// <summary>
+    /// Ordered (kind, display-name) pairs — the single source of truth for the
+    /// enum ↔ display-name mapping. Combo-box order is the array order.
+    /// Plan 125 Phase 2d — replaces the three manually-synced parallel lists
+    /// (SourceDisplayNames / ParseFromString / ToDisplayName).
+    /// </summary>
+    private static readonly (GameSourceKind Kind, string DisplayName)[] SourceKinds =
+    [
+        (GameSourceKind.Standalone, "Standalone"),
+        (GameSourceKind.Steam, "Steam"),
+        (GameSourceKind.Gog, "GOG"),
+        (GameSourceKind.Epic, "Epic"),
+        (GameSourceKind.EaApp, "EA App"),
+        (GameSourceKind.UbisoftConnect, "Ubisoft Connect"),
+        (GameSourceKind.BattleNet, "Battle.net"),
+        (GameSourceKind.Xbox, "Xbox"),
+        (GameSourceKind.Rockstar, "Rockstar"),
+        (GameSourceKind.SteamEmu, "Steam Emulator"),
+    ];
+
+    /// <summary>
     /// Human-readable display names for all supported game source types.
     /// Used by UI dropdowns and combo boxes in GameSetup, LibrarySetup, and Wizard windows.
     /// </summary>
     public static readonly string[] SourceDisplayNames =
-    [
-        "Standalone", "Steam", "GOG", "Epic", "EA App",
-        "Ubisoft Connect", "Battle.net", "Xbox", "Rockstar", "Steam Emulator"
-    ];
+        SourceKinds.Select(p => p.DisplayName).ToArray();
+
+    private static readonly IReadOnlyDictionary<GameSourceKind, string> KindToDisplay =
+        SourceKinds.ToDictionary(p => p.Kind, p => p.DisplayName);
+
+    private static readonly IReadOnlyDictionary<string, GameSourceKind> DisplayToKind =
+        SourceKinds.ToDictionary(p => p.DisplayName, p => p.Kind, StringComparer.Ordinal);
 
     /// <summary>
     /// Infer GameSourceKind from a file path by matching known store name tokens.
@@ -36,34 +59,16 @@ public static class GameSourceParser
 
     /// <summary>
     /// Parse a display-type string (e.g. "Steam", "EA App") into a GameSourceKind enum value.
+    /// Exact-match on the combo-box labels; unknown strings (e.g. enum ToString values like
+    /// "UbisoftConnect") and null parse to <see cref="GameSourceKind.Standalone"/>.
     /// Used when the user selects a type from a combo box.
     /// </summary>
-    public static GameSourceKind ParseFromString(string displayName) => displayName switch
-    {
-        "Steam" => GameSourceKind.Steam,
-        "GOG" => GameSourceKind.Gog,
-        "Epic" => GameSourceKind.Epic,
-        "EA App" => GameSourceKind.EaApp,
-        "Ubisoft Connect" => GameSourceKind.UbisoftConnect,
-        "Battle.net" => GameSourceKind.BattleNet,
-        "Xbox" => GameSourceKind.Xbox,
-        "Rockstar" => GameSourceKind.Rockstar,
-        "Steam Emulator" => GameSourceKind.SteamEmu,
-        _ => GameSourceKind.Standalone,
-    };
+    public static GameSourceKind ParseFromString(string? displayName) =>
+        displayName is not null && DisplayToKind.TryGetValue(displayName, out GameSourceKind kind)
+            ? kind
+            : GameSourceKind.Standalone;
 
-    /// <summary>Combo-box label for <paramref name="kind"/>. Must match <see cref="SourceDisplayNames"/>.</summary>
-    public static string ToDisplayName(GameSourceKind kind) => kind switch
-    {
-        GameSourceKind.Steam => "Steam",
-        GameSourceKind.Gog => "GOG",
-        GameSourceKind.Epic => "Epic",
-        GameSourceKind.EaApp => "EA App",
-        GameSourceKind.UbisoftConnect => "Ubisoft Connect",
-        GameSourceKind.BattleNet => "Battle.net",
-        GameSourceKind.Xbox => "Xbox",
-        GameSourceKind.Rockstar => "Rockstar",
-        GameSourceKind.SteamEmu => "Steam Emulator",
-        _ => "Standalone",
-    };
+    /// <summary>Combo-box label for <paramref name="kind"/> (same source of truth as <see cref="ParseFromString"/>).</summary>
+    public static string ToDisplayName(GameSourceKind kind) =>
+        KindToDisplay.TryGetValue(kind, out string? label) ? label : "Standalone";
 }
