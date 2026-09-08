@@ -14,6 +14,7 @@ public partial class GameSetupWindow : Window
 {
     private readonly GameEntry _originalGame;
     private readonly string _rootPath;
+    private readonly GameSourceKind _libraryDefaultType;
     private readonly IConfigService _configService;
     private readonly IGamesDatabaseService _dbService;
     private readonly string _gameFolderPath;
@@ -49,12 +50,16 @@ public partial class GameSetupWindow : Window
         string rootPath,
         IConfigService configService,
         IGamesDatabaseService dbService,
-        IReadOnlyList<GameMetadataCommandLine>? catalog = null)
+        IReadOnlyList<GameMetadataCommandLine>? catalog = null,
+        GameSourceKind libraryDefaultType = GameSourceKind.Unknown)
     {
         InitializeComponent();
 
         _originalGame = game;
         _rootPath = rootPath;
+        _libraryDefaultType = libraryDefaultType == GameSourceKind.Unknown
+            ? game.GameSource
+            : libraryDefaultType;
         _configService = configService;
         _dbService = dbService;
 
@@ -216,7 +221,7 @@ public partial class GameSetupWindow : Window
 
     private async Task<IStorageFolder?> PickerStartFolderAsync()
     {
-        string folder = Path.Combine(_rootPath, _originalGame.FolderName);
+        string folder = Path.Combine(_originalGame.FolderPath, _originalGame.FolderName);
         if (!Directory.Exists(folder))
             folder = _gameFolderPath;
         if (!Directory.Exists(folder))
@@ -460,11 +465,7 @@ public partial class GameSetupWindow : Window
     private void SaveAndClose()
     {
         GameSourceKind newType = GameSourceParser.ParseFromString(SelectedType);
-
-        AppConfig config = _configService.Load();
-        GameSourceKind rootDefault = config.LibraryRoots
-            .FirstOrDefault(r => r.RootPath.Equals(_rootPath, StringComparison.OrdinalIgnoreCase))?
-            .DefaultType ?? GameSourceKind.Standalone;
+        GameSourceKind rootDefault = _libraryDefaultType;
 
         // Parse tags from input
         List<string> newTags = TagNormalizer.ParseFromCommaSeparated(TagsInput);
@@ -551,7 +552,7 @@ public partial class GameSetupWindow : Window
             PlatformMetadata = platformMetadata,
         };
 
-        _dbService.UpdateGameEntry(_rootPath, updated);
+        _dbService.UpdateGameEntry(updated);
         Close();
     }
 
@@ -560,7 +561,7 @@ public partial class GameSetupWindow : Window
     /// </summary>
     private void DeleteAndClose()
     {
-        _dbService.DeleteGameEntry(_rootPath, _originalGame.Id);
+        _dbService.DeleteGameEntry(_originalGame.Id);
         Close();
     }
 }

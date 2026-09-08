@@ -148,13 +148,14 @@ public sealed class VdfParserTests
     [Fact]
     public void Parse_StandaloneKeyWithoutValue_IsSkipped()
     {
-        // Keys on their own line without a value or block are skipped
+        // Token-stream model (2026-09-07): whitespace/newlines are irrelevant.
+        // "orphan" is followed by the next quoted token "key1", so it consumes it
+        // as its value; the trailing "value1" is a dangling key at EOF (skipped).
         string vdf = "\"orphan\"\n\"key1\" \"value1\"";
         var result = VdfParser.Parse(vdf);
 
-        // orphan is skipped (no value on its line), only key1 parsed
         Assert.Single(result);
-        Assert.Equal("value1", result["key1"]);
+        Assert.Equal("key1", result["orphan"]);
     }
 
     // ════════════════════════════════════════════════════════════════

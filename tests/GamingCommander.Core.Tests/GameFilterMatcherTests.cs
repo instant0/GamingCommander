@@ -10,6 +10,8 @@ public sealed class GameFilterMatcherTests
     private static GameEntry Game(string name, GameSourceKind source, params string[] tags) =>
         new(
             Id: name,
+            Library: "Test",
+            FolderPath: @"D:\g",
             FolderName: name,
             DisplayName: name,
             GameSource: source,

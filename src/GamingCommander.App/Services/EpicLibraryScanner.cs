@@ -12,10 +12,10 @@ internal sealed class EpicLibraryScanner
 {
     public IReadOnlyList<GameEntry> Scan(
         string catalogRoot,
-        IReadOnlyList<(string RootPath, GameEntry Game)>? knownFromOtherRoots = null)
+        IReadOnlyList<GameEntry>? knownFromOtherLibraries = null)
     {
         var catalog = new EpicItemCatalog(catalogRoot);
-        var known = knownFromOtherRoots ?? [];
+        var known = knownFromOtherLibraries ?? [];
         var list = new List<GameEntry>();
         DateTimeOffset now = DateTimeOffset.UtcNow;
         var claimedFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -23,7 +23,7 @@ internal sealed class EpicLibraryScanner
         foreach (EpicManifestParser.EpicItemData item in catalog.Playable)
         {
             string folderName = FolderName(item.InstallLocation);
-            (string RootPath, GameEntry Game)? match = FindKnown(known, item.InstallLocation);
+            GameEntry? match = FindKnown(known, item.InstallLocation);
             bool folderOk = !string.IsNullOrWhiteSpace(item.InstallLocation)
                 && Directory.Exists(item.InstallLocation);
             string exe = "";
@@ -35,12 +35,12 @@ internal sealed class EpicLibraryScanner
                     item.InstallLocation, item.LaunchExecutable, folderName);
             }
             if (string.IsNullOrEmpty(exe) && match is { } m1
-                && !EpicLaunchResolver.IsStoreLauncher(m1.Game.ExecutablePath))
+                && !EpicLaunchResolver.IsStoreLauncher(m1.ExecutablePath))
             {
-                exe = m1.Game.ExecutablePath;
+                exe = m1.ExecutablePath;
             }
             string id = match is { } m2
-                ? m2.Game.Id
+                ? m2.Id
                 : GameEntryId.ComputeId(catalog.ManifestsDir,
                     string.IsNullOrEmpty(item.CatalogItemId) ? folderName : item.CatalogItemId);
 
@@ -51,9 +51,8 @@ internal sealed class EpicLibraryScanner
             }
             if (match is { } m3)
             {
-                string knownFolder = Path.Combine(m3.RootPath, m3.Game.FolderName);
-                claimedFolders.Add(EpicInstallPath.Normalize(knownFolder));
-                claimedFolders.Add(EpicInstallPath.FolderName(knownFolder));
+                claimedFolders.Add(EpicInstallPath.Normalize(m3.FolderPath));
+                claimedFolders.Add(EpicInstallPath.FolderName(m3.FolderPath));
             }
 
             var extra = new Dictionary<string, string>
@@ -73,30 +72,33 @@ internal sealed class EpicLibraryScanner
                     candidates.Select(Path.GetFileName).Where(n => !string.IsNullOrEmpty(n))!);
             }
 
-            DateTimeOffset modified = match?.Game.LastModified ?? now;
+            DateTimeOffset modified = match?.LastModified ?? now;
             list.Add(new GameEntry(
                 Id: id,
+                Library: string.Empty,
+                FolderPath: item.InstallLocation ?? string.Empty,
                 FolderName: folderName,
                 DisplayName: string.IsNullOrWhiteSpace(item.DisplayName) ? folderName : item.DisplayName,
                 GameSource: GameSourceKind.Epic,
                 IsSourceOverridden: false,
                 ExecutablePath: exe,
-                LauncherPath: string.IsNullOrEmpty(launcher) ? match?.Game.LauncherPath ?? "" : launcher,
-                CommandLineArguments: match?.Game.CommandLineArguments ?? "",
+                LauncherPath: string.IsNullOrEmpty(launcher) ? match?.LauncherPath ?? "" : launcher,
+                CommandLineArguments: match?.CommandLineArguments ?? "",
                 ManifestPath: item.ItemFilePath,
                 LastScanned: now,
                 LastModified: modified,
                 PlatformMetadata: extra,
-                Tags: match?.Game.Tags ?? [],
-                UserOverrides: match?.Game.UserOverrides ?? []));
+                Tags: match?.Tags ?? [],
+                UserOverrides: match?.UserOverrides ?? []));
         }
 
-        foreach ((string rootPath, GameEntry game) in known)
+        foreach (GameEntry game in known)
         {
             if (game.GameSource != GameSourceKind.Epic)
                 continue;
-            string folder = Path.Combine(rootPath, game.FolderName);
-            if (claimedFolders.Contains(EpicInstallPath.Normalize(folder))
+            string folder = game.FolderPath;
+            if (string.IsNullOrWhiteSpace(folder)
+                || claimedFolders.Contains(EpicInstallPath.Normalize(folder))
                 || claimedFolders.Contains(EpicInstallPath.FolderName(folder))
                 || catalog.MatchesInstall(folder))
             {
@@ -107,7 +109,7 @@ internal sealed class EpicLibraryScanner
             {
                 ["EpicStatus"] = "Orphaned",
                 ["GameFolder"] = folder,
-                ["LibraryRoot"] = rootPath,
+                ["LibraryRoot"] = Path.GetDirectoryName(folder) ?? "",
             };
 
             list.Add(game with
@@ -119,16 +121,16 @@ internal sealed class EpicLibraryScanner
         return list;
     }
 
-    private static (string RootPath, GameEntry Game)? FindKnown(
-        IReadOnlyList<(string RootPath, GameEntry Game)> known,
+    private static GameEntry? FindKnown(
+        IReadOnlyList<GameEntry> known,
         string? installLocation)
     {
         if (string.IsNullOrWhiteSpace(installLocation))
             return null;
-        foreach ((string root, GameEntry game) in known)
+        foreach (GameEntry game in known)
         {
-            if (EpicInstallPath.Same(Path.Combine(root, game.FolderName), installLocation))
-                return (root, game);
+            if (EpicInstallPath.Same(game.FolderPath, installLocation))
+                return game;
         }
 
         return null;

@@ -46,6 +46,8 @@ public sealed class MetadataLookupQueueTests
     private static GameEntry Make(string id) =>
         new(
             Id: id,
+            Library: "Steam",
+            FolderPath: @"D:\g",
             FolderName: id,
             DisplayName: id,
             GameSource: GameSourceKind.Standalone,
@@ -88,7 +90,7 @@ public sealed class MetadataLookupQueueTests
         private readonly AppConfig _config;
 
         public StubConfig(bool enable) =>
-            _config = new AppConfig([], [], [], IsFirstRun: false, EnableOnlineMetadata: enable);
+            _config = new AppConfig([], false, EnableOnlineMetadata: enable);
 
         public AppConfig Load() => _config;
         public void Save(AppConfig config) { }

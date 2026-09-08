@@ -104,7 +104,37 @@ The parent folder is the entry; the child exes are scored against the **PARENT**
 
 ---
 
-## 6. C# scoring differences (from parity doc)
+## 6. Acronym PE-title relaxation (E6, 2026-09-07)
+
+**Unblocked finding:** the plan assumed E6 needed Windows PE data (P2.2) — WRONG. `pefile`
+(2024.8.26) reads PE version info **on Linux**; the real game drives are mounted at `/mnt/d` so the
+actual PE metadata was read directly:
+
+| Folder | Exe | Real PE FileDescription | Verdict |
+|--------|-----|-------------------------|---------|
+| `jag2` | `ja2.exe` | **"Jagged Alliance 2 Gold"** | ✅ genuine E6 case |
+| `mmxl` | `Might and Magic X Legacy.exe` | *(no version resource)* | ExeStem handles it |
+
+Also fixed `_read_pe_metadata` in detect.py — pefile returns `FileInfo` as a **list of lists**, so
+the old flat iteration silently returned `{}` for every exe.
+
+**The relaxation (C# `TitleText.AcronymMatchesTitle`):** for a SHORT acronym folder (3-4
+letters+digits), the `SharesNameToken` guard is replaced by initial-letter matching. Three rules,
+each validated against the real corpus PE data:
+
+| Rule | Example |
+|------|---------|
+| (a) title key starts with folder key | `eve` ↔ "EVE Online", `nier` ↔ "NieR:Automata" |
+| (b) folder key == word-initials (incl. digits, skip stopwords) | `mmxl` ↔ "Might and Magic X Legacy", `ra3` ↔ "Red Alert 3 Launcher" |
+| (c) folder letters prefix first title word + digits present | `jag2` ↔ "Jagged Alliance 2 Gold" |
+
+Rejected: `elexII` ↔ "System" (folder too long — falls back to SharesNameToken), `jag2` ↔
+"Just Another Generic Game 2" (initials J-A-G-G). Wired into `FolderScanner.AddGameEntry` as
+`SharesNameToken(pe) || AcronymMatchesTitle(pe, folder)`. 10 new tests; C# suite 559 green.
+
+---
+
+## 7. C# scoring differences (from parity doc)
 
 - C# uses one unified `ScoreExecutable` (Python has two scorers).
 - Exact-match precedence is stronger in C# (`+40` folder-name exact, ADR-012).

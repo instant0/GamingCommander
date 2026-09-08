@@ -327,52 +327,6 @@ public sealed class SteamLibraryScannerTests : IDisposable
     }
 
     // ════════════════════════════════════════════════════════════════
-    //  ScanAll
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void ScanAll_WithMultipleLibraries_ReturnsAllGames()
-    {
-        string libA = CreateSteamAppsDir("libA");
-        string libB = CreateSteamAppsDir("libB");
-
-        // Write libraryfolders.vdf with flat format (DiscoverLibraryPaths expects
-        // numeric keys mapping to string paths directly, not nested blocks)
-        string steamappsA = Path.Combine(libA, "steamapps");
-        File.WriteAllText(Path.Combine(steamappsA, "libraryfolders.vdf"),
-            "\"libraryfolders\" {\n" +
-            $"    \"0\" \"{libA.Replace("\\", "\\\\")}\"\n" +
-            $"    \"1\" \"{libB.Replace("\\", "\\\\")}\"\n" +
-            "}");
-
-        WriteAcf(libA, "111", "Game A", "GameA");
-        Directory.CreateDirectory(Path.Combine(libA, "steamapps", "common", "GameA"));
-
-        WriteAcf(libB, "222", "Game B", "GameB");
-        Directory.CreateDirectory(Path.Combine(libB, "steamapps", "common", "GameB"));
-
-        var scanner = new SteamLibraryScanner([libA, libB]);
-        var results = scanner.ScanAll();
-
-        Assert.Equal(2, results.Count);
-        Assert.Contains(results, r => r.DisplayName == "Game A");
-        Assert.Contains(results, r => r.DisplayName == "Game B");
-    }
-
-    [Fact]
-    public void ScanAll_WithDuplicatePaths_Deduplicates()
-    {
-        string root = CreateMockSteamLibrary("Game1", appId: "111");
-
-        // Pass the same path twice
-        var scanner = new SteamLibraryScanner([root, root]);
-        var results = scanner.ScanAll();
-
-        // Should only return one entry, not duplicates
-        Assert.Single(results);
-    }
-
-    // ════════════════════════════════════════════════════════════════
     //  Helpers
     // ════════════════════════════════════════════════════════════════
 

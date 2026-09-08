@@ -34,6 +34,8 @@ public sealed class GameLaunchResolverTests
     private static GameEntry Make(string exe, string cmd, string extras) =>
         new(
             Id: "g1",
+            Library: "Steam",
+            FolderPath: @"D:\Games",
             FolderName: "Game",
             DisplayName: "Game",
             GameSource: GameSourceKind.Steam,

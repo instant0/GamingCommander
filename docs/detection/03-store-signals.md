@@ -56,12 +56,21 @@ Chain: `InstallPath` → `<InstallPath>\steamapps\libraryfolders.vdf` → all li
   ("Standalone" / "Epic" / "Steam") — NOT one per physical root (`Steam-1`, `Steam-2`). N Steam
   library roots feed a single "Steam" catalog; `GameSourceKind` is the catalog axis, `LibraryRoot`
   stays per-game metadata.
+- **Confirmed design (2026-09-07):** a library's `reference` may be a directory (Standalone/GOG/EA),
+  a vdf file (Steam), or a manifest location (Epic). The parser branches on `DefaultType`:
+  Steam → vdf-parse + ACF/folder scan; Epic → manifests; others → directory scan. Games are linked
+  to the VFS library they belong to (one linkage per game).
+- **Add-Steam UX (Q4 confirmed):** `CanAddSteamLibraries` is true ONLY when the registry
+  `InstallPath` resolves AND the vdf yields ≥1 library. **Button hidden when Steam is not
+  installed** — same as Epic (hidden when manifests folder absent). A user-supplied Steam-path
+  folder (ACF + `steamapps\common`) still adds via the folder picker: `NormalizeLibraryRoot`
+  walks up to the Steam library root before the library anchor is registered.
+- **Migration (Q1 confirmed):** existing individual Steam roots collapse into the single "Steam"
+  library when `AddSteamLibrariesAsync` runs; user settings preserved, only per-game VFS linkage
+  changes.
 - **ACF cross-library remediation (user, 2026-09-07):** with all library + ACF paths known,
   mismatches (game folder on D, ACF on E) are detectable → propose a remedy (e.g., move the ACF),
   user-confirmed. Detection authority unchanged (ACF+folder); this adds a repair pathway.
-- Planned UX: `LibrarySetupViewModel` gets `CanAddSteamLibraries` / `AddSteamLibrariesAsync`
-  (fresh-setup "add all") plus a "rescan Steam libraries" reconciliation offer, mirroring the
-  existing Epic-manifests offer (`AddEpicCatalogAsync`), surfaced on first-run and F4.
 - Registry access via the existing `IRegistryReader` abstraction (mock-able; Windows-only in prod).
 
 ---

@@ -3,7 +3,8 @@ using GamingCommander.Core.Models;
 namespace GamingCommander.Core;
 
 /// <summary>
-/// CRUD operations for the games database (data/games.json). Provides in-memory caching.
+/// CRUD operations for the game database (data/games.json). Provides in-memory caching.
+/// Games are a flat list; each entry links to a Library (anchor) by <see cref="GameEntry.Library"/>.
 /// </summary>
 public interface IGamesDatabaseService
 {
@@ -13,24 +14,21 @@ public interface IGamesDatabaseService
     /// <summary>Persists the games database to disk and updates the in-memory cache.</summary>
     void Save(GamesDatabase db);
 
-    /// <summary>Returns all game entries associated with the specified library root path.</summary>
-    IReadOnlyList<GameEntry> GetGamesForRoot(string rootPath);
+    /// <summary>Returns all game entries linked to the specified library (anchor) name.</summary>
+    IReadOnlyList<GameEntry> GetGamesForLibrary(string libraryName);
 
-    /// <summary>Adds a new library root with its game entries.</summary>
-    void AddRoot(string rootPath, GameSourceKind defaultType, IEnumerable<GameEntry> initialGames);
+    /// <summary>Adds or replaces the game entries for a library (anchor).</summary>
+    void SetGamesForLibrary(string libraryName, IEnumerable<GameEntry> games);
 
-    /// <summary>Removes a library root and all its associated game entries.</summary>
-    void RemoveRoot(string rootPath);
+    /// <summary>Removes all game entries linked to the specified library name.</summary>
+    void RemoveGamesForLibrary(string libraryName);
 
-    /// <summary>Replaces all game entries for a root with freshly scanned results.</summary>
-    void RescanRoot(string rootPath, IEnumerable<GameEntry> games);
+    /// <summary>Updates a single game entry by ID.</summary>
+    void UpdateGameEntry(GameEntry updatedEntry);
 
-    /// <summary>Updates a single game entry within the specified root.</summary>
-    void UpdateGameEntry(string rootPath, GameEntry updatedEntry);
-
-    /// <summary>Removes a game entry by ID from the specified root.</summary>
-    void DeleteGameEntry(string rootPath, string gameId);
+    /// <summary>Removes a game entry by ID.</summary>
+    void DeleteGameEntry(string gameId);
 
     /// <summary>Changes the source type of a game entry without modifying other fields.</summary>
-    void RetagGame(string rootPath, string gameId, GameSourceKind newType);
+    void RetagGame(string gameId, GameSourceKind newType);
 }

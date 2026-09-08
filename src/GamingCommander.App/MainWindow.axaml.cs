@@ -18,6 +18,7 @@ public partial class MainWindow : Window
     private ShellViewModel? _viewModel;
     private IGamesDatabaseService? _dbService;
     private IConfigService? _configService;
+    private ILibrariesService? _librariesService;
     private FolderScanner? _scanner;
     private SteamLibraryScanner? _steamScanner;
 
@@ -35,6 +36,7 @@ public partial class MainWindow : Window
     public MainWindow(
         ShellViewModel shellViewModel,
         IGamesDatabaseService dbService,
+        ILibrariesService librariesService,
         IMetadataService? metadataService = null,
         MetadataOnlineGate? onlineGate = null)
     {
@@ -52,6 +54,7 @@ public partial class MainWindow : Window
 
         _viewModel = shellViewModel;
         _dbService = dbService;
+        _librariesService = librariesService;
         _metadataService = metadataService;
         _onlineGate = onlineGate;
 
@@ -65,12 +68,12 @@ public partial class MainWindow : Window
         _scanner = new FolderScanner(_configService.Load().HiddenFolders, blacklist, registryReader);
 
         AppConfig config = _configService.Load();
-        var steamPaths = config.LibraryRoots
-            .Where(r => r.DefaultType == GameSourceKind.Steam)
-            .Select(r => r.RootPath);
+        var steamPaths = _librariesService.Libraries
+            .Where(l => l.Type == GameSourceKind.Steam)
+            .SelectMany(l => l.Folders);
         _steamScanner = new SteamLibraryScanner(steamPaths);
 
-        _libraryManager = new LibraryManager(_configService, _dbService, _scanner, _steamScanner);
+        _libraryManager = new LibraryManager(_librariesService, _dbService, _scanner, _steamScanner);
 
         if (_metadataService is not null)
         {
@@ -144,6 +147,20 @@ public partial class MainWindow : Window
         if (!Directory.Exists(dataDir))
             Directory.CreateDirectory(dataDir);
         return Path.Combine(dataDir, "games.json");
+    }
+
+    private static string GetLibrariesPath()
+    {
+        string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+        string dataDir = Path.Combine(baseDir, "data");
+        if (!Directory.Exists(dataDir))
+            Directory.CreateDirectory(dataDir);
+        return Path.Combine(dataDir, "libraries.json");
+    }
+
+    private ILibrariesService GetLibrariesService()
+    {
+        return _librariesService ?? new LibrariesDatabaseService(GetLibrariesPath());
     }
 
     private IGamesDatabaseService GetDbService()
@@ -337,10 +354,8 @@ public partial class MainWindow : Window
         try
         {
             string args;
-            string? rootPath = _viewModel.GetCurrentRootPath();
-            GameEntry? game = item.GameId is not null && rootPath is not null
-                ? GetDbService().GetGamesForRoot(rootPath).FirstOrDefault(g => g.Id == item.GameId)
-                : null;
+            string? libraryName = _viewModel.GetCurrentLibraryName();
+            GameEntry? game = item.GameId is not null ? FindGameById(item.GameId) : null;
             if (game is not null)
             {
                 (target, args) = GameLaunchResolver.Resolve(game);
@@ -435,8 +450,13 @@ public partial class MainWindow : Window
         var configService = GetConfigService();
         var dbService = GetDbService();
 
+        // Steam locator uses the same Windows-only registry reader as the scanner.
+        IRegistryReader registryReader = OperatingSystem.IsWindows()
+            ? new WindowsRegistryReader()
+            : new NullRegistryReader();
+
         var window = new LibrarySetupWindow(
-            configService, dbService, _libraryManager);
+            configService, dbService, _libraryManager, new SteamInstallPathLocator(registryReader));
         await window.ShowDialog(this);
 
         _viewModel?.Reload();
@@ -453,10 +473,8 @@ public partial class MainWindow : Window
 
         var dbService = GetDbService();
         var configService = GetConfigService();
-        string? rootPath = _viewModel.GetCurrentRootPath();
-        if (rootPath is null) return;
-        var games = dbService.GetGamesForRoot(rootPath);
-        var game = games.FirstOrDefault(g => g.Id == item.GameId);
+        string? libraryName = _viewModel.GetCurrentLibraryName();
+        var game = item.GameId is null ? null : FindGameById(item.GameId);
         if (game is null) return;
 
         IReadOnlyList<GameMetadataCommandLine> catalog =
@@ -464,7 +482,7 @@ public partial class MainWindow : Window
         if (_onlineGate is { AllowsHttp: true })
             _ = RefreshMetadataForGameAsync(game);
 
-        var window = new GameSetupWindow(game, rootPath, configService, dbService, catalog);
+        var window = new GameSetupWindow(game, libraryName, configService, dbService, catalog);
         await window.ShowDialog(this);
 
         _viewModel.Reload();
@@ -604,10 +622,26 @@ public partial class MainWindow : Window
                 : PeProductYear.Guess(game.ExecutablePath)
                     ?? (game.LastModified.Year is >= 1995 and <= 2035 ? game.LastModified.Year : null);
             IReadOnlyList<string> pages = [];
+
+            // E7 identity query pipeline (2026-09-07): strictly ordered candidates,
+            // FIRST clean result set wins. Folder name is LAST — acronym folders
+            // (pigs, mmxl, jag2) must never be queried verbatim before better
+            // identity sources. Order: PE title → exe stem → exe stem (normalized
+            // separators) → display name → folder name.
+            string? peTitle = game.PlatformMetadata.TryGetValue("PeFileDescription", out string? peDesc)
+                && !string.IsNullOrWhiteSpace(peDesc)
+                ? peDesc
+                : null;
+            string? exeStem = !string.IsNullOrWhiteSpace(game.ExecutablePath)
+                ? Path.GetFileNameWithoutExtension(game.ExecutablePath)
+                : null;
+
             foreach (string query in TitleText.SearchQueries(
+                peTitle,
+                exeStem,
                 TitleText.LookupName(game.DisplayName, game.FolderName, game.GameSource),
                 game.DisplayName,
-                game.FolderName))
+                game.FolderName)) // LAST — folder name is the weakest identity signal
             {
                 pages = PcgwTitleFilter.Dedupe(
                     await _metadataService!.SearchPagesAsync(query).ConfigureAwait(true));
@@ -632,10 +666,48 @@ public partial class MainWindow : Window
 
         GameMetadataRecord? record = await RefreshMetadataForGameAsync(game, force: true, pcgwPage: chosen)
             .ConfigureAwait(true);
+
+        // E8 title persistence (2026-09-07): user intent is authoritative and never
+        // overwritten. When a title was picked (user chose it) OR confidently
+        // auto-resolved (single clean page), persist it as DisplayName with a
+        // TitleSource marker so rescans preserve it. Folder-derived titles are
+        // replaced; a user-picked title is never overwritten by detection.
+        if (chosen is not null && !IsUserPinnedTitle(game))
+        {
+            var pinnedMeta = new Dictionary<string, string>(game.PlatformMetadata)
+            {
+                ["TitleSource"] = "PcgwPick",
+                ["AutoDetectedTitle"] = game.DisplayName,
+            };
+            var pinned = game with
+            {
+                DisplayName = chosen,
+                PlatformMetadata = pinnedMeta,
+            };
+            if (_viewModel?.GetCurrentLibraryName() is not null)
+            {
+                GetDbService().UpdateGameEntry(pinned);
+                _viewModel.Reload();
+            }
+        }
+
         if (record?.HasDisplayableExtras == true)
-            SetStatusWithAutoClear($"Metadata updated: {game.DisplayName}");
+            SetStatusWithAutoClear($"Metadata updated: {chosen ?? game.DisplayName}");
         else
-            SetStatusWithAutoClear($"No extras found for {game.DisplayName}.");
+            SetStatusWithAutoClear($"No extras found for {chosen ?? game.DisplayName}.");
+    }
+
+    /// <summary>
+    /// True when the game's title is user-pinned (TitleSource = PcgwPick / UserOverride)
+    /// — user intent is authoritative and must never be overwritten by a later pick.
+    /// </summary>
+    private static bool IsUserPinnedTitle(GameEntry game)
+    {
+        if (game.PlatformMetadata.TryGetValue("TitleSource", out string? source))
+        {
+            return source is "PcgwPick" or "UserOverride";
+        }
+        return false;
     }
 
     /// <summary>ACF / sidecar AppID. When set, F3 must not OpenSearch by name.</summary>
@@ -654,11 +726,14 @@ public partial class MainWindow : Window
     {
         if (_viewModel?.SelectedItem?.GameId is null)
             return null;
-        string? rootPath = _viewModel.GetCurrentRootPath();
-        if (rootPath is null)
-            return null;
-        return GetDbService().GetGamesForRoot(rootPath)
-            .FirstOrDefault(g => g.Id == _viewModel.SelectedItem.GameId);
+        return FindGameById(_viewModel.SelectedItem.GameId);
+    }
+
+    /// <summary>Finds a game by ID across all libraries (a game belongs to exactly one anchor).</summary>
+    private GameEntry? FindGameById(string gameId)
+    {
+        GamesDatabase db = GetDbService().Load();
+        return db.Games.FirstOrDefault(g => g.Id == gameId);
     }
 
     /// <summary>Online extras for one game. Does not block F4. F3 passes force.</summary>
@@ -720,40 +795,39 @@ public partial class MainWindow : Window
         {
             _viewModel.IsScanning = true;
 
-            // At root level or filter: rescan all configured roots sequentially
+            var libraries = GetLibrariesService().Libraries;
+
+            // At root level or filter: rescan all configured libraries sequentially
             if (_viewModel.IsAtRootLevel || _viewModel.IsFilterActive)
             {
-                var config = GetConfigService().Load();
-                if (config.LibraryRoots.Count == 0)
+                if (libraries.Count == 0)
                 {
-                    SetStatusWithAutoClear("No roots configured. Press F2 to add folders.");
+                    SetStatusWithAutoClear("No libraries configured. Press F2 to add library folders.");
                     return;
                 }
 
-                SetStatusWithAutoClear("Scanning all roots...", 0);
+                SetStatusWithAutoClear("Scanning all libraries...", 0);
 
-                foreach (LibraryRoot root in config.LibraryRoots)
+                var allGames = new List<GameEntry>();
+                foreach (Library lib in libraries)
                 {
                     ct.ThrowIfCancellationRequested();
 
+                    string libName = lib.Name;
                     Dispatcher.UIThread.Post(() =>
                     {
-                        _viewModel.SetScanning(root.RootPath);
-                        SetStatusWithAutoClear($"Scanning {Path.GetFileName(root.RootPath)}...", 0);
+                        _viewModel.SetScanning(libName);
+                        SetStatusWithAutoClear($"Scanning {libName}...", 0);
                     });
 
                     await Task.Run(() =>
                     {
                         ct.ThrowIfCancellationRequested();
-                        IReadOnlyList<Core.Models.GameEntry> games =
-                            _libraryManager.SelectScannerAndScan(root.RootPath, root.DefaultType, ct);
-                        _libraryManager.RescanRoot(root.RootPath, games);
+                        _libraryManager.RescanLibrary(libName, ct);
                     }, ct);
-                }
 
-                var allGames = new List<GameEntry>();
-                foreach (LibraryRoot root in config.LibraryRoots)
-                    allGames.AddRange(_libraryManager.GetGamesForRoot(root.RootPath));
+                    allGames.AddRange(_dbService.GetGamesForLibrary(libName));
+                }
 
                 EnqueueMetadataLookups(allGames);
 
@@ -761,38 +835,37 @@ public partial class MainWindow : Window
                 {
                     _viewModel.Reload();
                     SetStatusWithAutoClear(
-                        $"Rescanned {config.LibraryRoots.Count} root(s), found {allGames.Count} game(s).");
+                        $"Rescanned {libraries.Count} librar{(libraries.Count != 1 ? "ies" : "y")}, found {allGames.Count} game(s).");
                 });
                 return;
             }
 
-            // Drilled into a root: rescan that root only
-            string rootPath = _viewModel.CurrentRootPath;
-            var cfg = GetConfigService().Load();
-            var matchedRoot = cfg.LibraryRoots.FirstOrDefault(r =>
-                r.RootPath.Equals(rootPath, StringComparison.OrdinalIgnoreCase));
-            if (matchedRoot is null) return;
+            // Drilled into a library: rescan that anchor only
+            string currentLibrary = _viewModel.CurrentLibraryName;
+            Library? matched = libraries.FirstOrDefault(l =>
+                l.Name.Equals(currentLibrary, StringComparison.OrdinalIgnoreCase));
+            if (matched is null) return;
 
             Dispatcher.UIThread.Post(() =>
             {
-                _viewModel.SetScanning(rootPath);
-                SetStatusWithAutoClear($"Scanning {Path.GetFileName(rootPath)}...", 0);
+                _viewModel.SetScanning(currentLibrary);
+                SetStatusWithAutoClear($"Scanning {currentLibrary}...", 0);
             });
 
-            IReadOnlyList<Core.Models.GameEntry> scannedGames = await Task.Run(() =>
+            IReadOnlyList<GameEntry> scannedGames = await Task.Run(() =>
             {
                 ct.ThrowIfCancellationRequested();
-                return _libraryManager.SelectScannerAndScan(
-                    rootPath, matchedRoot.DefaultType, ct);
+                _libraryManager.RescanLibrary(currentLibrary, ct);
+                return _dbService.GetGamesForLibrary(currentLibrary);
             }, ct);
 
             EnqueueMetadataLookups(scannedGames);
 
             Dispatcher.UIThread.Post(() =>
             {
-                _viewModel.ApplyRescannedGames(scannedGames);
+                _viewModel.Reload();
                 if (scannedGames.Count == 0)
-                    SetStatusWithAutoClear("Rescan complete — no games found in this root.");
+                    SetStatusWithAutoClear("Rescan complete — no games found in this library.");
                 else
                     SetStatusWithAutoClear($"Rescan complete — found {scannedGames.Count} game(s).");
             });
@@ -852,8 +925,14 @@ public partial class MainWindow : Window
         string gameFolder = game.PlatformMetadata.GetValueOrDefault("GameFolder", "");
         if (string.IsNullOrWhiteSpace(gameFolder))
         {
-            string root = _viewModel?.GetCurrentRootPath() ?? "";
-            gameFolder = Path.Combine(root, game.FolderName);
+            // GameFolder metadata may be absent; the entry's FolderPath IS the physical
+            // game folder (never the anchor name — anchors can be display-only catalogs).
+            gameFolder = game.FolderPath;
+        }
+        if (string.IsNullOrWhiteSpace(gameFolder))
+        {
+            SetStatusWithAutoClear("No game folder known for this entry. Rescan the library first.");
+            return;
         }
 
         string manifests = EpicManifestPaths.DefaultManifestsDir;
@@ -864,26 +943,21 @@ public partial class MainWindow : Window
             return;
         }
 
-        foreach (LibraryRoot lib in GetDbService() is { } && _viewModel is not null
-                     ? GetConfigService().Load().LibraryRoots
-                     : [])
+        foreach (GameEntry row in GetDbService().Load().Games)
         {
-            foreach (GameEntry row in GetDbService().GetGamesForRoot(lib.RootPath))
+            if (row.GameSource != GameSourceKind.Epic)
+                continue;
+            string folder = row.PlatformMetadata.GetValueOrDefault("GameFolder",
+                Path.Combine(Path.GetDirectoryName(row.FolderPath) ?? "", row.FolderName));
+            if (!EpicInstallPath.Same(folder, gameFolder))
+                continue;
+            var extra = new Dictionary<string, string>(row.PlatformMetadata)
             {
-                if (row.GameSource != GameSourceKind.Epic)
-                    continue;
-                string folder = row.PlatformMetadata.GetValueOrDefault("GameFolder",
-                    Path.Combine(lib.RootPath, row.FolderName));
-                if (!EpicInstallPath.Same(folder, gameFolder))
-                    continue;
-                var extra = new Dictionary<string, string>(row.PlatformMetadata)
-                {
-                    ["EpicStatus"] = "Installed",
-                    ["EpicItemPath"] = path,
-                    ["GameFolder"] = gameFolder,
-                };
-                GetDbService().UpdateGameEntry(lib.RootPath, row with { PlatformMetadata = extra, ManifestPath = path });
-            }
+                ["EpicStatus"] = "Installed",
+                ["EpicItemPath"] = path,
+                ["GameFolder"] = gameFolder,
+            };
+            GetDbService().UpdateGameEntry(row with { PlatformMetadata = extra, ManifestPath = path });
         }
 
         _viewModel?.Reload();
@@ -913,7 +987,7 @@ public partial class MainWindow : Window
         string lib = game.PlatformMetadata.GetValueOrDefault("LibraryRoot", "")
             is { Length: > 0 } stored
             ? stored
-            : _viewModel.GetCurrentRootPath() ?? "";
+            : LibraryManager.NormalizeLibraryRoot(game.FolderPath);
         if (!SteamAcfWriter.TryWrite(
                 lib, appId, game.DisplayName, game.FolderName, out string path, out string error))
         {
@@ -934,7 +1008,7 @@ public partial class MainWindow : Window
             ManifestPath = path,
             PlatformMetadata = extra,
         };
-        GetDbService().UpdateGameEntry(lib, updated);
+        GetDbService().UpdateGameEntry(updated);
         _viewModel.Reload();
         SetStatusWithAutoClear($"Wrote {Path.GetFileName(path)}");
     }

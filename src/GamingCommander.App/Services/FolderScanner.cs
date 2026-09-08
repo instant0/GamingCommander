@@ -306,6 +306,12 @@ public sealed class FolderScanner
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .Take(16));
         }
+        // Persist PE FileDescription for the identity pipeline (E7, 2026-09-07):
+        // the primary exe's PE title is query candidate #1 for PCGW lookups.
+        if (!string.IsNullOrWhiteSpace(primaryExe.FileDescription))
+        {
+            platformMetadata["PeFileDescription"] = primaryExe.FileDescription;
+        }
         string commandLineArgs = string.Empty;
 
         // Track whether display name was enriched by a store parser (used for PE FileDescription guard)
@@ -457,10 +463,18 @@ public sealed class FolderScanner
                 notPlaceholder = !_peMetadataBlacklist.Any(p => peDescLower.Contains(p));
             }
 
+            // Guard: token share with the folder — replaced by the acronym
+            // relaxation for SHORT folders (E6, 2026-09-07). An acronym folder
+            // (jag2, mmxl) has no substring share with the full PE title by
+            // definition; AcronymMatchesTitle validates via initial letters.
+            // elexII ↔ "System" still fails both and stays blocked.
+            bool nameMatches = TitleText.SharesNameToken(peDesc, subDir.Name)
+                || TitleText.AcronymMatchesTitle(peDesc, subDir.Name);
+
             if (lengthOk && notPlaceholder
                 && PeProductYear.IsUsefulTitle(peDesc)
                 && !TitleText.IsGenericLabel(peDesc)
-                && TitleText.SharesNameToken(peDesc, subDir.Name))
+                && nameMatches)
             {
                 platformMetadata["AutoDetectedTitle"] = displayName;
                 displayName = peDesc;
@@ -491,6 +505,8 @@ public sealed class FolderScanner
 
         entries.Add(new GameEntry(
             Id: id,
+            Library: string.Empty,
+            FolderPath: subDir.FullName,
             FolderName: subDir.Name,
             DisplayName: displayName,
             GameSource: resolvedType,

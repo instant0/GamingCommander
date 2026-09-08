@@ -188,4 +188,77 @@ public static class TitleText
             return false;
         return a.Contains(b) || b.Contains(a);
     }
+
+    /// <summary>
+    /// True when a SHORT folder acronym maps onto the PE title — the E6
+    /// acronym relaxation (2026-09-07). An acronym folder (3-4 letters+digits)
+    /// has no substring share with the full title by definition, so the
+    /// <see cref="SharesNameToken"/> guard is replaced by initial-letter matching.
+    ///
+    /// Three accepting rules (validated against the real corpus PE data on
+    /// /mnt/d — jag2, mmxl, nier, eve, ra3, toee):
+    ///   (a) title key starts with the folder key (eve ↔ "EVE Online",
+    ///       nier ↔ "NieR:Automata")
+    ///   (b) full folder key == word-initials of the title incl. single-letter
+    ///       words and digits, skipping stopwords (mmxl ↔ "Might and Magic X
+    ///       Legacy", ra3 ↔ "Red Alert 3 Launcher")
+    ///   (c) folder letters are a prefix of the FIRST title word AND any folder
+    ///       digits appear in the title (jag2 ↔ "Jagged Alliance 2 Gold":
+    ///       "jag" prefixes "Jagged", "2" appears)
+    /// Rejected cases stay protected: elexII ↔ "System" (folder too long for this
+    /// rule → falls back to SharesNameToken), jag2 ↔ "Just Another Generic Game 2".
+    /// </summary>
+    /// <param name="title">PE FileDescription / ProductName (full game name).</param>
+    /// <param name="folderName">The short acronym folder name (e.g. "jag2").</param>
+    public static bool AcronymMatchesTitle(string? title, string? folderName)
+    {
+        string b = LettersAndDigits(folderName);
+        string a = LettersAndDigits(title);
+        if (b.Length < 3 || b.Length > 4)
+            return false;
+
+        string fLetters = new(b.Where(char.IsAsciiLetter).ToArray());
+        string fDigits = new(b.Where(char.IsAsciiDigit).ToArray());
+
+        // (a) title key starts with the folder key
+        if (a.StartsWith(b, StringComparison.Ordinal))
+            return true;
+
+        // (b) full folder key == word-initials of the title (incl. digits)
+        string? raw = ForSearch(title);
+        if (string.IsNullOrWhiteSpace(raw))
+            return false;
+        string initials = string.Empty;
+        char[] separators = [' ', '_', '-', '.', ':'];
+        foreach (string word in raw.Split(separators, StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (word.Length == 0)
+                continue;
+            string wLower = word.ToLowerInvariant();
+            if (s_acronymStopWords.Contains(wLower))
+                continue;
+            initials += char.ToLowerInvariant(word[0]);
+        }
+        if (initials == b)
+            return true;
+
+        // (c) folder letters prefix the FIRST title word + digits present
+        string? firstWord = raw.Split(separators, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        if (fLetters.Length >= 2
+            && firstWord is not null
+            && firstWord.StartsWith(fLetters, StringComparison.OrdinalIgnoreCase))
+        {
+            if (fDigits.Length > 0)
+                return fDigits.All(d => a.Contains(d, StringComparison.Ordinal));
+            return true;
+        }
+
+        return false;
+    }
+
+    private static readonly HashSet<string> s_acronymStopWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "and", "the", "of", "for", "a", "an", "at", "in", "on", "to", "with",
+        "deluxe", "edition", "gold", "goty", "launcher", "collection", "remastered",
+    };
 }

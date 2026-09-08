@@ -52,8 +52,11 @@ public sealed class ShellPaneItemViewModel
     /// <summary>Database ID of the game, or null for non-game items.</summary>
     public string? GameId { get; init; }
 
-    /// <summary>Library root this game belongs to. Required when the list is a cross-root filter.</summary>
-    public string LibraryRootPath { get; init; } = string.Empty;
+    /// <summary>Library (anchor) name this game belongs to. Required when the list is a cross-library filter.</summary>
+    public string LibraryName { get; init; } = string.Empty;
+
+    /// <summary>Physical folder list for a library-anchor row (Standalone: its path; platform: joined folders).</summary>
+    public string FolderSummary { get; init; } = string.Empty;
 
     /// <summary>
     /// Platform-specific identifier (e.g. Steam App ID, Epic Catalog Item ID).

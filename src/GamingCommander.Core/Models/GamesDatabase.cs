@@ -1,8 +1,10 @@
 namespace GamingCommander.Core.Models;
 
 /// <summary>
-/// Top-level database of all library roots and their games.
+/// The game database: a flat list of all game entries. Each entry links to a
+/// Library (anchor) by the <see cref="GameEntry.Library"/> name and records its
+/// own physical <see cref="GameEntry.FolderPath"/>.
 /// </summary>
 public sealed record GamesDatabase(
-    /// <summary>All configured library roots.</summary>
-    List<GameRoot> Roots);
+    /// <summary>All game entries.</summary>
+    List<GameEntry> Games);

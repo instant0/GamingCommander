@@ -5,17 +5,18 @@ namespace GamingCommander.Core.Services;
 
 /// <summary>
 /// Deterministic ID generation for GameEntry records.
-/// Produces a stable 16-character lowercase hex string from root path + folder name.
+/// Produces a stable 16-character lowercase hex string from library (anchor)
+/// name + physical folder path.
 /// </summary>
 public static class GameEntryId
 {
     /// <summary>
-    /// Compute a stable game entry ID from the library root path and folder name.
-    /// The same inputs always produce the same ID, regardless of platform path separator.
+    /// Compute a stable game entry ID from the library (anchor) name and the
+    /// physical folder path. The same inputs always produce the same ID.
     /// </summary>
-    public static string ComputeId(string rootPath, string folderName)
+    public static string ComputeId(string libraryName, string folderPath)
     {
-        string combined = $"{rootPath}|{folderName}";
+        string combined = $"{libraryName}|{folderPath}";
         byte[] hash = MD5.HashData(Encoding.UTF8.GetBytes(combined));
         return Convert.ToHexString(hash)[..16].ToLowerInvariant();
     }

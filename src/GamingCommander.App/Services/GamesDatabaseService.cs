@@ -5,7 +5,8 @@ namespace GamingCommander.App.Services;
 
 /// <summary>
 /// JSON-file implementation of IGamesDatabaseService with in-memory caching.
-/// Reads/writes data/games.json using DTO mapping.
+/// Reads/writes data/games.json (flat games[] list); each game links to a
+/// Library (anchor) by <see cref="GameEntry.Library"/>.
 /// </summary>
 public sealed class GamesDatabaseService : IGamesDatabaseService
 {
@@ -26,161 +27,120 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
 
         GamesDatabaseDto? dto = JsonFileHelper.ReadFromFile<GamesDatabaseDto>(
             _dbPath,
-            () => new GamesDatabaseDto { Roots = [] });
+            () => new GamesDatabaseDto { Games = [] });
         if (dto is null)
         {
-            _cachedDb = new GamesDatabase(Roots: []);
+            _cachedDb = new GamesDatabase(Games: []);
             return _cachedDb;
         }
 
         _cachedDb = new GamesDatabase(
-            dto.Roots?
-                .Select(r => new GameRoot(
-                    r.RootPath,
-                    r.DefaultType,
-                    r.Games?
-                        .Select(g => new GameEntry(
-                            g.Id,
-                            g.FolderName,
-                            g.DisplayName,
-                            g.GameSource,
-                            g.Override,
-                            g.ExecutablePath,
-                            g.LauncherPath,
-                            g.CmdlineArgs,
-                            g.ManifestPath,
-                            g.LastScanned,
-                            g.LastModified,
-                            g.Extra ?? [],
-                             g.Tags ?? [],
-                             g.UserOverrides ?? [],
-                             g.GameEngine,
-                             g.ExtraLaunchArguments ?? ""))
-                        .ToList() ?? []))
-                .ToList() ?? []);
+            (dto.Games ?? []).Select(ToEntry).ToList());
         return _cachedDb;
     }
 
     /// <summary>Serializes and persists the games database to disk. Updates the in-memory cache.</summary>
     public void Save(GamesDatabase db)
     {
-        // Update cache first, then persist to disk
         _cachedDb = db;
-
         var dto = new GamesDatabaseDto
         {
-            Roots = db.Roots.Select(r => new GameRootDto
-            {
-                RootPath = r.RootPath,
-                DefaultType = r.DefaultType,
-                Games = r.Games.Select(g => new GameEntryDto
-                {
-                    Id = g.Id,
-                    FolderName = g.FolderName,
-                    DisplayName = g.DisplayName,
-                    GameSource = g.GameSource,
-                    Override = g.IsSourceOverridden,
-                    ExecutablePath = g.ExecutablePath,
-                    LauncherPath = g.LauncherPath,
-                    CmdlineArgs = g.CommandLineArguments,
-                    ManifestPath = g.ManifestPath,
-                    LastScanned = g.LastScanned,
-                    LastModified = g.LastModified,
-                    Extra = g.PlatformMetadata,
-                    Tags = g.Tags,
-                    UserOverrides = g.UserOverrides,
-                    GameEngine = g.GameEngine,
-                    ExtraLaunchArguments = g.ExtraLaunchArguments,
-                }).ToList(),
-            }).ToList(),
+            Games = db.Games.Select(ToDto).ToList(),
         };
-
         JsonFileHelper.WriteToFile(_dbPath, dto);
     }
 
-    /// <summary>Returns all game entries for the specified library root path.</summary>
-    public IReadOnlyList<GameEntry> GetGamesForRoot(string rootPath)
+    /// <summary>Returns all game entries linked to the specified library (anchor) name.</summary>
+    public IReadOnlyList<GameEntry> GetGamesForLibrary(string libraryName)
     {
         GamesDatabase db = Load();
-        return db.Roots
-            .FirstOrDefault(r => r.RootPath.Equals(rootPath, StringComparison.OrdinalIgnoreCase))?
-            .Games ?? [];
-    }
-
-    /// <summary>Adds a new library root with its game entries to the database.</summary>
-    public void AddRoot(string rootPath, GameSourceKind defaultType, IEnumerable<GameEntry> initialGames)
-    {
-        GamesDatabase db = Load();
-        if (db.Roots.Any(r => r.RootPath.Equals(rootPath, StringComparison.OrdinalIgnoreCase)))
-            return;
-
-        var roots = db.Roots.ToList();
-        roots.Add(new GameRoot(rootPath, defaultType, initialGames.ToList()));
-        Save(new GamesDatabase(roots));
-    }
-
-    /// <summary>Removes a library root and all associated game entries.</summary>
-    public void RemoveRoot(string rootPath)
-    {
-        GamesDatabase db = Load();
-        var roots = db.Roots
-            .Where(r => !r.RootPath.Equals(rootPath, StringComparison.OrdinalIgnoreCase))
+        return db.Games
+            .Where(g => g.Library.Equals(libraryName, StringComparison.OrdinalIgnoreCase))
             .ToList();
-        Save(new GamesDatabase(roots));
     }
 
     /// <summary>
-    /// Re-scans a root while preserving user overrides (display name, source type, args, etc.).
-    /// Matches existing games by ID and merges: takes scanned fields but keeps user modifications.
-    /// Games not found in scan results are retained (folder may be temporarily unavailable).
+    /// Replaces all game entries for a library anchor while preserving user overrides.
+    /// Every entry is stored under <paramref name="libraryName"/>, so callers never have
+    /// to pre-stamp <see cref="GameEntry.Library"/> themselves.
     /// </summary>
-    public void RescanRoot(string rootPath, IEnumerable<GameEntry> games)
+    public void SetGamesForLibrary(string libraryName, IEnumerable<GameEntry> games)
     {
         GamesDatabase db = Load();
-        var roots = db.Roots.ToList();
-        int rootIndex = roots.FindIndex(r => r.RootPath.Equals(rootPath, StringComparison.OrdinalIgnoreCase));
-        if (rootIndex < 0) return;
+        var scanned = games.ToList();
 
-        var existing = roots[rootIndex];
-        // Build lookup manually to handle duplicate IDs gracefully (last-write-wins)
-        var existingGamesLookup = new Dictionary<string, GameEntry>();
-        foreach (GameEntry game in existing.Games)
-        {
-            existingGamesLookup[game.Id] = game;
-        }
-        var newScannedGames = games.ToList();
-        var mergedGames = new List<GameEntry>();
+        // Preserve overrides for games whose ID matches an existing entry.
+        var existingByLibrary = db.Games
+            .Where(g => g.Library.Equals(libraryName, StringComparison.OrdinalIgnoreCase))
+            .ToDictionary(g => g.Id, StringComparer.OrdinalIgnoreCase);
 
-        // Process newly scanned games — merge with existing if ID matches
-        foreach (GameEntry scanned in newScannedGames)
+        var merged = new List<GameEntry>();
+        foreach (GameEntry g in scanned)
         {
-            if (existingGamesLookup.TryGetValue(scanned.Id, out GameEntry? existingGame))
-            {
-                // Merge: take scanned fields but preserve user overrides
-                mergedGames.Add(MergeGameEntries(existingGame, scanned));
-                existingGamesLookup.Remove(scanned.Id); // Mark as processed
-            }
+            // Every stored entry belongs to this library anchor, regardless of what
+            // the scan-context stamped. Anchor name is authoritative here.
+            GameEntry anchored = g with { Library = libraryName };
+            if (existingByLibrary.TryGetValue(g.Id, out GameEntry? existing))
+                merged.Add(MergeGameEntries(existing, anchored) with { Library = libraryName });
             else
-            {
-                // New game found during scan
-                mergedGames.Add(scanned);
-            }
+                merged.Add(anchored);
         }
 
-        // Keep existing games that weren't in scan results (temporarily unavailable)
-        foreach (GameEntry remaining in existingGamesLookup.Values)
-        {
-            mergedGames.Add(remaining with { LastScanned = DateTimeOffset.UtcNow });
-        }
+        var keep = db.Games
+            .Where(g => !g.Library.Equals(libraryName, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        keep.AddRange(merged);
 
-        roots[rootIndex] = existing with { Games = mergedGames };
-        Save(new GamesDatabase(roots));
+        Save(new GamesDatabase(keep));
     }
 
-    /// <summary>
-    /// Merges two game entries: takes scanned data but preserves user overrides from existing.
-    /// User overrides are detected by comparing with auto-detected values.
-    /// </summary>
+    /// <summary>Removes all game entries linked to the specified library name.</summary>
+    public void RemoveGamesForLibrary(string libraryName)
+    {
+        GamesDatabase db = Load();
+        var keep = db.Games
+            .Where(g => !g.Library.Equals(libraryName, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        Save(new GamesDatabase(keep));
+    }
+
+    /// <summary>Updates a single game entry by ID (case-insensitive).</summary>
+    public void UpdateGameEntry(GameEntry updatedEntry)
+    {
+        GamesDatabase db = Load();
+        var games = db.Games.ToList();
+        int idx = games.FindIndex(g =>
+            g.Id.Equals(updatedEntry.Id, StringComparison.OrdinalIgnoreCase));
+        if (idx < 0) return;
+        games[idx] = updatedEntry;
+        Save(new GamesDatabase(games));
+    }
+
+    /// <summary>Removes a game entry by ID (case-insensitive).</summary>
+    public void DeleteGameEntry(string gameId)
+    {
+        GamesDatabase db = Load();
+        var games = db.Games
+            .Where(g => !g.Id.Equals(gameId, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        Save(new GamesDatabase(games));
+    }
+
+    /// <summary>Changes the source type of a game entry without modifying other fields.</summary>
+    public void RetagGame(string gameId, GameSourceKind newType)
+    {
+        GamesDatabase db = Load();
+        var games = db.Games.ToList();
+        int idx = games.FindIndex(g => g.Id.Equals(gameId, StringComparison.OrdinalIgnoreCase));
+        if (idx < 0) return;
+        games[idx] = games[idx] with { GameSource = newType, IsSourceOverridden = true };
+        Save(new GamesDatabase(games));
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    //  Merge / DTO mapping
+    // ════════════════════════════════════════════════════════════════
+
     private static GameEntry MergeGameEntries(GameEntry existing, GameEntry scanned)
     {
         // Preserve display name if user changed it (differs from auto-normalized folder name)
@@ -189,23 +149,17 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
             ? existing.DisplayName
             : scanned.DisplayName;
 
-        // Preserve source type if user overrode it
-        GameSourceKind gameSource = existing.IsSourceOverridden
-            ? existing.GameSource
-            : scanned.GameSource;
+        GameSourceKind gameSource = existing.IsSourceOverridden ? existing.GameSource : scanned.GameSource;
 
-        // Preserve command-line args if user added them (non-empty and differs from scanned)
         string commandLineArgs = !string.IsNullOrEmpty(existing.CommandLineArguments)
             && existing.CommandLineArguments != scanned.CommandLineArguments
             ? existing.CommandLineArguments
             : scanned.CommandLineArguments;
 
-        // Preserve launcher path if user specified it
         string launcherPath = !string.IsNullOrEmpty(existing.LauncherPath)
             ? existing.LauncherPath
             : scanned.LauncherPath;
 
-        // Preserve manifest path if user specified it
         string manifestPath = !string.IsNullOrEmpty(existing.ManifestPath)
             ? existing.ManifestPath
             : scanned.ManifestPath;
@@ -221,15 +175,20 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
             platformMetadata.Remove("ExeCandidateCount");
         }
 
+        // E8: preserve a title-pin marker through a rescan merge.
+        if (existing.PlatformMetadata.TryGetValue("TitleSource", out string? titleSource)
+            && titleSource is "PcgwPick" or "UserOverride")
+        {
+            platformMetadata["TitleSource"] = titleSource;
+        }
+
         return scanned with
         {
             DisplayName = displayName,
             GameSource = gameSource,
             ExecutablePath = executablePath,
             PlatformMetadata = platformMetadata,
-            IsSourceOverridden = existing.IsSourceOverridden,
             CommandLineArguments = commandLineArgs,
-            ExtraLaunchArguments = existing.ExtraLaunchArguments,
             LauncherPath = launcherPath,
             ManifestPath = manifestPath,
             Tags = existing.Tags.Count > 0 ? existing.Tags : scanned.Tags,
@@ -238,83 +197,79 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
         };
     }
 
-    /// <summary>Updates a single game entry within the specified root.</summary>
-    public void UpdateGameEntry(string rootPath, GameEntry updatedEntry)
+    private static GameEntry ToEntry(GameEntryDto dto)
     {
-        GamesDatabase db = Load();
-        var roots = db.Roots.ToList();
-        int rootIndex = roots.FindIndex(r => r.RootPath.Equals(rootPath, StringComparison.OrdinalIgnoreCase));
-        if (rootIndex < 0) return;
-
-        var games = roots[rootIndex].Games.ToList();
-        int gameIndex = games.FindIndex(g => g.Id == updatedEntry.Id);
-        if (gameIndex < 0) return;
-
-        games[gameIndex] = updatedEntry;
-        roots[rootIndex] = roots[rootIndex] with { Games = games };
-        Save(new GamesDatabase(roots));
+        return new GameEntry(
+            dto.Id,
+            dto.Library ?? string.Empty,
+            dto.FolderPath ?? string.Empty,
+            dto.FolderName ?? string.Empty,
+            dto.DisplayName ?? string.Empty,
+            dto.GameSource,
+            dto.IsSourceOverridden,
+            dto.ExecutablePath ?? string.Empty,
+            dto.LauncherPath ?? string.Empty,
+            dto.CommandLineArguments ?? string.Empty,
+            dto.ManifestPath ?? string.Empty,
+            dto.LastScanned,
+            dto.LastModified,
+            dto.PlatformMetadata ?? [],
+            dto.Tags ?? [],
+            dto.UserOverrides ?? [],
+            dto.GameEngine,
+            dto.ExtraLaunchArguments ?? "");
     }
 
-    /// <summary>Removes a game entry by ID from the specified root.</summary>
-    public void DeleteGameEntry(string rootPath, string gameId)
+    private static GameEntryDto ToDto(GameEntry g)
     {
-        GamesDatabase db = Load();
-        var roots = db.Roots.ToList();
-        int rootIndex = roots.FindIndex(r => r.RootPath.Equals(rootPath, StringComparison.OrdinalIgnoreCase));
-        if (rootIndex < 0) return;
-
-        var games = roots[rootIndex].Games.Where(g => g.Id != gameId).ToList();
-        roots[rootIndex] = roots[rootIndex] with { Games = games };
-        Save(new GamesDatabase(roots));
-    }
-
-    /// <summary>Changes the source type of a game entry.</summary>
-    public void RetagGame(string rootPath, string gameId, GameSourceKind newType)
-    {
-        GamesDatabase db = Load();
-        var roots = db.Roots.ToList();
-        int rootIndex = roots.FindIndex(r => r.RootPath.Equals(rootPath, StringComparison.OrdinalIgnoreCase));
-        if (rootIndex < 0) return;
-
-        var games = roots[rootIndex].Games.ToList();
-        int gameIndex = games.FindIndex(g => g.Id == gameId);
-        if (gameIndex < 0) return;
-
-        bool isOverride = newType != roots[rootIndex].DefaultType;
-        games[gameIndex] = games[gameIndex] with { GameSource = newType, IsSourceOverridden = isOverride };
-        roots[rootIndex] = roots[rootIndex] with { Games = games };
-        Save(new GamesDatabase(roots));
+        return new GameEntryDto
+        {
+            Id = g.Id,
+            Library = g.Library,
+            FolderPath = g.FolderPath,
+            FolderName = g.FolderName,
+            DisplayName = g.DisplayName,
+            GameSource = g.GameSource,
+            IsSourceOverridden = g.IsSourceOverridden,
+            ExecutablePath = g.ExecutablePath,
+            LauncherPath = g.LauncherPath,
+            CommandLineArguments = g.CommandLineArguments,
+            ManifestPath = g.ManifestPath,
+            LastScanned = g.LastScanned,
+            LastModified = g.LastModified,
+            PlatformMetadata = g.PlatformMetadata,
+            Tags = g.Tags,
+            UserOverrides = g.UserOverrides,
+            GameEngine = g.GameEngine,
+            ExtraLaunchArguments = g.ExtraLaunchArguments,
+        };
     }
 
     private sealed class GamesDatabaseDto
     {
-        public List<GameRootDto>? Roots { get; set; }
-    }
-
-    private sealed class GameRootDto
-    {
-        public string RootPath { get; set; } = string.Empty;
-        public GameSourceKind DefaultType { get; set; }
+        public int Version { get; set; } = 1;
         public List<GameEntryDto>? Games { get; set; }
     }
 
     private sealed class GameEntryDto
     {
         public string Id { get; set; } = string.Empty;
-        public string FolderName { get; set; } = string.Empty;
-        public string DisplayName { get; set; } = string.Empty;
+        public string? Library { get; set; }
+        public string? FolderPath { get; set; }
+        public string? FolderName { get; set; }
+        public string? DisplayName { get; set; }
         public GameSourceKind GameSource { get; set; }
-        public bool Override { get; set; }
-        public string ExecutablePath { get; set; } = string.Empty;
-        public string LauncherPath { get; set; } = string.Empty;
-        public string CmdlineArgs { get; set; } = string.Empty;
-        public string ManifestPath { get; set; } = string.Empty;
+        public bool IsSourceOverridden { get; set; }
+        public string? ExecutablePath { get; set; }
+        public string? LauncherPath { get; set; }
+        public string? CommandLineArguments { get; set; }
+        public string? ManifestPath { get; set; }
         public DateTimeOffset LastScanned { get; set; }
         public DateTimeOffset LastModified { get; set; }
-        public Dictionary<string, string> Extra { get; set; } = [];
+        public Dictionary<string, string>? PlatformMetadata { get; set; }
         public List<string>? Tags { get; set; }
         public Dictionary<string, string>? UserOverrides { get; set; }
         public GameEngineKind GameEngine { get; set; }
-        public string ExtraLaunchArguments { get; set; } = string.Empty;
+        public string? ExtraLaunchArguments { get; set; }
     }
 }

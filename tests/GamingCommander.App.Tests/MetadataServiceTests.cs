@@ -197,7 +197,7 @@ public sealed class MetadataServiceTests : IDisposable
 
         public StubConfig(bool enableOnline)
         {
-            _config = new AppConfig([], [], [], IsFirstRun: false, EnableOnlineMetadata: enableOnline);
+            _config = new AppConfig([], false, EnableOnlineMetadata: enableOnline);
         }
 
         public AppConfig Load() => _config;

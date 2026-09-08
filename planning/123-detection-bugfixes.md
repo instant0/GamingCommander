@@ -685,10 +685,10 @@ wrong-folder / 0 FP**. Remaining E1: none (P3c-2 dropped). E3's premise was corr
   - **Do NOT raise WALK_MAX_DEPTH or add deep-walk container logic.** A depth-6 container walk was tried and REVERTED (would surface ~20 tools for ~4 real deep games).
   - **E3 scope now:** (a) validate depth-1-4 coverage is complete for the scenario catalog; (b) confirm the UE-shipping fast-path handles rel-5 `*-Shipping.exe` cases; (c) verify the `install` substring pattern's impact; (d) ensure Neverwinter resolves to `Neverwinter.exe` (rel 2), not the nested `GameClient.exe` duplicate.
 - **E5 — Fallback exe admission (S4).** Test admitting exes in redist-like subfolders when nothing else exists, with installer-noise filtering intact; measure false-positive risk on corpus.
-- **E6 — PE-title guard relaxation (S5/S9).** Test relaxing the folder-token-share guard for acronym/short-folder cases; measure wrong-title risk on corpus (pe_metadata_blacklist + generic-label checks stay). **Note: this is C# title-selection logic (`FolderScanner` `SharesNameToken` guard) — the Python scanner has no equivalent guard (Python title resolution is ExeStem/manifest only; see 2026-09-06 probe finding). Implementation requires PE metadata, i.e. the Windows selective-visit data (P2.2).**
+- **E6 — PE-title guard relaxation (S5/S9).** **DONE 2026-09-07.** The "needs Windows PE data" assumption was WRONG — `pefile` reads PE on Linux; real PE read from `/mnt/d` (jag2/ja2.exe → "Jagged Alliance 2 Gold"; mmxl exe has no version resource → ExeStem handles it). Fixed `_read_pe_metadata` list-of-lists bug. Implemented `TitleText.AcronymMatchesTitle` (3 corpus-validated rules: title-key prefix / word-initials incl digits / first-word prefix + digits; rejects elexII↔System, jag2↔Just Another Generic Game 2) + wired into `FolderScanner` PE guard. 10 tests. C# 559→562 green.
 - **E6a — bare `"tool"` scoring penalty (S-G).** Distinct from E6. Python `_TOOL_NAMES` and C# `tier_10_dev_editor_tools` both lack bare `"tool"`; currently masked by the exact-folder-stem `+15` bonus (deterministic pick). Add `"tool"` to the penalty tier in both scanners once corpus evidence justifies it (no false-positive regression).
-- **E8 — Title persistence (S7).** Write-policy experiment: explicit pick always writes DisplayName; confident auto-resolve (single clean page / exact-stem match) writes too. Verify rescan merge preserves the title.
-- **E7 — Identity query pipeline (S6/S8/S9) — LAST.** Ordered candidates: PE title → exe stem (extension stripped) → exe stem with separators → display name → folder name; first clean PCGW result set wins; exact-match on exe stem. Spot-check queries against PCGW (rate-limited) on corpus cases.
+- **E8 — Title persistence (S7).** **DONE 2026-09-07.** F3 writes `DisplayName = chosen` + `TitleSource = "PcgwPick"` via `UpdateGameEntry` on user pick AND confident single-page auto-resolve; `IsUserPinnedTitle` guard (PcgwPick/UserOverride never overwritten); `MergeGameEntries` preserves the TitleSource marker through rescan. Pending feature (per user): removing an entry clears its pin — `DeleteGameEntry` + rescan already re-detects fresh (no new code; documented).
+- **E7 — Identity query pipeline (S6/S8/S9).** **DONE 2026-09-07.** F3 query order: PE title → exe stem → display name → folder name (LAST). `PeFileDescription` now persisted to `PlatformMetadata` at scan. Folder acronyms (pigs/mmxl/jag2) never queried verbatim first; `dungeonoftheendless.exe` stem resolves before the "Endless" folder name. Exact-stem match already in `PcgwTitleFilter.PickBest`. 3 tests. C# 562 green.
 
 ### Phase 4 — C# port (accepted experiments only)
 
@@ -896,26 +896,49 @@ The only registry signal needed is the Steam **install path**:
 
 **First-launch / F4 offer-to-add UX (planned, mirrors Epic):**
 `LibrarySetupViewModel` already offers `AddEpicCatalogAsync` (parse ProgramData manifests, add as a
-root). Add the Steam equivalent — with TWO affordances:
-- **Offer "Add all Steam libraries" (fresh setup).** `CanAddSteamLibraries` — true when the
-  registry `InstallPath` resolves and `libraryfolders.vdf` yields ≥1 library path. `AddSteamLibrariesAsync`
-  parses the vdf → install path + all other library roots → adds EACH **not already configured**
-  as a `GameSourceKind.Steam` root, then scans each with `SteamLibraryScanner` (ACF+folder).
-  Mirrors `AddEpicCatalogAsync` (add entry → `ScanAndSaveAsync` → remove on failure → refresh
-  `CanAdd*`). On a fresh setup no root is configured, so all library paths are added.
-- **Offer "Rescan Steam libraries" (existing setup).** When ≥1 Steam root is ALREADY configured,
-  the same bootstrap detects paths in the vdf that are **not yet added** (user added a library in
-  Steam) and paths that are configured but **no longer in the vdf** (user removed a library) —
-  offer to add/remove accordingly. This is a *reconciliation*, not a re-authority: the vdf still
-  only tells us WHERE; ACF+folder scan decides what each (new) library contains.
-- Surfaced on first-run onboarding AND the F4 Library Setup dialog, next to the existing Epic offer.
-- Registry access via the existing `IRegistryReader` abstraction (mock-able, no hardcoded paths in
-  tests); Windows-only production path already gated by `OperatingSystem.IsWindows()`.
-- **Test plan:** mock `IRegistryReader` + a fixture `libraryfolders.vdf` mirroring the real 3-root
-  shape (install-as-`"0"` + 2 external libs). Assert: (a) fresh setup → all 3 roots added;
-  (b) a root already configured is NOT double-added; (c) a vdf path absent from config is offered
-  by "rescan"; (d) a configured root absent from the vdf is offered for removal; (e) `apps` blocks
-  are ignored (a library with `apps` but no `common/` yields no games).
+root). Add the Steam equivalent:
+
+- **`CanAddSteamLibraries`** — true ONLY when the registry `InstallPath` resolves AND
+  `libraryfolders.vdf` yields ≥1 library. **If Steam is not installed (no reg key), the button is
+  HIDDEN** — the user cannot guess where the vdf lives (Q4 confirmed 2026-09-07). Same rule as Epic
+  (button hidden when the manifest folder is absent).
+- **`AddSteamLibrariesAsync`** — reads `InstallPath` → parses `libraryfolders.vdf` → creates ONE
+  "Steam" library whose reference is the vdf/install path (type Steam), then scans ALL discovered
+  libraries into a single common "Steam" catalog/VFS (Q2 confirmed).
+- **Migration (Q1 confirmed):** existing individually-added Steam roots (`D:\SteamLibrary`,
+  `E:\SteamLibrary`) are MIGRATED into the single "Steam" library — the user keeps their manual
+  configuration and per-game settings. Only the VFS linkage changes per game. If the user has
+  custom modifications, they are preserved; the roots collapse into one "Steam" entry.
+- **Manual single/multiple Steam libraries stay possible** (`AddRootAsync`). A user-supplied folder
+  with the typical Steam path structure (ACF + `steamapps\common`) is added as a normal Steam
+  library with its fixed path — the "Add Steam" VDF path is an *alternative* that aggregates.
+
+**Virtual catalog data model (Q3 confirmed, 2026-09-07):** the launcher's first page shows VFS
+libraries, not physical roots:
+```
+libraries: [
+  1: { reference: .../libraryfolders.vdf (or install path),  type: Steam },
+  2: { reference: .../Epic/Manifests,                        type: Epic },
+  3: { reference: D:\games,                                  type: Standalone },
+]
+```
+- A library's `reference` may be a **directory** (Standalone/GOG/EA), a **vdf file** (Steam), or a
+  **manifest location** (Epic). The parser branches on `DefaultType` (Q2): Steam → vdf-parse +
+  ACF/folder scan; Epic → manifests; others → directory scan.
+- Games are linked to the VFS library they belong to (one linkage per game).
+- First page shows **one "Steam" library** — NOT `d:\steamlibrary` / `e:\steamlibrary`.
+- Epic already behaves this way (single "Epic Games Store" item from the manifests dir).
+
+**Surfaced on first-run onboarding AND the F4 Library Setup dialog, next to the existing Epic offer.**
+Registry access via the existing `IRegistryReader` abstraction (mock-able, no hardcoded paths in
+tests); Windows-only production path already gated by `OperatingSystem.IsWindows()`.
+
+**Test plan:** mock `IRegistryReader` + a fixture `libraryfolders.vdf` mirroring the real 3-root
+shape (install-as-`"0"` + 2 external libs). Assert: (a) fresh setup → one "Steam" library with all
+3 roots aggregated; (b) existing individual Steam roots migrate (games keep user settings, VFS
+linkage updated); (c) `CanAddSteamLibraries` false when reg key missing (button hidden);
+(d) manual Steam folder with ACF+common/ still adds as fixed-path Steam library; (e) `apps` blocks
+are ignored (a library with `apps` but no `common/` yields no games).
 
 **Why fixtures are legitimate here (distinct from "hardcoded game paths"):** the fixture is a
 **store-client layout contract**, not a per-game rule. `GOG Galaxy\Games\<X>` means "X is a GOG game"
@@ -926,10 +949,12 @@ them **Secure** under the existing tier model (§0.1).
 **Plan shape (new plan, after 123 completes):**
 1. Recognize store-client fixture roots under a user-pointed root (GOG Galaxy, Ubisoft, EA, Steam).
 2. **Steam bootstrap first (highest value):** read `HKLM\SOFTWARE\Valve\Steam\InstallPath` (registry)
-   → `<InstallPath>\steamapps\libraryfolders.vdf` → all library roots → enumerate
-   `steamapps\common\*` per library (Locked) + ACF cross-ref; reconciles §8.1.
-3. **Offer-to-add UX (F4 + first-run):** `CanAddSteamLibraries` / `AddSteamLibrariesAsync` in
-   `LibrarySetupViewModel`, mirroring the existing Epic manifests offer.
+   → `<InstallPath>\steamapps\libraryfolders.vdf` → ONE "Steam" VFS library (type Steam) →
+   enumerate `steamapps\common\*` per discovered library (Locked) + ACF cross-ref; reconciles §8.1.
+   Migration: existing individual Steam roots collapse into the one "Steam" library (user settings
+   preserved; per-game VFS linkage updated).
+3. **Offer-to-add UX (F4 + first-run):** `CanAddSteamLibraries` (hidden when reg key missing) /
+   `AddSteamLibrariesAsync` in `LibrarySetupViewModel`, mirroring the existing Epic manifests offer.
 4. Each remaining fixture's known games sub-path yields Locked/Secure game entries directly (GOG
    `Games\`, Ubisoft `...\games\`).
 5. Non-fixture top-level folders (Microsoft SDKs, Visual Studio, Windows Kits, uTorrent) are

@@ -5,7 +5,8 @@ using Xunit;
 namespace GamingCommander.App.Tests;
 
 /// <summary>
-/// Tests for JsonConfigService — first-run detection and config persistence.
+/// Tests for JsonConfigService — first-run detection, hidden folders,
+/// and general config persistence.
 /// </summary>
 public sealed class JsonConfigServiceTests : IDisposable
 {
@@ -39,7 +40,7 @@ public sealed class JsonConfigServiceTests : IDisposable
         var config = svc.Load();
 
         Assert.True(config.IsFirstRun);
-        Assert.Empty(config.LibraryRoots);
+        Assert.Empty(config.HiddenFolders);
     }
 
     [Fact]
@@ -51,31 +52,21 @@ public sealed class JsonConfigServiceTests : IDisposable
         var config = svc.Load();
         Assert.True(config.IsFirstRun);
 
-        // Save with a root
+        // Save with settings and mark first run complete
         config = config with
         {
-            LibraryRoots = new List<LibraryRoot> { new(RootPath: @"D:\Games", DefaultType: GameSourceKind.Standalone) },
+            HiddenFolders = ["Wine", "SystemVolumeInformation"],
+            IsFirstRun = false,
+            LastSeenVersion = "0.4.0",
+            EnableOnlineMetadata = true,
         };
         svc.Save(config);
 
-        // Reload — file now exists
+        // Reload — file now exists and values round-trip
         var reloaded = svc.Load();
         Assert.False(reloaded.IsFirstRun);
-        Assert.Single(reloaded.LibraryRoots);
-        Assert.Equal(@"D:\Games", reloaded.LibraryRoots[0].RootPath);
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    //  Missing games database
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void GamesDatabase_Load_WithMissingFile_ReturnsEmptyDatabase()
-    {
-        var svc = new GamesDatabaseService(Path.Combine(_tempDir, "nonexistent_games.json"));
-        var db = svc.Load();
-
-        Assert.NotNull(db);
-        Assert.Empty(db.Roots);
+        Assert.Equal(["Wine", "SystemVolumeInformation"], reloaded.HiddenFolders);
+        Assert.Equal("0.4.0", reloaded.LastSeenVersion);
+        Assert.True(reloaded.EnableOnlineMetadata);
     }
 }

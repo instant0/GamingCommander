@@ -47,44 +47,37 @@ internal static class SteamAcfParser
     }
 
     /// <summary>
-    /// Parses libraryfolders.vdf to discover all Steam library paths.
-    /// Format: numbered keys like "1" "D:\\SteamLibrary", "2" "E:\\SteamLibrary"
+    /// Discovers all Steam library paths from libraryfolders.vdf.
+    ///
+    /// SIMPLE approach (2026-09-07): the file is scanned line by line for lines
+    /// containing the "path" key, then the NEXT quoted string on that line is the
+    /// library path. Only values matching drive-letter syntax (X:\...) are kept.
+    /// The "apps" blocks (appid → size) are NEVER read — they are informational
+    /// and must not be treated as library paths.
     /// </summary>
     /// <param name="libraryRoot">Steam library root containing steamapps/libraryfolders.vdf.</param>
     internal static List<string> DiscoverLibraryPaths(string libraryRoot)
     {
-        var paths = new List<string>();
         string vdfPath = Path.Combine(libraryRoot, "steamapps", "libraryfolders.vdf");
-        if (!File.Exists(vdfPath)) return paths;
+        if (!File.Exists(vdfPath))
+            return [];
 
-        try
+        return GetLibraryPaths(vdfPath).ToList();
+    }
+
+    /// <summary>
+    /// Reads every <c>"path"</c> entry from a Steam libraryfolders.vdf.
+    /// Line shape: <c>"path"  "D:\SteamLibrary"</c> → split on '"', parts[1]=="path",
+    /// the value is parts[3]. Unescapes the doubled backslashes Steam writes.
+    /// </summary>
+    private static IEnumerable<string> GetLibraryPaths(string filename)
+    {
+        foreach (var line in File.ReadLines(filename))
         {
-            string text = File.ReadAllText(vdfPath);
-            var parsed = VdfParser.Parse(text);
-
-            // Navigate into the root block (usually "LibraryFolders")
-            var block = parsed;
-            if (block.Count == 1 && block.Values.First() is Dictionary<string, object> inner)
-                block = inner;
-
-            foreach (var kvp in block)
-            {
-                // Numeric keys like "1", "2", "3" hold path values
-                if (int.TryParse(kvp.Key, NumberStyles.Integer, CultureInfo.InvariantCulture, out _))
-                {
-                    if (kvp.Value is string pathStr && !string.IsNullOrWhiteSpace(pathStr))
-                    {
-                        paths.Add(NormalizePath(pathStr));
-                    }
-                }
-            }
+            var parts = line.Split('"');
+            if (parts.Length >= 4 && parts[1] == "path")
+                yield return parts[3].Replace(@"\\", @"\");
         }
-        catch
-        {
-            // Silently return empty on parse failure
-        }
-
-        return paths;
     }
 
     /// <summary>Normalizes a path by trimming trailing directory separators.</summary>

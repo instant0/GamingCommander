@@ -35,8 +35,13 @@ public sealed class SteamLibraryScanner
 
     /// <summary>
     /// Scan a single Steam library root path. Detects games in steamapps/common/
-    /// and cross-references ACF files from ALL known Steam libraries.
+    /// and cross-references ACF files from ALL known Steam libraries (via the vdf).
     /// Also detects "Missing" games — ACFs whose game files no longer exist in any library.
+    ///
+    /// Scans ONE physical Steam library root at a time; results are aggregated under
+    /// the single "Steam" anchor by the caller (all discovered folders surface under
+    /// that anchor, each game keeping its real FolderPath). The vdf is read only to
+    /// cross-reference ACF status across the other libraries in the same installation.
     /// </summary>
     public IReadOnlyList<GameEntry> Scan(string libraryRootPath)
     {
@@ -101,74 +106,6 @@ public sealed class SteamLibraryScanner
                 && acfInfo.LibraryPath.Equals(root, StringComparison.OrdinalIgnoreCase))
             {
                 entries.Add(CreateMissingAcfEntry(root, acfInfo));
-            }
-        }
-
-        return entries;
-    }
-
-    /// <summary>
-    /// Scan ALL configured Steam libraries and return a flat list.
-    /// Prefer this for full refresh — it catches cross-library moves and missing games.
-    /// </summary>
-    public IReadOnlyList<GameEntry> ScanAll()
-    {
-        // Collect ACFs from ALL configured paths first
-        var allSteamPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (string path in _configuredSteamPaths)
-        {
-            foreach (string discoveredPath in SteamAcfParser.DiscoverLibraryPaths(path))
-                allSteamPaths.Add(discoveredPath);
-        }
-
-        var acfMap = CollectAcfMap(allSteamPaths);
-        var entries = new List<GameEntry>();
-
-        foreach (string libraryPath in _configuredSteamPaths)
-        {
-            string commonDir = Path.Combine(libraryPath, "steamapps", "common");
-            if (!Directory.Exists(commonDir)) continue;
-
-            foreach (DirectoryInfo gameDir in FileSystemHelper.GetDirectoriesSafe(commonDir))
-            {
-                string folderName = gameDir.Name;
-
-                // Bug 10: skip Steam-internal folders (Controller Configs, etc.).
-                if (IsNonGameCommonFolder(folderName))
-                    continue;
-
-                if (acfMap.TryGetValue(folderName, out var acfInfo))
-                {
-                    string status = acfInfo.LibraryPath.Equals(libraryPath, StringComparison.OrdinalIgnoreCase)
-                        ? "Installed"
-                        : "Moved";
-                    entries.Add(CreateEntry(libraryPath, gameDir, folderName, acfInfo, status));
-                }
-                else
-                {
-                    entries.Add(CreateOrphanedEntry(libraryPath, gameDir, folderName));
-                }
-            }
-        }
-
-        // Detect Missing games — ACFs whose installdir has no matching common/ folder
-        foreach (var (installdir, acfInfo) in acfMap)
-        {
-            bool found = false;
-            foreach (string steamPath in allSteamPaths)
-            {
-                string candidate = Path.Combine(steamPath, "steamapps", "common", installdir);
-                if (Directory.Exists(candidate))
-                {
-                    found = true;
-                    break;
-                }
-            }
-
-            if (!found)
-            {
-                entries.Add(CreateMissingAcfEntry(
-                    acfInfo.LibraryPath, acfInfo));
             }
         }
 
@@ -273,6 +210,8 @@ public sealed class SteamLibraryScanner
         // No EngineDetector here — it lists every child folder. PCGW fills engine after lookup.
         return new GameEntry(
             Id: id,
+            Library: string.Empty,
+            FolderPath: gameDir.FullName,
             FolderName: folderName,
             DisplayName: displayName,
             GameSource: GameSourceKind.Steam,
@@ -298,6 +237,8 @@ public sealed class SteamLibraryScanner
 
         return new GameEntry(
             Id: id,
+            Library: string.Empty,
+            FolderPath: gameDir.FullName,
             FolderName: folderName,
             DisplayName: FileSystemHelper.NormalizeDisplayName(folderName),
             GameSource: GameSourceKind.Steam,
@@ -329,6 +270,8 @@ public sealed class SteamLibraryScanner
 
         return new GameEntry(
             Id: id,
+            Library: string.Empty,
+            FolderPath: Path.Combine(acf.LibraryPath, "steamapps", "common", acf.Installdir),
             FolderName: acf.Installdir,
             DisplayName: !string.IsNullOrWhiteSpace(acf.Name)
                 ? TitleText.ForSearch(acf.Name)

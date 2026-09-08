@@ -3,23 +3,24 @@ using System.Globalization;
 namespace GamingCommander.Core.Services;
 
 /// <summary>
-/// Minimal parser for Valve's VDF/ACF key-value format.
-/// Handles "key" "value" pairs and nested "key" { ... } blocks.
-/// Only extracts flat fields at the requested depth — nested blocks
-/// are skipped during extraction for performance.
+/// Parser for Valve's VDF/ACF key-value format.
+///
+/// VDF is a TOKEN STREAM — structure is defined by `{`, `}`, and quoted strings,
+/// never by line breaks or indentation (2026-09-07). Whitespace (spaces, tabs,
+/// CR/LF) is skipped between tokens. This handles both the ACF format
+/// (<c>"key" "value"</c> and <c>"key" { ... }</c> on one line) and the
+/// libraryfolders.vdf format (opening brace on the NEXT line).
 /// </summary>
 public static class VdfParser
 {
     /// <summary>
-    /// Parse an entire VDF document and return the root block as a flat dictionary.
+    /// Parse an entire VDF document and return the root block as a dictionary.
     /// Nested blocks are returned as their own dictionaries (recursive).
     /// </summary>
     public static Dictionary<string, object> Parse(string text)
     {
-        var lines = text.Split('\n');
-        int lineIndex = 0;
-        var result = ParseBlock(lines, ref lineIndex);
-        return result;
+        int pos = 0;
+        return ParseBlock(text, ref pos);
     }
 
     /// <summary>
@@ -53,86 +54,96 @@ public static class VdfParser
         }
     }
 
-    private static Dictionary<string, object> ParseBlock(string[] lines, ref int lineIndex)
+    /// <summary>Parses a block: repeated key → (value | { block }) until the closing `}`.</summary>
+    private static Dictionary<string, object> ParseBlock(string text, ref int pos)
     {
         var result = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
 
-        while (lineIndex < lines.Length)
+        while (true)
         {
-            string line = lines[lineIndex].Trim();
-            lineIndex++;
+            SkipWhitespace(text, ref pos);
+            if (pos >= text.Length)
+                break; // EOF — tolerate a missing closing brace
 
-            if (string.IsNullOrEmpty(line))
+            char c = text[pos];
+            if (c == '}')
+            {
+                pos++; // consume closing brace
+                break;
+            }
+            if (c != '"')
+            {
+                // Unexpected token — skip it and keep going.
+                pos++;
                 continue;
+            }
 
-            if (line == "}")
+            string key = ReadQuoted(text, ref pos);
+            SkipWhitespace(text, ref pos);
+
+            if (pos >= text.Length)
                 break;
 
-            try
+            char next = text[pos];
+            if (next == '{')
             {
-                int charPos = 0;
-                string key = ParseQuoted(line, ref charPos);
-                charPos = SkipWhitespace(line, charPos);
-
-                if (charPos < line.Length && line[charPos] == '{')
-                {
-                    // Block value — recurse
-                    result[key] = ParseBlock(lines, ref lineIndex);
-                }
-                else
-                {
-                    // Simple quoted value
-                    string val = ParseQuoted(line, ref charPos);
-                    result[key] = val;
-                }
+                pos++; // consume opening brace
+                result[key] = ParseBlock(text, ref pos);
             }
-            catch
+            else if (next == '"')
             {
-                // Skip unparseable lines
+                result[key] = ReadQuoted(text, ref pos);
+            }
+            else if (next == '}')
+            {
+                // Dangling key with no value — skip (no entry).
+            }
+            else
+            {
+                // Malformed line — skip the key.
             }
         }
 
         return result;
     }
 
-    private static string ParseQuoted(string line, ref int charPos)
+    /// <summary>Reads a quoted string starting at the current position (the `"` must be here).</summary>
+    private static string ReadQuoted(string text, ref int pos)
     {
-        charPos = SkipWhitespace(line, charPos);
+        if (pos >= text.Length || text[pos] != '"')
+            throw new FormatException($"Expected '\"' at position {pos}");
 
-        if (charPos >= line.Length || line[charPos] != '"')
-            throw new FormatException($"Expected '\"' at position {charPos} in: {line}");
-
-        charPos++; // skip opening quote
+        pos++; // skip opening quote
 
         var chars = new List<char>();
-        while (charPos < line.Length)
+        while (pos < text.Length)
         {
-            char c = line[charPos];
+            char c = text[pos];
             if (c == '"')
             {
-                charPos++; // skip closing quote
+                pos++; // skip closing quote
                 return new string(chars.ToArray());
             }
-            if (c == '\\' && charPos + 1 < line.Length)
+            if (c == '\\' && pos + 1 < text.Length)
             {
-                charPos++;
-                chars.Add(line[charPos]);
-                charPos++;
+                // Escaped char (e.g. \\ → \). Take it literally.
+                pos++;
+                chars.Add(text[pos]);
+                pos++;
             }
             else
             {
                 chars.Add(c);
-                charPos++;
+                pos++;
             }
         }
 
         throw new FormatException("Unterminated string");
     }
 
-    private static int SkipWhitespace(string line, int charPos)
+    private static void SkipWhitespace(string text, ref int pos)
     {
-        while (charPos < line.Length && (line[charPos] == ' ' || line[charPos] == '\t'))
-            charPos++;
-        return charPos;
+        while (pos < text.Length && char.IsWhiteSpace(text[pos]))
+            pos++;
     }
 }

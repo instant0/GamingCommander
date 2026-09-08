@@ -79,9 +79,13 @@ public partial class App : Application
                 var configService = new JsonConfigService(GetConfigPath());
                 Log($"  ConfigPath: {GetConfigPath()}");
 
+                Log("Creating LibrariesDatabaseService...");
+                var librariesService = new LibrariesDatabaseService(GetLibrariesPath());
+                Log($"  LibrariesPath: {GetLibrariesPath()}");
+
                 Log("Loading config...");
                 AppConfig config = configService.Load();
-                Log($"  Config loaded: IsFirstRun={config.IsFirstRun}, Roots={config.LibraryRoots.Count}");
+                Log($"  Config loaded: IsFirstRun={config.IsFirstRun}, Libraries={librariesService.Libraries.Count}");
 
                 Log("Loading blacklist...");
                 var blacklist = new BlacklistLoader(baseDir).Load();
@@ -94,14 +98,14 @@ public partial class App : Application
                 var scanner = new FolderScanner(config.HiddenFolders, blacklist, registryReader);
 
                 Log("Creating SteamLibraryScanner...");
-                var steamPaths = config.LibraryRoots
-                    .Where(r => r.DefaultType == GameSourceKind.Steam)
-                    .Select(r => r.RootPath);
+                var steamPaths = librariesService.Libraries
+                    .Where(l => l.Type == GameSourceKind.Steam)
+                    .SelectMany(l => l.Folders);
                 var steamScanner = new SteamLibraryScanner(steamPaths);
                 Log($"  Steam paths: {string.Join(", ", steamPaths)}");
 
                 Log("Creating LibraryManager...");
-                var libraryManager = new LibraryManager(configService, dbService, scanner, steamScanner);
+                var libraryManager = new LibraryManager(librariesService, dbService, scanner, steamScanner);
 
                 Log("Creating DesignTimeMigrationPlanner...");
                 var migrationPlanner = new DesignTimeMigrationPlanner();
@@ -112,7 +116,7 @@ public partial class App : Application
                 bool needsWizard = config.IsFirstRun
                     || config.LastSeenVersion is null
                     || isNewerVersion
-                    || config.LibraryRoots.Count == 0;
+                    || librariesService.Libraries.Count == 0;
                 Log($"  CurrentVersion: {currentVersion}, LastSeen: {config.LastSeenVersion ?? "(null)"}, needsWizard: {needsWizard}, isNewerVersion: {isNewerVersion}");
 
                 Log("Creating ShellViewModel...");
@@ -134,7 +138,7 @@ public partial class App : Application
                 Log("  ShellViewModel created");
 
                 Log("Creating MainWindow...");
-                var mainWindow = new MainWindow(shellVm, dbService, metadataService, onlineGate);
+                var mainWindow = new MainWindow(shellVm, dbService, librariesService, metadataService, onlineGate);
                 Log("  MainWindow created");
 
                 desktop.MainWindow = mainWindow;
@@ -154,16 +158,16 @@ public partial class App : Application
                         config = config with { LastSeenVersion = currentVersion };
                         configService.Save(config);
 
-                        if (config.LibraryRoots.Count == 0)
+                        if (librariesService.Libraries.Count == 0)
                         {
-                            shellVm.StatusText = "No library roots configured. Press F2 to add folders.";
+                            shellVm.StatusText = "No libraries configured. Press F2 to add library folders.";
                         }
                         else
                         {
                             shellVm.JumpToLibraryRoots();
-                            int totalGames = config.LibraryRoots.Sum(
-                                r => dbService.GetGamesForRoot(r.RootPath).Count);
-                            shellVm.StatusText = $"Welcome — {config.LibraryRoots.Count} root(s), {totalGames} game(s) loaded.";
+                            int totalGames = librariesService.Libraries
+                                .Sum(l => dbService.GetGamesForLibrary(l.Name).Count);
+                            shellVm.StatusText = $"Welcome — {librariesService.Libraries.Count} librar{(librariesService.Libraries.Count != 1 ? "ies" : "y")}, {totalGames} game(s) loaded.";
                         }
 
                         _ = mainWindow.SyncOnlineGateFromConfigAsync();
@@ -179,9 +183,9 @@ public partial class App : Application
                     }
 
                     mainWindow.Show();
-                    int totalGames = config.LibraryRoots.Sum(
-                        r => dbService.GetGamesForRoot(r.RootPath).Count);
-                    shellVm.StatusText = $"Loaded {config.LibraryRoots.Count} root(s), {totalGames} game(s). Press F2 to manage.";
+                    int totalGames = librariesService.Libraries
+                        .Sum(l => dbService.GetGamesForLibrary(l.Name).Count);
+                    shellVm.StatusText = $"Loaded {librariesService.Libraries.Count} librar{(librariesService.Libraries.Count != 1 ? "ies" : "y")}, {totalGames} game(s). Press F2 to manage.";
                 }
             }
             catch (Exception ex)
@@ -221,6 +225,15 @@ public partial class App : Application
         if (!Directory.Exists(dataDir))
             Directory.CreateDirectory(dataDir);
         return Path.Combine(dataDir, "games.json");
+    }
+
+    private static string GetLibrariesPath()
+    {
+        string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+        string dataDir = Path.Combine(baseDir, "data");
+        if (!Directory.Exists(dataDir))
+            Directory.CreateDirectory(dataDir);
+        return Path.Combine(dataDir, "libraries.json");
     }
 
     private static string GetMetadataDbPath()

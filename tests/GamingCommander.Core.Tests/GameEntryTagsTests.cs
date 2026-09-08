@@ -11,6 +11,8 @@ public class GameEntryTagsTests
         Dictionary<string, string>? userOverrides = null) =>
         new(
             Id: "test-123",
+            Library: "Test",
+            FolderPath: @"C:\Games\GameFolder",
             FolderName: "GameFolder",
             DisplayName: "Test Game",
             GameSource: GameSourceKind.Standalone,

@@ -4,192 +4,137 @@ using GamingCommander.Core.Models;
 namespace GamingCommander.App.Services;
 
 /// <summary>
-/// Real implementation of ILibraryManager that reads library roots from
-/// IConfigService directly (no stale in-memory copy), and routes scanning
-/// to the appropriate scanner based on folder structure + configured type.
+/// Real implementation of ILibraryManager over anchors.
 ///
-/// Scanner selection logic:
-///   - If a folder has steamapps/common/ → SteamLibraryScanner (structural = definitive)
-///   - If configured type is Steam but no steamapps/ → SteamLibraryScanner (respects override)
-///   - Otherwise → FolderScanner
+/// A Library (anchor) is a named catalog owning one or more physical folders.
+/// Scanning a physical folder is always tied to a library-anchor context, so the
+/// manager stamps <see cref="GameEntry.Library"/> = anchor name onto every entry
+/// found. The per-entry game-detection may later re-anchor a title to a different
+/// anchor whose type matches (e.g. an Epic game found under d:\games → EPIC),
+/// which moves it between anchors in the VFS.
 /// </summary>
 public sealed class LibraryManager : ILibraryManager
 {
-    private readonly IConfigService _configService;
+    private readonly ILibrariesService _librariesService;
     private readonly IGamesDatabaseService _databaseService;
     private readonly FolderScanner _scanner;
     private readonly SteamLibraryScanner? _steamScanner;
     private readonly EpicLibraryScanner _epicScanner = new();
 
-    /// <summary>Creates a new LibraryManager with the specified services.</summary>
     public LibraryManager(
-        IConfigService configService,
+        ILibrariesService librariesService,
         IGamesDatabaseService databaseService,
         FolderScanner scanner,
         SteamLibraryScanner? steamScanner = null)
     {
-        _configService = configService;
+        _librariesService = librariesService;
         _databaseService = databaseService;
         _scanner = scanner;
         _steamScanner = steamScanner;
     }
 
-    /// <summary>
-    /// Roots are read live from persisted config — never stale.
-    /// </summary>
-    public IReadOnlyList<LibraryRoot> LibraryRoots =>
-        _configService.Load().LibraryRoots;
+    /// <summary>All configured libraries (anchors), read live from persistence.</summary>
+    public IReadOnlyList<Library> Libraries => _librariesService.Libraries;
 
-    /// <summary>Returns game entries for the specified root from the database.</summary>
-    public IReadOnlyList<GameEntry> GetGamesForRoot(string rootPath)
+    /// <summary>Returns game entries linked to the specified library anchor.</summary>
+    public IReadOnlyList<GameEntry> GetGamesForLibrary(string libraryName)
     {
-        return _databaseService.GetGamesForRoot(rootPath);
+        return _databaseService.GetGamesForLibrary(libraryName);
+    }
+
+    /// <summary>Adds (or updates) a library anchor owning the given folders.</summary>
+    public void UpsertLibrary(string name, GameSourceKind type, IReadOnlyList<string> folders)
+    {
+        _librariesService.Upsert(new Library(name, type, folders));
+    }
+
+    /// <summary>Removes a library anchor and its game entries. Returns true if removed.</summary>
+    public bool RemoveLibrary(string name)
+    {
+        bool removed = _librariesService.Remove(name);
+        if (removed)
+            _databaseService.RemoveGamesForLibrary(name);
+        return removed;
     }
 
     /// <summary>
-    /// Adds a new library root. Scans if no games provided. Persists to both config and database.
-    /// Returns true if the root was added, false if the folder was empty (0 games found).
+    /// Scans a single physical folder in the context of a library anchor and stamps
+    /// <see cref="GameEntry.Library"/> onto the discovered entries. Does not persist.
     /// </summary>
-    public bool AddRoot(string rootPath, GameSourceKind defaultType, IReadOnlyList<GameEntry> initialGames)
+    public IReadOnlyList<GameEntry> ScanFolder(string folderPath, string libraryName, GameSourceKind type)
     {
-        AppConfig config = _configService.Load();
-
-        // If no games were provided, scan the folder to discover them
-        IReadOnlyList<GameEntry> resolved = initialGames;
-        if (resolved.Count == 0 && Directory.Exists(rootPath))
-            resolved = SelectScannerAndScan(rootPath, defaultType);
-
-        // Don't add root if no games found — user can rescan after adding games
-        if (resolved.Count == 0)
-            return false;
-
-        // Persist to games database
-        _databaseService.AddRoot(rootPath, defaultType, resolved);
-
-        // Persist root to config (append if not already present)
-        var roots = config.LibraryRoots.ToList();
-        if (!roots.Any(r => r.RootPath.Equals(rootPath, StringComparison.OrdinalIgnoreCase)))
-        {
-            roots.Add(new LibraryRoot(rootPath, defaultType));
-            _configService.Save(config with { LibraryRoots = roots });
-        }
-
-        return true;
-    }
-
-    /// <summary>Removes a root from both the games database and config.</summary>
-    public void RemoveRoot(string rootPath)
-    {
-        // Remove from games database
-        _databaseService.RemoveRoot(rootPath);
-
-        // Remove from config
-        AppConfig config = _configService.Load();
-        var roots = config.LibraryRoots
-            .Where(r => !r.RootPath.Equals(rootPath, StringComparison.OrdinalIgnoreCase))
+        IReadOnlyList<GameEntry> found = SelectScannerAndScan(folderPath, type);
+        return found
+            .Select(e => e with { Library = libraryName })
             .ToList();
-        _configService.Save(config with { LibraryRoots = roots });
     }
 
     /// <summary>
-    /// Re-scans all configured library roots and updates the games database.
-    /// Scanner selection uses SelectScannerAndScan (structural check + type hint).
-    /// Called at startup (if roots exist) or on explicit refresh.
+    /// Rescans all physical folders of a library anchor and persists the merged
+    /// results under that anchor (preserving user overrides and existing entries).
     /// </summary>
-    public void Refresh(CancellationToken ct = default)
+    public void RescanLibrary(string libraryName, CancellationToken ct = default)
     {
-        AppConfig config = _configService.Load();
-        foreach (LibraryRoot root in config.LibraryRoots)
+        Library? lib = _librariesService.Get(libraryName);
+        if (lib is null)
+            return;
+
+        var found = new List<GameEntry>();
+        foreach (string folder in lib.Folders)
         {
             ct.ThrowIfCancellationRequested();
-
-            try
-            {
-                if (!Directory.Exists(root.RootPath))
-                    continue;
-
-                IReadOnlyList<GameEntry> games = SelectScannerAndScan(root.RootPath, root.DefaultType, ct);
-                _databaseService.RescanRoot(root.RootPath, games);
-            }
-            catch (OperationCanceledException)
-            {
-                throw; // Propagate cancellation
-            }
-            catch
-            {
-                // Continue with next root — don't let one failing root skip the rest
-            }
+            if (!Directory.Exists(folder))
+                continue;
+            found.AddRange(ScanFolder(folder, libraryName, lib.Type));
         }
+
+        _databaseService.SetGamesForLibrary(libraryName, found);
     }
 
-    /// <summary>Delegates rescan results to the database service.</summary>
-    public void RescanRoot(string rootPath, IReadOnlyList<GameEntry> games)
-    {
-        _databaseService.RescanRoot(rootPath, games);
-    }
-
-    /// <summary>Delegates game entry update to the database service.</summary>
-    public void UpdateGameEntry(string rootPath, GameEntry updatedEntry)
-    {
-        _databaseService.UpdateGameEntry(rootPath, updatedEntry);
-    }
-
-    /// <summary>Delegates game entry deletion to the database service.</summary>
-    public void DeleteGameEntry(string rootPath, string gameId)
-    {
-        _databaseService.DeleteGameEntry(rootPath, gameId);
-    }
-
-    /// <summary>Delegates game retag to the database service.</summary>
-    public void RetagGame(string rootPath, string gameId, GameSourceKind newType)
-    {
-        _databaseService.RetagGame(rootPath, gameId, newType);
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    //  Scanner Selection
-    // ════════════════════════════════════════════════════════════════
-
-    /// <summary>
-    /// Select the best scanner for the given root path.
-    ///
-    /// Rule:
-    ///   1. If steamapps/common/ exists → SteamLibraryScanner (structural = definitive).
-    ///      No other platform uses the "steamapps" directory — this check is safe.
-    ///   2. If configured type is Steam but no steamapps/ → SteamLibraryScanner still
-    ///      (respects explicit user override).
-    ///   3. Otherwise → FolderScanner.
-    /// </summary>
+    /// <summary>Rescans a physical folder with the appropriate scanner (no anchor stamping).</summary>
     public IReadOnlyList<GameEntry> SelectScannerAndScan(
-        string rootPath, GameSourceKind configuredType,
+        string folderPath, GameSourceKind configuredType,
         CancellationToken ct = default)
     {
-        if (_steamScanner != null && (LooksLikeSteamLibrary(rootPath) || configuredType == GameSourceKind.Steam))
-            return _steamScanner.Scan(rootPath);
+        if (_steamScanner != null && (LooksLikeSteamLibrary(folderPath) || configuredType == GameSourceKind.Steam))
+            return _steamScanner.Scan(folderPath);
 
-        if (configuredType == GameSourceKind.Epic || EpicItemCatalog.LooksLikeManifestsDir(rootPath))
+        if (configuredType == GameSourceKind.Epic || EpicItemCatalog.LooksLikeManifestsDir(folderPath))
         {
-            var known = new List<(string RootPath, GameEntry Game)>();
-            foreach (LibraryRoot root in LibraryRoots)
+            // Known Epic games from other libraries, keyed by their recorded physical
+            // folder (never the anchor name — anchors can be display-only catalogs).
+            var known = new List<GameEntry>();
+            foreach (Library lib in Libraries)
             {
-                if (root.RootPath.Equals(rootPath, StringComparison.OrdinalIgnoreCase))
+                if (lib.Type != GameSourceKind.Epic)
                     continue;
-                foreach (GameEntry game in _databaseService.GetGamesForRoot(root.RootPath))
-                {
-                    if (game.GameSource == GameSourceKind.Epic)
-                        known.Add((root.RootPath, game));
-                }
+                known.AddRange(_databaseService.GetGamesForLibrary(lib.Name));
             }
-
-            return _epicScanner.Scan(rootPath, known);
+            return _epicScanner.Scan(folderPath, known);
         }
 
-        return _scanner.Scan(rootPath, configuredType, ct);
+        return _scanner.Scan(folderPath, configuredType, ct);
     }
 
-    /// <summary>
-    /// Structural check: does this folder have steamapps/common/ ?
-    /// </summary>
+    /// <summary>Updates a game entry in the database.</summary>
+    public void UpdateGameEntry(GameEntry updatedEntry)
+    {
+        _databaseService.UpdateGameEntry(updatedEntry);
+    }
+
+    /// <summary>Deletes a game entry from the database.</summary>
+    public void DeleteGameEntry(string gameId)
+    {
+        _databaseService.DeleteGameEntry(gameId);
+    }
+
+    /// <summary>Retags a game entry with a new source type (re-anchoring support).</summary>
+    public void RetagGame(string gameId, GameSourceKind newType)
+    {
+        _databaseService.RetagGame(gameId, newType);
+    }
+
+    /// <summary>Structural check: does this folder have steamapps/common/ ?</summary>
     public static bool LooksLikeSteamLibrary(string rootPath)
     {
         return Directory.Exists(Path.Combine(rootPath, "steamapps", "common"));

@@ -63,6 +63,8 @@ public sealed class EpicLibraryScannerTests : IDisposable
             """);
         var known = new GameEntry(
             Id: "same-id",
+            Library: "Epic",
+            FolderPath: @"D:\games\cavestoryplus",
             FolderName: "cavestoryplus",
             DisplayName: "Cave Story+",
             GameSource: GameSourceKind.Epic,
@@ -77,7 +79,7 @@ public sealed class EpicLibraryScannerTests : IDisposable
             Tags: [],
             UserOverrides: []);
 
-        var list = new EpicLibraryScanner().Scan(_dir, [(@"D:\games", known)]);
+        var list = new EpicLibraryScanner().Scan(_dir, [known]);
         GameEntry orphan = Assert.Single(list);
         Assert.Equal("Orphaned", orphan.PlatformMetadata["EpicStatus"]);
         Assert.Equal("same-id", orphan.Id);

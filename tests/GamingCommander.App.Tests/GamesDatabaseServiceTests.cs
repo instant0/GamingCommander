@@ -6,7 +6,8 @@ using Xunit;
 namespace GamingCommander.App.Tests;
 
 /// <summary>
-/// Tests for GamesDatabaseService — JSON persistence, in-memory caching, and CRUD operations.
+/// Tests for GamesDatabaseService — flat games[] JSON persistence, in-memory
+/// caching, and anchor (Library) scoped CRUD operations.
 /// </summary>
 public sealed class GamesDatabaseServiceTests : IDisposable
 {
@@ -29,13 +30,17 @@ public sealed class GamesDatabaseServiceTests : IDisposable
         return new GamesDatabaseService(Path.Combine(_tempDir, "games.json"));
     }
 
-    private static GameEntry MakeGame(string id, string folder = "GameFolder", string display = "Test Game") =>
-        new(id, folder, display, GameSourceKind.Standalone, false,
+    private static GameEntry MakeGame(
+        string id,
+        string library,
+        string folder = "GameFolder",
+        string display = "Test Game") =>
+        new(id, library, folder, folder, display, GameSourceKind.Standalone, false,
             $@"C:\Games\{folder}\game.exe", "", "", "",
             DateTimeOffset.Now, DateTimeOffset.Now, [], [], []);
 
     // ════════════════════════════════════════════════════════════════
-    //  Load/Save
+    //  Load / Save
     // ════════════════════════════════════════════════════════════════
 
     [Fact]
@@ -45,30 +50,30 @@ public sealed class GamesDatabaseServiceTests : IDisposable
         var db = svc.Load();
 
         Assert.NotNull(db);
-        Assert.Empty(db.Roots);
+        Assert.Empty(db.Games);
     }
 
     [Fact]
     public void Load_WithValidFile_ReturnsPersistedData()
     {
         var svc = CreateService();
-        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone, [MakeGame("g1")]);
+        svc.SetGamesForLibrary("Steam", [MakeGame("g1", "Steam")]);
         svc.Save(svc.Load());
 
-        // Create new service instance (fresh cache) to test disk read
+        // Fresh service instance (cleared cache) verifies disk read.
         var svc2 = CreateService();
         var db = svc2.Load();
 
-        Assert.Single(db.Roots);
-        Assert.Single(db.Roots[0].Games);
-        Assert.Equal("g1", db.Roots[0].Games[0].Id);
+        Assert.Single(db.Games);
+        Assert.Equal("g1", db.Games[0].Id);
+        Assert.Equal("Steam", db.Games[0].Library);
     }
 
     [Fact]
     public void Save_CreatesFile_OnDisk()
     {
         var svc = CreateService();
-        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone, []);
+        svc.SetGamesForLibrary("Steam", []);
         svc.Save(svc.Load());
 
         string dbPath = Path.Combine(_tempDir, "games.json");
@@ -82,422 +87,160 @@ public sealed class GamesDatabaseServiceTests : IDisposable
         File.WriteAllText(dbPath, "not valid json {{{");
 
         var svc = CreateService();
-        var db = svc.Load(); // Should handle corrupt file gracefully
-        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone, [MakeGame("g1")]);
+        svc.Load(); // handles corrupt file gracefully (returns empty)
+        svc.SetGamesForLibrary("Steam", [MakeGame("g1", "Steam")]);
+        svc.Save(svc.Load());
 
-        // Re-read: should have valid data now
         var svc2 = CreateService();
         var db2 = svc2.Load();
-        Assert.Single(db2.Roots);
+        Assert.Single(db2.Games);
+        Assert.Equal("g1", db2.Games[0].Id);
+    }
+
+    [Fact]
+    public void Save_ThenLoad_PreservesAllFields()
+    {
+        var svc = CreateService();
+        var game = MakeGame("g1", "EPIC", "MyFolder", "Epic Game") with
+        {
+            Tags = ["RPG", "Co-op"],
+            GameSource = GameSourceKind.Epic,
+            UserOverrides = new Dictionary<string, string> { ["DisplayName"] = "2026-07-26T14:30:00Z" },
+            PlatformMetadata = new Dictionary<string, string> { ["CatalogItemId"] = "abc123" },
+        };
+        svc.SetGamesForLibrary("EPIC", [game]);
+        svc.Save(svc.Load());
+
+        var svc2 = CreateService();
+        var loaded = svc2.Load().Games.Single();
+
+        Assert.Equal("EPIC", loaded.Library);
+        Assert.Equal(@"C:\Games\MyFolder\game.exe", loaded.ExecutablePath);
+        Assert.Equal(GameSourceKind.Epic, loaded.GameSource);
+        Assert.Equal(["RPG", "Co-op"], loaded.Tags);
+        Assert.Equal("abc123", loaded.PlatformMetadata["CatalogItemId"]);
+        Assert.True(loaded.UserOverrides.ContainsKey("DisplayName"));
     }
 
     // ════════════════════════════════════════════════════════════════
-    //  CRUD Operations
+    //  Anchor (Library) scoped operations
     // ════════════════════════════════════════════════════════════════
 
     [Fact]
-    public void AddRoot_AddsToDatabase()
+    public void SetGamesForLibrary_EntriesAreScopedToLibrary()
     {
         var svc = CreateService();
-        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone,
-            [MakeGame("g1", "Game1", "Game One"), MakeGame("g2", "Game2", "Game Two")]);
+        svc.SetGamesForLibrary("Steam", [MakeGame("s1", "Steam")]);
+        svc.SetGamesForLibrary(@"d:\games", [MakeGame("d1", @"d:\games")]);
 
-        var games = svc.GetGamesForRoot(@"D:\Games");
-        Assert.Equal(2, games.Count);
+        Assert.Single(svc.GetGamesForLibrary("Steam"));
+        Assert.Single(svc.GetGamesForLibrary(@"d:\games"));
+        Assert.Equal(2, svc.Load().Games.Count);
     }
 
     [Fact]
-    public void AddRoot_DuplicateRoot_Ignored()
+    public void SetGamesForLibrary_PreservesUserOverridesOnRescan()
     {
         var svc = CreateService();
-        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone, [MakeGame("g1")]);
-        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone, [MakeGame("g2")]); // duplicate
+        var game = MakeGame("g1", "Steam") with
+        {
+            DisplayName = "My Custom Name",
+            UserOverrides = new Dictionary<string, string> { ["DisplayName"] = "2026-07-26T14:30:00Z" },
+            Tags = ["RPG", "Co-op"],
+        };
+        svc.SetGamesForLibrary("Steam", [game]);
 
-        var games = svc.GetGamesForRoot(@"D:\Games");
-        Assert.Single(games); // Only first game present
+        // Rescan supplies a fresh auto-detected entry with the same ID.
+        var scannedGame = MakeGame("g1", "Steam") with { DisplayName = "Auto Name", Tags = [] };
+        svc.SetGamesForLibrary("Steam", [scannedGame]);
+
+        var games = svc.GetGamesForLibrary("Steam");
+        Assert.Single(games);
+        Assert.Equal("My Custom Name", games[0].DisplayName);   // user override preserved
+        Assert.Equal(2, games[0].Tags.Count);                   // user tags preserved
+        Assert.Equal("RPG", games[0].Tags[0]);
     }
 
     [Fact]
-    public void RemoveRoot_RemovesFromDatabase()
+    public void GetGamesForLibrary_UnknownLibrary_ReturnsEmpty()
     {
         var svc = CreateService();
-        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone, [MakeGame("g1")]);
-        svc.RemoveRoot(@"D:\Games");
+        svc.SetGamesForLibrary("Steam", [MakeGame("g1", "Steam")]);
 
-        var db = svc.Load();
-        Assert.Empty(db.Roots);
+        Assert.Empty(svc.GetGamesForLibrary(@"E:\Nonexistent"));
     }
 
     [Fact]
-    public void GetGamesForRoot_ReturnsCorrectEntries()
+    public void RemoveGamesForLibrary_RemovesOnlyThatLibrary()
     {
         var svc = CreateService();
-        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone,
-            [MakeGame("g1"), MakeGame("g2"), MakeGame("g3")]);
+        svc.SetGamesForLibrary("Steam", [MakeGame("s1", "Steam")]);
+        svc.SetGamesForLibrary(@"d:\games", [MakeGame("d1", @"d:\games")]);
 
-        var games = svc.GetGamesForRoot(@"D:\Games");
-        Assert.Equal(3, games.Count);
+        svc.RemoveGamesForLibrary("Steam");
+
+        Assert.Empty(svc.GetGamesForLibrary("Steam"));
+        Assert.Single(svc.GetGamesForLibrary(@"d:\games"));
+        Assert.Single(svc.Load().Games);
     }
 
-    [Fact]
-    public void GetGamesForRoot_UnknownRoot_ReturnsEmpty()
-    {
-        var svc = CreateService();
-        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone, [MakeGame("g1")]);
-
-        var games = svc.GetGamesForRoot(@"E:\Nonexistent");
-        Assert.Empty(games);
-    }
+    // ════════════════════════════════════════════════════════════════
+    //  Single-entry CRUD
+    // ════════════════════════════════════════════════════════════════
 
     [Fact]
     public void UpdateGameEntry_UpdatesFields()
     {
         var svc = CreateService();
-        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone, [MakeGame("g1")]);
+        svc.SetGamesForLibrary("Steam", [MakeGame("g1", "Steam")]);
 
-        var updated = MakeGame("g1", "Game1", "Renamed Game");
-        svc.UpdateGameEntry(@"D:\Games", updated);
+        var updated = MakeGame("g1", "Steam", display: "Renamed Game");
+        svc.UpdateGameEntry(updated);
 
-        var games = svc.GetGamesForRoot(@"D:\Games");
+        var games = svc.GetGamesForLibrary("Steam");
+        Assert.Single(games);
         Assert.Equal("Renamed Game", games[0].DisplayName);
+    }
+
+    [Fact]
+    public void UpdateGameEntry_UnknownId_IsNoOp()
+    {
+        var svc = CreateService();
+        svc.SetGamesForLibrary("Steam", [MakeGame("g1", "Steam")]);
+
+        svc.UpdateGameEntry(MakeGame("nope", "Steam"));
+
+        Assert.Single(svc.GetGamesForLibrary("Steam"));
     }
 
     [Fact]
     public void DeleteGameEntry_RemovesEntry()
     {
         var svc = CreateService();
-        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone, [MakeGame("g1"), MakeGame("g2")]);
+        svc.SetGamesForLibrary("Steam", [MakeGame("g1", "Steam"), MakeGame("g2", "Steam")]);
 
-        svc.DeleteGameEntry(@"D:\Games", "g1");
+        svc.DeleteGameEntry("g1");
 
-        var games = svc.GetGamesForRoot(@"D:\Games");
+        var games = svc.GetGamesForLibrary("Steam");
         Assert.Single(games);
         Assert.Equal("g2", games[0].Id);
     }
 
     [Fact]
-    public void RetagGame_ChangesSourceKind()
+    public void RetagGame_ChangesSourceType()
     {
         var svc = CreateService();
-        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone, [MakeGame("g1")]);
+        svc.SetGamesForLibrary(@"d:\games", [MakeGame("g1", @"d:\games")]);
 
-        svc.RetagGame(@"D:\Games", "g1", GameSourceKind.Steam);
+        svc.RetagGame("g1", GameSourceKind.Epic);
 
-        var games = svc.GetGamesForRoot(@"D:\Games");
-        Assert.Equal(GameSourceKind.Steam, games[0].GameSource);
-        Assert.True(games[0].IsSourceOverridden); // Steam != Standalone default
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    //  Caching
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void Load_CachesResult()
-    {
-        var svc = CreateService();
-        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone, [MakeGame("g1")]);
-
-        var db1 = svc.Load();
-        var db2 = svc.Load();
-
-        Assert.Same(db1, db2);
-    }
-
-    [Fact]
-    public void Save_UpdatesCache()
-    {
-        var svc = CreateService();
-        var db = svc.Load();
-        Assert.Empty(db.Roots);
-
-        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone, [MakeGame("g1")]);
-        var dbAfter = svc.Load();
-
-        Assert.Single(dbAfter.Roots);
-        // After AddRoot→Save, cache is updated (new instance with data)
-        Assert.NotSame(db, dbAfter);
-        Assert.Empty(db.Roots); // original reference unchanged
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    //  Edge Cases
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void RescanRoot_MergesExistingAndNewGames()
-    {
-        var svc = CreateService();
-        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone,
-            [MakeGame("g1"), MakeGame("g2"), MakeGame("g3"), MakeGame("g4"), MakeGame("g5")]);
-
-        // Rescan with 2 existing (g1, g2) + 1 new (g10) — g3, g4, g5 retained as temporarily unavailable
-        svc.RescanRoot(@"D:\Games", [MakeGame("g1"), MakeGame("g2"), MakeGame("g10")]);
-
-        var games = svc.GetGamesForRoot(@"D:\Games");
-        Assert.Equal(6, games.Count); // 2 merged + 1 new + 3 retained = 6
-    }
-
-    [Fact]
-    public void RescanRoot_PreservesUserDisplayName()
-    {
-        var svc = CreateService();
-        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone,
-            [MakeGame("g1", "bme2", "Battle for Middle Earth 2")]);
-
-        // User renames via F4
-        var renamed = MakeGame("g1", "bme2", "My Custom Name");
-        svc.UpdateGameEntry(@"D:\Games", renamed);
-
-        // Rescan with auto-detected name (different from user's custom name)
-        svc.RescanRoot(@"D:\Games", [MakeGame("g1", "bme2", "bme2")]);
-
-        var games = svc.GetGamesForRoot(@"D:\Games");
+        var games = svc.GetGamesForLibrary(@"d:\games");
         Assert.Single(games);
-        Assert.Equal("My Custom Name", games[0].DisplayName); // User override preserved
-    }
-
-    [Fact]
-    public void RescanRoot_PreservesUserCommandLineArgs()
-    {
-        var svc = CreateService();
-        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone,
-            [MakeGame("g1")]);
-
-        // User adds custom args via F4
-        var withArgs = MakeGame("g1");
-        withArgs = withArgs with { CommandLineArguments = "--windowed --nosound" };
-        svc.UpdateGameEntry(@"D:\Games", withArgs);
-
-        // Rescan with empty args
-        svc.RescanRoot(@"D:\Games", [MakeGame("g1")]);
-
-        var games = svc.GetGamesForRoot(@"D:\Games");
-        Assert.Single(games);
-        Assert.Equal("--windowed --nosound", games[0].CommandLineArguments);
-    }
-
-    [Fact]
-    public void RescanRoot_PreservesExtraLaunchArguments()
-    {
-        var svc = CreateService();
-        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone, [MakeGame("g1")]);
-
-        svc.UpdateGameEntry(@"D:\Games", MakeGame("g1") with
-        {
-            ExtraLaunchArguments = "--launcher-skip -modded",
-        });
-
-        svc.RescanRoot(@"D:\Games", [MakeGame("g1")]);
-
-        var games = svc.GetGamesForRoot(@"D:\Games");
-        Assert.Equal("--launcher-skip -modded", games[0].ExtraLaunchArguments);
-    }
-
-    [Fact]
-    public void RescanRoot_PreservesUserSourceOverride()
-    {
-        var svc = CreateService();
-        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone,
-            [MakeGame("g1")]);
-
-        // User changes source type via F4
-        var retagged = MakeGame("g1");
-        retagged = retagged with { GameSource = GameSourceKind.Gog, IsSourceOverridden = true };
-        svc.UpdateGameEntry(@"D:\Games", retagged);
-
-        // Rescan detects as Standalone
-        svc.RescanRoot(@"D:\Games", [MakeGame("g1")]);
-
-        var games = svc.GetGamesForRoot(@"D:\Games");
-        Assert.Single(games);
-        Assert.Equal(GameSourceKind.Gog, games[0].GameSource); // User override preserved
+        Assert.Equal(GameSourceKind.Epic, games[0].GameSource);
         Assert.True(games[0].IsSourceOverridden);
-    }
 
-    [Fact]
-    public void MultipleRoots_IndependentCRUD()
-    {
-        var svc = CreateService();
-        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone, [MakeGame("g1")]);
-        svc.AddRoot(@"E:\Steam", GameSourceKind.Steam, [MakeGame("g2")]);
-
-        svc.DeleteGameEntry(@"D:\Games", "g1");
-
-        // E:\Steam should be unaffected
-        var steamGames = svc.GetGamesForRoot(@"E:\Steam");
-        Assert.Single(steamGames);
-        Assert.Equal("g2", steamGames[0].Id);
-
-        // D:\Games should be empty
-        var dGames = svc.GetGamesForRoot(@"D:\Games");
-        Assert.Empty(dGames);
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    //  Crash Prevention
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void RescanRoot_DuplicateIds_DoesNotCrash()
-    {
-        var svc = CreateService();
-        // Add root with a single game
-        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone, [MakeGame("g1")]);
-
-        // Rescan with duplicate IDs in the scan results — should not throw
-        var duplicate1 = MakeGame("g1", "Game1", "First");
-        var duplicate2 = MakeGame("g1", "Game1", "Second");
-        svc.RescanRoot(@"D:\Games", [duplicate1, duplicate2]);
-
-        var games = svc.GetGamesForRoot(@"D:\Games");
-        // First duplicate merges with existing, second is treated as new — no crash
-        Assert.Equal(2, games.Count);
-    }
-
-    [Fact]
-    public void RescanRoot_DuplicateExistingIds_DoesNotCrash()
-    {
-        var svc = CreateService();
-        // Manually create a database with duplicate IDs (corruption scenario)
-        // by adding the same game ID twice via raw operations
-        var game1 = MakeGame("g1", "Game1", "First");
-        var game2 = MakeGame("g1", "Game1", "Second");
-        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone, [game1]);
-
-        // Directly corrupt the database by saving duplicate IDs
-        var db = svc.Load();
-        var root = db.Roots[0];
-        var corruptedRoot = root with { Games = [game1, game2] };
-        svc.Save(new GamesDatabase([corruptedRoot]));
-
-        // Rescan should not crash on duplicate IDs
+        // Persisted via the same cache update.
         var svc2 = CreateService();
-        svc2.RescanRoot(@"D:\Games", [MakeGame("g1", "Game1", "Third")]);
-
-        var games = svc2.GetGamesForRoot(@"D:\Games");
-        Assert.Single(games); // Duplicates collapsed
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    //  Tags Persistence
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void Tags_SurviveSaveLoad()
-    {
-        var svc = CreateService();
-        var game = MakeGame("g1") with
-        {
-            Tags = ["RPG", "Co-op", "Story Rich"],
-        };
-        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone, [game]);
-        svc.Save(svc.Load());
-
-        var svc2 = CreateService();
-        var db = svc2.Load();
-        var loaded = db.Roots[0].Games[0];
-
-        Assert.Equal(3, loaded.Tags.Count);
-        Assert.Equal("RPG", loaded.Tags[0]);
-        Assert.Equal("Co-op", loaded.Tags[1]);
-        Assert.Equal("Story Rich", loaded.Tags[2]);
-    }
-
-    [Fact]
-    public void UserOverrides_SurviveSaveLoad()
-    {
-        var svc = CreateService();
-        var overrides = new Dictionary<string, string>
-        {
-            ["DisplayName"] = "2026-07-26T14:30:00Z",
-            ["Tags"] = "2026-07-26T14:30:00Z",
-        };
-        var game = MakeGame("g1") with
-        {
-            UserOverrides = overrides,
-        };
-        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone, [game]);
-        svc.Save(svc.Load());
-
-        var svc2 = CreateService();
-        var db = svc2.Load();
-        var loaded = db.Roots[0].Games[0];
-
-        Assert.Equal(2, loaded.UserOverrides.Count);
-        Assert.Equal("2026-07-26T14:30:00Z", loaded.UserOverrides["DisplayName"]);
-        Assert.Equal("2026-07-26T14:30:00Z", loaded.UserOverrides["Tags"]);
-    }
-
-    [Fact]
-    public void EmptyTags_DefaultsOnLoad_OldJson()
-    {
-        // Simulate old games.json without Tags/UserOverrides fields
-        var svc = CreateService();
-        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone, [MakeGame("g1")]);
-        svc.Save(svc.Load());
-
-        var svc2 = CreateService();
-        var db = svc2.Load();
-        var loaded = db.Roots[0].Games[0];
-
-        Assert.NotNull(loaded.Tags);
-        Assert.Empty(loaded.Tags);
-        Assert.NotNull(loaded.UserOverrides);
-        Assert.Empty(loaded.UserOverrides);
-    }
-
-    [Fact]
-    public void RescanRoot_PreservesTags()
-    {
-        var svc = CreateService();
-        var game = MakeGame("g1") with
-        {
-            Tags = ["RPG", "Co-op"],
-        };
-        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone, [game]);
-        svc.Save(svc.Load());
-
-        // Rescan with new scan results
-        var scannedGame = MakeGame("g1") with
-        {
-            DisplayName = "Updated Name",
-            Tags = [],
-        };
-        svc.RescanRoot(@"D:\Games", [scannedGame]);
-
-        var games = svc.GetGamesForRoot(@"D:\Games");
-        Assert.Single(games);
-        Assert.Equal(2, games[0].Tags.Count); // User tags preserved
-        Assert.Equal("RPG", games[0].Tags[0]);
-    }
-
-    [Fact]
-    public void RescanRoot_PreservesUserOverrides()
-    {
-        var svc = CreateService();
-        var overrides = new Dictionary<string, string>
-        {
-            ["DisplayName"] = "2026-07-26T14:30:00Z",
-        };
-        var game = MakeGame("g1") with
-        {
-            DisplayName = "My Custom Name",
-            UserOverrides = overrides,
-        };
-        svc.AddRoot(@"D:\Games", GameSourceKind.Standalone, [game]);
-        svc.Save(svc.Load());
-
-        // Rescan with different display name
-        var scannedGame = MakeGame("g1") with
-        {
-            DisplayName = "Auto Detected Name",
-        };
-        svc.RescanRoot(@"D:\Games", [scannedGame]);
-
-        var games = svc.GetGamesForRoot(@"D:\Games");
-        Assert.Single(games);
-        Assert.Equal("My Custom Name", games[0].DisplayName); // User override preserved
-        Assert.True(games[0].UserOverrides.ContainsKey("DisplayName"));
+        Assert.Equal(GameSourceKind.Epic, svc2.Load().Games.Single(g => g.Id == "g1").GameSource);
     }
 }

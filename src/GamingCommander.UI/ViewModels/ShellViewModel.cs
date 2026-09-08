@@ -18,7 +18,7 @@ public sealed class ShellViewModel : ReactiveObject
     private readonly IMetadataStore? _metadataStore;
     private GameMetadataRecord? _selectedMetadata;
 
-    private string _currentRootPath = string.Empty;
+    private string _currentLibraryName = string.Empty;
     private int _selectedIndex;
     private int _previousRootIndex;
     private string _statusText = string.Empty;
@@ -52,9 +52,9 @@ public sealed class ShellViewModel : ReactiveObject
         _metadataStore = metadataStore;
 
         AppConfig config = _configService.Load();
-        if (config.LibraryRoots.Count == 0)
+        if (_libraryManager.Libraries.Count == 0)
         {
-            StatusText = "No library roots configured. Press F2 to add folders in Settings.";
+            StatusText = "No libraries configured. Press F2 to add library folders.";
             Items = [];
             InteractionHint = "Press F2 to open Settings and add library folders.";
             return;
@@ -70,7 +70,7 @@ public sealed class ShellViewModel : ReactiveObject
             ? $"Search: '{_searchBuffer}'"
             : ActiveFilter is not null
                 ? $"Filter: {ActiveFilter.Caption}"
-                : IsAtRootLevel ? "Library Roots" : TruncatePath(_currentRootPath);
+                : IsAtRootLevel ? "Library Roots" : TruncatePath(_currentLibraryName);
 
     /// <summary>Title displayed in the right pane header ('Details').</summary>
     public string RightPaneTitle => "Details";
@@ -307,10 +307,10 @@ public sealed class ShellViewModel : ReactiveObject
         new ShellCommandViewModel { Hotkey = "F10", Label = "Quit" },
     ];
 
-    /// <summary>The full path of the currently browsed library root.</summary>
-    public string CurrentRootPath => _currentRootPath;
-    /// <summary>Number of configured library roots.</summary>
-    public string ConfiguredRootsCount => $"{_libraryManager.LibraryRoots.Count} folder(s) configured";
+    /// <summary>The name of the currently browsed library anchor.</summary>
+    public string CurrentLibraryName => _currentLibraryName;
+    /// <summary>Number of configured libraries (anchors).</summary>
+    public string ConfiguredRootsCount => $"{_libraryManager.Libraries.Count} librar{(_libraryManager.Libraries.Count != 1 ? "ies" : "y")}";
     /// <summary>Number of items currently displayed in the left pane.</summary>
     public int ItemCount => Items.Count;
 
@@ -318,38 +318,40 @@ public sealed class ShellViewModel : ReactiveObject
     public void JumpToLibraryRoots()
     {
         ActiveFilter = null;
-        _currentRootPath = string.Empty;
+        _currentLibraryName = string.Empty;
         IsAtRootLevel = true;
         _selectedIndex = _previousRootIndex;
-        OnPropertyChanged(nameof(CurrentRootPath));
+        OnPropertyChanged(nameof(CurrentLibraryName));
         OnPropertyChanged(nameof(LeftPaneTitle));
         OnPropertyChanged(nameof(IsFilterActive));
         OnPropertyChanged(nameof(SelectedIndex));
         OnPropertyChanged(nameof(ItemCount));
 
         Items.Clear();
-        foreach (LibraryRoot root in _libraryManager.LibraryRoots)
+        foreach (Library lib in _libraryManager.Libraries)
         {
-            IReadOnlyList<GameEntry> games = _libraryManager.GetGamesForRoot(root.RootPath);
+            IReadOnlyList<GameEntry> games = _libraryManager.GetGamesForLibrary(lib.Name);
             string gameCountText = $"({games.Count} game{(games.Count != 1 ? "s" : "")})";
-            string trimmedRoot = root.RootPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            string folderName = Path.GetFileName(trimmedRoot);
-            if (string.IsNullOrEmpty(folderName))
-                folderName = trimmedRoot;
+            string folderList = lib.Folders.Count > 0
+                ? string.Join("  •  ", lib.Folders)
+                : lib.Name;
             Items.Add(new ShellPaneItemViewModel
             {
-                // Plan 117: folder name in title; full path in LeftPath (disambiguates D:\Games vs E:\Games).
-                Title = root.DefaultType == GameSourceKind.Epic ? "Epic Games Store" : folderName,
+                // Anchor name is the displayed top-level library. For Standalone anchors
+                // this equals the physical folder path; for platform anchors (Steam, Epic)
+                // it is a display catalog aggregating many physical folders.
+                Title = lib.Name,
                 Subtitle = gameCountText,
-                LeftPath = root.RootPath,
-                SourceLabel = root.DefaultType.ToString(),
-                PathSummary = root.RootPath,
+                LeftPath = lib.Name,
+                SourceLabel = lib.Type.ToString(),
+                PathSummary = lib.Name,
                 LaunchTarget = $"[Enter to browse — {games.Count} game(s)]",
+                FolderSummary = folderList,
                 Kind = FileSystemEntryKind.Directory,
                 LastModified = default,
                 ResolvedType = string.Empty,
                 GameCount = games.Count,
-                StoreBadge = BuildStoreBadge(root.DefaultType),
+                StoreBadge = BuildStoreBadge(lib.Type),
             });
         }
 
@@ -386,14 +388,14 @@ public sealed class ShellViewModel : ReactiveObject
         // Save the root list index so we can restore it when navigating back up
         _previousRootIndex = SelectedIndex;
 
-        _currentRootPath = item.PathSummary;
+        _currentLibraryName = item.PathSummary;
         IsAtRootLevel = false;
-        OnPropertyChanged(nameof(CurrentRootPath));
+        OnPropertyChanged(nameof(CurrentLibraryName));
         OnPropertyChanged(nameof(LeftPaneTitle));
         _selectedIndex = 0;
         OnPropertyChanged(nameof(SelectedIndex));
 
-        LoadGamesForRoot(_currentRootPath);
+        LoadGamesForLibrary(_currentLibraryName);
         UpdateDetailsForSelection();
     }
 
@@ -406,11 +408,11 @@ public sealed class ShellViewModel : ReactiveObject
     }
 
     /// <summary>Library root for the selected game, or the folder being browsed.</summary>
-    public string? GetCurrentRootPath()
+    public string? GetCurrentLibraryName()
     {
-        if (!string.IsNullOrWhiteSpace(SelectedItem?.LibraryRootPath))
-            return SelectedItem.LibraryRootPath;
-        return IsAtRootLevel ? null : _currentRootPath;
+        if (!string.IsNullOrWhiteSpace(SelectedItem?.LibraryName))
+            return SelectedItem.LibraryName;
+        return IsAtRootLevel ? null : _currentLibraryName;
     }
 
     /// <summary>Show every matching game from every library root.</summary>
@@ -423,9 +425,9 @@ public sealed class ShellViewModel : ReactiveObject
         }
 
         ActiveFilter = filter;
-        _currentRootPath = string.Empty;
+        _currentLibraryName = string.Empty;
         IsAtRootLevel = false;
-        OnPropertyChanged(nameof(CurrentRootPath));
+        OnPropertyChanged(nameof(CurrentLibraryName));
         OnPropertyChanged(nameof(LeftPaneTitle));
         OnPropertyChanged(nameof(IsFilterActive));
         LoadFilteredGames();
@@ -510,26 +512,22 @@ public sealed class ShellViewModel : ReactiveObject
     /// <summary>Returns the ID of the currently selected game, or null if no game is selected.</summary>
     public string? GetSelectedGameId() => SelectedItem?.GameId;
 
-    /// <summary>Updates the source type of the selected game.</summary>
+    /// <summary>Updates the source type of the selected game (re-anchor support).</summary>
     public void RetagSelected(GameSourceKind newType)
     {
         if (SelectedItem?.GameId is null) return;
-        string? root = GetCurrentRootPath();
-        if (root is null) return;
-        _libraryManager.RetagGame(root, SelectedItem.GameId, newType);
+        _libraryManager.RetagGame(SelectedItem.GameId, newType);
         Reload();
         StatusText = $"Retagged [{newType}]: {SelectedItem.Title}";
     }
 
     /// <summary>
-    /// Replaces the current root's game entries with freshly scanned data.
-    /// Called from MainWindow after F5 rescans the folder.
+    /// Reloads the current library after a rescan. Called from MainWindow after F5 rescan.
     /// </summary>
     public void ApplyRescannedGames(IReadOnlyList<GameEntry> games)
     {
         if (IsAtRootLevel) return;
-        _libraryManager.RescanRoot(_currentRootPath, games);
-        LoadGamesForRoot(_currentRootPath);
+        LoadGamesForLibrary(_currentLibraryName);
         StatusText = "Rescan complete";
     }
 
@@ -541,7 +539,7 @@ public sealed class ShellViewModel : ReactiveObject
         else if (IsAtRootLevel)
             JumpToLibraryRoots();
         else
-            LoadGamesForRoot(_currentRootPath);
+            LoadGamesForLibrary(_currentLibraryName);
     }
 
     /// <summary>
@@ -607,16 +605,16 @@ public sealed class ShellViewModel : ReactiveObject
                     Tags = item.Tags,
                     TagBadges = item.TagBadges,
                     StoreBadge = item.StoreBadge,
-                    LibraryRootPath = item.LibraryRootPath,
+                    LibraryName = item.LibraryName,
                 };
             }
         }
     }
 
-    private void LoadGamesForRoot(string rootPath)
+    private void LoadGamesForLibrary(string libraryName)
     {
         Items.Clear();
-        IReadOnlyList<GameEntry> games = _libraryManager.GetGamesForRoot(rootPath);
+        IReadOnlyList<GameEntry> games = _libraryManager.GetGamesForLibrary(libraryName);
 
         // Add ".." parent-directory entry at the top
         Items.Add(new ShellPaneItemViewModel
@@ -726,7 +724,7 @@ public sealed class ShellViewModel : ReactiveObject
                 Tags = mergedTags.Count > 0 ? string.Join(", ", mergedTags) : string.Empty,
                 TagBadges = BuildTagBadges(mergedTags, engineTags),
                 StoreBadge = BuildStoreBadge(game.GameSource),
-                LibraryRootPath = rootPath,
+                LibraryName = libraryName,
             });
         }
 
@@ -757,12 +755,11 @@ public sealed class ShellViewModel : ReactiveObject
             return;
         }
 
-        foreach ((string rootPath, GameEntry game, IReadOnlyList<string> extra) in EnumerateGamesWithExtraTags())
+        foreach ((string libraryName, GameEntry game, IReadOnlyList<string> extra) in EnumerateGamesWithExtraTags())
         {
             if (!GameFilterMatcher.Matches(game, filter, extra))
                 continue;
 
-            string rootName = RootFolderName(rootPath);
             GameMetadataRecord? sidecar = _metadataStore?.Get(game.Id);
             List<string> engineTags = TagNormalizer.SplitList(sidecar?.Engine);
             List<string> mergedTags = TagNormalizer.Merge(
@@ -789,7 +786,7 @@ public sealed class ShellViewModel : ReactiveObject
             {
                 Title = game.DisplayName,
                 Subtitle = subtitle,
-                LeftPath = string.IsNullOrEmpty(rootName) ? Path.GetFileName(game.ExecutablePath) : rootName,
+                LeftPath = string.IsNullOrEmpty(libraryName) ? Path.GetFileName(game.ExecutablePath) : libraryName,
                 SourceLabel = GameSourceParser.ToDisplayName(game.GameSource),
                 PathSummary = string.IsNullOrWhiteSpace(game.ExecutablePath)
                     ? game.PlatformMetadata.GetValueOrDefault("GameFolder", "")
@@ -812,7 +809,7 @@ public sealed class ShellViewModel : ReactiveObject
                 Tags = mergedTags.Count > 0 ? string.Join(", ", mergedTags) : string.Empty,
                 TagBadges = BuildTagBadges(mergedTags, engineTags),
                 StoreBadge = BuildStoreBadge(game.GameSource),
-                LibraryRootPath = rootPath,
+                LibraryName = libraryName,
             });
         }
 
@@ -823,23 +820,16 @@ public sealed class ShellViewModel : ReactiveObject
         NavigationChanged?.Invoke();
     }
 
-    private IEnumerable<(string RootPath, GameEntry Game, IReadOnlyList<string> Extra)> EnumerateGamesWithExtraTags()
+    private IEnumerable<(string LibraryName, GameEntry Game, IReadOnlyList<string> Extra)> EnumerateGamesWithExtraTags()
     {
-        foreach (LibraryRoot root in _libraryManager.LibraryRoots)
+        foreach (Library lib in _libraryManager.Libraries)
         {
-            foreach (GameEntry game in _libraryManager.GetGamesForRoot(root.RootPath))
+            foreach (GameEntry game in _libraryManager.GetGamesForLibrary(lib.Name))
             {
                 GameMetadataRecord? sidecar = _metadataStore?.Get(game.Id);
-                yield return (root.RootPath, game, TagNormalizer.FromMetadata(sidecar?.Genre, sidecar?.Engine));
+                yield return (lib.Name, game, TagNormalizer.FromMetadata(sidecar?.Genre, sidecar?.Engine));
             }
         }
-    }
-
-    private static string RootFolderName(string rootPath)
-    {
-        string trimmed = rootPath.TrimEnd('\\', '/');
-        int slash = Math.Max(trimmed.LastIndexOf('\\'), trimmed.LastIndexOf('/'));
-        return slash >= 0 ? trimmed[(slash + 1)..] : trimmed;
     }
 
     private void UpdateDetailsForSelection()

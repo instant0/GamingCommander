@@ -1158,7 +1158,12 @@ def _pick_primary_executable(d: Path) -> tuple[str | None, dict, list[str]]:
 
 
 def _read_pe_metadata(exe: Path) -> dict:
-    """Parse PE version info from an executable."""
+    """Parse PE version info from an executable.
+
+    Cross-platform via pefile (works on Linux — verified 2026-09-07 on real
+    game exes: jag2/ja2.exe FileDescription = "Jagged Alliance 2 Gold").
+    Note: pe.FileInfo is a list of LISTS of VersionInfo structures; each inner
+    list must be walked to reach StringTable (fix 2026-09-07)."""
     if pefile is None:
         return {}
     try:
@@ -1167,13 +1172,17 @@ def _read_pe_metadata(exe: Path) -> dict:
         return {}
     metadata: dict = {}
     try:
-        for file_info in getattr(pe, "FileInfo", []) or []:
-            for table in getattr(file_info, "StringTable", []) or []:
-                for raw_key, raw_value in table.entries.items():
-                    key = raw_key.decode("utf-8", errors="ignore") if isinstance(raw_key, bytes) else str(raw_key)
-                    value = raw_value.decode("utf-8", errors="ignore") if isinstance(raw_value, bytes) else str(raw_value)
-                    if key in ("FileDescription", "ProductName", "OriginalFilename", "CompanyName") and value:
-                        metadata[key] = value
+        for file_info_group in getattr(pe, "FileInfo", []) or []:
+            # pe.FileInfo is a list of lists — walk the inner list
+            for fi in file_info_group:
+                if getattr(fi, "Key", None) != b"StringFileInfo":
+                    continue
+                for table in getattr(fi, "StringTable", []) or []:
+                    for raw_key, raw_value in table.entries.items():
+                        key = raw_key.decode("utf-8", errors="ignore") if isinstance(raw_key, bytes) else str(raw_key)
+                        value = raw_value.decode("utf-8", errors="ignore") if isinstance(raw_value, bytes) else str(raw_value)
+                        if key in ("FileDescription", "ProductName", "OriginalFilename", "CompanyName") and value:
+                            metadata[key] = value
     except Exception:
         pass
     return metadata

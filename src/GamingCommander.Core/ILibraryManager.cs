@@ -3,45 +3,47 @@ using GamingCommander.Core.Models;
 namespace GamingCommander.Core;
 
 /// <summary>
-/// High-level library management: reads roots from config, delegates scanning and CRUD to services.
+/// High-level library management over anchors. A Library (anchor) is a named
+/// catalog owning one or more physical folders; game entries link to the anchor
+/// by name. Scanning a physical folder stores games under the anchor.
 /// </summary>
 public interface ILibraryManager
 {
-    /// <summary>Currently configured library roots, read live from persisted config.</summary>
-    IReadOnlyList<LibraryRoot> LibraryRoots { get; }
+    /// <summary>All configured libraries (anchors), read live from persistence.</summary>
+    IReadOnlyList<Library> Libraries { get; }
 
-    /// <summary>Returns game entries for the specified root, reading from the database.</summary>
-    IReadOnlyList<GameEntry> GetGamesForRoot(string rootPath);
+    /// <summary>Returns game entries linked to the specified library (anchor) name.</summary>
+    IReadOnlyList<GameEntry> GetGamesForLibrary(string libraryName);
 
     /// <summary>
-    /// Adds a new library root to both config and database.
-    /// Returns true if the root was added, false if the folder was empty (0 games found).
+    /// Adds (or updates) a library anchor owning the given folders.
     /// </summary>
-    bool AddRoot(string rootPath, GameSourceKind defaultType, IReadOnlyList<GameEntry> initialGames);
+    void UpsertLibrary(string name, GameSourceKind type, IReadOnlyList<string> folders);
 
-    /// <summary>Removes a root from both config and database.</summary>
-    void RemoveRoot(string rootPath);
-
-    /// <summary>Reloads all library roots from config and refreshes the database cache.</summary>
-    void Refresh(CancellationToken ct = default);
-
-    /// <summary>Rescans a root using the provided scanner results, updating the database.</summary>
-    void RescanRoot(string rootPath, IReadOnlyList<GameEntry> games);
-
-    /// <summary>Updates a game entry in the database.</summary>
-    void UpdateGameEntry(string rootPath, GameEntry updatedEntry);
-
-    /// <summary>Deletes a game entry from the database.</summary>
-    void DeleteGameEntry(string rootPath, string gameId);
-
-    /// <summary>Retags a game entry with a new source type.</summary>
-    void RetagGame(string rootPath, string gameId, GameSourceKind newType);
+    /// <summary>Removes a library anchor and its game entries. Returns true if removed.</summary>
+    bool RemoveLibrary(string name);
 
     /// <summary>
-    /// Selects the appropriate scanner for the given root and runs a scan.
+    /// Scans a physical folder into a library anchor.
     /// Returns the discovered game entries.
     /// </summary>
-    IReadOnlyList<GameEntry> SelectScannerAndScan(
-        string rootPath, GameSourceKind defaultType,
-        CancellationToken ct = default);
+    IReadOnlyList<GameEntry> ScanFolder(string folderPath, string libraryName, GameSourceKind type);
+
+    /// <summary>
+    /// Rescans ALL physical folders of a library anchor, updating the database.
+    /// Called at startup and on explicit refresh.
+    /// </summary>
+    void RescanLibrary(string libraryName, CancellationToken ct = default);
+
+    /// <summary>Rescans the folder for a single physical path, assigning games to a library.</summary>
+    IReadOnlyList<GameEntry> SelectScannerAndScan(string folderPath, GameSourceKind type, CancellationToken ct = default);
+
+    /// <summary>Updates a game entry in the database.</summary>
+    void UpdateGameEntry(GameEntry updatedEntry);
+
+    /// <summary>Deletes a game entry from the database.</summary>
+    void DeleteGameEntry(string gameId);
+
+    /// <summary>Retags a game entry with a new source type (re-anchoring support).</summary>
+    void RetagGame(string gameId, GameSourceKind newType);
 }

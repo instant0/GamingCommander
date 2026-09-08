@@ -7,10 +7,12 @@ namespace GamingCommander.App.Tests;
 
 /// <summary>
 /// Plan 122 — type-to-search: silent capture, 3-character threshold,
-/// live wildcard filtering across roots, backspace/escape semantics.
+/// live wildcard filtering across libraries (anchors), backspace/escape semantics.
 /// </summary>
 public sealed class ShellViewModelSearchTests
 {
+    private const string LibA = "LibA";
+    private const string LibB = "LibB";
     private const string RootA = @"C:\LibA";
     private const string RootB = @"C:\LibB";
 
@@ -31,7 +33,7 @@ public sealed class ShellViewModelSearchTests
     }
 
     [Fact]
-    public void ThirdChar_AppliesCrossRootWildcardFilter()
+    public void ThirdChar_AppliesCrossLibraryWildcardFilter()
     {
         ShellViewModel vm = CreateViewModel();
 
@@ -41,7 +43,7 @@ public sealed class ShellViewModelSearchTests
         Assert.Equal(GameFilterKind.Wildcard, vm.ActiveFilter.Kind);
         Assert.Equal("assa", vm.ActiveFilter.Value);
 
-        // Matches from both roots, plus the leading ".." clear row.
+        // Matches from both libraries, plus the leading ".." clear row.
         IReadOnlyList<ShellPaneItemViewModel> games = vm.Items.Skip(1).ToList();
         Assert.Contains(games, g => g.Title == "Assassin's Creed");
         Assert.Contains(games, g => g.Title == "Assault Zone");
@@ -123,26 +125,30 @@ public sealed class ShellViewModelSearchTests
     private static ShellViewModel CreateViewModel()
     {
         var config = new AppConfig(
-            LibraryRoots: [new LibraryRoot(RootA, GameSourceKind.Standalone), new LibraryRoot(RootB, GameSourceKind.Standalone)],
-            FolderOverrides: [],
             HiddenFolders: [],
             IsFirstRun: false);
 
-        var gamesByRoot = new Dictionary<string, IReadOnlyList<GameEntry>>
+        var libraries = new List<Library>
         {
-            [RootA] =
+            new(LibA, GameSourceKind.Standalone, [RootA]),
+            new(LibB, GameSourceKind.Standalone, [RootB]),
+        };
+
+        var gamesByLibrary = new Dictionary<string, IReadOnlyList<GameEntry>>
+        {
+            [LibA] =
             [
-                MakeGame("a1", "AssassinsCreed", "Assassin's Creed", ["Stealth"]),
-                MakeGame("a2", "Doom", "Doom", ["FPS"]),
+                MakeGame("a1", LibA, "AssassinsCreed", "Assassin's Creed", ["Stealth"]),
+                MakeGame("a2", LibA, "Doom", "Doom", ["FPS"]),
             ],
-            [RootB] =
+            [LibB] =
             [
-                MakeGame("b1", "AssaultZone", "Assault Zone"),
-                MakeGame("b2", "CoopQuest", "Coop Quest", ["COOP", "Party"]),
+                MakeGame("b1", LibB, "AssaultZone", "Assault Zone"),
+                MakeGame("b2", LibB, "CoopQuest", "Coop Quest", ["COOP", "Party"]),
             ],
         };
 
-        return new ShellViewModel(new FakeLibraryManager(config.LibraryRoots, gamesByRoot), new FakeConfigService(config));
+        return new ShellViewModel(new FakeLibraryManager(libraries, gamesByLibrary), new FakeConfigService(config));
     }
 
     private static void TypeText(ShellViewModel vm, string text)
@@ -151,9 +157,16 @@ public sealed class ShellViewModelSearchTests
             vm.AppendSearchChar(c);
     }
 
-    private static GameEntry MakeGame(string id, string folder, string display, params string[] tags) =>
+    private static GameEntry MakeGame(
+        string id,
+        string library,
+        string folder,
+        string display,
+        params string[] tags) =>
         new(
             Id: id,
+            Library: library,
+            FolderPath: $@"{RootA}\{folder}",
             FolderName: folder,
             DisplayName: display,
             GameSource: GameSourceKind.Standalone,
@@ -175,21 +188,21 @@ public sealed class ShellViewModelSearchTests
     }
 
     private sealed class FakeLibraryManager(
-        IReadOnlyList<LibraryRoot> roots,
-        Dictionary<string, IReadOnlyList<GameEntry>> gamesByRoot) : ILibraryManager
+        IReadOnlyList<Library> libraries,
+        Dictionary<string, IReadOnlyList<GameEntry>> gamesByLibrary) : ILibraryManager
     {
-        public IReadOnlyList<LibraryRoot> LibraryRoots => roots;
+        public IReadOnlyList<Library> Libraries => libraries;
 
-        public IReadOnlyList<GameEntry> GetGamesForRoot(string rootPath) =>
-            gamesByRoot.GetValueOrDefault(rootPath) ?? [];
+        public IReadOnlyList<GameEntry> GetGamesForLibrary(string libraryName) =>
+            gamesByLibrary.GetValueOrDefault(libraryName) ?? [];
 
-        public bool AddRoot(string rootPath, GameSourceKind defaultType, IReadOnlyList<GameEntry> initialGames) => true;
-        public void RemoveRoot(string rootPath) { }
-        public void Refresh(CancellationToken ct = default) { }
-        public void RescanRoot(string rootPath, IReadOnlyList<GameEntry> games) { }
-        public void UpdateGameEntry(string rootPath, GameEntry updatedEntry) { }
-        public void DeleteGameEntry(string rootPath, string gameId) { }
-        public void RetagGame(string rootPath, string gameId, GameSourceKind newType) { }
-        public IReadOnlyList<GameEntry> SelectScannerAndScan(string rootPath, GameSourceKind defaultType, CancellationToken ct = default) => [];
+        public void UpsertLibrary(string name, GameSourceKind type, IReadOnlyList<string> folders) { }
+        public bool RemoveLibrary(string name) => true;
+        public IReadOnlyList<GameEntry> ScanFolder(string folderPath, string libraryName, GameSourceKind type) => [];
+        public void RescanLibrary(string libraryName, CancellationToken ct = default) { }
+        public IReadOnlyList<GameEntry> SelectScannerAndScan(string folderPath, GameSourceKind type, CancellationToken ct = default) => [];
+        public void UpdateGameEntry(GameEntry updatedEntry) { }
+        public void DeleteGameEntry(string gameId) { }
+        public void RetagGame(string gameId, GameSourceKind newType) { }
     }
 }

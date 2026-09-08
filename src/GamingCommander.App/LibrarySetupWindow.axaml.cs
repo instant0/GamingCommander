@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using GamingCommander.App.Services;
 using GamingCommander.App.ViewModels;
 using GamingCommander.Core;
 using GamingCommander.Core.Models;
@@ -12,16 +13,17 @@ public partial class LibrarySetupWindow : Window
 {
     private readonly LibrarySetupViewModel _vm;
 
-    /// <summary>Unified library setup window. Handles first-run onboarding and ongoing root management.</summary>
+    /// <summary>Unified library setup window. Handles first-run onboarding and ongoing library management.</summary>
     public LibrarySetupWindow(
         IConfigService configService,
         IGamesDatabaseService dbService,
         ILibraryManager libraryManager,
+        SteamInstallPathLocator? steamLocator = null,
         bool isFirstRun = false)
     {
         InitializeComponent();
 
-        _vm = new LibrarySetupViewModel(configService, dbService, libraryManager, this, isFirstRun);
+        _vm = new LibrarySetupViewModel(configService, dbService, libraryManager, this, steamLocator, isFirstRun);
         DataContext = _vm;
 
         var addBtn = this.FindControl<Button>("AddRootButton")!;
@@ -43,11 +45,30 @@ public partial class LibrarySetupWindow : Window
             };
         }
 
+        var steamBtn = this.FindControl<Button>("AddSteamButton");
+        if (steamBtn is not null)
+        {
+            // Q4: hidden when Steam is not installed (no registry InstallPath / empty vdf).
+            steamBtn.IsVisible = _vm.CanAddSteamLibraries;
+            steamBtn.Click += async (_, _) =>
+            {
+                steamBtn.IsEnabled = false;
+                statusText.Text = "Adding Steam libraries (from libraryfolders.vdf)...";
+                await _vm.AddSteamLibrariesAsync();
+                statusText.Text = string.IsNullOrEmpty(_vm.ScanStatus)
+                    ? "Steam catalog added."
+                    : _vm.ScanStatus;
+                RenderRoots();
+                steamBtn.IsVisible = _vm.CanAddSteamLibraries;
+                steamBtn.IsEnabled = true;
+            };
+        }
+
         addBtn.Click += async (_, _) =>
         {
             addBtn.IsEnabled = false;
             statusText.Text = "Opening folder picker...";
-            await _vm.AddRootAsync();
+            await _vm.AddLibraryFolderAsync();
             // Show rejection reason if set, otherwise default message
             statusText.Text = string.IsNullOrEmpty(_vm.ScanStatus)
                 ? "Scanning complete."
@@ -65,9 +86,9 @@ public partial class LibrarySetupWindow : Window
         var panel = this.FindControl<StackPanel>("RootsPanel")!;
         panel.Children.Clear();
 
-        foreach (LibraryRootEntry entry in _vm.Entries)
+        foreach (LibraryEntry entry in _vm.Entries)
         {
-            LibraryRootEntry captured = entry;
+            LibraryEntry captured = entry;
 
             var rescanBtn = new Button
             {
@@ -110,7 +131,7 @@ public partial class LibrarySetupWindow : Window
 
             var nameBlock = new TextBlock
             {
-                Text = entry.Path,
+                Text = entry.Name,
                 FontWeight = FontWeight.Bold,
                 FontSize = AppTheme.FontSizeItem,
             };
@@ -163,7 +184,7 @@ public partial class LibrarySetupWindow : Window
         {
             panel.Children.Add(new TextBlock
             {
-                Text = "(no library roots configured — click '+ Add Root' to begin)",
+                Text = "(no libraries configured — click '+ Add Folder' to begin)",
                 Foreground = AppTheme.TextMuted,
                 FontStyle = FontStyle.Italic,
                 Margin = new Thickness(0, 8),

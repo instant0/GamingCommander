@@ -9,50 +9,58 @@ namespace GamingCommander.App.ViewModels;
 
 /// <summary>
 /// ViewModel for the unified Library Setup dialog (F2). Manages adding, removing,
-/// and rescanning library roots. Handles both first-run onboarding and ongoing management.
+/// and rescanning libraries (anchors). An anchor is a named catalog owning one or
+/// more physical folders; for Standalone libraries the anchor name IS the folder
+/// path, while platform anchors (Steam, Epic, ...) aggregate many physical folders
+/// under one displayed anchor. Handles both first-run onboarding and ongoing management.
 /// </summary>
 public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.ReactiveObject
 {
-    private readonly IConfigService _configService;
+    private readonly ILibrariesService _librariesService;
     private readonly IGamesDatabaseService _dbService;
     private readonly ILibraryManager _libraryManager;
     private readonly Window _window;
+    private readonly SteamInstallPathLocator _steamLocator;
 
     public LibrarySetupViewModel(
         IConfigService configService,
         IGamesDatabaseService dbService,
         ILibraryManager libraryManager,
         Window window,
+        SteamInstallPathLocator? steamLocator = null,
         bool isFirstRun = false)
     {
         _configService = configService;
         _dbService = dbService;
         _libraryManager = libraryManager;
         _window = window;
+        _steamLocator = steamLocator ?? new SteamInstallPathLocator(new NullRegistryReader());
 
         // Load metadata toggle from config
         AppConfig config = _configService.Load();
         _enableOnlineMetadata = config.EnableOnlineMetadata;
 
         // Set title/subtitle based on context
-        if (isFirstRun && config.LibraryRoots.Count == 0)
+        if (isFirstRun && _libraryManager.Libraries.Count == 0)
         {
             _titleText = "Welcome to GamingCommander";
-            _subtitleText = "Add your game library folders below. For each folder, GamingCommander will scan it and find your games. Select the platform type for each folder — this sets the default for all games inside it.";
-            _tipText = "Tip: Steam library roots should point to the folder containing steamapps/, not the steamapps/ itself.";
+            _subtitleText = "Add your game libraries below. For each library, GamingCommander will scan its folder(s) and find your games. Select the platform type — this becomes the anchor that the discovered games belong to.";
+            _tipText = "Tip: Steam libraries should be added via the 'Add Steam' button; it reads every Steam library from your install.";
         }
         else
         {
-            _titleText = "Library Root Setup";
-            _subtitleText = "Add, remove, or rescan library roots. Changes apply immediately.";
+            _titleText = "Library Setup";
+            _subtitleText = "Add, remove, or rescan libraries (anchors). Changes apply immediately.";
             _tipText = string.Empty;
         }
 
-        LoadRoots();
+        LoadLibraries();
     }
 
-    /// <summary>Library root entries displayed in the setup dialog.</summary>
-    public ObservableCollection<LibraryRootEntry> Entries { get; } = [];
+    private readonly IConfigService _configService;
+
+    /// <summary>Library (anchor) entries displayed in the setup dialog.</summary>
+    public ObservableCollection<LibraryEntry> Entries { get; } = [];
 
     /// <summary>Title text shown in the dialog header.</summary>
     public string TitleText
@@ -86,21 +94,21 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
     }
     private bool _enableOnlineMetadata;
 
-    private void LoadRoots()
+    private void LoadLibraries()
     {
         Entries.Clear();
-        AppConfig config = _configService.Load();
-        foreach (LibraryRoot root in config.LibraryRoots)
+        foreach (Library lib in _libraryManager.Libraries)
         {
-            IReadOnlyList<GameEntry> games = _dbService.GetGamesForRoot(root.RootPath);
-            Entries.Add(new LibraryRootEntry(root.RootPath, root.DefaultType.ToString(), games.Count)
+            IReadOnlyList<GameEntry> games = _dbService.GetGamesForLibrary(lib.Name);
+            Entries.Add(new LibraryEntry(lib.Name, lib.Type.ToString(), games.Count)
             {
-                IsScanned = true
+                IsScanned = true,
+                FolderCount = lib.Folders.Count,
             });
         }
     }
 
-    /// <summary>True when ProgramData Manifests exist and are not already a root.</summary>
+    /// <summary>True when ProgramData Manifests exist and are not already part of an Epic anchor.</summary>
     public bool CanAddEpicCatalog
     {
         get
@@ -108,11 +116,12 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
             string dir = EpicManifestPaths.DefaultManifestsDir;
             if (!EpicItemCatalog.LooksLikeManifestsDir(dir))
                 return false;
-            return !Entries.Any(e => e.Path.Equals(dir, StringComparison.OrdinalIgnoreCase));
+            return !Entries.Any(e => e.DefaultType.Equals(
+                GameSourceKind.Epic.ToString(), StringComparison.OrdinalIgnoreCase));
         }
     }
 
-    /// <summary>Add the default Epic Manifests folder as its own library (Steam-style catalog).</summary>
+    /// <summary>Add the default Epic Manifests folder as a single "Epic" library (anchor).</summary>
     public async Task AddEpicCatalogAsync()
     {
         string dir = EpicManifestPaths.DefaultManifestsDir;
@@ -122,77 +131,132 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
             return;
         }
 
-        var entry = new LibraryRootEntry(dir, "Epic", 0);
-        Entries.Add(entry);
-        bool added = await ScanAndSaveAsync(dir, GameSourceKind.Epic, entry);
-        if (!added)
-            Entries.Remove(entry);
-        OnPropertyChanged(nameof(CanAddEpicCatalog));
+        var entry = await AddLibraryAsync(
+            "Epic Games Store", GameSourceKind.Epic, [dir]);
+        if (entry != null)
+        {
+            Entries.Add(entry);
+            OnPropertyChanged(nameof(CanAddEpicCatalog));
+        }
+        else
+        {
+            ScanStatus = "No Epic games were found in the Manifests folder.";
+        }
     }
 
-    /// <summary>Opens a folder picker, scans the folder, and adds it as a library root.</summary>
-    public async Task AddRootAsync()
+    /// <summary>
+    /// True when Steam is installed (registry InstallPath resolves) AND libraryfolders.vdf
+    /// yields ≥1 library, AND a Steam anchor is not already configured.
+    /// </summary>
+    public bool CanAddSteamLibraries
+    {
+        get
+        {
+            if (!_steamLocator.IsSteamAvailable)
+                return false;
+            return !Entries.Any(e =>
+                e.DefaultType.Equals(GameSourceKind.Steam.ToString(), StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    /// <summary>
+    /// Adds ONE "Steam" library anchor owning every vdf-discovered physical library,
+    /// then scans all of them into that single anchor. Each game keeps its real
+    /// FolderPath; the anchor "Steam" is the top-level displayed catalog.
+    /// </summary>
+    public async Task AddSteamLibrariesAsync()
+    {
+        if (!CanAddSteamLibraries)
+        {
+            ScanStatus = "Steam not found (no registry key), or already added.";
+            return;
+        }
+
+        string? installPath = _steamLocator.FindInstallPath();
+        if (installPath is null)
+        {
+            ScanStatus = "Steam install path not found in registry.";
+            return;
+        }
+
+        var libraries = _steamLocator.FindAllLibraries();
+        if (libraries.Count == 0)
+        {
+            ScanStatus = "No Steam libraries found in libraryfolders.vdf.";
+            return;
+        }
+
+        var entry = await AddLibraryAsync("Steam", GameSourceKind.Steam, libraries);
+        if (entry != null)
+        {
+            Entries.Add(entry);
+            OnPropertyChanged(nameof(CanAddSteamLibraries));
+        }
+        else
+        {
+            ScanStatus = "No Steam games were found across the discovered libraries.";
+        }
+    }
+
+    /// <summary>Opens a folder picker and adds it as a new Standalone library anchor.</summary>
+    public async Task AddLibraryFolderAsync()
     {
         ScanStatus = string.Empty;
 
         var folders = await _window.StorageProvider.OpenFolderPickerAsync(
-            new FolderPickerOpenOptions { Title = "Select Library Root", AllowMultiple = false });
+            new FolderPickerOpenOptions { Title = "Select Library Folder", AllowMultiple = false });
 
         if (folders.Count == 0) return;
-        string rawPath = folders[0].Path.LocalPath;
-        string path = LibraryManager.NormalizeLibraryRoot(rawPath);
+        string path = LibraryManager.NormalizeLibraryRoot(folders[0].Path.LocalPath);
 
-        if (Entries.Any(e => e.Path.Equals(path, StringComparison.OrdinalIgnoreCase))) return;
+        // Standalone: the anchor name IS the folder path.
+        if (Entries.Any(e => e.Name.Equals(path, StringComparison.OrdinalIgnoreCase))) return;
 
-        // Nesting check: reject if this path is inside an existing root or contains one
+        // Nesting check: reject if this path is inside an existing anchor folder or contains one
         foreach (var existing in Entries)
         {
-            if (LibraryManager.IsChildOf(path, existing.Path))
+            if (LibraryManager.IsChildOf(path, existing.Name))
             {
-                string existingName = Path.GetFileName(existing.Path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-                ScanStatus = $"This folder is inside an existing library root ({existingName}). Pick one or the other.";
+                string existingName = Path.GetFileName(existing.Name.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+                ScanStatus = $"This folder is inside an existing library ({existingName}). Pick one or the other.";
                 OnPropertyChanged(nameof(ScanStatus));
                 return;
             }
-            if (LibraryManager.IsChildOf(existing.Path, path))
+            if (LibraryManager.IsChildOf(existing.Name, path))
             {
-                string existingName = Path.GetFileName(existing.Path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-                ScanStatus = $"An existing library root ({existingName}) is inside this folder. Remove it first if you want to add the parent.";
+                string existingName = Path.GetFileName(existing.Name.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+                ScanStatus = $"An existing library ({existingName}) is inside this folder. Remove it first if you want to add the parent.";
                 OnPropertyChanged(nameof(ScanStatus));
                 return;
             }
         }
 
-        GameSourceKind defaultType = GameSourceParser.InferFromPath(path);
-        var entry = new LibraryRootEntry(path, defaultType.ToString(), 0);
-        Entries.Add(entry);
-
-        bool added = await ScanAndSaveAsync(path, defaultType, entry);
-        if (!added)
-        {
-            // Remove the entry if no games were found
-            Entries.Remove(entry);
-        }
+        GameSourceKind type = GameSourceParser.InferFromPath(path);
+        var entry = await AddLibraryAsync(path, type, [path]);
+        if (entry != null)
+            Entries.Add(entry);
+        else
+            ScanStatus = "No games were found in that folder.";
     }
 
-    /// <summary>Rescans a library root for games and updates the entry's game count.</summary>
-    public async Task RescanAsync(LibraryRootEntry entry)
+    /// <summary>Rescans all folders of a library anchor and updates the entry's game count.</summary>
+    public async Task RescanAsync(LibraryEntry entry)
     {
-        GameSourceKind type = GameSourceParser.ParseFromString(entry.DefaultType);
-        await ScanAndSaveAsync(entry.Path, type, entry);
+        entry.IsScanning = true;
+        await Task.Run(() => _libraryManager.RescanLibrary(entry.Name));
+        IReadOnlyList<GameEntry> games = _dbService.GetGamesForLibrary(entry.Name);
+        entry.GameCount = games.Count;
+        entry.IsScanning = false;
+        entry.IsScanned = true;
     }
 
-    /// <summary>Removes a library root from the database, config, and UI.</summary>
-    public void RemoveEntry(LibraryRootEntry entry)
+    /// <summary>Removes a library anchor and its game entries from the database and UI.</summary>
+    public void RemoveEntry(LibraryEntry entry)
     {
         Entries.Remove(entry);
-        _dbService.RemoveRoot(entry.Path);
-
-        AppConfig config = _configService.Load();
-        var newRoots = config.LibraryRoots
-            .Where(r => !r.RootPath.Equals(entry.Path, StringComparison.OrdinalIgnoreCase))
-            .ToList();
-        _configService.Save(config with { LibraryRoots = newRoots });
+        _libraryManager.RemoveLibrary(entry.Name);
+        OnPropertyChanged(nameof(CanAddSteamLibraries));
+        OnPropertyChanged(nameof(CanAddEpicCatalog));
     }
 
     /// <summary>Closes the setup dialog and persists the metadata toggle.</summary>
@@ -217,22 +281,38 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
     private string _scanStatus = string.Empty;
 
     /// <summary>
-    /// Scans a folder and saves it as a library root.
-    /// Returns true if the root was added, false if the folder was empty.
-    /// Updates entry scan progress badges.
+    /// Creates (or updates) a library anchor with the given folders, scans every folder,
+    /// and persists the games under that anchor. Returns the new entry when at least one
+    /// game was found, otherwise removes the anchor and returns null.
     /// </summary>
-    private async Task<bool> ScanAndSaveAsync(string path, GameSourceKind defaultType, LibraryRootEntry entry)
+    private async Task<LibraryEntry?> AddLibraryAsync(
+        string name, GameSourceKind type, IReadOnlyList<string> folders)
     {
-        entry.IsScanning = true;
+        var entry = new LibraryEntry(name, type.ToString(), 0) { IsScanning = true };
+        Entries.Add(entry);
 
-        // LibraryManager handles scanner routing (FolderScanner vs SteamLibraryScanner)
-        bool added = await Task.Run(() => _libraryManager.AddRoot(path, defaultType, []));
+        // Register the anchor, then scan all its folders into it.
+        _libraryManager.UpsertLibrary(name, type, folders);
+        try
+        {
+            await Task.Run(() => _libraryManager.RescanLibrary(name));
+        }
+        finally
+        {
+            entry.IsScanning = false;
+        }
 
-        IReadOnlyList<GameEntry> games = _dbService.GetGamesForRoot(path);
+        IReadOnlyList<GameEntry> games = _dbService.GetGamesForLibrary(name);
+        if (games.Count == 0)
+        {
+            Entries.Remove(entry);
+            _libraryManager.RemoveLibrary(name);
+            return null;
+        }
+
         entry.GameCount = games.Count;
-        entry.IsScanning = false;
         entry.IsScanned = true;
-
-        return added;
+        entry.FolderCount = folders.Count;
+        return entry;
     }
 }

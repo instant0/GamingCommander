@@ -1,11 +1,17 @@
 namespace GamingCommander.Core.Models;
 
 /// <summary>
-/// A discovered game entry stored in the games database.
+/// A discovered game entry stored in the games database. A game is linked to a
+/// Library (anchor) by <see cref="Library"/> name, and records its own physical
+/// <see cref="FolderPath"/>.
 /// </summary>
 public sealed record GameEntry(
     /// <summary>Deterministic unique identifier (MD5-based).</summary>
     string Id,
+    /// <summary>Library (anchor) name this game belongs to (e.g. "Steam", "GOG").</summary>
+    string Library,
+    /// <summary>Absolute physical path of the game's installation folder.</summary>
+    string FolderPath,
     /// <summary>Name of the game's installation folder.</summary>
     string FolderName,
     /// <summary>Human-readable game name shown in the UI.</summary>

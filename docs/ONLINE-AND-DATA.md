@@ -69,6 +69,9 @@ Only under the app’s `data/` folder (next to the exe). Never in game installs.
 | `startup.log` | Startup diagnostics | Support | Launch (unless `GC_STARTUP_LOGGING=0`) |
 | `tag_colors.json` | Tag colours | UI | If the app updates colours |
 
+Field-by-field schemas for `settings.json`, `games.json`, and
+`games_metadata.json` are defined in [DATA-FORMAT.md](DATA-FORMAT.md).
+
 **Never written:** game files, registry, Start Menu, `%APPDATA%` outside our folder.
 
 **User-started Steam ACF:** if a Steam folder is Orphaned and we have a numeric AppID (usually after F3), **Write Steam ACF** creates `{library}\steamapps\appmanifest_{id}.acf` with the identification fields only (`appid`, `name`, `installdir`, `StateFlags=4`, …). We do not invent an AppID. We do not write depot blocks.
