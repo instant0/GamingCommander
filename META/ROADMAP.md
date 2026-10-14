@@ -2,7 +2,7 @@
 
 **Nature:** Reference. Updated by Planner after milestones.  
 **Audience:** All agents. Read when determining what to work on next.  
-**Updated:** 2026-08-23 — Plan 121 marked shipped; docs milestone row added.
+**Updated:** 2026-10-14 — Plans 124/125 recorded; Plan 126 (EOSH) closed; next product track identified.
 
 ---
 
@@ -28,7 +28,7 @@ GamingCommander is a C# Windows-native game management and launcher application 
 | Phase 3.5: Category Browsing & Search | 🔮 FUTURE | F8 category view, S key quick search, cross-root aggregation |
 | Phase 4: Advanced Features & Polish | 🔮 FUTURE | PCGamingWiki integration, metadata sync, UX polish |
 
-**Post-MVP product track (current):** 117 + 119 + 120 + F8 filter shipped. Plan **121** Epic catalog (F2 + orphans) first-shipped. Next leftover: SyncMove (2.1). Plan 101 mode switcher remains future.
+**Post-MVP product track (current):** 117 + 119 + 120 + F8 filter shipped. Plan **121** Epic catalog (F2 + orphans) shipped. Plans **124** (anchor library/game DB) + **125** (stabilization refactor) shipped. Plan **126** EOSH investigation closed. **Next product-code plan: 123 (detection tightening, Phase 4 C# port); then SyncMove (2.1).** Plan 101 mode switcher remains future.
 
 ---
 
@@ -59,7 +59,8 @@ GamingCommander is a C# Windows-native game management and launcher application 
 | F5 async rescan + cancel | Plan 101 mode switcher / category folders |
 | Steam ACF + multi-library | Full GOG/Epic/EA/Ubisoft *clients* |
 | FolderScanner + registry fallback | Nested Steam “add as root” UX |
-| Epic catalog VFS (F2) + orphan `.item` write | Epic GraphQL in the app |
+| Epic catalog VFS (F2) + orphan `.item` write (writes identification `.item`; cannot register an app EOSH does not report — Plan 126) | Epic GraphQL in the app |
+| Anchor-based library DB (`libraries.json`) + flat `games.json` (Plan 124) | |
 | Right-pane colored tags + Plan 117 left pane | `tag_colors.json` embed/restore |
 | Embedded `blacklist.json` restore (Bug 16) | Writing extras into `GameEntry.Tags` |
 | Sidecar extras (`games_metadata.json`, flag off) | Auto-applying PCGW launch args |
@@ -88,3 +89,5 @@ GamingCommander is a C# Windows-native game management and launcher application 
 | 2026-08 | Filter + scan/lookup polish | F8/S; Steam cheap exe; lookup without exe; publish `lib/` |
 | 2026-08 | Plan 121 shipped | Epic Manifests VFS (F2); orphan `.item` write; 60-day metadata guard |
 | 2026-08 | Docs: FAQ + Readme | `docs/FAQ.md`; Readme install/first-run/rescan sections; freshness drift fixed to 60 days |
+| 2026-09 | Plans 124 + 125 | Anchor-based library + flat game DB (`libraries.json`/`games.json`); stabilization refactor (564 tests green) |
+| 2026-09 | Plan 126 closed | Epic orphan `.item`/EOSH gate: identity rules proven correct, but registration is server/account-driven — no file-based workaround |

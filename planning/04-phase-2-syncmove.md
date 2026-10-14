@@ -10,9 +10,25 @@
 
 ## Goal
 
-After a user moves a game's files from one location to another (e.g. from `D:\games\game` to
-`E:\games\game`), provide a scan-time detection and one-click repair of the launcher's
-registration so the game continues to work without re-download or launcher reconfiguration.
+After a user moves a game's files from one location to another (e.g. from `D:\games\game` to `E:\games\game`), provide a scan-time detection and one-click repair of the launcher's registration so the game continues to work without re-download or launcher reconfiguration.
+
+## Findings & constraints (2026-10-14 — verified against code)
+
+These correct/constrain the task list below; the plan predates Plans 124/125 and the current key map.
+
+- **Persistence model changed (Plan 124).** Games are a **flat list** in `games.json`, each linked to a `Library` (anchor) by name and carrying its own physical `FolderPath`. There is no `GameRoot`/`LibraryRoot` type and no per-root `Games[]`. Mismatch detection must work per `GameEntry.FolderPath` vs the manifest's recorded location.
+- **Reusable code already exists:**
+  - `SteamAcfWriter.Build(appId, name, installdir, …)` / `TryWrite(libraryRoot, appId, name, installdir, …)` — writes `steamapps/appmanifest_<appId>.acf`; **`TryWrite` refuses if the file already exists**, so cross-library repair needs a "move/overwrite with backup" path, not `TryWrite` alone.
+  - `SteamAcfParser.ParseAcfFile(acfPath, libraryPath)` → `AcfInfo` (appid, name, installdir, StateFlags, …); `SteamAcfParser.DiscoverLibraryPaths(libraryRoot)`.
+  - `EpicItemWriter` only **creates** identification `.item`s; there is **no** `InstallLocation` rewrite function yet.
+- **`GameEntry` has no `ManifestMismatch`/`DetectedPath` field.** Safest persistence path: store mismatch state in `PlatformMetadata` (persisted `games.json` keys) rather than adding positional record params, OR append optional record params at the end (back-compat defaults). Decide at implementation; do not reorder existing `GameEntry` params.
+- **Key map (persisted):** `PlatformMetadataKeys.LibraryRoot`, `ActualLibraryRoot`, `GameFolder`, `AcfFilePath`, `AcfLibraryPath`, `AcfExpectedPath`, `AcfStateFlags`, `SteamAppId`, `SteamStatus`, `EpicItemPath`, `EpicStatus`. Reuse these; do not invent parallel keys.
+- **F6 is free.** Rescan moved to F5 (Plan 105); no `"F6"` binding exists. The plan's F6 dialog can be bound without conflict.
+- **Cross-library ACF resolution is subsumed by Plan 123 §8.3** (`libraryfolders.vdf` bootstrap). Do not build a separate Steam library-index here; reuse that work when it lands.
+- **No backup/log infrastructure exists yet** — `data/backups/` and `data/migration_log.jsonl` are new.
+- **Registry stores (EA/Ubisoft/GOG)** are out of Phase 2.1 scope (per the plan's own Scope table); registry access already has an abstraction (`WindowsRegistryReader` / `IRegistryReader`), Windows-gated.
+
+
 
 ## Background
 

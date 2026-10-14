@@ -33,21 +33,23 @@ public sealed class GameLaunchResolverTests
 
     private static GameEntry Make(string exe, string cmd, string extras) =>
         new(
-            Id: "g1",
-            Library: "Steam",
-            FolderPath: @"D:\Games",
-            FolderName: "Game",
-            DisplayName: "Game",
-            GameSource: GameSourceKind.Steam,
-            IsSourceOverridden: false,
-            ExecutablePath: exe,
-            LauncherPath: "",
-            CommandLineArguments: cmd,
-            ManifestPath: "",
-            LastScanned: DateTimeOffset.UnixEpoch,
-            LastModified: DateTimeOffset.UnixEpoch,
-            PlatformMetadata: [],
+            Identity: new IdentityInfo
+            {
+                Id = "g1",
+                Library = "Steam",
+                DisplayName = "Game",
+                GameSource = GameSourceKind.Steam,
+                IsSourceOverridden = false,
+            },
+            Location: new LocationInfo { FolderPath = @"D:\Games", FolderName = "Game" },
+            Launch: new LaunchInfo
+            {
+                ExecutablePath = exe,
+                CommandLineArguments = cmd,
+                ExtraLaunchArguments = extras,
+            },
             Tags: [],
             UserOverrides: [],
-            ExtraLaunchArguments: extras);
+            LastScanned: DateTimeOffset.UnixEpoch,
+            LastModified: DateTimeOffset.UnixEpoch);
 }

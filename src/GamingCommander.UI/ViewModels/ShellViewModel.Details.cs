@@ -103,7 +103,7 @@ public sealed partial class ShellViewModel
                 return SelectedItem.PlatformId;
             }
 
-            string? side = _selectedMetadata?.SteamAppId;
+            string? side = _selectedMetadata?.FetchedSteamAppId;
             return !string.IsNullOrWhiteSpace(side) && side.All(char.IsDigit) ? side.Trim() : string.Empty;
         }
     }

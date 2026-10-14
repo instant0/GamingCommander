@@ -34,6 +34,7 @@ The core application must not depend on specific launcher implementations.
 | ADR-009 | Executable Detection Pipeline | 2025-03-15 | Accepted |
 | ADR-010 | Local JSON Persistence | 2025-03-01 | Accepted |
 | ADR-011 | Cross-Platform-Safe Development | 2025-01-10 | Accepted |
+| ADR-012 | Platform-Suffixed Binary Precedence | 2026-08-23 | Accepted |
 
 Detailed records: `META/ADR/`
 
@@ -164,3 +165,14 @@ Appended after Plans 119/120 shipped. Does not replace ADRs above.
 - **Steam scan** stays cheap: ACF + root exe + a few named subfolders. No EngineDetector listing. Metadata does not require an exe.
 - **Publish:** exe + readme + host trio at root; DLLs in `lib/`; defaults in `data/`.
 - Genre/engine from PCGW show as **tags** (engine badge type). Not written into `GameEntry.Tags`.
+
+---
+
+## Current Reality (2026-10-14, anchor model + corrections)
+
+Appended after Plans 124/125 shipped. Does not replace ADRs above.
+
+- **Anchor-based persistence (Plan 124):** `libraries.json` holds named `Library` anchors (`Name`, `Type`, `Folders[]`); `games.json` is a **flat** `games[]` list where each `GameEntry` links to an anchor by `Library` name and carries its own physical `FolderPath`. `GameRoot`/`LibraryRoot` are gone; `AppConfig` no longer holds roots. **Correction to the Navigation Flow above: there is no F9** — the top level is reached via Esc/Backspace, and roots/games are read from `libraries.json` + `games.json`.
+- **Test baseline:** Plan 125 recorded 564 tests green (App 398 + Core 165 + Migration 1).
+- **Epic orphan `.item` write is display-only:** Plan 126 proved the EOSH reported set is server/account-driven; a written `.item`/`.egi` cannot register an app EOSH does not report. Do not advertise registration for unreported Epic installs.
+- **Open product work:** Plan 123 Phase 4 C# detection port; SyncMove Phase 2.1 manifest repair.

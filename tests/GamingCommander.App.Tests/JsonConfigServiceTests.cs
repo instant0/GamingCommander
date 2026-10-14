@@ -69,4 +69,21 @@ public sealed class JsonConfigServiceTests : IDisposable
         Assert.Equal("0.4.0", reloaded.LastSeenVersion);
         Assert.True(reloaded.EnableOnlineMetadata);
     }
+
+    [Fact]
+    public void Load_WithMissingFile_DefaultsScanDepthTo3()
+    {
+        var svc = CreateService("nonexistent_settings.json");
+        Assert.Equal(3, svc.Load().ScanDepth);
+    }
+
+    [Fact]
+    public void Save_ScanDepth_RoundTrips()
+    {
+        var svc = CreateService();
+        var config = svc.Load() with { ScanDepth = 4, IsFirstRun = false };
+        svc.Save(config);
+
+        Assert.Equal(4, svc.Load().ScanDepth);
+    }
 }

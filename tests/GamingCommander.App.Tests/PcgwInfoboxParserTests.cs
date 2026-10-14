@@ -87,7 +87,7 @@ public sealed class PcgwInfoboxParserTests
 
         Assert.NotNull(record);
         Assert.Equal("CD Projekt Red, Virtuos", record.Developer);
-        Assert.Equal("REDengine 4", record.Engine);
+        Assert.Equal("REDengine 4", record.FetchedEngine);
         Assert.Equal("Pcgw", record.LastMetadataSource);
         Assert.Contains("wiki/Cyberpunk_2077", record.PcGamingWikiUrl);
     }
@@ -105,7 +105,7 @@ public sealed class PcgwInfoboxParserTests
         Assert.Contains(record.Details.CommandLine, c => c.Argument == "--launcher-skip");
         Assert.Contains(record.Details.ConfigPaths, p => p.Os == "Windows");
         Assert.Equal("true", record.Details.CloudSync["steam cloud"]);
-        Assert.Equal("1091500", record.SteamAppId);
+        Assert.Equal("1091500", record.FetchedSteamAppId);
     }
 
     [Fact]

@@ -59,41 +59,53 @@ internal sealed class EpicLibraryScanner
                 claimedFolders.Add(EpicInstallPath.FolderName(m3.FolderPath));
             }
 
-            var extra = new Dictionary<string, string>
-            {
-                [PlatformMetadataKeys.EpicStatus] = folderOk ? "Installed" : "Missing",
-                [PlatformMetadataKeys.EpicItemPath] = item.ItemFilePath,
-                [PlatformMetadataKeys.EpicCatalogItemId] = item.CatalogItemId,
-                [PlatformMetadataKeys.EpicCatalogNamespace] = item.CatalogNamespace,
-                [PlatformMetadataKeys.EpicAppName] = item.AppName,
-                [PlatformMetadataKeys.LibraryRoot] = catalog.ManifestsDir,
-                [PlatformMetadataKeys.GameFolder] = installLocation,
-            };
-            if (candidates.Count > 1)
-            {
-                extra[PlatformMetadataKeys.ExeCandidateCount] = candidates.Count.ToString();
-                extra[PlatformMetadataKeys.ExeCandidates] = string.Join('|',
-                    candidates.Select(Path.GetFileName).Where(n => !string.IsNullOrEmpty(n))!);
-            }
+            string epicStatus = folderOk ? "Installed" : "Missing";
+            List<string> exeCandidates = candidates.Count > 1
+                ? candidates
+                    .Select(c => Path.GetFileName(c) ?? string.Empty)
+                    .Where(n => n.Length > 0)
+                    .ToList()
+                : [];
 
             DateTimeOffset modified = match?.LastModified ?? now;
             list.Add(new GameEntry(
-                Id: id,
-                Library: string.Empty,
-                FolderPath: item.InstallLocation ?? string.Empty,
-                FolderName: folderName,
-                DisplayName: string.IsNullOrWhiteSpace(item.DisplayName) ? folderName : item.DisplayName,
-                GameSource: GameSourceKind.Epic,
-                IsSourceOverridden: false,
-                ExecutablePath: exe,
-                LauncherPath: string.IsNullOrEmpty(launcher) ? match?.LauncherPath ?? "" : launcher,
-                CommandLineArguments: match?.CommandLineArguments ?? "",
-                ManifestPath: item.ItemFilePath,
-                LastScanned: now,
-                LastModified: modified,
-                PlatformMetadata: extra,
+                Identity: new IdentityInfo
+                {
+                    Id = id,
+                    Library = string.Empty,
+                    DisplayName = string.IsNullOrWhiteSpace(item.DisplayName) ? folderName : item.DisplayName,
+                    GameSource = GameSourceKind.Epic,
+                    IsSourceOverridden = false,
+                },
+                Location: new LocationInfo
+                {
+                    FolderPath = item.InstallLocation ?? string.Empty,
+                    FolderName = folderName,
+                    LibraryRoot = catalog.ManifestsDir,
+                    GameFolder = installLocation,
+                },
+                Launch: new LaunchInfo
+                {
+                    ExecutablePath = exe,
+                    LauncherPath = string.IsNullOrEmpty(launcher) ? match?.LauncherPath ?? "" : launcher,
+                    CommandLineArguments = match?.CommandLineArguments ?? "",
+                    ManifestPath = item.ItemFilePath,
+                },
                 Tags: match?.Tags ?? [],
-                UserOverrides: match?.UserOverrides ?? []));
+                UserOverrides: match?.UserOverrides ?? [],
+                LastScanned: now,
+                LastModified: modified)
+            {
+                Detection = DetectionTierDeriver.Derive(
+                    GameSourceKind.Epic, epicStatus: epicStatus, candidateExes: exeCandidates),
+                Store = new StoreInfo
+                {
+                    EpicCatalogItemId = item.CatalogItemId,
+                    EpicCatalogNamespace = item.CatalogNamespace,
+                    EpicAppName = item.AppName,
+                },
+                Epic = new EpicInfo { Status = epicStatus, ItemPath = item.ItemFilePath },
+            });
         }
 
         foreach (GameEntry game in known)
@@ -109,16 +121,15 @@ internal sealed class EpicLibraryScanner
                 continue;
             }
 
-            var extra = new Dictionary<string, string>(game.PlatformMetadata)
-            {
-                [PlatformMetadataKeys.EpicStatus] = "Orphaned",
-                [PlatformMetadataKeys.GameFolder] = folder,
-                [PlatformMetadataKeys.LibraryRoot] = Path.GetDirectoryName(folder) ?? "",
-            };
-
             list.Add(game with
             {
-                PlatformMetadata = extra,
+                Detection = DetectionTierDeriver.Derive(GameSourceKind.Epic, epicStatus: "Orphaned"),
+                Epic = game.Epic with { Status = "Orphaned" },
+                Location = game.Location with
+                {
+                    GameFolder = folder,
+                    LibraryRoot = Path.GetDirectoryName(folder) ?? "",
+                },
             });
         }
 

@@ -9,22 +9,20 @@ public sealed class GameFilterMatcherTests
 
     private static GameEntry Game(string name, GameSourceKind source, params string[] tags) =>
         new(
-            Id: name,
-            Library: "Test",
-            FolderPath: @"D:\g",
-            FolderName: name,
-            DisplayName: name,
-            GameSource: source,
-            IsSourceOverridden: false,
-            ExecutablePath: @"D:\g.exe",
-            LauncherPath: "",
-            CommandLineArguments: "",
-            ManifestPath: "",
-            LastScanned: T,
-            LastModified: T,
-            PlatformMetadata: [],
+            Identity: new IdentityInfo
+            {
+                Id = name,
+                Library = "Test",
+                DisplayName = name,
+                GameSource = source,
+                IsSourceOverridden = false,
+            },
+            Location: new LocationInfo { FolderPath = @"D:\g", FolderName = name },
+            Launch: new LaunchInfo { ExecutablePath = @"D:\g.exe" },
             Tags: [.. tags],
-            UserOverrides: []);
+            UserOverrides: [],
+            LastScanned: T,
+            LastModified: T);
 
     [Fact]
     public void Tag_MatchesUserOrSidecar()

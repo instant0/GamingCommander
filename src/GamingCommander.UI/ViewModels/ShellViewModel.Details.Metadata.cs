@@ -13,7 +13,7 @@ public sealed partial class ShellViewModel
     public string DetailsDeveloper => _selectedMetadata?.Developer ?? string.Empty;
     public string DetailsPublisher => _selectedMetadata?.Publisher ?? string.Empty;
     public string DetailsGenre => _selectedMetadata?.Genre ?? string.Empty;
-    public string DetailsEngine => _selectedMetadata?.Engine ?? string.Empty;
+    public string DetailsEngine => _selectedMetadata?.FetchedEngine ?? string.Empty;
     public string DetailsReleaseDate => _selectedMetadata?.ReleaseDate ?? string.Empty;
     public string DetailsMetacritic => _selectedMetadata?.MetacriticScore?.ToString() ?? string.Empty;
     public string DetailsPcgwUrl => _selectedMetadata?.PcGamingWikiUrl ?? string.Empty;

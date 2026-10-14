@@ -61,7 +61,7 @@ public sealed class SteamStoreParserTests
         Assert.Equal("9 Dec, 2020", record.ReleaseDate);
         Assert.Equal(86, record.MetacriticScore);
         Assert.Equal("Steam", record.LastMetadataSource);
-        Assert.Null(record.Engine);
+        Assert.Null(record.FetchedEngine);
         Assert.True(record.HasDisplayableExtras);
     }
 

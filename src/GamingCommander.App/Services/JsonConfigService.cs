@@ -34,7 +34,8 @@ public sealed class JsonConfigService : IConfigService
             HiddenFolders: hiddenFolders,
             IsFirstRun: !fileExists,
             LastSeenVersion: loaded.LastSeenVersion,
-            EnableOnlineMetadata: loaded.EnableOnlineMetadata);
+            EnableOnlineMetadata: loaded.EnableOnlineMetadata,
+            ScanDepth: loaded.ScanDepth > 0 ? loaded.ScanDepth : 3);
     }
 
     /// <summary>Serializes and persists the application configuration to disk.</summary>
@@ -46,6 +47,7 @@ public sealed class JsonConfigService : IConfigService
             IsFirstRun = config.IsFirstRun,
             LastSeenVersion = config.LastSeenVersion,
             EnableOnlineMetadata = config.EnableOnlineMetadata,
+            ScanDepth = config.ScanDepth,
         };
 
         JsonFileHelper.WriteToFile(_configPath, dto);
@@ -57,5 +59,6 @@ public sealed class JsonConfigService : IConfigService
         public bool IsFirstRun { get; set; }
         public string? LastSeenVersion { get; set; }
         public bool EnableOnlineMetadata { get; set; }
+        public int ScanDepth { get; set; } = 3;
     }
 }

@@ -79,7 +79,7 @@ public sealed class MetadataService : IMetadataService
             merged = Merge(merged, rec, MetadataSource.Pcgw);
         }
 
-        string? appId = FirstNonEmpty(steamAppId, merged?.SteamAppId);
+        string? appId = FirstNonEmpty(steamAppId, merged?.FetchedSteamAppId);
         if (_steam is not null && appId is not null)
         {
             string? raw = await _steam.FetchRawAsync(appId, cancellationToken).ConfigureAwait(false);
@@ -143,14 +143,14 @@ public sealed class MetadataService : IMetadataService
             CoverArtUrl = existing.CoverArtUrl ?? incoming.CoverArtUrl,
             OfficialWebsite = existing.OfficialWebsite ?? incoming.OfficialWebsite,
             MetacriticScore = existing.MetacriticScore ?? incoming.MetacriticScore,
-            SteamAppId = existing.SteamAppId ?? incoming.SteamAppId,
-            GogGameId = existing.GogGameId ?? incoming.GogGameId,
+            FetchedSteamAppId = existing.FetchedSteamAppId ?? incoming.FetchedSteamAppId,
+            FetchedGogGameId = existing.FetchedGogGameId ?? incoming.FetchedGogGameId,
             ReleaseDate = pcgw && incoming.ReleaseDate is not null
                 ? incoming.ReleaseDate
                 : existing.ReleaseDate ?? incoming.ReleaseDate,
-            Engine = pcgw && incoming.Engine is not null
-                ? incoming.Engine
-                : existing.Engine ?? incoming.Engine,
+            FetchedEngine = pcgw && incoming.FetchedEngine is not null
+                ? incoming.FetchedEngine
+                : existing.FetchedEngine ?? incoming.FetchedEngine,
             PcGamingWikiUrl = incoming.PcGamingWikiUrl ?? existing.PcGamingWikiUrl,
             LastMetadataSource = incoming.LastMetadataSource ?? existing.LastMetadataSource,
             Details = incoming.Details is { HasAny: true } ? incoming.Details : existing.Details,

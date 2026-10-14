@@ -1,11 +1,8 @@
 namespace GamingCommander.Core.Models;
 
 /// <summary>
-/// Constant values for the <see cref="PlatformMetadataKeys.TitleSource"/> persisted
-/// metadata key. These record HOW a game's display title was derived and are
-/// ON-DISK DATA (games.json) — the values must never be renamed, only the C#
-/// references to them may change. Use these constants instead of raw string
-/// literals when reading or writing a TitleSource value.
+/// Constant values for <see cref="DetectionInfo.TitleSource"/>. These record HOW a game's
+/// display title was derived. Use these constants instead of raw string literals.
 /// </summary>
 public static class TitleSourceValues
 {

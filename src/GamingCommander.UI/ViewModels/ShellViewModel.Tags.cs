@@ -15,7 +15,7 @@ public sealed partial class ShellViewModel
     public bool HasTags => SelectedMergedTags().Count > 0;
     /// <summary>Tag badges with colors for the selected game.</summary>
     public List<TagBadgeViewModel> DetailsTagBadges =>
-        BuildTagBadges(SelectedMergedTags(), TagNormalizer.SplitList(_selectedMetadata?.Engine));
+        BuildTagBadges(SelectedMergedTags(), TagNormalizer.SplitList(_selectedMetadata?.FetchedEngine));
 
     private List<string> SelectedMergedTags()
     {
@@ -23,7 +23,7 @@ public sealed partial class ShellViewModel
             ? []
             : TagNormalizer.ParseFromCommaSeparated(SelectedItem.Tags);
         return TagNormalizer.Merge(
-            user, TagNormalizer.FromMetadata(_selectedMetadata?.Genre, _selectedMetadata?.Engine));
+            user, TagNormalizer.FromMetadata(_selectedMetadata?.Genre, _selectedMetadata?.FetchedEngine));
     }
 
     /// <summary>

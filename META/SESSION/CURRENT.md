@@ -2,34 +2,64 @@
 
 **Nature:** Scratch. **Overwritten** every session handoff.
 **Audience:** All agents. Read every session.
-**Updated:** 2026-09-10 — EOSH RE: keep/remove gate model CORRECTED in reconcile fn `0x141da6250`; doc `planning/126-facts-eosh-re.md` updated.
+**Updated:** 2026-10-14 — Pending/active task audit + task review. Plans 124/125 COMPLETE. Plan 126 EOSH CLOSED — **Epic `.item` re-creation is a dead end and DEFERRED**. **Directive: detection first (read existing manifest files); SyncMove deferred.**
 
 ---
 
-## This session (2026-09-10)
+## This session (2026-10-14) — task/tracker audit
 
-**EOSH launcher reverse-engineering (DISCOVERY, ongoing).** All findings in `planning/126-facts-eosh-re.md` (append-only facts doc).
+Verified by reading the latest commits (`d2da6d7`, `3027f4f`, `d6a3306`, `9b28f81`), the `126-*` fact docs, `123`, `04-phase-2-syncmove`, and the live code.
 
-### Key result — CORRECTED reconcile gate model
+### Verified status of recent plans
+- **Plan 124 (anchor library + flat game DB) — COMPLETE** (2026-09-08). Code present: `Core/Models/Library.cs`, flat `Core/Models/GamesDatabase.cs` (`List<GameEntry>`), `Core/ILibrariesService.cs`, `App/Services/LibrariesDatabaseService.cs`; `GameRoot.cs`/`LibraryRoot.cs` removed. `AppConfig` now holds only `HiddenFolders`/`IsFirstRun`/`LastSeenVersion`/`EnableOnlineMetadata`.
+- **Plan 125 (stabilization refactor) — COMPLETE** (2026-09-09). 564 tests green per plan/NEXT history.
+- **Plan 126 (EOSH / Epic orphan `.item`) — INVESTIGATION CLOSED** (2026-09-10). See below.
+- **Plan 123 (detection tightening) — SUBSTANTIALLY COMPLETE.** The Phase 4 C# port shipped 2026-09-07 (`docs/detection/07` "ALL PORTED", `PythonParityDetectionTests`, 10 tests; code confirms `FindExactFolderMatch`/`FindParentBoundExe`/`AcronymMatchesTitle`/`IsNoiseExeName`). **Residuals now:** confidence-tier marking (`IdentificationTier` not in code) and the amended review gate. **Closed 2026-10-14:** E6a (`"tool"` added to `blacklist.json` tier 10) and the "3-level fallback" gap (was a doc error — C# matches/exceeds Python; depth now user-configurable via `AppConfig.ScanDepth`).
+- **SyncMove (`04-phase-2-syncmove.md`, Phase 2.1) — PLANNED**, no tasks started. Last Phase 2 leftover per ROADMAP.
 
-Previous sessions documented a `vtable[0xd0]`-as-gate + hash-match-as-keep model. **Both readings were wrong.** Verified in the disassembly:
+### Plan 126 outcome (why it is closed)
+- The `.egi` plant experiment (2026-09-09) falsified the local-registry theory: EOSH reads its own install DB, not `EpicOnlineServicesShared\InstalledItems`.
+- `.mancpn` hypothesis falsified (8o); Ruiner reinstall proved identity rules field-for-field correct but registration only occurs through a real EOSH install-API flow (8j).
+- Procmon proved an external HTTPS entitlement/library call precedes the local delete (8r); Troy (Owned) still rejected (8t/8u). **No file-based workaround exists.**
+- **Product consequence:** Plan 121's orphan `.item` write cannot register a game EOSH does not report. **Per user directive (2026-10-14), Epic `.item` re-creation/registration is DEFERRED** — it could not be made to work with Epic. The product focus is **detection from existing manifest files** (read-only). T78 is deferred; its AppName-precedence finding is retained as reference.
+- **Non-goal now:** writing `.item`/`.egi` to register or repair Epic installs.
+- Optional/non-blocking RE tail in `126-facts-eosh-re.md` (identify class of global `0x14316fed0`; confirm `vtable[0x48]` semantics) — the server-side gate is already proven, so this is archival only.
 
-- **`vtable[0xd0]` (0x141da9532) is NOT a gate** — empty and non-empty FString outcomes BOTH flow into the removal log (`record 0x142922398`) + removal call (`0x141db0ab0`). The string only fills the log's InstallId field.
-- **The 7-field hash lookup (0x141da9493) is a duplicate detector, not a keep test** — hash-match path (0x141da9544) logs "removing stale duplicate … still installed elsewhere" (`record 0x142922278`) and REMOVES; hash-miss path logs "removing installation not reported by EOSH" and REMOVES.
-- **Real KEEP gates in phase-2 loop** (over `[rbp-0x50]` FCountedString list, 16-byte `{ptr,count}` elements):
-  1. `[obj+0xec] != 0` skip flag (via `vtable[0x8]` at 0x141da93ab) → KEEP
-  2. **`vtable[0x48]` on global singleton `0x14316fed0`** at 0x141da942b → TRUE → KEEP (this is the EOSH-reported-set membership test; the singleton is a Meyers-static class instance written at 0x141404267, read at 0x141a04f52/0x141db72a6/0x141da941d/0x141dee704)
-- **Reconcile fn `0x141da6250` has NO direct call sites** → invoked via delegate/event (EoshInstallationsChanged pattern → matches observed ~300 ms removal after `.item` load).
-- **EOSH `get-installed-apps-response` JSON schema strings fully mapped** (installations/installationId/state/dir/metaDir/manifestPath/pendingManifestPath/platform/sandboxId/itemId/revision/aliases/entries/label/launchCommand/launchExe/prereqSHA1Hash/buildSize/dependencies/pendingTags/stagedVersion/manifestData/pendingManifestData/dependencyConfig — VTAs in doc).
-- **Implication for the user question (TR/DS kept vs orphans removed):** decided by `vtable[0x48]` membership in the EOSH-reported set held by global `0x14316fed0`. If server-fed (expected — matches proven server call before deletion), local `.item`/manifest content cannot forge it.
+### Tracker/doc drift found and fixed this session
+- `planning/README.md`: Plan 124 was absent; 123 still listed "PLANNED"; no 126 rows → updated.
+- `META/CODE_MAP.md`: still described the pre-124 model (`GameRoot`, `LibraryRoot`, `GamesDatabase.Roots`, `AppConfig.LibraryRoots`, old `ILibraryManager`/`IGamesDatabaseService` signatures) → corrected.
+- `META/ROADMAP.md`: no 124/125/126 milestone rows → added; current-track line refreshed.
+- `META/ARCHITECTURE.md`: navigation still showed F9 (removed) and predated the anchor model → appended current-reality note.
+- `docs/detection/06-deep-scan-fallbacks.md`: stale "C# gap (HIGH): IsNonGameFolder only layer 1" → corrected (all 3 layers present since 2026-09-07).
+- Added `META/COMPLETED/plan-124-*.md` and `plan-125-*.md`; appended the Plan 126 correction to the Plan 121 completion record.
+- Added `META/TASKS/phase-j-followups/` tracker (T78 deferred, T79 detection P0, T80 SyncMove deferred).
 
-### Open questions (see doc "Next steps")
-1. Class/contents of global `0x14316fed0` — is its set populated from the server response or a local cache? (THE question for TR/DS vs orphans)
-2. Phase-1 → hash-table relationship (what the 0x68-stride table at `[rbp+0x7a0]` holds).
-3. `0x141dcab60` / `0x141dadff0` — how reconcile enumerates local `.item`s into 5-FString records.
-4. Class of phase-2 local-install objects (vtable 0xc0/0xd0 getters).
-5. Confirm `vtable[0x48]` = `Contains(record)` vs other semantics.
+### Implemented this session (code)
+- **E6a:** `"tool"` added to `data/blacklist.json` `tier_10_dev_editor_tools`.
+- **Configurable scan depth:** `AppConfig.ScanDepth` (default 3, clamp 1–5) → `JsonConfigService` round-trip → `FolderScanner` → `ExecutableDiscovery.FindPrimaryExecutable`/`FindExecutablesDeep` recursive fallback. 3 new tests.
+- **Detection tier (Plan 127 A3 / T79):** `IdentificationTier` enum, `DetectionInfo` + `StoreInfo` records, `DetectionTierDeriver`; wired into `FolderScanner`, `SteamLibraryScanner` (3 paths), `EpicLibraryScanner` (2 paths); persisted in `games.json` DTO.
+- **Plan 127 A2 (metadata bag retired):** `PlatformMetadata` `Dictionary<string,string>` **removed** from `GameEntry` and the DTO; `PlatformMetadataKeys` + contract test deleted; replaced by typed `DetectionInfo`, `StoreInfo`, `SteamAcfInfo`, `EpicInfo`, `LocationInfo`. All writers/readers migrated (scanners, persistence, MainWindow repair/metadata, GameSetupWindow, ShellViewModel, MetadataLookupQueue). `docs/DATA-FORMAT.md` §2/§4 + `META/CODE_MAP.md` updated.
+- **Plan 127 A1 (GameEntry composed):** `GameEntry` is now `Identity` + `Location` + `Launch` (positional) + `Detection`/`Store`/`Acf`/`Epic` (body), with flat names as read-only accessors. All 9 constructors, `with` expressions, DTO mapping, and tests migrated. The JSON shape is now nested.
+- **Plan 127 A5 (identity reconciliation):** `IdentityKey`/`IdentityKeyKinds`, `IdentityInfo.IdentityKeys`, `LocationInfo.PreviousLocations`, `GameIdentity.WithRebuiltKeys`, and move reconciliation in `SetGamesForLibrary` (`FindRelocated`): strong store-id keys match regardless of disk; the weak folder-name key matches only when the old folder is gone; the existing `Id` + sidecar are preserved and the old path appended to `PreviousLocations`. 5 new tests. `Id` stays folder-derived (deviation — reconciliation preserves it).
+- **Plan 127 A6 (file ownership):** sidecar `SteamAppId`/`GogGameId`/`Engine` renamed to `FetchedSteamAppId`/`FetchedGogGameId`/`FetchedEngine` (they are fetched PCGW/Steam values, not the detected `GameEntry.Store`/`GameEngine`); `GameMetadataRecord` XML docs + `docs/DATA-FORMAT.md` §5 now state `games.json` is authoritative and the sidecar owns fetched enrichment only.
+- **Plan 127 written** (`planning/127-persistence-v2.md`) — full A/B/C spec incl. identity (A5) + file ownership (A6) + deferred `Extensions{}`/emulator (C); revised for the no-back-compat clean-cut policy.
+- **Build/tests:** 0 errors; **583 pass / 0 fail** (Core 163 + Migration 1 + App 419; was 564 at session start).
+- **Doc corrections:** `docs/detection/05`/`06`/`07` stale gap claims; Epic `.item` recreation marked DEFERRED.
 
-## Prior session context
+### Back-compat policy (2026-10-14)
 
-Plan 125 (code refactor) COMPLETE 2026-09-09 — see git history / NEXT.md prior content. Next app-code plan: `123-detection-bugfixes.md` (PLANNED in planning/README) — not started; read plan before implementing. Standing rules unchanged: one file at a time; new files before removal; behavior-preserving; Windows paths opaque; full build + suite after each step.
+**Nothing has shipped → no back-compat anywhere.** Persisted schemas (`games.json`, `libraries.json`, `settings.json`, `games_metadata.json`) are disposable: no migration, no dual-write, no pinning of persisted key strings. Affected tasks revised:
+- **Plan 127 A1/A2** — clean cut (no additive/dual-write/transitional steps); `PlatformMetadata` bag + `PlatformMetadataKeys` deleted outright.
+- **Plan 127 A4** — versioning framework only; no v1→v2 migration to write.
+- **Standing rule** "never rename persisted strings" — retired (`META/SESSION/NEXT.md`).
+- **Plan 123 / T80 / T78** — unaffected.
+
+### Open TECH_DEBT (remaining)
+- Bug 12 — library-type ComboBox too narrow (`MinWidth`).
+- EA format caveat — research doc based on staged install only.
+- Plan 127 A4 (schema versioning), B7–B13 (tracking, install state, user state, launch profiles, relationships, collections, typed tags).
+- Plan 123 amended review gate (process).
+- SDK .NET 8→9 — deferred indefinitely.
+
+## Prior session context (superseded)
+Plan 125 COMPLETE (2026-09-09). EOSH RE findings live in `planning/126-facts-eosh-re.md` (corrected gate model: `vtable[0xd0]` log-only; `vtable[0x48]` on singleton `0x14316fed0` = EOSH-reported-set membership).

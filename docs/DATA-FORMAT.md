@@ -103,26 +103,30 @@ Top-level shape:
 | `games` | array of **game-entry objects** | All discovered games |
 
 ### Game-entry object (`games[]`)
+The entry is composed of nested typed objects (Plan 127 A1). Each nested object is a
+record; the flat field names are exposed as read-only accessors in code.
+
 | Property | Type | Meaning |
 |----------|------|---------|
-| `Id` | string (16 hex) | Deterministic ID; `first 16 hex of MD5("{physicalLibraryRoot\|folderName}")`, lowercase. `physicalLibraryRoot` is the **physical library folder being scanned** (e.g. `d:\steamlibrary` — NOT the anchor name); `folderName` is the game folder name (Epic catalog scans key on the Manifests folder + catalog item id/folder). Anchor name plays no part — see §6 |
-| `Library` | string | **Anchor name** the game belongs to / is displayed under (e.g. `Steam`, `GOG`, `d:\games`) |
-| `FolderName` | string | Installation folder name |
-| `FolderPath` | string | Absolute **physical** path of the game folder. Equals the anchor's sole folder ONLY for 1:1 Standalone anchors; for virtual/multi-folder anchors it is the real game location, not the anchor |
-| `DisplayName` | string | Human-readable title shown in the UI |
-| `GameSource` | `GameSourceKind` (int) | Detected/overridden source (normally matches anchor type) |
-| `Override` | bool | True if the user manually changed `GameSource` |
-| `ExecutablePath` | string | Primary executable path |
-| `LauncherPath` | string | Launcher executable path (if any) |
-| `CmdlineArgs` | string | Command-line args passed on launch |
-| `ManifestPath` | string | Launcher manifest path (e.g. Steam ACF) |
-| `LastScanned` | ISO-8601 `DateTimeOffset` | When this entry was last produced by a scan |
-| `LastModified` | ISO-8601 `DateTimeOffset` | Game folder's last modification time |
-| `Extra` | object (string→string) | Platform-specific metadata (see §4) |
+| `Identity` | **IdentityInfo** | `Id`, `Library` (anchor), `DisplayName`, `GameSource`, `IsSourceOverridden`, `IdentityKeys[]` |
+| `Location` | **LocationInfo** | `FolderPath`, `FolderName`, `LibraryRoot`, `ActualLibraryRoot`, `GameFolder`, `PreviousLocations[]` |
+| `Launch` | **LaunchInfo** | `ExecutablePath`, `LauncherPath`, `CommandLineArguments`, `ExtraLaunchArguments`, `ManifestPath` |
 | `Tags` | array of string | User tags (F4). Additive merge with metadata tags |
 | `UserOverrides` | object (string→string) | Fields the user manually set (F4); keys are field names (§3), values are ISO timestamps |
 | `GameEngine` | `GameEngineKind` (int) | Detected engine; `Unknown` when no signal |
-| `ExtraLaunchArguments` | string | F4 PCGW toggles / free text; used on exe launch only |
+| `LastScanned` | ISO-8601 `DateTimeOffset` | When this entry was last produced by a scan |
+| `LastModified` | ISO-8601 `DateTimeOffset` | Game folder's last modification time |
+| `Detection` | **DetectionInfo** | Detection provenance — tier, title source, signals, candidate exes (§4) |
+| `Store` | **StoreInfo** | Typed store identifiers — Steam/GOG/Epic ids (§4) |
+| `Acf` | **SteamAcfInfo** | Steam ACF status/paths/build (§4) |
+| `Epic` | **EpicInfo** | Epic status + `.item` path (§4) |
+
+`Identity.Id` is the deterministic ID: `first 16 hex of MD5("{physicalLibraryRoot\|folderName}")`,
+lowercase. `physicalLibraryRoot` is the **physical library folder being scanned** (e.g.
+`d:\steamlibrary` — NOT the anchor name); `folderName` is the game folder name (Epic catalog scans
+key on the Manifests folder + catalog item id/folder). Anchor name plays no part — see §6.
+`Location.FolderPath` equals the anchor's sole folder ONLY for 1:1 Standalone anchors; for
+virtual/multi-folder anchors it is the real game location, not the anchor.
 
 #### `GameEngineKind` values (stored as int)
 `Unknown=0`, `UnrealEngine=1`, `Unity=2`, `Rage=3`, `Frostbite=4`, `Source=5`,
@@ -149,39 +153,48 @@ Values are ISO timestamps of when the override was set.
 
 ---
 
-## 4. `GameEntry.Extra` (PlatformMetadata) — common keys
+## 4. Typed metadata records (Detection / Store / Acf / Epic / Location)
 
-Platform metadata is a free-form string→string map. Keys are not part of the
-fixed `GameEntry` schema, but several are treated specially for display/merge.
-The authoritative list grows per-scanner; the shared/standard keys are:
+The former free-form `Extra` (`PlatformMetadata`) string bag was **removed** in Plan 127 A2.
+Store/detection data is now stored in typed records on the game entry.
 
-| Key | Meaning | Notes |
-|-----|---------|-------|
-| `TitleSource` | Where the current title came from | Values: `GogInfo`, `EaInstallLog`, `EpicItemManifest`, `PeFileDescription`, `UbisoftReadme`, `FolderExeMatch`, `PcgwPick`, `UserOverride`. **Preserved through rescan** for `PcgwPick`/`UserOverride`. |
-| `AutoDetectedTitle` | Title auto-detected from a store signal | Written alongside a `TitleSource` |
-| `PeFileDescription` | Version-info description of the primary exe (from PE metadata) | Title candidate (E7) |
-| `ExeCandidates` | Pipe-separated (`\|`) list of candidate exes | |
-| `ExeCandidateCount` | Number of exe candidates | Dropped when exe user-set |
-| `Studio` | Detected developer/publisher signal | |
-| `SteamStatus` | Steam scan status | `Installed`, `Moved`, `Orphaned`, `Missing` |
-| `SteamAppId` | Steam numeric AppID | |
-| `AcfLibraryPath` | Physical library owning the ACF | |
-| `AcfExpectedPath` | Where the game folder is expected (moved/missing context) | |
-| `AcfFilePath`, `AcfSizeOnDisk`, `AcfBuildId`, `AcfStateFlags` | ACF metadata passthrough | |
-| `FolderName` | Steam installdir | steam scanner |
-| `ActualLibraryRoot` / `LibraryRoot` | Physical library the folder lives under | |
-| `EpicStatus`, `EpicAppName`, `EpicCatalogItemId`, `EpicCatalogNamespace`, `EpicItemPath` | Epic scanner | |
-| `GogGameId`, `EaGameName`, `BlizzardProduct`, `UbisoftReadme` | Store signals | |
+### `Detection` (`DetectionInfo`)
+| Property | Type | Meaning |
+|----------|------|---------|
+| `Tier` | `IdentificationTier` (int) | `Unknown=0`, `Candidate=1`, `Secure=2`, `Locked=3` |
+| `TitleSource` | string | Where the title came from (see `TitleSourceValues`); preserved through rescan for `PcgwPick`/`UserOverride` |
+| `AutoDetectedTitle` | string | The title replaced when enrichment set `TitleSource` |
+| `PeFileDescription` | string | PE version-info description of the primary exe (title candidate, E7) |
+| `ManifestKind` | string | `Acf`, `EpicItem`, `GogInfo`, or empty |
+| `Signals` | string[] | Signal ids that produced the entry |
+| `CandidateExes` | string[] | Candidate exe file names (dropped when exe user-set) |
+| `IdentifiedAt` | ISO-8601 / null | When detection ran |
 
-Platform-specific full key sets are defined by their scanners
-(`EpicLibraryScanner`, `SteamLibraryScanner`, `FolderScanner`).
+### `Store` (`StoreInfo`)
+`SteamAppId`, `GogGameId`, `EpicCatalogNamespace`, `EpicCatalogItemId`, `EpicAppName`, `Studio`, `EaGameName`, `BlizzardProduct`, `UbisoftReadme`.
+
+### `Acf` (`SteamAcfInfo`)
+`Status` (`Installed`/`Moved`/`Missing`/`Orphaned`), `FilePath`, `LibraryPath`, `ExpectedPath`, `BuildId`, `SizeOnDisk`, `StateFlags`.
+
+### `Epic` (`EpicInfo`)
+`Status` (`Installed`/`Missing`/`Orphaned`), `ItemPath`.
+
+### `Location` (`LocationInfo`)
+`LibraryRoot`, `ActualLibraryRoot`, `GameFolder`, `FolderName` (Steam installdir).
 
 ---
 
 ## 5. `games_metadata.json` — offline metadata sidecar
 
 Written by `MetadataStore` (`IMetadataStore`), keyed by `GameEntryId`. Never
-touches `games.json`. Top-level shape:
+touches `games.json`.
+
+**Ownership (Plan 127 A6):** `games.json` owns identity, store ids, engine, launch, and user state
+and is **authoritative**. This sidecar owns **fetched enrichment only** — it is never authoritative
+for identity/store-id/engine. The `Fetched*` fields below are hints discovered from PCGW/Steam and
+may differ from (or exist without) the detected values on `GameEntry` (`Store` / `GameEngine`).
+
+Top-level shape:
 
 | Property | Type | Meaning |
 |----------|------|---------|
@@ -205,10 +218,10 @@ The `merged` record corresponds to `GameMetadataRecord`:
 | `ReleaseDate` | string/null | |
 | `Genre` | string/null | |
 | `Description` | string/null | |
-| `Engine` | string/null | |
+| `FetchedEngine` | string/null | Fetched (PCGW). Not authoritative — detected engine is `GameEntry.GameEngine` |
 | `MetacriticScore` | int/null | |
-| `SteamAppId` | string/null | |
-| `GogGameId` | string/null | |
+| `FetchedSteamAppId` | string/null | Fetched (PCGW/Steam). Not authoritative — detected id is `GameEntry.Store.SteamAppId` |
+| `FetchedGogGameId` | string/null | Fetched (PCGW). Not authoritative — detected id is `GameEntry.Store.GogGameId` |
 | `CoverArtUrl` | string/null | |
 | `OfficialWebsite` | string/null | |
 | `PcGamingWikiUrl` | string/null | |
@@ -239,8 +252,8 @@ The `merged` record corresponds to `GameMetadataRecord`:
 - **Two-file split:** `libraries.json` holds anchors; `games.json` holds game
   entries (each linked to an anchor by `Library` name). They are **not** mixed.
 - **JSON style:** indented (`WriteIndented`), property names case-insensitive on
-  read. JSON property names use the DTO names shown (e.g. `CmdlineArgs`,
-  `Override`, `Extra`), not `GameEntry` record parameter names.
+  read. JSON property names match the record/DTO property names shown in this document
+  (`Identity`, `Location`, `Launch`, `Detection`, `Store`, `Acf`, `Epic`).
 - **Idempotent reads:** a missing/corrupt file returns defaults (empty), never throws.
 - **Skip migration:** existing on-disk data from earlier versions is not migrated
   (work-in-progress).
@@ -254,3 +267,9 @@ The `merged` record corresponds to `GameMetadataRecord`:
   (e.g. an Epic game relinked from `d:\games` to `EPIC`), which keeps
   `games_metadata.json` sidecars attached. Two physically identical folder
   names under two different library roots therefore have distinct IDs.
+- **Identity reconciliation on external move (Plan 127 A5):** when a scanned game no longer
+  matches an existing id, it is re-linked to an existing entry that shares an `IdentityKeys`
+  entry — a store id (strong key; matches regardless of disk) or a folder name (weak key; matches
+  only when the old folder is gone). The existing `Id` and sidecar are preserved, the new path
+  becomes `FolderPath`, and the old path is appended to `Location.PreviousLocations`. Ambiguous
+  folder-name matches are never guessed. (Cross-library moves are not yet reconciled.)

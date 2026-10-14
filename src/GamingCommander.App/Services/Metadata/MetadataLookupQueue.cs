@@ -187,9 +187,9 @@ public sealed class MetadataLookupQueue : IDisposable
 
     private static WorkItem ToWork(GameEntry game)
     {
-        string? appId = null;
-        if (game.PlatformMetadata.TryGetValue(PlatformMetadataKeys.SteamAppId, out string? id) && !string.IsNullOrWhiteSpace(id))
-            appId = id.Trim();
+        string? appId = string.IsNullOrWhiteSpace(game.Store.SteamAppId)
+            ? null
+            : game.Store.SteamAppId.Trim();
 
         int? year = TitleText.IsGenericLabel(Path.GetFileNameWithoutExtension(game.ExecutablePath))
             ? game.LastModified.Year is >= 1995 and <= 2035 ? game.LastModified.Year : null

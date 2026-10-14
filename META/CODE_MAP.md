@@ -33,9 +33,10 @@ GamingCommander.sln
 | Interface | File | Key Members |
 |-----------|------|-------------|
 | `IGame` | `IGame.cs` | `Id`, `Title`, `Source`, `InstallPath`, `ExecutablePath`, `LaunchTarget`, `LastModified` |
-| `ILibraryManager` | `ILibraryManager.cs` | `LibraryRoots`, `GetGamesForRoot()`, `AddRoot()`, `RemoveRoot()`, `Refresh()`, `RescanRoot()`, `UpdateGameEntry()`, `DeleteGameEntry()`, `RetagGame()` |
 | `IConfigService` | `IConfigService.cs` | `Load()` → `AppConfig`, `Save(AppConfig)` |
-| `IGamesDatabaseService` | `IGamesDatabaseService.cs` | `Load()` → `GamesDatabase`, `Save()`, same CRUD as ILibraryManager |
+| `ILibraryManager` | `ILibraryManager.cs` | `Libraries`, `GetGamesForLibrary()`, `UpsertLibrary()`, `RemoveLibrary()`, `ScanFolder()`, `RescanLibrary()`, `SelectScannerAndScan()`, `UpdateGameEntry()`, `DeleteGameEntry()`, `RetagGame()` |
+| `IGamesDatabaseService` | `IGamesDatabaseService.cs` | `Load()` → flat `GamesDatabase`, `Save()`, `GetGamesForLibrary()`, `SetGamesForLibrary()`, `RemoveGamesForLibrary()`, `UpdateGameEntry()`, `DeleteGameEntry()`, `RetagGame()` |
+| `ILibrariesService` | `ILibrariesService.cs` | `Libraries`, `Upsert(Library)`, `Remove(name)`, `Get(name)` — owns `libraries.json` (Plan 124) |
 | `IMetadataStore` | `IMetadataStore.cs` | Get/Upsert sidecar by game id. Must not touch `games.json`. |
 | `IMetadataService` | `IMetadataService.cs` | `RefreshAsync` + `SearchPagesAsync` (F3 picker) |
 
@@ -47,7 +48,7 @@ GamingCommander.sln
 |-------|------|------------|
 | `GameSourceKind` | enum | `Unknown=0, Standalone=1, Steam=2, Gog=3, Epic=4, EaApp=5, UbisoftConnect=6, BattleNet=7, Xbox=8, Rockstar=9, SteamEmu=10` |
 | `GameEngineKind` | enum | `Unknown=0, UnrealEngine=1, Unity=2, Rage=3, Frostbite=4, Source=5, Godot=6, CryEngine=7` |
-| `GameMetadataRecord` | record | Sidecar extras + optional `Details` catalog. Not part of `GameEntry`. |
+| `GameMetadataRecord` | record | Sidecar extras + optional `Details` catalog. Fetched enrichment only; `Fetched*` fields are not authoritative (Plan 127 A6). Not part of `GameEntry`. |
 | `GameMetadataDetails` | record | PCGW paths, cmdline catalog, fixes, video, cloud. |
 | `LaunchArgumentComposer` | static | Toggle/combine extras; Steam URI does not eat flags. |
 | `GameLaunchResolver` | static | GameEntry → process target + args. |
@@ -56,11 +57,19 @@ GamingCommander.sln
 | `MigrationMode` | enum | `MoveOnly=0, MoveAndLink=1 (deprecated), ManifestRepairOnly=2` |
 | `TagType` | enum | `User=0, Store=1, Engine=2` |
 | `GameRecord` | record (implements IGame) | Id, Title, Source, InstallPath, LaunchTarget, ExecutablePath, LastModified, SupportsPointerInteraction, SupportsKeyboardOnlyFlow |
-| `GameEntry` | record | Id, FolderName, DisplayName, GameSource, Override, ExecutablePath, LauncherPath, CommandLineArguments, ExtraLaunchArguments, ManifestPath, LastScanned, LastModified, Extra, Tags, GameEngine |
-| `GameRoot` | record | RootPath, DefaultType, Games (List\<GameEntry\>) |
-| `GamesDatabase` | record | Roots (List\<GameRoot\>) |
-| `AppConfig` | record | LibraryRoots, FolderOverrides, HiddenFolders, IsFirstRun, LastSeenVersion, EnableOnlineMetadata |
-| `LibraryRoot` | record | Path, DefaultType |
+| `GameEntry` | record | Composed of `Identity` (IdentityInfo), `Location` (LocationInfo), `Launch` (LaunchInfo) + `Detection`, `Store`, `Acf`, `Epic`, `Tags`, `UserOverrides`, `GameEngine`, `LastScanned`, `LastModified`. Flat names (`Id`, `DisplayName`, `ExecutablePath`, …) are read-only accessors — Plan 127 A1 |
+| `IdentityInfo` | record | Id, Library (anchor), DisplayName, GameSource, IsSourceOverridden — Plan 127 A1 |
+| `LaunchInfo` | record | ExecutablePath, LauncherPath, CommandLineArguments, ExtraLaunchArguments, ManifestPath — Plan 127 A1 |
+| `DetectionInfo` | record | Detection provenance: Tier, TitleSource, AutoDetectedTitle, PeFileDescription, ManifestKind, Signals[], CandidateExes[], IdentifiedAt — Plan 127 A3 |
+| `StoreInfo` | record | SteamAppId, GogGameId, EpicCatalogNamespace, EpicCatalogItemId, EpicAppName, Studio, EaGameName, BlizzardProduct, UbisoftReadme — Plan 127 A2 |
+| `SteamAcfInfo` | record | Status, FilePath, LibraryPath, ExpectedPath, BuildId, SizeOnDisk, StateFlags — Plan 127 A2 |
+| `EpicInfo` | record | Status, ItemPath — Plan 127 A2 |
+| `LocationInfo` | record | FolderPath, FolderName, LibraryRoot, ActualLibraryRoot, GameFolder — Plan 127 A1/A2 |
+| `IdentificationTier` | enum | Unknown=0, Candidate=1, Secure=2, Locked=3 — Plan 127 A3 |
+| `IdentityKey` | record | Kind, Value — natural key for move/rename reconciliation (Plan 127 A5) |
+| `Library` | record | Name (anchor key), Type (`GameSourceKind`), Folders (IReadOnlyList\<string\>) — Plan 124 |
+| `GamesDatabase` | record | Games (flat List\<GameEntry\>); each links to a `Library` by name — Plan 124 |
+| `AppConfig` | record | HiddenFolders, IsFirstRun, LastSeenVersion, EnableOnlineMetadata (library anchors moved to `libraries.json`) |
 | `MigrationPlanSummary` | record | GameId, SourcePath, TargetPath, Mode, RequiresManifestBackup, RequiresLinkCreation (deprecated), IsDryRunOnly |
 | `FileSystemEntry` | record | Name, FullPath, Kind, LastModified, Size |
 | `GameSourceParser` | static class | `InferFromPath(string)`, `ParseFromString(string)`, `AvailableTypes` — shared by all ViewModels |
@@ -73,6 +82,7 @@ GamingCommander.sln
 |--------|------|---------|
 | `VdfParser` | `VdfParser.cs` | Minimal VDF/ACF key-value parser for Steam manifest files |
 | `GameEntryId` | `GameEntryId.cs` | Deterministic MD5-based ID generation for GameEntry records |
+| `GameIdentity` | Core `Services/GameIdentity.cs` | Plan 127 A5: rebuilds `IdentityKeys` from folder name + store ids |
 | `PeProductYear` | `PeProductYear.cs` | Year hint from PE FileVersion / LastWriteTime |
 
 ---
@@ -126,8 +136,7 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 | `PcgwLookup.LookupAsync` | `Metadata/PcgwLookup.cs` | Infobox + sections from one Parse payload |
 | `MetadataLookupQueue` | `Metadata/MetadataLookupQueue.cs` | F5 enqueues; one game at a time; sidecar only |
 | `PcgwPathTokens` | Core `PcgwPathTokens.cs` | `{{P|…}}` → Windows env tokens (display only) |
-| `PlatformMetadataKeys` | Core `Models/PlatformMetadataKeys.cs` | Plan 125 Ph 2b: `const string` keys for all persisted platform metadata (values = current on-disk literals, no renames) |
-| `TitleSourceValues` | Core `Models/TitleSourceValues.cs` | Plan 125 final stage: `const string` values for the persisted TitleSource key (GogInfo/EaInstallLog/EpicItemManifest/FolderExeMatch/PeFileDescription/UbisoftReadme/PcgwPick/UserOverride), pin-tested |
+| `TitleSourceValues` | Core `Models/TitleSourceValues.cs` | `const string` values for `DetectionInfo.TitleSource` (GogInfo/EaInstallLog/EpicItemManifest/FolderExeMatch/PeFileDescription/UbisoftReadme/PcgwPick/UserOverride) |
 | `SteamAcfFields` | Core `Models/SteamAcfFields.cs` | Plan 125 final stage: `const string` names of the Steam ACF / libraryfolders.vdf key=value format, shared by `SteamAcfParser` + `SteamAcfWriter`, pin-tested |
 | `EpicItemSchema` | Core `Models/EpicItemSchema.cs` | Plan 125 final stage: `const string` JSON member names of the Epic .item/.mancpn format, shared by `EpicManifestParser` + `EpicItemWriter` (writer/reader drift = compile error), pin-tested. Write-only .item members (FormatVersion, ChunkDbs, …) stay literals in `EpicItemWriter` — no reader, no drift surface |
 | `PcgwTitleFilter` | Core | Reject soundtrack/demo/artbook; `PickBest` + year |
@@ -139,6 +148,7 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 | `FolderScanner` | `FolderScanner.cs` | Generic folder scanner: detection chain, exe noise filtering, container detection, nested Steam exclusion (`IsNestedSteamTree`). Entry construction delegated to `StoreMetadataEnricher` / `TitleEnricher` (Plan 125 Ph 2) — `AddGameEntry` is a thin assembler |
 | `ContainerScanner` | `ContainerScanner.cs` | Container/publisher folder scan: bounded depth-2 recursion, org detection, `IsNonGameFolder` 3-layer suppression. Children classified once per call via `SignalSummary` (Plan 125 Ph 2) |
 | `StoreMetadataEnricher` | `StoreMetadataEnricher.cs` | Plan 125 Ph 2: GOG→EA→Epic→BattleNet enrichment blocks extracted from `FolderScanner.AddGameEntry`; operates on `GameEntryBuildContext`; read-only |
+| `DetectionTierDeriver` | `DetectionTierDeriver.cs` | Plan 127 A3: derives `DetectionInfo` (tier + signals + manifest kind) from a scanner's collected signals |
 | `TitleEnricher` | `TitleEnricher.cs` | Plan 125 Ph 2: FolderExeMatch → PE FileDescription (with guards) → Ubisoft readme title rules; read-only |
 | `StoreSignalDetector` | `StoreSignalDetector.cs` | DetectType + 10 store/platform signal checks (GOG, EA, Ubisoft, Epic, Blizzard, Xbox, Rockstar, Steam) |
 | `ExecutableDiscovery` | `ExecutableDiscovery.cs` (+ `ExecutableDiscovery.Scoring.cs` partial) | Deep exe search, primary exe selection, launcher detection, Epic manifest discovery. Scoring half (`ScoreExecutable`, `RomanNumeralBonus`, `AbbreviationBonus`, `ExeScoreResult`) in the `.Scoring.cs` partial (Plan 125 Ph 2a) |
@@ -147,7 +157,8 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 | `EpicLibraryScanner` | `EpicLibraryScanner.cs` | ProgramData `*.item` → VFS (base games only) |
 | `EpicItemCatalog` / `EpicItemClassifier` / `EpicItemWriter` | same folder | Catalog, DLC skip, orphan `.item` write |
 | `SteamAcfParser` | `SteamAcfParser.cs` | Parses Steam ACF files and libraryfolders.vdf; AcfInfo record |
-| `GamesDatabaseService` | `GamesDatabaseService.cs` | JSON-file CRUD for game entries via private DTOs, in-memory cache |
+| `GamesDatabaseService` | `GamesDatabaseService.cs` | JSON-file CRUD for the flat game list (`games.json`) via private DTOs, in-memory cache, anchor-keyed access (Plan 124) |
+| `LibrariesDatabaseService` | `LibrariesDatabaseService.cs` | Reads/writes `libraries.json` (named `Library` anchors) implementing `ILibrariesService` (Plan 124) |
 | `JsonConfigService` | `JsonConfigService.cs` | JSON-file persistence for AppConfig |
 | `BlacklistLoader` | `BlacklistLoader.cs` | Loads noise patterns from `data/blacklist.json`; missing/corrupt file falls back to embedded resource and restores disk copy (Bug 16) |
 | `FileSystemHelper` | `FileSystemHelper.cs` | Shared filesystem utilities: GetDirectoriesSafe, GetFilesSafe, GetLastWriteTimeSafe, NormalizeDisplayName, NoiseSubDirNames |

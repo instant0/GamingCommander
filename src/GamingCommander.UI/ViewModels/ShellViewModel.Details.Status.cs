@@ -18,8 +18,8 @@ public sealed partial class ShellViewModel
                     "Write Epic .item from .egstore scraps. Then Update in Epic — only ONE official repair per launcher run.";
         }
 
-        string folder = game.PlatformMetadata.GetValueOrDefault(PlatformMetadataKeys.FolderName, game.FolderName);
-        string libRoot = game.PlatformMetadata.GetValueOrDefault(PlatformMetadataKeys.LibraryRoot, "unknown library");
+        string folder = game.Location.FolderName is { Length: > 0 } fn ? fn : game.FolderName;
+        string libRoot = game.Location.LibraryRoot is { Length: > 0 } lr ? lr : "unknown library";
         return $"Orphaned — no Steam manifest for '{folder}'. " +
                $"This folder exists in {libRoot} but no ACF in any configured library names that folder. " +
                "F3 to get the Steam AppID from PCGW, then click Write Steam ACF. " +
@@ -29,8 +29,8 @@ public sealed partial class ShellViewModel
     /// <summary>Formats actionable detail text for Missing Steam games (ACF exists, no game folder).</summary>
     private static string FormatMissingDetail(GameEntry game)
     {
-        string acfPath = game.PlatformMetadata.GetValueOrDefault(PlatformMetadataKeys.AcfFilePath, "");
-        string expected = game.PlatformMetadata.GetValueOrDefault(PlatformMetadataKeys.AcfExpectedPath, "");
+        string acfPath = game.Acf.FilePath;
+        string expected = game.Acf.ExpectedPath;
         return $"Missing — Steam manifest at {acfPath} expects files at {expected}. " +
                "Game folder not found in any configured library. " +
                "Possible: game is in an unconfigured library, or was uninstalled. " +
@@ -40,10 +40,10 @@ public sealed partial class ShellViewModel
     /// <summary>Formats actionable detail text for Moved Steam games (game in different library than ACF).</summary>
     private static string FormatMovedDetail(GameEntry game)
     {
-        string acfPath = game.PlatformMetadata.GetValueOrDefault(PlatformMetadataKeys.AcfFilePath, "unknown");
-        string acfLib = game.PlatformMetadata.GetValueOrDefault(PlatformMetadataKeys.AcfLibraryPath, "unknown");
-        string actualLib = game.PlatformMetadata.GetValueOrDefault(PlatformMetadataKeys.ActualLibraryRoot, "unknown");
-        string folder = game.PlatformMetadata.GetValueOrDefault(PlatformMetadataKeys.FolderName, game.FolderName);
+        string acfPath = game.Acf.FilePath is { Length: > 0 } fp ? fp : "unknown";
+        string acfLib = game.Acf.LibraryPath is { Length: > 0 } lp ? lp : "unknown";
+        string actualLib = game.Location.ActualLibraryRoot is { Length: > 0 } al ? al : "unknown";
+        string folder = game.Location.FolderName is { Length: > 0 } fn ? fn : game.FolderName;
         string acfFileName = Path.GetFileName(acfPath);
         string targetPath = Path.Combine(actualLib, "steamapps", acfFileName);
         return $"Moved — game '{folder}' found in {actualLib} but ACF is in {acfLib}. " +

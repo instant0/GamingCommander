@@ -18,8 +18,10 @@ This folder contains implementation plans following the FILE NAMING CONTRACT (`n
 
 | Document | Description | Status |
 | :--- | :--- | :--- |
-| **`125-stabilization-refactor.md`** | Code architecture refactor: split oversized files, dedup composition/projection, settle GameEntryId contract | **COMPLETE** (2026-09-09) — all phases + final stage; 564 tests green; Phase 3 dropped (N/A) |
-| **`123-detection-bugfixes.md`** | Detection tightening: confidence tiers (Locked/Secure), Steam locked, Epic manifest Secure, Missing-Manifest fix, safe-first | **PLANNED** (2026-09-06) |
+| **`126-epic-manifest-review-pass.md`** + `126-facts-*.md` | Epic orphan `.item` registration review + EOSH gate reverse-engineering (DISCOVERY) | **INVESTIGATION CLOSED** (2026-09-10) — no file-based registration path; EOSH reporting is server/account-driven (`.egi` plant falsified). Product follow-ups listed in the plan (EpicItemWriter `.mancpn` AppName; `epic_item_format.md` correction). Optional RE tail remains in `126-facts-eosh-re.md`. |
+| **`123-detection-bugfixes.md`** | Detection tightening: confidence tiers (Locked/Secure), Steam locked, Epic manifest Secure, Missing-Manifest fix, safe-first | **SUBSTANTIALLY COMPLETE** (verified 2026-10-14) — Python phases 0–3 done; **C# port shipped 2026-09-07** (`docs/detection/07`, 10 parity tests). Residuals: confidence-tier marking, review gate. **Closed:** E6a (`"tool"`), fallback-depth (now `AppConfig.ScanDepth`). Scope: `d:\games`; P-layout = §8.3 separate plan |
+| **`127-persistence-v2.md`** | Typed game records + detection provenance (tier/signals), identity, file ownership; A/B/C proposals | **IN PROGRESS** (2026-10-14) — A1/A2/A3/A5 done (composed `GameEntry`; bag retired; tier/provenance; identity reconciliation); `ScanDepth` done; A4/A6 + B/C pending |
+| **`125-stabilization-refactor.md`** | Code architecture refactor: split oversized files, dedup composition/projection, settle GameEntryId contract | **COMPLETE** (2026-09-09) — all phases + final stage; 564 tests green; Phase 3 dropped (N/A). Predecessor: `124` COMPLETE |
 | `122-type-to-search.md` | Silent type-to-search: 3+ chars filters all roots by name + tags (frees S/T keys) | **COMPLETE** (2026-08-23) |
 | **`04-phase-2-syncmove.md`** | SyncMove — repair store registration after user moves files | PLANNED (Phase 2.1) |
 | `102-tags-metadata-display.md` | Tags + local engine | Phases 1+2+4 ✅; Phase 3 → **119/120 COMPLETE** |
@@ -38,7 +40,8 @@ This folder contains implementation plans following the FILE NAMING CONTRACT (`n
 
 | Document | Description | Status |
 | :--- | :--- | :--- |
-| `121-epic-manifest-vfs-investigation.md` | Epic catalog VFS (F2 Add Epic Games Store) + Missing/Orphaned + orphan `.item` write | **COMPLETE** |
+| `124-anchor-library-game-db.md` | Anchor-based Library + Game DB split (`libraries.json` + flat `games.json`) | **COMPLETE** (2026-09-08) — `Library`, `ILibrariesService`, `LibrariesDatabaseService`; `GameRoot`/`LibraryRoot` removed |
+| `121-epic-manifest-vfs-investigation.md` | Epic catalog VFS (F2 Add Epic Games Store) + Missing/Orphaned + orphan `.item` write | **COMPLETE** (orphan `.item` write limit now proven by 126 — see plan) |
 | `120-pcgw-identity-and-details.md` | PCGW details sidecar + F3/F4 extras | **COMPLETE** |
 | `119-metadata-sidecar.md` | `games_metadata.json` + Steam Store / PCGW | **COMPLETE** |
 | `117-left-pane-layout.md` | Left pane: badge left, tags as subtitle, path right | **COMPLETE** |

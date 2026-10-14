@@ -156,9 +156,8 @@ public partial class MainWindow
             // (pigs, mmxl, jag2) must never be queried verbatim before better
             // identity sources. Order: PE title → exe stem → exe stem (normalized
             // separators) → display name → folder name.
-            string? peTitle = game.PlatformMetadata.TryGetValue(PlatformMetadataKeys.PeFileDescription, out string? peDesc)
-                && !string.IsNullOrWhiteSpace(peDesc)
-                ? peDesc
+            string? peTitle = !string.IsNullOrWhiteSpace(game.Detection.PeFileDescription)
+                ? game.Detection.PeFileDescription
                 : null;
             string? exeStem = !string.IsNullOrWhiteSpace(game.ExecutablePath)
                 ? Path.GetFileNameWithoutExtension(game.ExecutablePath)
@@ -202,15 +201,14 @@ public partial class MainWindow
         // replaced; a user-picked title is never overwritten by detection.
         if (chosen is not null && !IsUserPinnedTitle(game))
         {
-            var pinnedMeta = new Dictionary<string, string>(game.PlatformMetadata)
-            {
-                [PlatformMetadataKeys.TitleSource] = TitleSourceValues.PcgwPick,
-                [PlatformMetadataKeys.AutoDetectedTitle] = game.DisplayName,
-            };
             var pinned = game with
             {
-                DisplayName = chosen,
-                PlatformMetadata = pinnedMeta,
+                Identity = game.Identity with { DisplayName = chosen },
+                Detection = game.Detection with
+                {
+                    TitleSource = TitleSourceValues.PcgwPick,
+                    AutoDetectedTitle = game.DisplayName,
+                },
             };
             if (_viewModel?.GetCurrentLibraryName() is not null)
             {
@@ -229,26 +227,12 @@ public partial class MainWindow
     /// True when the game's title is user-pinned (TitleSource = PcgwPick / UserOverride)
     /// — user intent is authoritative and must never be overwritten by a later pick.
     /// </summary>
-    private static bool IsUserPinnedTitle(GameEntry game)
-    {
-        if (game.PlatformMetadata.TryGetValue(PlatformMetadataKeys.TitleSource, out string? source))
-        {
-            return source is TitleSourceValues.PcgwPick or TitleSourceValues.UserOverride;
-        }
-        return false;
-    }
+    private static bool IsUserPinnedTitle(GameEntry game) =>
+        game.Detection.TitleSource is TitleSourceValues.PcgwPick or TitleSourceValues.UserOverride;
 
     /// <summary>ACF / sidecar AppID. When set, F3 must not OpenSearch by name.</summary>
-    private static string? TrySteamAppId(GameEntry game)
-    {
-        if (game.PlatformMetadata.TryGetValue(PlatformMetadataKeys.SteamAppId, out string? id)
-            && !string.IsNullOrWhiteSpace(id))
-        {
-            return id.Trim();
-        }
-
-        return null;
-    }
+    private static string? TrySteamAppId(GameEntry game) =>
+        string.IsNullOrWhiteSpace(game.Store.SteamAppId) ? null : game.Store.SteamAppId.Trim();
 
     private GameEntry? GetSelectedGame()
     {

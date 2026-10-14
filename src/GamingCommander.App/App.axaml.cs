@@ -95,7 +95,7 @@ public partial class App : Application
                 IRegistryReader registryReader = OperatingSystem.IsWindows()
                     ? new WindowsRegistryReader()
                     : null!;
-                var scanner = new FolderScanner(config.HiddenFolders, blacklist, registryReader);
+                var scanner = new FolderScanner(config.HiddenFolders, blacklist, registryReader, config.ScanDepth);
 
                 Log("Creating SteamLibraryScanner...");
                 var steamPaths = librariesService.Libraries

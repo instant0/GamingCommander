@@ -59,27 +59,28 @@ public sealed class IdentityPipelineTests
         // E8: a user-picked title (TitleSource=PcgwPick) must survive a rescan
         // merge even when the scan re-detects the folder-derived name.
         var existing = new GameEntry(
-            Id: "root|jag2",
-            Library: "root",
-            FolderPath: "/d/jag2",
-            FolderName: "jag2",
-            DisplayName: "Jagged Alliance 2",
-            GameSource: GameSourceKind.Standalone,
-            IsSourceOverridden: false,
-            ExecutablePath: "/d/jag2/ja2.exe",
-            LauncherPath: string.Empty,
-            CommandLineArguments: string.Empty,
-            ManifestPath: string.Empty,
-            LastScanned: DateTimeOffset.UtcNow,
-            LastModified: DateTimeOffset.UtcNow,
-            PlatformMetadata: new Dictionary<string, string> { [PlatformMetadataKeys.TitleSource] = TitleSourceValues.PcgwPick },
+            Identity: new IdentityInfo
+            {
+                Id = "root|jag2",
+                Library = "root",
+                DisplayName = "Jagged Alliance 2",
+                GameSource = GameSourceKind.Standalone,
+                IsSourceOverridden = false,
+            },
+            Location: new LocationInfo { FolderPath = "/d/jag2", FolderName = "jag2" },
+            Launch: new LaunchInfo { ExecutablePath = "/d/jag2/ja2.exe" },
             Tags: [],
-            UserOverrides: []);
+            UserOverrides: [],
+            LastScanned: DateTimeOffset.UtcNow,
+            LastModified: DateTimeOffset.UtcNow)
+        {
+            Detection = new DetectionInfo { TitleSource = TitleSourceValues.PcgwPick },
+        };
 
         var scanned = existing with
         {
-            DisplayName = "jag2",
-            PlatformMetadata = new Dictionary<string, string> { [PlatformMetadataKeys.TitleSource] = TitleSourceValues.FolderExeMatch },
+            Identity = existing.Identity with { DisplayName = "jag2" },
+            Detection = new DetectionInfo { TitleSource = TitleSourceValues.FolderExeMatch },
         };
 
         // GamesDatabaseService.MergeGameEntries is private; verify the public
@@ -93,7 +94,7 @@ public sealed class IdentityPipelineTests
 
             var merged = svc.GetGamesForLibrary("root").Single();
             Assert.Equal("Jagged Alliance 2", merged.DisplayName);   // picked title survives
-            Assert.Equal(TitleSourceValues.PcgwPick, merged.PlatformMetadata[PlatformMetadataKeys.TitleSource]);
+            Assert.Equal(TitleSourceValues.PcgwPick, merged.Detection.TitleSource);
         }
         finally
         {

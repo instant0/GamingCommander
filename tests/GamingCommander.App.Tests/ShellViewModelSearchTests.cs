@@ -132,26 +132,24 @@ public sealed class ShellViewModelSearchTests
         const string lib = "SteamLib";
         var libraries = new List<Library> { new(lib, GameSourceKind.Steam, [@"C:\SteamLib"]) };
         var steamGame = new GameEntry(
-            Id: "s1",
-            Library: lib,
-            FolderPath: @"C:\SteamLib\common\HalfLife",
-            FolderName: "HalfLife",
-            DisplayName: "Half-Life",
-            GameSource: GameSourceKind.Steam,
-            IsSourceOverridden: false,
-            ExecutablePath: @"C:\SteamLib\common\HalfLife\hl.exe",
-            LauncherPath: string.Empty,
-            CommandLineArguments: string.Empty,
-            ManifestPath: string.Empty,
-            LastScanned: DateTimeOffset.UtcNow,
-            LastModified: DateTimeOffset.UtcNow,
-            PlatformMetadata: new Dictionary<string, string>
+            Identity: new IdentityInfo
             {
-                ["SteamAppId"] = "70",
-                ["SteamStatus"] = "Moved",
+                Id = "s1",
+                Library = lib,
+                DisplayName = "Half-Life",
+                GameSource = GameSourceKind.Steam,
+                IsSourceOverridden = false,
             },
+            Location: new LocationInfo { FolderPath = @"C:\SteamLib\common\HalfLife", FolderName = "HalfLife" },
+            Launch: new LaunchInfo { ExecutablePath = @"C:\SteamLib\common\HalfLife\hl.exe" },
             Tags: ["FPS"],
-            UserOverrides: new Dictionary<string, string>());
+            UserOverrides: new Dictionary<string, string>(),
+            LastScanned: DateTimeOffset.UtcNow,
+            LastModified: DateTimeOffset.UtcNow)
+        {
+            Store = new StoreInfo { SteamAppId = "70" },
+            Acf = new SteamAcfInfo { Status = "Moved" },
+        };
         var games = new Dictionary<string, IReadOnlyList<GameEntry>> { [lib] = [steamGame] };
 
         // Library-detail row: drill into the anchor.
@@ -221,22 +219,20 @@ public sealed class ShellViewModelSearchTests
         string display,
         params string[] tags) =>
         new(
-            Id: id,
-            Library: library,
-            FolderPath: $@"{RootA}\{folder}",
-            FolderName: folder,
-            DisplayName: display,
-            GameSource: GameSourceKind.Standalone,
-            IsSourceOverridden: false,
-            ExecutablePath: $@"{RootA}\{folder}\game.exe",
-            LauncherPath: string.Empty,
-            CommandLineArguments: string.Empty,
-            ManifestPath: string.Empty,
-            LastScanned: DateTimeOffset.UtcNow,
-            LastModified: DateTimeOffset.UtcNow,
-            PlatformMetadata: new Dictionary<string, string>(),
+            Identity: new IdentityInfo
+            {
+                Id = id,
+                Library = library,
+                DisplayName = display,
+                GameSource = GameSourceKind.Standalone,
+                IsSourceOverridden = false,
+            },
+            Location: new LocationInfo { FolderPath = $@"{RootA}\{folder}", FolderName = folder },
+            Launch: new LaunchInfo { ExecutablePath = $@"{RootA}\{folder}\game.exe" },
             Tags: tags.ToList(),
-            UserOverrides: new Dictionary<string, string>());
+            UserOverrides: new Dictionary<string, string>(),
+            LastScanned: DateTimeOffset.UtcNow,
+            LastModified: DateTimeOffset.UtcNow);
 
     private sealed class FakeConfigService(AppConfig config) : IConfigService
     {

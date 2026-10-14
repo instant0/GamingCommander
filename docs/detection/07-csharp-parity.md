@@ -44,7 +44,7 @@ Remaining gaps are LOW/intentional.
 
 | Gap | Python | C# | Impact |
 |-----|--------|-----|--------|
-| **3-level generic subdir exe fallback** | `_find_exe_in_subdirs` generic (3 levels) | `FindExecutablesDeep` capped at 2 | Missed deep-nested exes (S2/S4 shapes) — MED |
+| **Recursive exe fallback depth** | `_add_exes_recursive(d, max_depth=2)` → rel 0–2 | `FindExesRecursive(maxDepth=2)` → rel 1–3; now user-configurable via `AppConfig.ScanDepth` (default 3 → rel ≤3) | **NOT a gap** (C# ≥ Python). Corrected 2026-10-14. |
 | **Deep 4-level signal walk** | `_deep_signal_scan` + `_match_markers` | Targeted probes only | Missed buried store markers — LOW (intentional perf tradeoff) |
 | **`DetectionLogger`** | `_detlog` | Status messages only | Diagnostics parity — LOW |
 

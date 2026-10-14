@@ -33,7 +33,7 @@ public sealed class SteamLibraryScannerTests : IDisposable
         Assert.Single(results);
         Assert.Equal("Test Game Alpha", results[0].DisplayName);
         Assert.Equal(GameSourceKind.Steam, results[0].GameSource);
-        Assert.Equal("Installed", results[0].PlatformMetadata["SteamStatus"]);
+        Assert.Equal("Installed", results[0].Acf.Status);
     }
 
     [Fact]
@@ -75,7 +75,7 @@ public sealed class SteamLibraryScannerTests : IDisposable
 
         Assert.Single(results);
         Assert.Contains("UeGame-Win64-Shipping.exe", results[0].ExecutablePath, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal("480", results[0].PlatformMetadata["SteamAppId"]);
+        Assert.Equal("480", results[0].Store.SteamAppId);
         Assert.Contains("steam://rungameid/480", results[0].CommandLineArguments);
     }
 
@@ -104,11 +104,11 @@ public sealed class SteamLibraryScannerTests : IDisposable
 
         Assert.Single(results);
         var entry = results[0];
-        Assert.Equal("730", entry.PlatformMetadata["SteamAppId"]);
+        Assert.Equal("730", entry.Store.SteamAppId);
         Assert.Equal("Test Game Alpha", entry.DisplayName);
         Assert.Equal("TestGame", entry.FolderName);
-        Assert.Equal("4", entry.PlatformMetadata["AcfStateFlags"]);
-        Assert.False(string.IsNullOrEmpty(entry.PlatformMetadata["AcfSizeOnDisk"]));
+        Assert.Equal("4", entry.Acf.StateFlags);
+        Assert.False(string.IsNullOrEmpty(entry.Acf.SizeOnDisk));
     }
 
     [Fact]
@@ -127,7 +127,7 @@ public sealed class SteamLibraryScannerTests : IDisposable
 
         // BadGame exists but has no valid ACF → Orphaned
         Assert.Single(results);
-        Assert.Equal("Orphaned", results[0].PlatformMetadata["SteamStatus"]);
+        Assert.Equal("Orphaned", results[0].Acf.Status);
     }
 
     // ════════════════════════════════════════════════════════════════
@@ -151,8 +151,8 @@ public sealed class SteamLibraryScannerTests : IDisposable
         var results = scanner.Scan(libA);
 
         Assert.Single(results);
-        Assert.Equal("Moved", results[0].PlatformMetadata["SteamStatus"]);
-        Assert.True(results[0].PlatformMetadata.ContainsKey("AcfExpectedPath"));
+        Assert.Equal("Moved", results[0].Acf.Status);
+        Assert.True(results[0].Acf.ExpectedPath.Length > 0);
     }
 
     [Fact]
@@ -167,8 +167,8 @@ public sealed class SteamLibraryScannerTests : IDisposable
         var results = scanner.Scan(root);
 
         Assert.Single(results);
-        Assert.Equal("Orphaned", results[0].PlatformMetadata["SteamStatus"]);
-        Assert.Equal(string.Empty, results[0].PlatformMetadata["SteamAppId"]);
+        Assert.Equal("Orphaned", results[0].Acf.Status);
+        Assert.Equal(string.Empty, results[0].Store.SteamAppId);
     }
 
     // ════════════════════════════════════════════════════════════════
@@ -211,7 +211,7 @@ public sealed class SteamLibraryScannerTests : IDisposable
         var results = scanner.Scan(root);
 
         Assert.Single(results);
-        Assert.Equal("Installed", results[0].PlatformMetadata["SteamStatus"]);
+        Assert.Equal("Installed", results[0].Acf.Status);
         Assert.Equal("Steam", results[0].FolderName);
     }
 
@@ -228,8 +228,8 @@ public sealed class SteamLibraryScannerTests : IDisposable
         var fromA = scanner.Scan(libA);
         var fromB = scanner.Scan(libB);
 
-        Assert.Contains(fromA, g => g.PlatformMetadata.GetValueOrDefault("SteamStatus") == "Missing");
-        Assert.DoesNotContain(fromB, g => g.PlatformMetadata.GetValueOrDefault("SteamStatus") == "Missing");
+        Assert.Contains(fromA, g => g.Acf.Status == "Missing");
+        Assert.DoesNotContain(fromB, g => g.Acf.Status == "Missing");
     }
 
     [Fact]
@@ -243,8 +243,8 @@ public sealed class SteamLibraryScannerTests : IDisposable
         var results = scanner.Scan(root);
 
         Assert.Single(results);
-        Assert.Equal("Missing", results[0].PlatformMetadata["SteamStatus"]);
-        Assert.Equal("99999", results[0].PlatformMetadata["SteamAppId"]);
+        Assert.Equal("Missing", results[0].Acf.Status);
+        Assert.Equal("99999", results[0].Store.SteamAppId);
     }
 
     // ════════════════════════════════════════════════════════════════
@@ -259,9 +259,9 @@ public sealed class SteamLibraryScannerTests : IDisposable
         var results = scanner.Scan(root);
 
         Assert.Single(results);
-        Assert.Equal("Installed", results[0].PlatformMetadata["SteamStatus"]);
-        Assert.Equal("111", results[0].PlatformMetadata["SteamAppId"]);
-        Assert.False(string.IsNullOrEmpty(results[0].PlatformMetadata["AcfLibraryPath"]));
+        Assert.Equal("Installed", results[0].Acf.Status);
+        Assert.Equal("111", results[0].Store.SteamAppId);
+        Assert.False(string.IsNullOrEmpty(results[0].Acf.LibraryPath));
     }
 
     [Fact]
@@ -274,9 +274,9 @@ public sealed class SteamLibraryScannerTests : IDisposable
         var results = scanner.Scan(root);
 
         Assert.Single(results);
-        Assert.Equal("Missing", results[0].PlatformMetadata["SteamStatus"]);
-        Assert.Equal("55555", results[0].PlatformMetadata["SteamAppId"]);
-        Assert.True(results[0].PlatformMetadata.ContainsKey("AcfFilePath"));
+        Assert.Equal("Missing", results[0].Acf.Status);
+        Assert.Equal("55555", results[0].Store.SteamAppId);
+        Assert.True(results[0].Acf.FilePath.Length > 0);
     }
 
     // ════════════════════════════════════════════════════════════════
@@ -323,7 +323,7 @@ public sealed class SteamLibraryScannerTests : IDisposable
 
         // SomeGame has no ACF and no VDF → orphaned
         Assert.Single(results);
-        Assert.Equal("Orphaned", results[0].PlatformMetadata["SteamStatus"]);
+        Assert.Equal("Orphaned", results[0].Acf.Status);
     }
 
     // ════════════════════════════════════════════════════════════════

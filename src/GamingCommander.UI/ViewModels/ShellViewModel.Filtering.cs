@@ -43,7 +43,7 @@ public sealed partial class ShellViewModel
             foreach (GameEntry game in _libraryManager.GetGamesForLibrary(lib.Name))
             {
                 GameMetadataRecord? sidecar = _metadataStore?.Get(game.Id);
-                yield return (lib.Name, game, TagNormalizer.FromMetadata(sidecar?.Genre, sidecar?.Engine));
+                yield return (lib.Name, game, TagNormalizer.FromMetadata(sidecar?.Genre, sidecar?.FetchedEngine));
             }
         }
     }

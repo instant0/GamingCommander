@@ -1,5 +1,6 @@
 using GamingCommander.Core;
 using GamingCommander.Core.Models;
+using GamingCommander.Core.Services;
 
 namespace GamingCommander.App.Services;
 
@@ -69,21 +70,46 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
         GamesDatabase db = Load();
         var scanned = games.ToList();
 
-        // Preserve overrides for games whose ID matches an existing entry.
-        var existingByLibrary = db.Games
+        var existingForLib = db.Games
             .Where(g => g.Library.Equals(libraryName, StringComparison.OrdinalIgnoreCase))
-            .ToDictionary(g => g.Id, StringComparer.OrdinalIgnoreCase);
+            .ToList();
+        var existingById = existingForLib.ToDictionary(g => g.Id, StringComparer.OrdinalIgnoreCase);
+        var consumed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         var merged = new List<GameEntry>();
         foreach (GameEntry g in scanned)
         {
             // Every stored entry belongs to this library anchor, regardless of what
             // the scan-context stamped. Anchor name is authoritative here.
-            GameEntry anchored = g with { Library = libraryName };
-            if (existingByLibrary.TryGetValue(g.Id, out GameEntry? existing))
-                merged.Add(MergeGameEntries(existing, anchored) with { Library = libraryName });
-            else
-                merged.Add(anchored);
+            GameEntry anchored = GameIdentity.WithRebuiltKeys(
+                g with { Identity = g.Identity with { Library = libraryName } });
+
+            if (existingById.TryGetValue(anchored.Id, out GameEntry? existing))
+            {
+                consumed.Add(existing.Id);
+                merged.Add(MergeGameEntries(existing, anchored));
+                continue;
+            }
+
+            // External move/rename: adopt the existing identity so the sidecar + user
+            // state survive (Plan 127 A5).
+            GameEntry? relocated = FindRelocated(existingForLib, consumed, anchored);
+            if (relocated is not null)
+            {
+                consumed.Add(relocated.Id);
+                GameEntry adopted = anchored with
+                {
+                    Identity = anchored.Identity with { Id = relocated.Id },
+                    Location = anchored.Location with
+                    {
+                        PreviousLocations = AppendPreviousLocation(relocated),
+                    },
+                };
+                merged.Add(MergeGameEntries(relocated, adopted));
+                continue;
+            }
+
+            merged.Add(anchored);
         }
 
         var keep = db.Games
@@ -93,6 +119,55 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
 
         Save(new GamesDatabase(keep));
     }
+
+    /// <summary>
+    /// Finds an existing (not-yet-consumed) entry that is the same game at a different path —
+    /// i.e. it was moved/renamed externally. Strong keys (store ids) match regardless of disk
+    /// state; the weak <c>FolderName</c> key matches only when the old folder is gone (Plan 127 A5).
+    /// </summary>
+    private static GameEntry? FindRelocated(
+        IReadOnlyList<GameEntry> existing, HashSet<string> consumed, GameEntry scanned)
+    {
+        var scannedKeys = new HashSet<string>(
+            scanned.Identity.IdentityKeys.Select(k => k.Kind + "\u0000" + k.Value),
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (GameEntry e in existing)
+        {
+            if (consumed.Contains(e.Id))
+                continue;
+            if (PathsEqual(e.FolderPath, scanned.FolderPath))
+                continue;
+
+            foreach (IdentityKey key in e.Identity.IdentityKeys)
+            {
+                if (!scannedKeys.Contains(key.Kind + "\u0000" + key.Value))
+                    continue;
+
+                if (!string.Equals(key.Kind, IdentityKeyKinds.FolderName, StringComparison.OrdinalIgnoreCase))
+                    return e; // strong key
+                if (!Directory.Exists(e.FolderPath))
+                    return e; // weak key: only when the old folder is gone
+            }
+        }
+
+        return null;
+    }
+
+    private static List<string> AppendPreviousLocation(GameEntry relocated)
+    {
+        var previous = new List<string>(relocated.Location.PreviousLocations);
+        if (!string.IsNullOrEmpty(relocated.FolderPath)
+            && !previous.Contains(relocated.FolderPath, StringComparer.OrdinalIgnoreCase))
+        {
+            previous.Add(relocated.FolderPath);
+        }
+
+        return previous;
+    }
+
+    private static bool PathsEqual(string a, string b) =>
+        string.Equals(a.TrimEnd('\\', '/'), b.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Removes all game entries linked to the specified library name.</summary>
     public void RemoveGamesForLibrary(string libraryName)
@@ -133,7 +208,10 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
         var games = db.Games.ToList();
         int idx = games.FindIndex(g => g.Id.Equals(gameId, StringComparison.OrdinalIgnoreCase));
         if (idx < 0) return;
-        games[idx] = games[idx] with { GameSource = newType, IsSourceOverridden = true };
+        games[idx] = games[idx] with
+        {
+            Identity = games[idx].Identity with { GameSource = newType, IsSourceOverridden = true },
+        };
         Save(new GamesDatabase(games));
     }
 
@@ -168,29 +246,30 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
             ? existing.ExecutablePath
             : scanned.ExecutablePath;
 
-        Dictionary<string, string> platformMetadata = new(scanned.PlatformMetadata);
+        // When the exe is user-pinned, drop scanner-derived candidates.
+        DetectionInfo detection = scanned.Detection;
         if (existing.UserOverrides.ContainsKey(GameEntryFields.ExecutablePath))
         {
-            platformMetadata.Remove(PlatformMetadataKeys.ExeCandidates);
-            platformMetadata.Remove(PlatformMetadataKeys.ExeCandidateCount);
+            detection = detection with { CandidateExes = [] };
         }
 
         // E8: preserve a title-pin marker through a rescan merge.
-        if (existing.PlatformMetadata.TryGetValue(PlatformMetadataKeys.TitleSource, out string? titleSource)
-            && titleSource is TitleSourceValues.PcgwPick or TitleSourceValues.UserOverride)
+        if (existing.Detection.TitleSource is TitleSourceValues.PcgwPick or TitleSourceValues.UserOverride)
         {
-            platformMetadata[PlatformMetadataKeys.TitleSource] = titleSource;
+            detection = detection with { TitleSource = existing.Detection.TitleSource };
         }
 
         return scanned with
         {
-            DisplayName = displayName,
-            GameSource = gameSource,
-            ExecutablePath = executablePath,
-            PlatformMetadata = platformMetadata,
-            CommandLineArguments = commandLineArgs,
-            LauncherPath = launcherPath,
-            ManifestPath = manifestPath,
+            Identity = scanned.Identity with { DisplayName = displayName, GameSource = gameSource },
+            Launch = scanned.Launch with
+            {
+                ExecutablePath = executablePath,
+                CommandLineArguments = commandLineArgs,
+                LauncherPath = launcherPath,
+                ManifestPath = manifestPath,
+            },
+            Detection = detection,
             Tags = existing.Tags.Count > 0 ? existing.Tags : scanned.Tags,
             UserOverrides = existing.UserOverrides.Count > 0 ? existing.UserOverrides : scanned.UserOverrides,
             LastScanned = DateTimeOffset.UtcNow,
@@ -200,48 +279,38 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
     private static GameEntry ToEntry(GameEntryDto dto)
     {
         return new GameEntry(
-            dto.Id,
-            dto.Library ?? string.Empty,
-            dto.FolderPath ?? string.Empty,
-            dto.FolderName ?? string.Empty,
-            dto.DisplayName ?? string.Empty,
-            dto.GameSource,
-            dto.IsSourceOverridden,
-            dto.ExecutablePath ?? string.Empty,
-            dto.LauncherPath ?? string.Empty,
-            dto.CommandLineArguments ?? string.Empty,
-            dto.ManifestPath ?? string.Empty,
-            dto.LastScanned,
-            dto.LastModified,
-            dto.PlatformMetadata ?? [],
+            dto.Identity,
+            dto.Location,
+            dto.Launch,
             dto.Tags ?? [],
             dto.UserOverrides ?? [],
             dto.GameEngine,
-            dto.ExtraLaunchArguments ?? "");
+            dto.LastScanned,
+            dto.LastModified)
+        {
+            Detection = dto.Detection ?? new(),
+            Store = dto.Store ?? new(),
+            Acf = dto.Acf ?? new(),
+            Epic = dto.Epic ?? new(),
+        };
     }
 
     private static GameEntryDto ToDto(GameEntry g)
     {
         return new GameEntryDto
         {
-            Id = g.Id,
-            Library = g.Library,
-            FolderPath = g.FolderPath,
-            FolderName = g.FolderName,
-            DisplayName = g.DisplayName,
-            GameSource = g.GameSource,
-            IsSourceOverridden = g.IsSourceOverridden,
-            ExecutablePath = g.ExecutablePath,
-            LauncherPath = g.LauncherPath,
-            CommandLineArguments = g.CommandLineArguments,
-            ManifestPath = g.ManifestPath,
-            LastScanned = g.LastScanned,
-            LastModified = g.LastModified,
-            PlatformMetadata = g.PlatformMetadata,
+            Identity = g.Identity,
+            Location = g.Location,
+            Launch = g.Launch,
             Tags = g.Tags,
             UserOverrides = g.UserOverrides,
             GameEngine = g.GameEngine,
-            ExtraLaunchArguments = g.ExtraLaunchArguments,
+            LastScanned = g.LastScanned,
+            LastModified = g.LastModified,
+            Detection = g.Detection,
+            Store = g.Store,
+            Acf = g.Acf,
+            Epic = g.Epic,
         };
     }
 
@@ -253,23 +322,17 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
 
     private sealed class GameEntryDto
     {
-        public string Id { get; set; } = string.Empty;
-        public string? Library { get; set; }
-        public string? FolderPath { get; set; }
-        public string? FolderName { get; set; }
-        public string? DisplayName { get; set; }
-        public GameSourceKind GameSource { get; set; }
-        public bool IsSourceOverridden { get; set; }
-        public string? ExecutablePath { get; set; }
-        public string? LauncherPath { get; set; }
-        public string? CommandLineArguments { get; set; }
-        public string? ManifestPath { get; set; }
-        public DateTimeOffset LastScanned { get; set; }
-        public DateTimeOffset LastModified { get; set; }
-        public Dictionary<string, string>? PlatformMetadata { get; set; }
+        public IdentityInfo Identity { get; set; } = new();
+        public LocationInfo Location { get; set; } = new();
+        public LaunchInfo Launch { get; set; } = new();
         public List<string>? Tags { get; set; }
         public Dictionary<string, string>? UserOverrides { get; set; }
         public GameEngineKind GameEngine { get; set; }
-        public string? ExtraLaunchArguments { get; set; }
+        public DateTimeOffset LastScanned { get; set; }
+        public DateTimeOffset LastModified { get; set; }
+        public DetectionInfo? Detection { get; set; }
+        public StoreInfo? Store { get; set; }
+        public SteamAcfInfo? Acf { get; set; }
+        public EpicInfo? Epic { get; set; }
     }
 }

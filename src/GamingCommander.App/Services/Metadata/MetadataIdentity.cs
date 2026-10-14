@@ -18,8 +18,8 @@ internal static class MetadataIdentity
         bool sameUrl = oldUrl is not null && newUrl is not null
             && oldUrl.Equals(newUrl, StringComparison.OrdinalIgnoreCase);
 
-        string? oldId = NormalizeId(existing.SteamAppId);
-        string? newId = NormalizeId(incoming.SteamAppId);
+        string? oldId = NormalizeId(existing.FetchedSteamAppId);
+        string? newId = NormalizeId(incoming.FetchedSteamAppId);
         bool sameSteam = oldId is not null && newId is not null && oldId == newId;
 
         if (oldUrl is not null && newUrl is not null && !sameUrl)
@@ -39,13 +39,13 @@ internal static class MetadataIdentity
     private static bool IncomingHasText(GameMetadataRecord r) =>
         !string.IsNullOrWhiteSpace(r.Developer)
         || !string.IsNullOrWhiteSpace(r.Publisher)
-        || !string.IsNullOrWhiteSpace(r.Engine)
+        || !string.IsNullOrWhiteSpace(r.FetchedEngine)
         || !string.IsNullOrWhiteSpace(r.Genre);
 
     private static bool Overlaps(GameMetadataRecord a, GameMetadataRecord b) =>
         SharesToken(a.Developer, b.Developer)
         || SharesToken(a.Publisher, b.Publisher)
-        || SharesToken(a.Engine, b.Engine)
+        || SharesToken(a.FetchedEngine, b.FetchedEngine)
         || SharesToken(a.Genre, b.Genre)
         || SharesToken(a.Developer, b.Publisher)
         || SharesToken(a.Publisher, b.Developer);
@@ -57,7 +57,7 @@ internal static class MetadataIdentity
             return false;
         return SharesToken(slug, other.Developer)
             || SharesToken(slug, other.Publisher)
-            || SharesToken(slug, other.Engine)
+            || SharesToken(slug, other.FetchedEngine)
             || SharesToken(slug, other.Genre)
             || SharesToken(slug, other.Description);
     }
@@ -73,7 +73,7 @@ internal static class MetadataIdentity
 
     public static bool HasIdentity(GameMetadataRecord r) =>
         !string.IsNullOrWhiteSpace(r.PcGamingWikiUrl)
-        || !string.IsNullOrWhiteSpace(r.SteamAppId)
+        || !string.IsNullOrWhiteSpace(r.FetchedSteamAppId)
         || !string.IsNullOrWhiteSpace(r.Developer)
         || !string.IsNullOrWhiteSpace(r.Publisher)
         || r.Details is { HasAny: true };

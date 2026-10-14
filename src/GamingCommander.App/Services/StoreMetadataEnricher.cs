@@ -24,11 +24,28 @@ internal sealed class GameEntryBuildContext
     /// <summary>Launch command-line arguments (GOG .info).</summary>
     public string CommandLineArgs { get; set; } = string.Empty;
 
-    /// <summary>Platform metadata key/values collected during the scan.</summary>
-    public Dictionary<string, string> PlatformMetadata { get; } = [];
-
     /// <summary>True once a store parser replaced the folder-derived title — gates PE/readme title enrichment.</summary>
     public bool StoreEnrichedDisplayName { get; set; }
+
+    // --- Detection signals (Plan 127 A2/A3) ---
+    public string TitleSource { get; set; } = string.Empty;
+    public string AutoDetectedTitle { get; set; } = string.Empty;
+    public string PeFileDescription { get; set; } = string.Empty;
+    public List<string> ExeCandidates { get; } = [];
+
+    // --- Store identifiers (Plan 127 A2) ---
+    public string GogGameId { get; set; } = string.Empty;
+    public string EpicCatalogItemId { get; set; } = string.Empty;
+    public string EpicCatalogNamespace { get; set; } = string.Empty;
+    public string EpicAppName { get; set; } = string.Empty;
+    public string Studio { get; set; } = string.Empty;
+    public string EaGameName { get; set; } = string.Empty;
+    public string BlizzardProduct { get; set; } = string.Empty;
+    public string UbisoftReadme { get; set; } = string.Empty;
+
+    // --- Epic status (Plan 127 A2) ---
+    public string EpicStatus { get; set; } = string.Empty;
+    public string EpicItemPath { get; set; } = string.Empty;
 }
 
 /// <summary>
@@ -58,9 +75,9 @@ internal static class StoreMetadataEnricher
             // Title: GOG .info is the official source
             if (!string.IsNullOrEmpty(gogInfo.Title))
             {
-                ctx.PlatformMetadata[PlatformMetadataKeys.AutoDetectedTitle] = ctx.DisplayName;
+                ctx.AutoDetectedTitle = ctx.DisplayName;
                 ctx.DisplayName = gogInfo.Title;
-                ctx.PlatformMetadata[PlatformMetadataKeys.TitleSource] = TitleSourceValues.GogInfo;
+                ctx.TitleSource = TitleSourceValues.GogInfo;
                 ctx.StoreEnrichedDisplayName = true;
             }
 
@@ -77,7 +94,7 @@ internal static class StoreMetadataEnricher
             }
 
             // Platform metadata
-            ctx.PlatformMetadata[PlatformMetadataKeys.GogGameId] = gogInfo.GameId;
+            ctx.GogGameId = gogInfo.GameId;
         }
 
         // EA enrichment: parse __Installer/InstallLog.txt for game name, display name, studio.
@@ -89,22 +106,22 @@ internal static class StoreMetadataEnricher
             // Display name: EA display name is authoritative (e.g., "Dragon Age™: Inquisition")
             if (!string.IsNullOrEmpty(eaInfo.DisplayName))
             {
-                ctx.PlatformMetadata[PlatformMetadataKeys.AutoDetectedTitle] = ctx.DisplayName;
+                ctx.AutoDetectedTitle = ctx.DisplayName;
                 ctx.DisplayName = eaInfo.DisplayName;
-                ctx.PlatformMetadata[PlatformMetadataKeys.TitleSource] = TitleSourceValues.EaInstallLog;
+                ctx.TitleSource = TitleSourceValues.EaInstallLog;
                 ctx.StoreEnrichedDisplayName = true;
             }
 
             // Studio metadata
             if (!string.IsNullOrEmpty(eaInfo.Studio))
             {
-                ctx.PlatformMetadata[PlatformMetadataKeys.Studio] = eaInfo.Studio;
+                ctx.Studio = eaInfo.Studio;
             }
 
             // Game name (non-trademarked)
             if (!string.IsNullOrEmpty(eaInfo.GameName))
             {
-                ctx.PlatformMetadata[PlatformMetadataKeys.EaGameName] = eaInfo.GameName;
+                ctx.EaGameName = eaInfo.GameName;
             }
         }
 
@@ -118,9 +135,9 @@ internal static class StoreMetadataEnricher
             var globalItem = EpicManifestParser.CrossReferenceGlobalManifests(subDir);
             if (globalItem is not null && !string.IsNullOrEmpty(globalItem.DisplayName))
             {
-                ctx.PlatformMetadata[PlatformMetadataKeys.AutoDetectedTitle] = ctx.DisplayName;
+                ctx.AutoDetectedTitle = ctx.DisplayName;
                 ctx.DisplayName = globalItem.DisplayName;
-                ctx.PlatformMetadata[PlatformMetadataKeys.TitleSource] = TitleSourceValues.EpicItemManifest;
+                ctx.TitleSource = TitleSourceValues.EpicItemManifest;
                 ctx.StoreEnrichedDisplayName = true;
 
                 // Override local namespace with correct public namespace from global .item
@@ -132,18 +149,18 @@ internal static class StoreMetadataEnricher
                     LaunchExecutable: globalItem.LaunchExecutable);
             }
 
-            // Store GUID identifiers in platform metadata
+            // Store GUID identifiers
             if (localIds is not null)
             {
                 if (!string.IsNullOrEmpty(localIds.CatalogItemId))
-                    ctx.PlatformMetadata[PlatformMetadataKeys.EpicCatalogItemId] = localIds.CatalogItemId;
+                    ctx.EpicCatalogItemId = localIds.CatalogItemId;
                 if (!string.IsNullOrEmpty(localIds.CatalogNamespace))
-                    ctx.PlatformMetadata[PlatformMetadataKeys.EpicCatalogNamespace] = localIds.CatalogNamespace;
+                    ctx.EpicCatalogNamespace = localIds.CatalogNamespace;
                 if (!string.IsNullOrEmpty(localIds.AppName))
-                    ctx.PlatformMetadata[PlatformMetadataKeys.EpicAppName] = localIds.AppName;
+                    ctx.EpicAppName = localIds.AppName;
             }
 
-            ctx.PlatformMetadata[PlatformMetadataKeys.EpicStatus] = globalItem is null ? "Orphaned" : "Installed";
+            ctx.EpicStatus = globalItem is null ? "Orphaned" : "Installed";
 
             // Resolve LaunchExecutable from .item if available (and no exe found yet)
             if (globalItem is not null
@@ -166,7 +183,7 @@ internal static class StoreMetadataEnricher
             string? product = StoreSignalDetector.ExtractBlizzardProduct(subDir);
             if (!string.IsNullOrEmpty(product))
             {
-                ctx.PlatformMetadata[PlatformMetadataKeys.BlizzardProduct] = product;
+                ctx.BlizzardProduct = product;
             }
         }
     }

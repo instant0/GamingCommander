@@ -10,22 +10,20 @@ public class GameEntryTagsTests
         List<string>? tags = null,
         Dictionary<string, string>? userOverrides = null) =>
         new(
-            Id: "test-123",
-            Library: "Test",
-            FolderPath: @"C:\Games\GameFolder",
-            FolderName: "GameFolder",
-            DisplayName: "Test Game",
-            GameSource: GameSourceKind.Standalone,
-            IsSourceOverridden: false,
-            ExecutablePath: @"C:\Games\game.exe",
-            LauncherPath: "",
-            CommandLineArguments: "",
-            ManifestPath: "",
-            LastScanned: FixedTime,
-            LastModified: FixedTime,
-            PlatformMetadata: [],
+            Identity: new IdentityInfo
+            {
+                Id = "test-123",
+                Library = "Test",
+                DisplayName = "Test Game",
+                GameSource = GameSourceKind.Standalone,
+                IsSourceOverridden = false,
+            },
+            Location: new LocationInfo { FolderPath = @"C:\Games\GameFolder", FolderName = "GameFolder" },
+            Launch: new LaunchInfo { ExecutablePath = @"C:\Games\game.exe" },
             Tags: tags ?? [],
-            UserOverrides: userOverrides ?? []);
+            UserOverrides: userOverrides ?? [],
+            LastScanned: FixedTime,
+            LastModified: FixedTime);
 
     // ════════════════════════════════════════════════════════════════
     //  Default Values

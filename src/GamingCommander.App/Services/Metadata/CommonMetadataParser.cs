@@ -23,9 +23,9 @@ public static class CommonMetadataParser
             ReleaseDate = BlankToNull(facts.ReleaseDate),
             Genre = Join(facts.Genres),
             Description = BlankToNull(facts.ShortDescription),
-            Engine = null,
+            FetchedEngine = null,
             MetacriticScore = facts.MetacriticScore,
-            SteamAppId = BlankToNull(facts.SteamAppId),
+            FetchedSteamAppId = BlankToNull(facts.SteamAppId),
             CoverArtUrl = BlankToNull(facts.HeaderImage),
             OfficialWebsite = BlankToNull(facts.Website),
             LastMetadataSource = nameof(MetadataSource.Steam),
@@ -54,7 +54,7 @@ public static class CommonMetadataParser
             Publisher = publisher,
             ReleaseDate = BlankToNull(release),
             Genre = genre,
-            Engine = engine,
+            FetchedEngine = engine,
             PcGamingWikiUrl = BlankToNull(facts.PageUrl),
             LastMetadataSource = nameof(MetadataSource.Pcgw),
         };
@@ -79,8 +79,8 @@ public static class CommonMetadataParser
         return record with
         {
             Details = details.HasAny ? details : record.Details,
-            SteamAppId = record.SteamAppId ?? steamAppId,
-            GogGameId = record.GogGameId ?? gogId,
+            FetchedSteamAppId = record.FetchedSteamAppId ?? steamAppId,
+            FetchedGogGameId = record.FetchedGogGameId ?? gogId,
         };
     }
 

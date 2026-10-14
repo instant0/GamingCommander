@@ -10,3 +10,8 @@ Shipped: the ProgramData manifests folder reads as one Epic catalog root (F2 **A
 **Declined vs original spec:** Epic GraphQL in the app (Python tooling only), DLC/enrichment beyond Plan 109 scope.
 
 **Contract / verification:** `docs/research/epic_item_format.md`; verify writer changes with `tools/decode_manifest.py`.
+
+**Correction (2026-10-14, Plan 126):** "AppName from `.manifest`" is the Death-Stranding-specific rule;
+the authoritative source is the `.mancpn` AppName (see `planning/126-facts-identity.md`). Also, the
+orphan `.item` write is **identification-only** — it cannot register an app absent from the EOSH
+reported set (server/account-driven). Tracked in `META/TASKS/phase-j-followups/T78-*.md`.

@@ -33,7 +33,7 @@ public sealed class EpicLibraryScannerTests : IDisposable
         Assert.Single(games);
         Assert.Equal("Base Game", games[0].DisplayName);
         Assert.Equal(GameSourceKind.Epic, games[0].GameSource);
-        Assert.Equal("Missing", games[0].PlatformMetadata["EpicStatus"]);
+        Assert.Equal("Missing", games[0].Epic.Status);
     }
 
     [Fact]
@@ -62,26 +62,24 @@ public sealed class EpicLibraryScannerTests : IDisposable
              "AppCategories":["addons"],"bIsApplication":false}
             """);
         var known = new GameEntry(
-            Id: "same-id",
-            Library: "Epic",
-            FolderPath: @"D:\games\cavestoryplus",
-            FolderName: "cavestoryplus",
-            DisplayName: "Cave Story+",
-            GameSource: GameSourceKind.Epic,
-            IsSourceOverridden: false,
-            ExecutablePath: @"D:\games\cavestoryplus\CaveStory+.exe",
-            LauncherPath: "",
-            CommandLineArguments: "",
-            ManifestPath: "",
-            LastScanned: DateTimeOffset.UtcNow,
-            LastModified: DateTimeOffset.UtcNow,
-            PlatformMetadata: [],
+            Identity: new IdentityInfo
+            {
+                Id = "same-id",
+                Library = "Epic",
+                DisplayName = "Cave Story+",
+                GameSource = GameSourceKind.Epic,
+                IsSourceOverridden = false,
+            },
+            Location: new LocationInfo { FolderPath = @"D:\games\cavestoryplus", FolderName = "cavestoryplus" },
+            Launch: new LaunchInfo { ExecutablePath = @"D:\games\cavestoryplus\CaveStory+.exe" },
             Tags: [],
-            UserOverrides: []);
+            UserOverrides: [],
+            LastScanned: DateTimeOffset.UtcNow,
+            LastModified: DateTimeOffset.UtcNow);
 
         var list = new EpicLibraryScanner().Scan(_dir, [known]);
         GameEntry orphan = Assert.Single(list);
-        Assert.Equal("Orphaned", orphan.PlatformMetadata["EpicStatus"]);
+        Assert.Equal("Orphaned", orphan.Epic.Status);
         Assert.Equal("same-id", orphan.Id);
         Assert.Equal(@"D:\games\cavestoryplus\CaveStory+.exe", orphan.ExecutablePath);
         Assert.Equal("Cave Story+", orphan.DisplayName);

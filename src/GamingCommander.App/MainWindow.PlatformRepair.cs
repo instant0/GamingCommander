@@ -30,10 +30,10 @@ public partial class MainWindow
             return;
         }
 
-        string gameFolder = game.PlatformMetadata.GetValueOrDefault(PlatformMetadataKeys.GameFolder, "");
+        string gameFolder = game.Location.GameFolder;
         if (string.IsNullOrWhiteSpace(gameFolder))
         {
-            // GameFolder metadata may be absent; the entry's FolderPath IS the physical
+            // Location.GameFolder may be absent; the entry's FolderPath IS the physical
             // game folder (never the anchor name — anchors can be display-only catalogs).
             gameFolder = game.FolderPath;
         }
@@ -55,17 +55,17 @@ public partial class MainWindow
         {
             if (row.GameSource != GameSourceKind.Epic)
                 continue;
-            string folder = row.PlatformMetadata.GetValueOrDefault(PlatformMetadataKeys.GameFolder,
-                Path.Combine(Path.GetDirectoryName(row.FolderPath) ?? "", row.FolderName));
+            string folder = row.Location.GameFolder is { Length: > 0 } gf
+                ? gf
+                : Path.Combine(Path.GetDirectoryName(row.FolderPath) ?? "", row.FolderName);
             if (!EpicInstallPath.Same(folder, gameFolder))
                 continue;
-            var extra = new Dictionary<string, string>(row.PlatformMetadata)
+            _dbService.UpdateGameEntry(row with
             {
-                [PlatformMetadataKeys.EpicStatus] = "Installed",
-                [PlatformMetadataKeys.EpicItemPath] = path,
-                [PlatformMetadataKeys.GameFolder] = gameFolder,
-            };
-            _dbService.UpdateGameEntry(row with { PlatformMetadata = extra, ManifestPath = path });
+                Epic = row.Epic with { Status = "Installed", ItemPath = path },
+                Location = row.Location with { GameFolder = gameFolder },
+                Launch = row.Launch with { ManifestPath = path },
+            });
         }
 
         _viewModel?.Reload();
@@ -92,8 +92,7 @@ public partial class MainWindow
             return;
         }
 
-        string lib = game.PlatformMetadata.GetValueOrDefault(PlatformMetadataKeys.LibraryRoot, "")
-            is { Length: > 0 } stored
+        string lib = game.Location.LibraryRoot is { Length: > 0 } stored
             ? stored
             : LibraryManager.NormalizeLibraryRoot(game.FolderPath);
         if (!SteamAcfWriter.TryWrite(
@@ -103,18 +102,15 @@ public partial class MainWindow
             return;
         }
 
-        var extra = new Dictionary<string, string>(game.PlatformMetadata)
-        {
-            [PlatformMetadataKeys.SteamStatus] = "Installed",
-            [PlatformMetadataKeys.SteamAppId] = appId,
-            [PlatformMetadataKeys.AcfFilePath] = path,
-            [PlatformMetadataKeys.AcfLibraryPath] = lib,
-        };
         var updated = game with
         {
-            CommandLineArguments = $"steam://rungameid/{appId}",
-            ManifestPath = path,
-            PlatformMetadata = extra,
+            Launch = game.Launch with
+            {
+                CommandLineArguments = $"steam://rungameid/{appId}",
+                ManifestPath = path,
+            },
+            Acf = game.Acf with { Status = "Installed", FilePath = path, LibraryPath = lib },
+            Store = game.Store with { SteamAppId = appId },
         };
         _dbService.UpdateGameEntry(updated);
         _viewModel.Reload();

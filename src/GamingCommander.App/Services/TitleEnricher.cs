@@ -31,7 +31,7 @@ internal static class TitleEnricher
             && primaryExePath is not null
             && TitleText.MatchesFolderAndExe(gameDir.Name, Path.GetFileNameWithoutExtension(primaryExePath)))
         {
-            ctx.PlatformMetadata[PlatformMetadataKeys.TitleSource] = TitleSourceValues.FolderExeMatch;
+            ctx.TitleSource = TitleSourceValues.FolderExeMatch;
             ctx.StoreEnrichedDisplayName = true;
         }
 
@@ -66,9 +66,9 @@ internal static class TitleEnricher
                 && !TitleText.IsGenericLabel(peDesc)
                 && nameMatches)
             {
-                ctx.PlatformMetadata[PlatformMetadataKeys.AutoDetectedTitle] = ctx.DisplayName;
+                ctx.AutoDetectedTitle = ctx.DisplayName;
                 ctx.DisplayName = peDesc;
-                ctx.PlatformMetadata[PlatformMetadataKeys.TitleSource] = TitleSourceValues.PeFileDescription;
+                ctx.TitleSource = TitleSourceValues.PeFileDescription;
                 ctx.StoreEnrichedDisplayName = true;
             }
         }
@@ -81,9 +81,10 @@ internal static class TitleEnricher
             var ubiInfo = UbisoftReadmeParser.TryParse(gameDir);
             if (ubiInfo?.GameTitle is not null)
             {
-                ctx.PlatformMetadata[PlatformMetadataKeys.AutoDetectedTitle] = ctx.DisplayName;
+                ctx.AutoDetectedTitle = ctx.DisplayName;
                 ctx.DisplayName = ubiInfo.GameTitle;
-                ctx.PlatformMetadata[PlatformMetadataKeys.TitleSource] = TitleSourceValues.UbisoftReadme;
+                ctx.UbisoftReadme = ubiInfo.GameTitle;
+                ctx.TitleSource = TitleSourceValues.UbisoftReadme;
             }
         }
     }

@@ -13,4 +13,11 @@ public sealed record AppConfig(
     /// <summary>Last application version that was launched (for upgrade detection).</summary>
     string? LastSeenVersion = null,
     /// <summary>Whether to query online metadata sources (PCGamingWiki, etc.).</summary>
-    bool EnableOnlineMetadata = false);
+    bool EnableOnlineMetadata = false,
+    /// <summary>
+    /// Maximum relative directory depth below a game folder searched for executables by the
+    /// recursive fallback. User-configurable (disk-read cost only). Corpus data
+    /// (`docs/detection/05-executable-discovery.md`) shows real game exes at rel 1–4, ~85% at
+    /// rel ≤3, so the default is 3. Clamped to 1–5 at use.
+    /// </summary>
+    int ScanDepth = 3);

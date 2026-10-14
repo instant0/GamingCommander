@@ -65,7 +65,7 @@ public sealed class LibraryManager : ILibraryManager
     {
         IReadOnlyList<GameEntry> found = SelectScannerAndScan(folderPath, type);
         return found
-            .Select(e => e with { Library = libraryName })
+            .Select(e => e with { Identity = e.Identity with { Library = libraryName } })
             .ToList();
     }
 

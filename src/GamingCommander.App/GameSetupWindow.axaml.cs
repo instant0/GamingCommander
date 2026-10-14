@@ -277,8 +277,8 @@ public partial class GameSetupWindow : Window
 
     private Control MakeExeCandidateRow()
     {
-        if (!_originalGame.PlatformMetadata.TryGetValue(PlatformMetadataKeys.ExeCandidates, out string? list)
-            || string.IsNullOrWhiteSpace(list))
+        string list = string.Join("|", _originalGame.Detection.CandidateExes);
+        if (string.IsNullOrWhiteSpace(list))
         {
             return new StackPanel();
         }
@@ -449,9 +449,12 @@ public partial class GameSetupWindow : Window
 
         var draft = _originalGame with
         {
-            CommandLineArguments = CommandLineArguments,
-            ExtraLaunchArguments = ExtraLaunchArguments,
-            ExecutablePath = ExecutablePath,
+            Launch = _originalGame.Launch with
+            {
+                CommandLineArguments = CommandLineArguments,
+                ExtraLaunchArguments = ExtraLaunchArguments,
+                ExecutablePath = ExecutablePath,
+            },
         };
         (string target, string args) = GameLaunchResolver.Resolve(draft);
         _previewText.Text = string.IsNullOrEmpty(args)
@@ -481,8 +484,7 @@ public partial class GameSetupWindow : Window
         }
 
         // Check if executable path changed
-        bool hadCandidates = _originalGame.PlatformMetadata.ContainsKey(PlatformMetadataKeys.ExeCandidates)
-            || _originalGame.PlatformMetadata.ContainsKey(PlatformMetadataKeys.ExeCandidateCount);
+        bool hadCandidates = _originalGame.Detection.CandidateExes.Count > 0;
         if (hadCandidates
             || _userPickedExe
             || !_originalGame.ExecutablePath.Equals(ExecutablePath, StringComparison.Ordinal))
@@ -523,7 +525,6 @@ public partial class GameSetupWindow : Window
             userOverrides[GameEntryFields.Tags] = now;
         }
 
-        Dictionary<string, string> platformMetadata = new(_originalGame.PlatformMetadata);
         if (ExecutableDiscovery.IsForbiddenLaunchExe(ExecutablePath))
         {
             ExecutablePath = ExecutableDiscovery.IsForbiddenLaunchExe(_originalGame.ExecutablePath)
@@ -531,25 +532,31 @@ public partial class GameSetupWindow : Window
                 : _originalGame.ExecutablePath;
         }
 
+        DetectionInfo detection = _originalGame.Detection;
         if (userOverrides.ContainsKey(GameEntryFields.ExecutablePath))
         {
-            platformMetadata.Remove(PlatformMetadataKeys.ExeCandidates);
-            platformMetadata.Remove(PlatformMetadataKeys.ExeCandidateCount);
+            detection = detection with { CandidateExes = [] };
         }
 
         var updated = _originalGame with
         {
-            DisplayName = DisplayName,
-            GameSource = newType,
-            IsSourceOverridden = newType != rootDefault,
-            ExecutablePath = ExecutablePath,
-            LauncherPath = LauncherPath,
-            CommandLineArguments = CommandLineArguments,
-            ExtraLaunchArguments = ExtraLaunchArguments,
-            ManifestPath = ManifestPath,
+            Identity = _originalGame.Identity with
+            {
+                DisplayName = DisplayName,
+                GameSource = newType,
+                IsSourceOverridden = newType != rootDefault,
+            },
+            Launch = _originalGame.Launch with
+            {
+                ExecutablePath = ExecutablePath,
+                LauncherPath = LauncherPath,
+                CommandLineArguments = CommandLineArguments,
+                ExtraLaunchArguments = ExtraLaunchArguments,
+                ManifestPath = ManifestPath,
+            },
             Tags = newTags,
             UserOverrides = userOverrides,
-            PlatformMetadata = platformMetadata,
+            Detection = detection,
         };
 
         _dbService.UpdateGameEntry(updated);

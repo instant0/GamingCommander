@@ -50,6 +50,10 @@ This keeps `redist/PENUMBRA.EXE` (the real game) winning over `redist/-Penumbra.
 Bounded to relative depth ≤ 4 (81/102 real game exes are at rel 1–4; deeper is
 noise/emulators/backups — NO WALK_MAX_DEPTH increase; a depth-6 walk was tried and reverted).
 
+The **recursive exe fallback** (`FindExecutablesDeep` → `FindExesRecursive`) uses the user setting
+`AppConfig.ScanDepth` (default 3 → rel ≤3; clamp 1–5). Corpus data: ~85% of real exes at rel ≤3,
+the rest at rel 4. It is disk-read cost only, so the user may raise it.
+
 ### Working-set effect
 
 Once it fires, **deeper candidates are excluded from the working set** the client sees:
@@ -142,5 +146,6 @@ Rejected: `elexII` ↔ "System" (folder too long — falls back to SharesNameTok
   classic names (`game`/`start`/`play`).
 - Minor diffs: `copy of` `-25` vs Python `-30`; C# lacks the `<500KB -5` tier; C# file-size bonus
   capped lower.
-- C# 3-level generic subdir fallback is NOT ported (only root + children + UE + `bin/`, recursive
-  capped at 2) — a known gap feeding E3/E5.
+- C# recursive fallback depth is **user-configurable** (`AppConfig.ScanDepth`, default 3 → searches
+  rel ≤3). It matches or exceeds Python's `_add_exes_recursive(max_depth=2)`; the earlier
+  "C# 3-level fallback NOT ported" note was incorrect (corrected 2026-10-14).

@@ -61,9 +61,10 @@ Three layers (Python):
 2. **Child-all-non-game** — if ALL children are non-game subdir names → skip.
 3. **File-type analysis** — no non-noise exe + no meaningful file (only music/support ext) → skip.
 
-**C# gap (HIGH):** C# `ContainerScanner.IsNonGameFolder` implements **only layer 1** (name match).
-Layers 2–3 are missing — C# can promote folders Python would reject (false-positive risk).
-This is the top porting priority for Plan 123.
+**C# status (corrected 2026-10-14):** C# `ContainerScanner.IsNonGameFolder` implements **all three
+layers** — layer 1 name match, layer 2 child-all-non-game (`ContainerScanner.cs` ~L180), and layer 3
+file-type analysis with a store-marker guard (~L198). The earlier "only layer 1 / HIGH gap" note was
+stale; the port landed 2026-09-07 (`docs/detection/07-csharp-parity.md` §2).
 
 ---
 

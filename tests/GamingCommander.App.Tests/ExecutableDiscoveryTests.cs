@@ -184,6 +184,25 @@ public sealed class ExecutableDiscoveryTests : IDisposable
     }
 
     [Fact]
+    public void FindExecutablesDeep_ScanDepth4_FindsRel4Exe()
+    {
+        // Game/a/b/c/d/Game.exe — rel 4. Default scan depth 3 does not reach it;
+        // scan depth 4 does. Corpus: ~15% of real exes sit at rel 4.
+        string gameDir = CreateDir("DeepRel4");
+        string deepDir = CreateDir("DeepRel4", "a", "b", "c", "d");
+        CreateExe(deepDir, "DeepRel4.exe");
+
+        var atDefault = ExecutableDiscovery.FindExecutablesDeep(
+            new DirectoryInfo(gameDir), EmptyNoiseExes, EmptyNoiseDirs);
+        Assert.Empty(atDefault);
+
+        var atFour = ExecutableDiscovery.FindExecutablesDeep(
+            new DirectoryInfo(gameDir), EmptyNoiseExes, EmptyNoiseDirs, maxRelativeDepth: 4);
+        Assert.Single(atFour);
+        Assert.Contains("DeepRel4.exe", atFour[0]);
+    }
+
+    [Fact]
     public void FindExecutablesDeep_EmptyRoot_FindsAtDepth2()
     {
         // Game/a/b/c/Game.exe — depth 2 boundary (we enumerate c's children at depth 2)

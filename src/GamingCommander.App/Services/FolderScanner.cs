@@ -12,6 +12,7 @@ public sealed class FolderScanner
     private readonly IReadOnlyList<BlacklistTierEntry> _tieredNoiseExePatterns;
     private readonly IReadOnlyList<string> _peMetadataBlacklist;
     private readonly RegistryFallbackDetector? _registryFallback;
+    private readonly int _scanDepth;
 
     /// <summary>
     /// Default hardcoded patterns for backward compatibility (tests, etc.).
@@ -70,7 +71,8 @@ public sealed class FolderScanner
     public FolderScanner(
         IEnumerable<string> hiddenFolderNames,
         BlacklistData blacklist,
-        IRegistryReader? registryReader)
+        IRegistryReader? registryReader,
+        int scanDepth = 3)
         : this(
             hiddenFolderNames,
             blacklist.ExeNamePatterns.Count > 0 ? blacklist.ExeNamePatterns : DefaultNoiseExePatterns,
@@ -78,7 +80,8 @@ public sealed class FolderScanner
             DefaultLauncherPatterns,
             blacklist.TieredExePatterns,
             blacklist.PeMetadataPatterns,
-            registryReader)
+            registryReader,
+            scanDepth)
     {
     }
 
@@ -89,7 +92,8 @@ public sealed class FolderScanner
         IReadOnlyList<string> launcherPatterns,
         IReadOnlyList<BlacklistTierEntry> tieredNoiseExePatterns,
         IReadOnlyList<string> peMetadataBlacklist,
-        IRegistryReader? registryReader)
+        IRegistryReader? registryReader,
+        int scanDepth = 3)
     {
         _hiddenFolderNames = new HashSet<string>(hiddenFolderNames, StringComparer.OrdinalIgnoreCase);
         _noiseExePatterns = noiseExePatterns;
@@ -100,6 +104,7 @@ public sealed class FolderScanner
         _registryFallback = registryReader is not null
             ? new RegistryFallbackDetector(registryReader)
             : null;
+        _scanDepth = Math.Clamp(scanDepth, 1, 5);
     }
 
     // ════════════════════════════════════════════════════════════════
@@ -276,7 +281,8 @@ public sealed class FolderScanner
         bool isOverride = resolvedType != rootDefault;
         string[] exeFiles = FileSystemHelper.GetFilesSafe(subDir, "*.exe");
         var primaryExe = ExecutableDiscovery.FindPrimaryExecutable(
-            subDir, exeFiles, _noiseExePatterns, _noiseDirectoryPatterns, _launcherPatterns, GetExePatternTier);
+            subDir, exeFiles, _noiseExePatterns, _noiseDirectoryPatterns, _launcherPatterns, GetExePatternTier,
+            maxRelativeDepth: _scanDepth);
         string? exePath = primaryExe.ExePath;
 
         // Terminating rule: the exact match is a relative path under the folder;
@@ -298,19 +304,17 @@ public sealed class FolderScanner
         var ctx = new GameEntryBuildContext(TitleText.FromFolderName(subDir.Name)) { ExePath = exePath };
         if (primaryExe.Candidates.Count > 1)
         {
-            ctx.PlatformMetadata[PlatformMetadataKeys.ExeCandidateCount] = primaryExe.Candidates.Count.ToString();
-            ctx.PlatformMetadata[PlatformMetadataKeys.ExeCandidates] = string.Join('|',
-                primaryExe.Candidates
-                    .Select(Path.GetFileName)
-                    .Where(n => !string.IsNullOrEmpty(n))
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .Take(16));
+            ctx.ExeCandidates.AddRange(primaryExe.Candidates
+                .Select(p => Path.GetFileName(p) ?? string.Empty)
+                .Where(n => n.Length > 0)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(16));
         }
         // Persist PE FileDescription for the identity pipeline (E7, 2026-09-07):
         // the primary exe's PE title is query candidate #1 for PCGW lookups.
         if (!string.IsNullOrWhiteSpace(primaryExe.FileDescription))
         {
-            ctx.PlatformMetadata[PlatformMetadataKeys.PeFileDescription] = primaryExe.FileDescription;
+            ctx.PeFileDescription = primaryExe.FileDescription;
         }
 
         // Store enrichment (GOG/EA/Epic/BattleNet) runs BEFORE title enrichment —
@@ -328,24 +332,52 @@ public sealed class FolderScanner
         if (engineTag.Length > 0)
             tags.Add(engineTag);
 
+        DetectionInfo detection = DetectionTierDeriver.Derive(
+            resolvedType, ctx.TitleSource, ctx.PeFileDescription, ctx.ExeCandidates, ctx.EpicStatus);
+        StoreInfo store = new()
+        {
+            GogGameId = ctx.GogGameId,
+            EpicCatalogNamespace = ctx.EpicCatalogNamespace,
+            EpicCatalogItemId = ctx.EpicCatalogItemId,
+            EpicAppName = ctx.EpicAppName,
+            Studio = ctx.Studio,
+            EaGameName = ctx.EaGameName,
+            BlizzardProduct = ctx.BlizzardProduct,
+            UbisoftReadme = ctx.UbisoftReadme,
+        };
+        EpicInfo epic = new() { Status = ctx.EpicStatus, ItemPath = ctx.EpicItemPath };
+
         entries.Add(new GameEntry(
-            Id: id,
-            Library: string.Empty,
-            FolderPath: subDir.FullName,
-            FolderName: subDir.Name,
-            DisplayName: ctx.DisplayName,
-            GameSource: resolvedType,
-            IsSourceOverridden: isOverride,
-            ExecutablePath: ctx.ExePath ?? string.Empty,
-            LauncherPath: launcherPath ?? string.Empty,
-            CommandLineArguments: ctx.CommandLineArgs,
-            ManifestPath: string.Empty,
-            LastScanned: DateTimeOffset.UtcNow,
-            LastModified: FileSystemHelper.GetLastWriteTimeSafe(subDir),
-            PlatformMetadata: ctx.PlatformMetadata,
+            Identity: new IdentityInfo
+            {
+                Id = id,
+                Library = string.Empty,
+                DisplayName = ctx.DisplayName,
+                GameSource = resolvedType,
+                IsSourceOverridden = isOverride,
+            },
+            Location: new LocationInfo
+            {
+                FolderPath = subDir.FullName,
+                FolderName = subDir.Name,
+            },
+            Launch: new LaunchInfo
+            {
+                ExecutablePath = ctx.ExePath ?? string.Empty,
+                LauncherPath = launcherPath ?? string.Empty,
+                CommandLineArguments = ctx.CommandLineArgs,
+                ManifestPath = string.Empty,
+            },
             Tags: tags,
             UserOverrides: [],
-            GameEngine: engine));
+            GameEngine: engine,
+            LastScanned: DateTimeOffset.UtcNow,
+            LastModified: FileSystemHelper.GetLastWriteTimeSafe(subDir))
+        {
+            Detection = detection,
+            Store = store,
+            Epic = epic,
+        });
     }
 
 

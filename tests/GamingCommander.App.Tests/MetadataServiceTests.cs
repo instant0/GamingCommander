@@ -59,8 +59,8 @@ public sealed class MetadataServiceTests : IDisposable
         Assert.NotNull(result);
         Assert.Contains("CD Projekt", result.Developer, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(86, result.MetacriticScore);
-        Assert.Equal("1091500", result.SteamAppId);
-        Assert.Equal("REDengine 4", result.Engine);
+        Assert.Equal("1091500", result.FetchedSteamAppId);
+        Assert.Equal("REDengine 4", result.FetchedEngine);
         Assert.Contains("wiki/Cyberpunk_2077", result.PcGamingWikiUrl);
         Assert.NotNull(result.Details);
         Assert.Contains(result.Details.CommandLine, c => c.Argument == "--launcher-skip");
@@ -81,7 +81,7 @@ public sealed class MetadataServiceTests : IDisposable
 
         GameMetadataRecord? result = await svc.RefreshAsync("g1", steamAppId: null, "Cyberpunk 2077");
 
-        Assert.Equal("1091500", result?.SteamAppId);
+        Assert.Equal("1091500", result?.FetchedSteamAppId);
         Assert.Equal(86, result?.MetacriticScore);
         Assert.True(handler.Uris.Exists(u => u.Contains("opensearch", StringComparison.OrdinalIgnoreCase)));
         Assert.True(handler.Uris.Exists(u => u.Contains("store.steampowered.com", StringComparison.OrdinalIgnoreCase)));
@@ -130,7 +130,7 @@ public sealed class MetadataServiceTests : IDisposable
         {
             Developer = "Nightdive",
             PcGamingWikiUrl = "https://www.pcgamingwiki.com/wiki/System_Shock_2_Enhanced_Edition",
-            Engine = "Void",
+            FetchedEngine = "Void",
         };
         Assert.Null(MetadataService.FilterIncoming(existing, incoming, userPickedPage: false));
         Assert.NotNull(MetadataService.FilterIncoming(existing, incoming, userPickedPage: true));
@@ -142,18 +142,18 @@ public sealed class MetadataServiceTests : IDisposable
         var existing = new GameMetadataRecord
         {
             Developer = "Piranha Bytes",
-            Engine = "Genome",
+            FetchedEngine = "Genome",
             PcGamingWikiUrl = "https://www.pcgamingwiki.com/wiki/ELEX",
         };
         var vandal = new GameMetadataRecord
         {
             Developer = "HELLO PONY",
-            Engine = "Gibberish",
+            FetchedEngine = "Gibberish",
             PcGamingWikiUrl = "https://www.pcgamingwiki.com/wiki/ELEX",
         };
         Assert.Null(MetadataService.FilterIncoming(existing, vandal, userPickedPage: false));
 
-        var legit = existing with { Engine = "Genome 2", ReleaseDate = "2017" };
+        var legit = existing with { FetchedEngine = "Genome 2", ReleaseDate = "2017" };
         Assert.NotNull(MetadataService.FilterIncoming(existing, legit, userPickedPage: false));
     }
 
@@ -161,13 +161,13 @@ public sealed class MetadataServiceTests : IDisposable
     public void Merge_PcgwFillsEngineAndPrefersReleaseDate()
     {
         var steam = new GameMetadataRecord { Developer = "SteamDev", ReleaseDate = "9 Dec, 2020" };
-        var pcgw = new GameMetadataRecord { Developer = "WikiDev", ReleaseDate = "December 10, 2020", Engine = "REDengine 4" };
+        var pcgw = new GameMetadataRecord { Developer = "WikiDev", ReleaseDate = "December 10, 2020", FetchedEngine = "REDengine 4" };
 
         var merged = MetadataService.Merge(steam, pcgw, MetadataSource.Pcgw);
 
         Assert.Equal("SteamDev", merged!.Developer);
         Assert.Equal("December 10, 2020", merged.ReleaseDate);
-        Assert.Equal("REDengine 4", merged.Engine);
+        Assert.Equal("REDengine 4", merged.FetchedEngine);
     }
 
     [Fact]
@@ -186,7 +186,7 @@ public sealed class MetadataServiceTests : IDisposable
         var afterSteam = MetadataService.Merge(withDetails, steam, MetadataSource.Steam);
         Assert.Contains(afterSteam!.Details!.CommandLine, c => c.Argument == "--launcher-skip");
 
-        var emptyPcgw = new GameMetadataRecord { Engine = "REDengine 4" };
+        var emptyPcgw = new GameMetadataRecord { FetchedEngine = "REDengine 4" };
         var afterEmpty = MetadataService.Merge(afterSteam, emptyPcgw, MetadataSource.Pcgw);
         Assert.Contains(afterEmpty!.Details!.CommandLine, c => c.Argument == "--launcher-skip");
     }

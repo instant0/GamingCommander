@@ -36,9 +36,21 @@ public sealed class GamesDatabaseServiceTests : IDisposable
         string library,
         string folder = "GameFolder",
         string display = "Test Game") =>
-        new(id, library, folder, folder, display, GameSourceKind.Standalone, false,
-            $@"C:\Games\{folder}\game.exe", "", "", "",
-            DateTimeOffset.Now, DateTimeOffset.Now, [], [], []);
+        new(
+            Identity: new IdentityInfo
+            {
+                Id = id,
+                Library = library,
+                DisplayName = display,
+                GameSource = GameSourceKind.Standalone,
+                IsSourceOverridden = false,
+            },
+            Location: new LocationInfo { FolderPath = folder, FolderName = folder },
+            Launch: new LaunchInfo { ExecutablePath = $@"C:\Games\{folder}\game.exe" },
+            Tags: [],
+            UserOverrides: [],
+            LastScanned: DateTimeOffset.Now,
+            LastModified: DateTimeOffset.Now);
 
     // ════════════════════════════════════════════════════════════════
     //  Load / Save
@@ -68,6 +80,32 @@ public sealed class GamesDatabaseServiceTests : IDisposable
         Assert.Single(db.Games);
         Assert.Equal("g1", db.Games[0].Id);
         Assert.Equal("Steam", db.Games[0].Library);
+    }
+
+    [Fact]
+    public void SaveLoad_DetectionAndStore_RoundTrip()
+    {
+        var svc = CreateService();
+        GameEntry game = MakeGame("g1", "Steam") with
+        {
+            Detection = new DetectionInfo
+            {
+                Tier = IdentificationTier.Locked,
+                TitleSource = "SteamApp",
+                ManifestKind = "Acf",
+                Signals = ["SteamStructural"],
+                CandidateExes = ["game.exe"],
+            },
+            Store = new StoreInfo { SteamAppId = "400" },
+        };
+        svc.SetGamesForLibrary("Steam", [game]);
+        svc.Save(svc.Load());
+
+        GameEntry loaded = CreateService().Load().Games[0];
+        Assert.Equal(IdentificationTier.Locked, loaded.Detection.Tier);
+        Assert.Equal("Acf", loaded.Detection.ManifestKind);
+        Assert.Contains("SteamStructural", loaded.Detection.Signals);
+        Assert.Equal("400", loaded.Store.SteamAppId);
     }
 
     [Fact]
@@ -102,12 +140,13 @@ public sealed class GamesDatabaseServiceTests : IDisposable
     public void Save_ThenLoad_PreservesAllFields()
     {
         var svc = CreateService();
-        var game = MakeGame("g1", "EPIC", "MyFolder", "Epic Game") with
+        var baseGame = MakeGame("g1", "EPIC", "MyFolder", "Epic Game");
+        var game = baseGame with
         {
             Tags = ["RPG", "Co-op"],
-            GameSource = GameSourceKind.Epic,
+            Identity = baseGame.Identity with { GameSource = GameSourceKind.Epic },
             UserOverrides = new Dictionary<string, string> { ["DisplayName"] = "2026-07-26T14:30:00Z" },
-            PlatformMetadata = new Dictionary<string, string> { ["CatalogItemId"] = "abc123" },
+            Store = new StoreInfo { EpicCatalogItemId = "abc123" },
         };
         svc.SetGamesForLibrary("EPIC", [game]);
         svc.Save(svc.Load());
@@ -119,7 +158,7 @@ public sealed class GamesDatabaseServiceTests : IDisposable
         Assert.Equal(@"C:\Games\MyFolder\game.exe", loaded.ExecutablePath);
         Assert.Equal(GameSourceKind.Epic, loaded.GameSource);
         Assert.Equal(["RPG", "Co-op"], loaded.Tags);
-        Assert.Equal("abc123", loaded.PlatformMetadata["CatalogItemId"]);
+        Assert.Equal("abc123", loaded.Store.EpicCatalogItemId);
         Assert.True(loaded.UserOverrides.ContainsKey("DisplayName"));
     }
 
@@ -143,16 +182,21 @@ public sealed class GamesDatabaseServiceTests : IDisposable
     public void SetGamesForLibrary_PreservesUserOverridesOnRescan()
     {
         var svc = CreateService();
-        var game = MakeGame("g1", "Steam") with
+        var baseGame = MakeGame("g1", "Steam");
+        var game = baseGame with
         {
-            DisplayName = "My Custom Name",
+            Identity = baseGame.Identity with { DisplayName = "My Custom Name" },
             UserOverrides = new Dictionary<string, string> { ["DisplayName"] = "2026-07-26T14:30:00Z" },
             Tags = ["RPG", "Co-op"],
         };
         svc.SetGamesForLibrary("Steam", [game]);
 
         // Rescan supplies a fresh auto-detected entry with the same ID.
-        var scannedGame = MakeGame("g1", "Steam") with { DisplayName = "Auto Name", Tags = [] };
+        var scannedGame = baseGame with
+        {
+            Identity = baseGame.Identity with { DisplayName = "Auto Name" },
+            Tags = [],
+        };
         svc.SetGamesForLibrary("Steam", [scannedGame]);
 
         var games = svc.GetGamesForLibrary("Steam");
@@ -276,8 +320,11 @@ public sealed class GamesDatabaseServiceTests : IDisposable
 
         svc.SetGamesForLibrary(@"d:\games", [MakeGame(folderScanId, @"d:\games", folder)]);
 
-        var epicRescan = MakeGame(folderScanId, @"d:\games", folder, "Epic Title Name")
-            with { GameSource = GameSourceKind.Epic };
+        var epicBase = MakeGame(folderScanId, @"d:\games", folder, "Epic Title Name");
+        var epicRescan = epicBase with
+        {
+            Identity = epicBase.Identity with { GameSource = GameSourceKind.Epic },
+        };
         svc.SetGamesForLibrary(@"d:\games", [epicRescan]);
 
         var entries = svc.GetGamesForLibrary(@"d:\games");

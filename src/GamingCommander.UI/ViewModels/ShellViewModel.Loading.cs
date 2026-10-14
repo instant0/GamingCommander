@@ -56,9 +56,8 @@ public sealed partial class ShellViewModel
                 _ => string.Empty,
             };
 
-            item.HasMultipleExes = game.PlatformMetadata.TryGetValue(PlatformMetadataKeys.ExeCandidateCount, out string? exeCount)
-                && int.TryParse(exeCount, out int n) && n > 1;
-            item.AlternateExes = game.PlatformMetadata.GetValueOrDefault(PlatformMetadataKeys.ExeCandidates, string.Empty);
+            item.HasMultipleExes = game.Detection.CandidateExes.Count > 1;
+            item.AlternateExes = string.Join("|", game.Detection.CandidateExes);
 
             Items.Add(item);
         }
@@ -117,26 +116,26 @@ public sealed partial class ShellViewModel
     private ShellPaneItemViewModel ToPaneItem(
         GameEntry game, string libraryName, string? leftPathOverride)
     {
-        // Extract platform-specific metadata from Extra dictionary
+        // Extract platform-specific metadata from the typed records
         string platformId = game.GameSource switch
         {
-            GameSourceKind.Steam => game.PlatformMetadata.TryGetValue(PlatformMetadataKeys.SteamAppId, out var steamAppId) ? steamAppId : string.Empty,
-            GameSourceKind.Epic => game.PlatformMetadata.TryGetValue(PlatformMetadataKeys.EpicCatalogItemId, out var epicCatalogItemId) ? epicCatalogItemId : string.Empty,
+            GameSourceKind.Steam => game.Store.SteamAppId,
+            GameSourceKind.Epic => game.Store.EpicCatalogItemId,
             _ => string.Empty,
         };
 
         string platformStatus = game.GameSource switch
         {
-            GameSourceKind.Steam => game.PlatformMetadata.TryGetValue(PlatformMetadataKeys.SteamStatus, out var status) ? status : string.Empty,
-            GameSourceKind.Epic => game.PlatformMetadata.TryGetValue(PlatformMetadataKeys.EpicStatus, out var epicStatus) ? epicStatus : string.Empty,
+            GameSourceKind.Steam => game.Acf.Status,
+            GameSourceKind.Epic => game.Epic.Status,
             _ => string.Empty,
         };
 
         // Parenthetical subtitle: tags if present, empty otherwise
         GameMetadataRecord? sidecar = _metadataStore?.Get(game.Id);
-        List<string> engineTags = TagNormalizer.SplitList(sidecar?.Engine);
+        List<string> engineTags = TagNormalizer.SplitList(sidecar?.FetchedEngine);
         List<string> mergedTags = TagNormalizer.Merge(
-            game.Tags, TagNormalizer.FromMetadata(sidecar?.Genre, sidecar?.Engine));
+            game.Tags, TagNormalizer.FromMetadata(sidecar?.Genre, sidecar?.FetchedEngine));
         string subtitle = mergedTags.Count > 0 ? $"({string.Join(", ", mergedTags)})" : string.Empty;
 
         // Resolve launch target: prefer steam:// URI over raw exe path
@@ -153,9 +152,9 @@ public sealed partial class ShellViewModel
                 : Path.GetFileName(game.ExecutablePath),
             SourceLabel = GameSourceParser.ToDisplayName(game.GameSource),
             PathSummary = string.IsNullOrWhiteSpace(game.ExecutablePath)
-                ? game.PlatformMetadata.GetValueOrDefault(PlatformMetadataKeys.GameFolder, "")
+                ? game.Location.GameFolder
                 : game.ExecutablePath,
-            InstallDirectory = game.PlatformMetadata.GetValueOrDefault(PlatformMetadataKeys.GameFolder, "") is { Length: > 0 } gameFolder
+            InstallDirectory = game.Location.GameFolder is { Length: > 0 } gameFolder
                 ? gameFolder
                 : WindowsExplorer.ParentDirectory(game.ExecutablePath) ?? string.Empty,
             LaunchTarget = launchTarget,

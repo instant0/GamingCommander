@@ -3,13 +3,20 @@
 ## Overview
 The `.item` file is a JSON manifest that tells the Epic Games Launcher about an installed game. It lives in `%ProgramData%\Epic\EpicGamesLauncher\Data\Manifests\`.
 
+> **DEFERRED (2026-10-14): `.item` re-creation/registration is a dead end.** Plan 126 could not make
+> Epic register a game from a written `.item`/`.egi`/`.mancpn` — the EOSH reported set is
+> server/account-driven (`planning/126-facts-eosh.md` §8j/8o/8r/8t/8u). The generation recipes below
+> are retained as reference only and must **not** be implemented. The supported product path is
+> **detection from existing manifest files** — read `.item`/`.mancpn`/`.manifest` to identify and
+> enrich games, never write them. See `META/TASKS/phase-j-followups/T78-*.md` (deferred).
+
 ## Working identification `.item` (Death Stranding → Epic **Update**, 2026-08-23)
 
 User-confirmed file. Epic showed **Update**. Diff vs our earlier Python output:
 
 | Must be | Value |
 |---------|--------|
-| `AppName` | **`Boga`** (`.manifest` `BogaStaging` stripped) — **not** `.ovt` `sub` `d460fdcb…` |
+| `AppName` | **`Boga`** (`.manifest` `BogaStaging` stripped) — **not** `.ovt` `sub` `d460fdcb…`. **Death-Stranding-specific:** this is the correct rule only for old `.ovt`-era installs with no `.mancpn`. When a `.mancpn` exists, its `AppName` is authoritative (Plan 126). |
 | `CatalogNamespace` | `.ovt` `f4a904…` |
 | `CatalogItemId` | `.ovt` `761fe092…` — **not** GraphQL `offerId` / Director’s Cut |
 | `DisplayName` | `Death Stranding` |
@@ -60,7 +67,7 @@ StagingLocation:    y:\games\GameName/.egstore/bps
 
 | Field | Source | Notes |
 |-------|--------|-------|
-| AppName | .manifest | Strip "Staging" suffix |
+| AppName | `.mancpn` (authoritative); `.manifest` strip-Staging only for old `.ovt`-era installs (Death Stranding) | Plan 126 — see `planning/126-facts-identity.md` |
 | AppVersionString | .manifest | Build version |
 | LaunchExecutable | .manifest | Relative path |
 | InstallationGuid | .manifest filename | |

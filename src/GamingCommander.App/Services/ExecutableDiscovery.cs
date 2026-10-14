@@ -25,7 +25,8 @@ internal static partial class ExecutableDiscovery
     internal static List<string> FindExecutablesDeep(
         DirectoryInfo dir,
         IReadOnlyList<string> noiseExePatterns,
-        IReadOnlySet<string> noiseDirectoryPatterns)
+        IReadOnlySet<string> noiseDirectoryPatterns,
+        int maxRelativeDepth = 3)
     {
         var candidates = new List<string>();
 
@@ -79,10 +80,15 @@ internal static partial class ExecutableDiscovery
         }
         catch { }
 
-        // 5. BioShock pattern — root has no exes, scan 2 levels deep
+        // 5. BioShock pattern — root has no exes, scan deeper.
+        // maxRelativeDepth is the user-configurable search depth (default 3); the
+        // recursion parameter is one less because FindExesRecursive enumerates a
+        // directory's children (rel 1) at depth 0.
         if (candidates.Count == 0)
         {
-            candidates.AddRange(FindExesRecursive(dir, noiseExePatterns, noiseDirectoryPatterns, maxDepth: 2));
+            candidates.AddRange(FindExesRecursive(
+                dir, noiseExePatterns, noiseDirectoryPatterns,
+                maxDepth: Math.Max(1, Math.Clamp(maxRelativeDepth, 1, 5) - 1)));
         }
 
         // Deduplicate by full path
@@ -355,9 +361,10 @@ internal static partial class ExecutableDiscovery
         IReadOnlyList<string> noiseExePatterns,
         IReadOnlySet<string> noiseDirectoryPatterns,
         IReadOnlyList<string> launcherPatterns,
-        Func<string, int>? tierLookup = null)
+        Func<string, int>? tierLookup = null,
+        int maxRelativeDepth = 3)
     {
-        var candidates = FindExecutablesDeep(dir, noiseExePatterns, noiseDirectoryPatterns)
+        var candidates = FindExecutablesDeep(dir, noiseExePatterns, noiseDirectoryPatterns, maxRelativeDepth)
             .Where(p => !IsForbiddenLaunchExe(p))
             .ToList();
         if (candidates.Count == 0)

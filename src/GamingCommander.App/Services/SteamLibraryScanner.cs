@@ -188,43 +188,54 @@ public sealed class SteamLibraryScanner
             : FileSystemHelper.NormalizeDisplayName(folderName);
         string id = GameEntryId.ComputeId(libraryRoot, folderName);
 
-        var extra = new Dictionary<string, string>
+        var acfInfo = new SteamAcfInfo
         {
-            [PlatformMetadataKeys.SteamStatus] = status,
-            [PlatformMetadataKeys.SteamAppId] = acf.AppId,
-            [PlatformMetadataKeys.AcfLibraryPath] = acf.LibraryPath,
-            [PlatformMetadataKeys.AcfSizeOnDisk] = acf.SizeOnDisk,
-            [PlatformMetadataKeys.AcfBuildId] = acf.BuildId,
-            [PlatformMetadataKeys.AcfStateFlags] = acf.StateFlags,
-            [PlatformMetadataKeys.FolderName] = folderName,
+            Status = status,
+            LibraryPath = acf.LibraryPath,
+            SizeOnDisk = acf.SizeOnDisk,
+            BuildId = acf.BuildId,
+            StateFlags = acf.StateFlags,
+            FilePath = acf.AcfFilePath,
         };
+        var location = new LocationInfo { FolderPath = gameDir.FullName, FolderName = folderName };
 
         // For Moved games, store the expected path so the UI can show cross-library context
         if (status == "Moved")
         {
-            extra[PlatformMetadataKeys.AcfExpectedPath] = Path.Combine(acf.LibraryPath, "steamapps", "common", folderName);
-            extra[PlatformMetadataKeys.ActualLibraryRoot] = libraryRoot;
-            extra[PlatformMetadataKeys.AcfFilePath] = acf.AcfFilePath;
+            acfInfo = acfInfo with
+            {
+                ExpectedPath = Path.Combine(acf.LibraryPath, "steamapps", "common", folderName),
+            };
+            location = location with { ActualLibraryRoot = libraryRoot };
         }
 
         // No EngineDetector here — it lists every child folder. PCGW fills engine after lookup.
         return new GameEntry(
-            Id: id,
-            Library: string.Empty,
-            FolderPath: gameDir.FullName,
-            FolderName: folderName,
-            DisplayName: displayName,
-            GameSource: GameSourceKind.Steam,
-            IsSourceOverridden: false,
-            ExecutablePath: FindPrimaryExe(gameDir),
-            LauncherPath: string.Empty,
-            CommandLineArguments: $"steam://rungameid/{acf.AppId}",
-            ManifestPath: acf.AcfFilePath,
-            LastScanned: DateTimeOffset.UtcNow,
-            LastModified: FileSystemHelper.GetLastWriteTimeSafe(gameDir),
-            PlatformMetadata: extra,
+            Identity: new IdentityInfo
+            {
+                Id = id,
+                Library = string.Empty,
+                DisplayName = displayName,
+                GameSource = GameSourceKind.Steam,
+                IsSourceOverridden = false,
+            },
+            Location: location,
+            Launch: new LaunchInfo
+            {
+                ExecutablePath = FindPrimaryExe(gameDir),
+                LauncherPath = string.Empty,
+                CommandLineArguments = $"steam://rungameid/{acf.AppId}",
+                ManifestPath = acf.AcfFilePath,
+            },
             Tags: [],
-            UserOverrides: []);
+            UserOverrides: [],
+            LastScanned: DateTimeOffset.UtcNow,
+            LastModified: FileSystemHelper.GetLastWriteTimeSafe(gameDir))
+        {
+            Detection = DetectionTierDeriver.Derive(GameSourceKind.Steam),
+            Store = new StoreInfo { SteamAppId = acf.AppId },
+            Acf = acfInfo,
+        };
     }
 
     /// <summary>
@@ -236,28 +247,25 @@ public sealed class SteamLibraryScanner
         string id = GameEntryId.ComputeId(libraryRoot, folderName);
 
         return new GameEntry(
-            Id: id,
-            Library: string.Empty,
-            FolderPath: gameDir.FullName,
-            FolderName: folderName,
-            DisplayName: FileSystemHelper.NormalizeDisplayName(folderName),
-            GameSource: GameSourceKind.Steam,
-            IsSourceOverridden: false,
-            ExecutablePath: FindPrimaryExe(gameDir),
-            LauncherPath: string.Empty,
-            CommandLineArguments: string.Empty,
-            ManifestPath: string.Empty,
-            LastScanned: DateTimeOffset.UtcNow,
-            LastModified: FileSystemHelper.GetLastWriteTimeSafe(gameDir),
-            PlatformMetadata: new Dictionary<string, string>
+            Identity: new IdentityInfo
             {
-                [PlatformMetadataKeys.SteamStatus] = "Orphaned",
-                [PlatformMetadataKeys.SteamAppId] = string.Empty,
-                [PlatformMetadataKeys.FolderName] = folderName,
-                [PlatformMetadataKeys.LibraryRoot] = libraryRoot,
+                Id = id,
+                Library = string.Empty,
+                DisplayName = FileSystemHelper.NormalizeDisplayName(folderName),
+                GameSource = GameSourceKind.Steam,
+                IsSourceOverridden = false,
             },
+            Location: new LocationInfo { FolderPath = gameDir.FullName, FolderName = folderName, LibraryRoot = libraryRoot },
+            Launch: new LaunchInfo { ExecutablePath = FindPrimaryExe(gameDir) },
             Tags: [],
-            UserOverrides: []);
+            UserOverrides: [],
+            LastScanned: DateTimeOffset.UtcNow,
+            LastModified: FileSystemHelper.GetLastWriteTimeSafe(gameDir))
+        {
+            Detection = DetectionTierDeriver.Derive(GameSourceKind.Steam),
+            Store = new StoreInfo(),
+            Acf = new SteamAcfInfo { Status = "Orphaned" },
+        };
     }
 
     /// <summary>
@@ -269,36 +277,44 @@ public sealed class SteamLibraryScanner
         string id = GameEntryId.ComputeId(libraryRoot, acf.Installdir);
 
         return new GameEntry(
-            Id: id,
-            Library: string.Empty,
-            FolderPath: Path.Combine(acf.LibraryPath, "steamapps", "common", acf.Installdir),
-            FolderName: acf.Installdir,
-            DisplayName: !string.IsNullOrWhiteSpace(acf.Name)
-                ? TitleText.ForSearch(acf.Name)
-                : FileSystemHelper.NormalizeDisplayName(acf.Installdir),
-            GameSource: GameSourceKind.Steam,
-            IsSourceOverridden: false,
-            ExecutablePath: string.Empty,
-            LauncherPath: string.Empty,
-            CommandLineArguments: $"steam://rungameid/{acf.AppId}",
-            ManifestPath: acf.AcfFilePath,
-            LastScanned: DateTimeOffset.UtcNow,
-            LastModified: DateTimeOffset.MinValue,
-            PlatformMetadata: new Dictionary<string, string>
+            Identity: new IdentityInfo
             {
-                [PlatformMetadataKeys.SteamStatus] = "Missing",
-                [PlatformMetadataKeys.SteamAppId] = acf.AppId,
-                [PlatformMetadataKeys.AcfLibraryPath] = acf.LibraryPath,
-                [PlatformMetadataKeys.AcfFilePath] = acf.AcfFilePath,
-                [PlatformMetadataKeys.AcfSizeOnDisk] = acf.SizeOnDisk,
-                [PlatformMetadataKeys.AcfBuildId] = acf.BuildId,
-                [PlatformMetadataKeys.AcfStateFlags] = acf.StateFlags,
-                [PlatformMetadataKeys.FolderName] = acf.Installdir,
-                [PlatformMetadataKeys.AcfExpectedPath] = Path.Combine(
-                    acf.LibraryPath, "steamapps", "common", acf.Installdir),
+                Id = id,
+                Library = string.Empty,
+                DisplayName = !string.IsNullOrWhiteSpace(acf.Name)
+                    ? TitleText.ForSearch(acf.Name)
+                    : FileSystemHelper.NormalizeDisplayName(acf.Installdir),
+                GameSource = GameSourceKind.Steam,
+                IsSourceOverridden = false,
+            },
+            Location: new LocationInfo
+            {
+                FolderPath = Path.Combine(acf.LibraryPath, "steamapps", "common", acf.Installdir),
+                FolderName = acf.Installdir,
+            },
+            Launch: new LaunchInfo
+            {
+                CommandLineArguments = $"steam://rungameid/{acf.AppId}",
+                ManifestPath = acf.AcfFilePath,
             },
             Tags: [],
-            UserOverrides: []);
+            UserOverrides: [],
+            LastScanned: DateTimeOffset.UtcNow,
+            LastModified: DateTimeOffset.MinValue)
+        {
+            Detection = DetectionTierDeriver.Derive(GameSourceKind.Steam),
+            Store = new StoreInfo { SteamAppId = acf.AppId },
+            Acf = new SteamAcfInfo
+            {
+                Status = "Missing",
+                LibraryPath = acf.LibraryPath,
+                FilePath = acf.AcfFilePath,
+                SizeOnDisk = acf.SizeOnDisk,
+                BuildId = acf.BuildId,
+                StateFlags = acf.StateFlags,
+                ExpectedPath = Path.Combine(acf.LibraryPath, "steamapps", "common", acf.Installdir),
+            },
+        };
     }
 
     // ════════════════════════════════════════════════════════════════

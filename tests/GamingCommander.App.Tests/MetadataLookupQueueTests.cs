@@ -45,22 +45,20 @@ public sealed class MetadataLookupQueueTests
 
     private static GameEntry Make(string id) =>
         new(
-            Id: id,
-            Library: "Steam",
-            FolderPath: @"D:\g",
-            FolderName: id,
-            DisplayName: id,
-            GameSource: GameSourceKind.Standalone,
-            IsSourceOverridden: false,
-            ExecutablePath: @"D:\g.exe",
-            LauncherPath: "",
-            CommandLineArguments: "",
-            ManifestPath: "",
-            LastScanned: DateTimeOffset.UnixEpoch,
-            LastModified: DateTimeOffset.UnixEpoch,
-            PlatformMetadata: [],
+            Identity: new IdentityInfo
+            {
+                Id = id,
+                Library = "Steam",
+                DisplayName = id,
+                GameSource = GameSourceKind.Standalone,
+                IsSourceOverridden = false,
+            },
+            Location: new LocationInfo { FolderPath = @"D:\g", FolderName = id },
+            Launch: new LaunchInfo { ExecutablePath = @"D:\g.exe" },
             Tags: [],
-            UserOverrides: []);
+            UserOverrides: [],
+            LastScanned: DateTimeOffset.UnixEpoch,
+            LastModified: DateTimeOffset.UnixEpoch);
 
     private sealed class FakeMetadataService : IMetadataService
     {
