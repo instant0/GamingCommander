@@ -354,10 +354,26 @@ public sealed class FolderScannerContainerTests : IDisposable
         Assert.Equal(GameSourceKind.BattleNet, diablo.GameSource);
     }
 
+    [Fact]
+    public void Scan_ContainerChild_WithDeepSteamEmuIni_PromotedAsSteamEmu()
+    {
+        // Publisher/EmuGame/data/steam_emu.ini — the deep signal sits inside the
+        // game child, so the container child must be promoted as SteamEmu
+        // (parity with FolderScanner Pass 2 at top level).
+        CreateDir("Publisher");
+        string emuData = CreateDir("Publisher", "EmuGame", "data");
+        File.WriteAllText(Path.Combine(emuData, "steam_emu.ini"), "AppId=1");
+
+        var entries = _scanner.Scan(_tempDir, GameSourceKind.Standalone);
+
+        Assert.Single(entries);
+        Assert.Equal("EmuGame", entries[0].FolderName);
+        Assert.Equal(GameSourceKind.SteamEmu, entries[0].GameSource);
+    }
+
     // ════════════════════════════════════════════════════════════════
     //  Helpers
     // ════════════════════════════════════════════════════════════════
-
     private string CreateDir(params string[] parts)
     {
         string path = Path.Combine(new[] { _tempDir }.Concat(parts).ToArray());

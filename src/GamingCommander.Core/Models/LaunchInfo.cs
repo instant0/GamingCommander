@@ -20,4 +20,7 @@ public sealed record LaunchInfo
 
     /// <summary>Path to the launcher manifest file (e.g., Steam ACF).</summary>
     public string ManifestPath { get; init; } = string.Empty;
+
+    /// <summary>Named launch configurations (Plan 127 B10). Empty means use the default launch fields.</summary>
+    public List<LaunchProfile> Profiles { get; init; } = [];
 }

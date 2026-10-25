@@ -65,6 +65,17 @@ GamingCommander.sln
 | `SteamAcfInfo` | record | Status, FilePath, LibraryPath, ExpectedPath, BuildId, SizeOnDisk, StateFlags — Plan 127 A2 |
 | `EpicInfo` | record | Status, ItemPath — Plan 127 A2 |
 | `LocationInfo` | record | FolderPath, FolderName, LibraryRoot, ActualLibraryRoot, GameFolder — Plan 127 A1/A2 |
+| `InstallInfo` | record | State (`InstallState`), Version, UpdateAvailable, LastVerified — Plan 127 B8 |
+| `InstallState` | enum | Unknown=0, Installed=1, Owned=2, Moved=3, Missing=4, Orphaned=5, Updating=6 — Plan 127 B8 |
+| `TrackingInfo` | record | FirstSeen, LastPlayed, LaunchCount, PlayTimeSeconds, LastSessionSeconds — Plan 127 B7 |
+| `UserStateInfo` | record | Favourite, Hidden, Pinned, Archived, Rating, Notes, Completion — Plan 127 B9 |
+| `CompletionState` | enum | None=0, Backlog=1, Playing=2, Completed=3, Abandoned=4 — Plan 127 B9 |
+| `LaunchProfile` | record | Name, ExecutablePath, Arguments, Environment, WorkingDirectory, RunAsAdmin, Engine — Plan 127 B10 |
+| `RelationsInfo` | record | Kind (`GameKind`), ParentId, AddOnIds — Plan 127 B11 |
+| `GameKind` | enum | Game=0, Dlc=1, Tool=2, Demo=3, Soundtrack=4, Mod=5 — Plan 127 B11 |
+| `Tag` | record | Name, Kind (`TagKind`), Color, Auto — Plan 127 B13 |
+| `TagKind` | enum | User=0, Store=1, Engine=2, Genre=3 — Plan 127 B13 |
+| `Collection` | record | Name, GameIds[], SmartQuery — Plan 127 B12 |
 | `IdentificationTier` | enum | Unknown=0, Candidate=1, Secure=2, Locked=3 — Plan 127 A3 |
 | `IdentityKey` | record | Kind, Value — natural key for move/rename reconciliation (Plan 127 A5) |
 | `Library` | record | Name (anchor key), Type (`GameSourceKind`), Folders (IReadOnlyList\<string\>) — Plan 124 |
@@ -83,6 +94,8 @@ GamingCommander.sln
 | `VdfParser` | `VdfParser.cs` | Minimal VDF/ACF key-value parser for Steam manifest files |
 | `GameEntryId` | `GameEntryId.cs` | Deterministic MD5-based ID generation for GameEntry records |
 | `GameIdentity` | Core `Services/GameIdentity.cs` | Plan 127 A5: rebuilds `IdentityKeys` from folder name + store ids |
+| `SchemaVersioning` | Core `Services/SchemaVersioning.cs` | Plan 127 A4: current schema version + readable-guard for the four JSON files |
+| `InstallStateMap` | Core `Services/InstallStateMap.cs` | Plan 127 B8: store status string → `InstallState` |
 | `PeProductYear` | `PeProductYear.cs` | Year hint from PE FileVersion / LastWriteTime |
 
 ---
@@ -159,6 +172,7 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 | `SteamAcfParser` | `SteamAcfParser.cs` | Parses Steam ACF files and libraryfolders.vdf; AcfInfo record |
 | `GamesDatabaseService` | `GamesDatabaseService.cs` | JSON-file CRUD for the flat game list (`games.json`) via private DTOs, in-memory cache, anchor-keyed access (Plan 124) |
 | `LibrariesDatabaseService` | `LibrariesDatabaseService.cs` | Reads/writes `libraries.json` (named `Library` anchors) implementing `ILibrariesService` (Plan 124) |
+| `CollectionsDatabaseService` | `CollectionsDatabaseService.cs` | Reads/writes `collections.json` implementing `ICollectionsService` (Plan 127 B12) |
 | `JsonConfigService` | `JsonConfigService.cs` | JSON-file persistence for AppConfig |
 | `BlacklistLoader` | `BlacklistLoader.cs` | Loads noise patterns from `data/blacklist.json`; missing/corrupt file falls back to embedded resource and restores disk copy (Bug 16) |
 | `FileSystemHelper` | `FileSystemHelper.cs` | Shared filesystem utilities: GetDirectoriesSafe, GetFilesSafe, GetLastWriteTimeSafe, NormalizeDisplayName, NoiseSubDirNames |

@@ -29,7 +29,7 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
         GamesDatabaseDto? dto = JsonFileHelper.ReadFromFile<GamesDatabaseDto>(
             _dbPath,
             () => new GamesDatabaseDto { Games = [] });
-        if (dto is null)
+        if (dto is null || !SchemaVersioning.IsReadable(dto.Version))
         {
             _cachedDb = new GamesDatabase(Games: []);
             return _cachedDb;
@@ -46,6 +46,7 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
         _cachedDb = db;
         var dto = new GamesDatabaseDto
         {
+            Version = SchemaVersioning.Current,
             Games = db.Games.Select(ToDto).ToList(),
         };
         JsonFileHelper.WriteToFile(_dbPath, dto);
@@ -292,6 +293,10 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
             Store = dto.Store ?? new(),
             Acf = dto.Acf ?? new(),
             Epic = dto.Epic ?? new(),
+            Install = dto.Install ?? new(),
+            Tracking = dto.Tracking ?? new(),
+            UserState = dto.UserState ?? new(),
+            Relations = dto.Relations ?? new(),
         };
     }
 
@@ -311,12 +316,16 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
             Store = g.Store,
             Acf = g.Acf,
             Epic = g.Epic,
+            Install = g.Install,
+            Tracking = g.Tracking,
+            UserState = g.UserState,
+            Relations = g.Relations,
         };
     }
 
     private sealed class GamesDatabaseDto
     {
-        public int Version { get; set; } = 1;
+        public int Version { get; set; } = SchemaVersioning.Current;
         public List<GameEntryDto>? Games { get; set; }
     }
 
@@ -325,7 +334,7 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
         public IdentityInfo Identity { get; set; } = new();
         public LocationInfo Location { get; set; } = new();
         public LaunchInfo Launch { get; set; } = new();
-        public List<string>? Tags { get; set; }
+        public List<Tag>? Tags { get; set; }
         public Dictionary<string, string>? UserOverrides { get; set; }
         public GameEngineKind GameEngine { get; set; }
         public DateTimeOffset LastScanned { get; set; }
@@ -334,5 +343,9 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
         public StoreInfo? Store { get; set; }
         public SteamAcfInfo? Acf { get; set; }
         public EpicInfo? Epic { get; set; }
+        public InstallInfo? Install { get; set; }
+        public TrackingInfo? Tracking { get; set; }
+        public UserStateInfo? UserState { get; set; }
+        public RelationsInfo? Relations { get; set; }
     }
 }

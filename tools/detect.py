@@ -419,6 +419,16 @@ def _pick_best_root_exe(d: Path, exe_names: list[str]) -> str | None:
         exe_stem = lower.replace(".exe", "")
         if exe_stem in folder_tokens:
             score += 15
+        # Whole-name exact match, separators stripped (C# +40 parity)
+        folder_whole = re.sub(r"[\s_\-]+", "", d.name.lower())
+        if folder_whole and re.sub(r"[\s_\-]+", "", exe_stem) == folder_whole:
+            score += 40
+        # Classic main-binary names (C# +18 parity)
+        if exe_stem in {"game", "start", "play"}:
+            score += 18
+        # Unreal shipping binary (C# +28 parity)
+        if exe_stem.endswith("-shipping") or "-win64-shipping" in exe_stem or "-win32-shipping" in exe_stem:
+            score += 28
         # Abbreviation: short exe stem that starts with a folder token's first letter
         # e.g. "ra3" ≈ "ra3", "g3" ≈ "g3"
         if len(exe_stem) <= 4:
@@ -1124,6 +1134,15 @@ def _pick_primary_executable(d: Path) -> tuple[str | None, dict, list[str]]:
         # ── UE standard path bonus ──
         if "shipping" in lower or "win64" in lower:
             score += 5
+        # C# parity: classic main-binary names, strong shipping/path bonuses
+        stem = lower[:-4] if lower.endswith(".exe") else lower
+        if stem in {"game", "start", "play"}:
+            score += 18
+        if stem.endswith("-shipping") or "-win64-shipping" in stem or "-win32-shipping" in stem:
+            score += 28
+        rel = str(exe).replace("/", "\\").lower()
+        if "\\binaries\\win64\\" in rel or "\\binaries\\win32\\" in rel or "\\shipping\\" in rel:
+            score += 12
 
         scored.append((score, exe))
 

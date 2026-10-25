@@ -83,6 +83,87 @@ public sealed class GamesDatabaseServiceTests : IDisposable
     }
 
     [Fact]
+    public void SaveLoad_TrackingInstallUserState_RoundTrip()
+    {
+        var svc = CreateService();
+        var baseGame = MakeGame("g1", "Steam");
+        var game = baseGame with
+        {
+            Install = new InstallInfo { State = InstallState.Moved, Version = "1.2", UpdateAvailable = true },
+            Tracking = new TrackingInfo { LaunchCount = 3, PlayTimeSeconds = 3600, LastPlayed = DateTimeOffset.UnixEpoch },
+            UserState = new UserStateInfo
+            {
+                Favourite = true,
+                Rating = 5,
+                Notes = "great",
+                Completion = CompletionState.Completed,
+            },
+        };
+        svc.SetGamesForLibrary("Steam", [game]);
+        svc.Save(svc.Load());
+
+        GameEntry loaded = CreateService().Load().Games.Single();
+        Assert.Equal(InstallState.Moved, loaded.Install.State);
+        Assert.Equal("1.2", loaded.Install.Version);
+        Assert.True(loaded.Install.UpdateAvailable);
+        Assert.Equal(3, loaded.Tracking.LaunchCount);
+        Assert.Equal(3600, loaded.Tracking.PlayTimeSeconds);
+        Assert.True(loaded.UserState.Favourite);
+        Assert.Equal(5, loaded.UserState.Rating);
+        Assert.Equal("great", loaded.UserState.Notes);
+        Assert.Equal(CompletionState.Completed, loaded.UserState.Completion);
+    }
+
+    [Fact]
+    public void SaveLoad_ProfilesRelationsTags_RoundTrip()
+    {
+        var svc = CreateService();
+        var baseGame = MakeGame("g1", "Steam");
+        var game = baseGame with
+        {
+            Tags = [Tag.User("RPG"), Tag.Derived("Unreal Engine 5", TagKind.Engine)],
+            Launch = baseGame.Launch with
+            {
+                Profiles = [new LaunchProfile { Name = "VR", Arguments = "-vr", RunAsAdmin = true }],
+            },
+            Relations = new RelationsInfo { Kind = GameKind.Dlc, ParentId = "base-1" },
+        };
+        svc.SetGamesForLibrary("Steam", [game]);
+        svc.Save(svc.Load());
+
+        GameEntry loaded = CreateService().Load().Games.Single();
+        Assert.Equal(2, loaded.Tags.Count);
+        Assert.Equal(TagKind.Engine, loaded.Tags[1].Kind);
+        Assert.True(loaded.Tags[1].Auto);
+        Assert.Single(loaded.Launch.Profiles);
+        Assert.Equal("VR", loaded.Launch.Profiles[0].Name);
+        Assert.True(loaded.Launch.Profiles[0].RunAsAdmin);
+        Assert.Equal(GameKind.Dlc, loaded.Relations.Kind);
+        Assert.Equal("base-1", loaded.Relations.ParentId);
+    }
+
+    [Fact]
+    public void Load_WithFutureSchemaVersion_ReturnsEmpty()
+    {
+        string dbPath = Path.Combine(_tempDir, "games.json");
+        File.WriteAllText(dbPath, """{ "Version": 99, "Games": [] }""");
+        var svc = new GamesDatabaseService(dbPath);
+
+        Assert.Empty(svc.Load().Games);
+    }
+
+    [Fact]
+    public void Save_WritesCurrentSchemaVersion()
+    {
+        var svc = CreateService();
+        svc.SetGamesForLibrary("Steam", []);
+        svc.Save(svc.Load());
+
+        string json = File.ReadAllText(Path.Combine(_tempDir, "games.json"));
+        Assert.Contains($"\"Version\": {GamingCommander.Core.Services.SchemaVersioning.Current}", json);
+    }
+
+    [Fact]
     public void SaveLoad_DetectionAndStore_RoundTrip()
     {
         var svc = CreateService();
@@ -143,7 +224,7 @@ public sealed class GamesDatabaseServiceTests : IDisposable
         var baseGame = MakeGame("g1", "EPIC", "MyFolder", "Epic Game");
         var game = baseGame with
         {
-            Tags = ["RPG", "Co-op"],
+            Tags = [Tag.User("RPG"), Tag.User("Co-op")],
             Identity = baseGame.Identity with { GameSource = GameSourceKind.Epic },
             UserOverrides = new Dictionary<string, string> { ["DisplayName"] = "2026-07-26T14:30:00Z" },
             Store = new StoreInfo { EpicCatalogItemId = "abc123" },
@@ -157,7 +238,7 @@ public sealed class GamesDatabaseServiceTests : IDisposable
         Assert.Equal("EPIC", loaded.Library);
         Assert.Equal(@"C:\Games\MyFolder\game.exe", loaded.ExecutablePath);
         Assert.Equal(GameSourceKind.Epic, loaded.GameSource);
-        Assert.Equal(["RPG", "Co-op"], loaded.Tags);
+        Assert.Equal(["RPG", "Co-op"], loaded.Tags.Select(t => t.Name));
         Assert.Equal("abc123", loaded.Store.EpicCatalogItemId);
         Assert.True(loaded.UserOverrides.ContainsKey("DisplayName"));
     }
@@ -187,7 +268,7 @@ public sealed class GamesDatabaseServiceTests : IDisposable
         {
             Identity = baseGame.Identity with { DisplayName = "My Custom Name" },
             UserOverrides = new Dictionary<string, string> { ["DisplayName"] = "2026-07-26T14:30:00Z" },
-            Tags = ["RPG", "Co-op"],
+            Tags = [Tag.User("RPG"), Tag.User("Co-op")],
         };
         svc.SetGamesForLibrary("Steam", [game]);
 
@@ -203,7 +284,7 @@ public sealed class GamesDatabaseServiceTests : IDisposable
         Assert.Single(games);
         Assert.Equal("My Custom Name", games[0].DisplayName);   // user override preserved
         Assert.Equal(2, games[0].Tags.Count);                   // user tags preserved
-        Assert.Equal("RPG", games[0].Tags[0]);
+        Assert.Equal("RPG", games[0].Tags[0].Name);
     }
 
     [Fact]

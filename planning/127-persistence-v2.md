@@ -1,6 +1,6 @@
 # Plan 127 — Persistence v2: Typed Game Records, Identity & Detection Provenance
 
-**Status:** IN PROGRESS — A1/A2/A3/A5 done. A4/A6 and B/C pending.
+**Status:** IN PROGRESS — A1–A6 and B7–B13 done. C deferred.
 **Type:** Data-model refactor (pre-ship; **no back-compat** — clean cut, no migration, no dual-write).
 **Informed by:** `docs/DATA-FORMAT.md`, `META/CODE_MAP.md`, `planning/123-detection-bugfixes.md` (tiers), `planning/124-anchor-library-game-db.md`, `planning/04-phase-2-syncmove.md`.
 **Scope:** the four files under `{app-base}/data/` — `settings.json`, `libraries.json`, `games.json`, `games_metadata.json`.
@@ -19,8 +19,11 @@
 - **A1 DONE** — `GameEntry` is composed of `Identity` / `Location` / `Launch` (positional) + `Detection` / `Store` / `Acf` / `Epic` (body); flat names kept as read-only accessors. All constructors, `with` expressions, DTO mapping, scanners, UI, and tests migrated.
 - **A5 DONE (first slice)** — `IdentityKey`/`IdentityKeyKinds` + `IdentityInfo.IdentityKeys` + `LocationInfo.PreviousLocations`; `GameIdentity.WithRebuiltKeys`; reconciliation in `GamesDatabaseService.SetGamesForLibrary` (`FindRelocated`) relinks external moves (strong store-id keys match regardless of disk; weak folder-name key matches only when the old folder is gone) and preserves the existing `Id` + sidecar. **Deviation:** `Id` stays folder-derived (`GameEntryId.ComputeId`) rather than a fresh GUID — reconciliation preserves it across moves, which satisfies the requirement with less churn. Cross-library moves + an explicit `InstallState.Missing` marker are follow-ups.
 - **A6 DONE (boundary made explicit)** — on inspection the sidecar's `SteamAppId`/`GogGameId`/`Engine` are **fetched** values (PCGW/Steam), not the detected `GameEntry.Store`/`GameEngine`; deleting them would lose the metadata-identity signal and the Steam fallback. Resolution: rename them `FetchedSteamAppId`/`FetchedGogGameId`/`FetchedEngine`, document that `games.json` is authoritative and the sidecar owns fetched enrichment only, and keep `GameEntry.Store` the winner in lookup paths. `GameMetadataRecord` XML docs + `docs/DATA-FORMAT.md` §5 updated.
-- **A4, B, C** — not started.
-- **Verification:** build 0 errors; **583 tests pass** (163 Core + 1 Migration + 419 App).
+- **A4 DONE** — `SchemaVersioning.Current` (Core) + `IsReadable` guard; all four files write `version` as current and discard a newer-version file on read. Lean mechanism (no speculative migrator registry).
+- **B7/B8/B9 DONE** — `TrackingInfo`, `InstallInfo`+`InstallState`, `UserStateInfo`+`CompletionState` on `GameEntry`, persisted; `Install.State` wired via `InstallStateMap` in the scanners; launch tracking wired in `MainWindow.RecordLaunch`.
+- **B10–B13 DONE** — `LaunchProfile[]` (B10), `RelationsInfo`/`GameKind` (B11), `Collection`+`CollectionsDatabaseService` (B12), typed `Tag`/`TagKind` replacing `List<string>` (B13).
+- **C** — not started.
+- **Verification:** build 0 errors; **601 tests pass** (173 Core + 1 Migration + 427 App).
 - **Verification:** build 0 errors; **578 tests pass** (163 Core + 1 Migration + 414 App).
 
 ---
@@ -188,10 +191,14 @@ GameEntry
 - [ ] Tests per fixture + a pin test for tier value strings.
 **Criteria:** every entry carries a tier; fixtures assert expected tiers; no title becomes confident from a folder name alone.
 
-### A4. Schema versioning + migrators
-- Each file carries `schemaVersion`; an ordered migrator registry upgrades old files on read.
-- **Pre-ship: no migration exists to write** (nothing shipped). The requirement is only that the
-  mechanism exists **before the first release**, so future schema changes are not breaking.
+### A4. Schema versioning (lean — as implemented)
+- All four files carry a `version` field written as `SchemaVersioning.Current` (Core).
+- On read, `SchemaVersioning.IsReadable(fileVersion)` rejects a file from a newer build (returned as
+  defaults rather than silently misread).
+- **Migration seam:** no migrations exist pre-ship. When a breaking change lands, bump
+  `SchemaVersioning.Current` and add the upgrade step in the relevant store's load path.
+- Rejected the full "ordered migrator registry" as speculative pre-ship (avoid overengineering);
+  the version constant + readability guard is the real, minimal mechanism.
 
 ### A5 / A6
 See §1 and §2.
@@ -203,12 +210,16 @@ See §1 and §2.
 | ID | Record | Fields | Enables |
 |----|--------|--------|---------|
 | B7 | `TrackingInfo` | LastPlayed, LaunchCount, PlayTimeSeconds, FirstSeen, LastSessionSeconds | usage stats, "recently played" |
-| B8 | `InstallInfo` | State (Installed/Owned/Moved/Missing/Updating), SizeOnDisk, BuildId, Version, UpdateAvailable, LastVerified | health, SyncMove, space planning |
-| B9 | `UserStateInfo` | Favourite, Hidden, Pinned, Archived, Rating, Notes, CompletionState (Backlog/Playing/Completed/Abandoned) | launcher UX, backlog |
+| B8 | `InstallInfo` | State (`InstallState` enum), Version, UpdateAvailable, LastVerified | health, SyncMove, space planning. **Scoped 2026-10-14:** `SizeOnDisk`/`BuildId`/`StateFlags` are **not** duplicated here — they stay on `SteamAcfInfo` (one owner per fact) |
+| B9 | `UserStateInfo` | Favourite, Hidden, Pinned, Archived, Rating, Notes, CompletionState (`CompletionState` enum) | launcher UX, backlog |
 | B10 | `LaunchProfile[]` | Name, Exe, Args, Env, WorkingDir, RunAsAdmin, Engine | "Play", "Play VR", "Modded" |
 | B11 | Relationships | `Kind` (Game/Dlc/Tool/Demo/Soundtrack/Mod), ParentId, AddOns[] | DLC/tools not lost |
 | B12 | Collections | named playlists + smart-filter definitions | Plan 101 category browse |
 | B13 | Typed tags | `{ name, kind: User/Store/Engine/Genre, color, auto }` | filters, display |
+
+**B7/B8/B9 DONE (2026-10-14)** — `TrackingInfo`, `InstallInfo` (+`InstallState`), `UserStateInfo` (+`CompletionState`) added as `GameEntry` body records, persisted, and surfaced: `Install.State` set by the Steam/Epic/Folder scanners via `InstallStateMap`; `Tracking` incremented on launch (`MainWindow.RecordLaunch`); `UserState` is model+persistence only (UI toggles are a follow-up). Play-time (`PlayTimeSeconds`/`LastSessionSeconds`) is best-effort and not yet populated — URI launches have no process handle.
+
+**B10–B13 DONE (2026-10-14)** — `LaunchProfile[]` on `LaunchInfo` (B10); `RelationsInfo` + `GameKind` on `GameEntry` (B11); `Collection` + `ICollectionsService` + `CollectionsDatabaseService` writing `data/collections.json` (B12); `Tag` + `TagKind` replacing the bare `List<string> Tags` on `GameEntry` (B13, 12 files migrated). Remaining follow-ups: profile picker UI + `GameLaunchResolver` profile overload; scanner wiring of `Relations.Kind` (e.g. Epic addons → Dlc); collections UI; per-tag colour from `tag_colors.json`.
 
 Each B item: define record → add to `GameEntry` → persist → read/write at the feature site → tests.
 B7/B8/B9 are the highest value (tracking + state) and are independent of A1's field removal.

@@ -53,15 +53,16 @@ internal sealed class RegistryFallbackDetector
         string gamePath = NormalizePath(gameDir.FullName);
 
         // ── Tier 1: Exact path match (registry path == actual path) ──
+        // Order aligned with StoreSignalDetector (GOG → EA → Ubisoft → Rockstar).
+
+        if (MatchesAnyPath(gamePath, _gogGamePaths))
+            return GameSourceKind.Gog;
 
         if (MatchesAnyPath(gamePath, _eaGamePaths))
             return GameSourceKind.EaApp;
 
         if (MatchesAnyPath(gamePath, _ubiGamePaths))
             return GameSourceKind.UbisoftConnect;
-
-        if (MatchesAnyPath(gamePath, _gogGamePaths))
-            return GameSourceKind.Gog;
 
         if (MatchesAnyPath(gamePath, _rockstarGamePaths))
             return GameSourceKind.Rockstar;

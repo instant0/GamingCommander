@@ -327,10 +327,10 @@ public sealed class FolderScanner
             subDir, primaryExe.ExePath, primaryExe.FileDescription, resolvedType, _peMetadataBlacklist, ctx);
 
         GameEngineKind engine = EngineDetector.Detect(subDir.FullName);
-        var tags = new List<string>();
+        var tags = new List<Tag>();
         string engineTag = EngineDetector.ToTag(engine);
         if (engineTag.Length > 0)
-            tags.Add(engineTag);
+            tags.Add(Tag.Derived(engineTag, TagKind.Engine));
 
         DetectionInfo detection = DetectionTierDeriver.Derive(
             resolvedType, ctx.TitleSource, ctx.PeFileDescription, ctx.ExeCandidates, ctx.EpicStatus);
@@ -377,6 +377,7 @@ public sealed class FolderScanner
             Detection = detection,
             Store = store,
             Epic = epic,
+            Install = new InstallInfo { State = InstallState.Installed },
         });
     }
 

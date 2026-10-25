@@ -274,17 +274,6 @@ internal static class EpicManifestParser
 
         return null;
     }
-
-    /// <summary>
-    /// Normalizes a path for comparison: converts to lowercase, strips trailing separators.
-    /// Handles both Windows backslash and forward slash separators.
-    /// </summary>
-    private static string NormalizePath(string path)
-    {
-        return path
-            .ToLowerInvariant()
-            .TrimEnd('\\', '/');
-    }
 }
 
 /// <summary>

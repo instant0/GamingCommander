@@ -28,6 +28,13 @@ internal static class FileSystemHelper
     ], StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
+    /// Unreal Engine platform subdirectory names under <c>Binaries/</c> (Windows-only; Linux dropped).
+    /// Shared by <see cref="ExecutableDiscovery"/> and <see cref="FallbackSignalDetector"/> so the
+    /// two copies cannot drift (detect.py parity: Win64/Win32/WinGDK/Steam).
+    /// </summary>
+    internal static readonly IReadOnlyList<string> UePlatformNames = ["Win64", "Win32", "WinGDK", "Steam"];
+
+    /// <summary>
     /// Returns subdirectories of the given path, or an empty array if access fails.
     /// Catches UnauthorizedAccessException, IOException, and other filesystem errors
     /// that are common on Windows when scanning game libraries.

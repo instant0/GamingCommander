@@ -77,7 +77,10 @@ internal static class ContainerScanner
             if (summary.IsNonGame) continue;
             if (summary.StoreType != GameSourceKind.Unknown
                 || summary.HasRootExe
-                || summary.HasUnreal)
+                || summary.HasUnreal
+                || summary.HasSteamEmuDeep
+                || summary.HasUbisoftLegacy
+                || summary.HasRootLnk)
             {
                 gameSignalCount++;
             }
@@ -99,6 +102,19 @@ internal static class ContainerScanner
                 continue;
             }
 
+            // Deep fallback signals (parity with FolderScanner Pass 2): a child whose
+            // only evidence is a deep SteamEmu/Ubisoft marker is promoted with that type.
+            if (summary.HasSteamEmuDeep)
+            {
+                addGameEntry(entries, child, rootPath, GameSourceKind.SteamEmu);
+                continue;
+            }
+            if (summary.HasUbisoftLegacy)
+            {
+                addGameEntry(entries, child, rootPath, GameSourceKind.UbisoftConnect);
+                continue;
+            }
+
             // NOTE: BattleNet path-based detection REMOVED.
             // Detection is based on signal files inside the folder (.build.info, .product.db, .battle.net/),
             // NOT on path names. A game at Q:\random\Diablo III\ with .build.info is BattleNet — period.
@@ -107,7 +123,7 @@ internal static class ContainerScanner
             // Organization (≥2 game children) or single game child — promote standalone
             if (gameSignalCount >= 1)
             {
-                if (summary.HasRootExe || summary.HasUnreal)
+                if (summary.HasRootExe || summary.HasUnreal || summary.HasRootLnk)
                 {
                     addGameEntry(entries, child, rootPath, GameSourceKind.Standalone);
                     continue;
@@ -140,22 +156,33 @@ internal static class ContainerScanner
         GameSourceKind StoreType,
         bool HasRootExe,
         bool HasUnreal,
+        bool HasSteamEmuDeep,
+        bool HasUbisoftLegacy,
+        bool HasRootLnk,
         bool IsNonGame);
 
     /// <summary>
     /// Classifies a child folder once: store type, root-exe signal, unreal layout
-    /// signal, and the layer-1/2/3 non-game verdict. The non-game check receives
+    /// signal, deep fallback signals (SteamEmu/Ubisoft legacy/root .lnk), and the
+    /// layer-1/2/3 non-game verdict. The non-game check receives
     /// <paramref name="noiseExePatterns"/> and internally uses the already-computed
     /// store type, so DetectType runs exactly once per child per call.
     /// </summary>
     private static SignalSummary Summarize(DirectoryInfo child, IReadOnlyList<string> noiseExePatterns)
     {
         GameSourceKind storeType = StoreSignalDetector.DetectType(child);
+        bool hasSteamEmu = FallbackSignalDetector.HasSteamEmuDeepSignal(child);
+        bool hasUbiLegacy = FallbackSignalDetector.HasUbisoftLegacySignal(child);
         return new SignalSummary(
             StoreType: storeType,
             HasRootExe: FallbackSignalDetector.HasRootExecutableSignal(child, noiseExePatterns),
             HasUnreal: FallbackSignalDetector.HasUnrealLayoutSignal(child, noiseExePatterns),
-            IsNonGame: IsNonGameFolder(child, storeType));
+            HasSteamEmuDeep: hasSteamEmu,
+            HasUbisoftLegacy: hasUbiLegacy,
+            HasRootLnk: FallbackSignalDetector.HasRootLnkSignal(child),
+            // A deep SteamEmu/Ubisoft marker is an authoritative game signal — do not
+            // let the data-only file-type layer reject it.
+            IsNonGame: !hasSteamEmu && !hasUbiLegacy && IsNonGameFolder(child, storeType));
     }
 
     /// <summary>
@@ -212,7 +239,7 @@ internal static class ContainerScanner
                 string ext = file.Extension.ToLowerInvariant();
                 if (ext == ".exe")
                 {
-                    if (!FileSystemHelper.IsNoiseExeName(file.Name, s_noiseExePatternsForNonGame))
+                    if (!FileSystemHelper.IsNoiseExeName(file.Name, DetectionNoise.NonGameExe))
                         hasNonNoiseExe = true;
                 }
                 else if (ext is ".mp3" or ".flac" or ".ogg" or ".wav" or ".pdf" or ".txt" or ".md" or ".dll" or ".dat" or ".db" or ".ini" or ".json" or ".png" or ".jpg")
@@ -242,16 +269,4 @@ internal static class ContainerScanner
 
         return false;
     }
-
-    /// <summary>
-    /// Noise patterns used by the non-game file-type layer (layer 3). A root exe
-    /// matching these is not game evidence; otherwise a folder with only support
-    /// files is data-only, not a game.
-    /// </summary>
-    private static readonly string[] s_noiseExePatternsForNonGame =
-    [
-        "install", "setup", "unins", "redist", "vcredist", "dxsetup", "oalinst",
-        "launcher", "updater", "bootstrap", "crash", "error", "service", "tool",
-        "editor", "config", "helper", "update",
-    ];
 }

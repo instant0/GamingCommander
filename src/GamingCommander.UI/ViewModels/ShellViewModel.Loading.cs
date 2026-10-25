@@ -135,7 +135,7 @@ public sealed partial class ShellViewModel
         GameMetadataRecord? sidecar = _metadataStore?.Get(game.Id);
         List<string> engineTags = TagNormalizer.SplitList(sidecar?.FetchedEngine);
         List<string> mergedTags = TagNormalizer.Merge(
-            game.Tags, TagNormalizer.FromMetadata(sidecar?.Genre, sidecar?.FetchedEngine));
+            game.Tags.Select(t => t.Name), TagNormalizer.FromMetadata(sidecar?.Genre, sidecar?.FetchedEngine));
         string subtitle = mergedTags.Count > 0 ? $"({string.Join(", ", mergedTags)})" : string.Empty;
 
         // Resolve launch target: prefer steam:// URI over raw exe path

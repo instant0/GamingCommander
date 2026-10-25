@@ -7,7 +7,7 @@ public class GameEntryTagsTests
     private static readonly DateTimeOffset FixedTime = new(2026, 7, 26, 14, 0, 0, TimeSpan.Zero);
 
     private static GameEntry MakeGame(
-        List<string>? tags = null,
+        List<Tag>? tags = null,
         Dictionary<string, string>? userOverrides = null) =>
         new(
             Identity: new IdentityInfo
@@ -50,11 +50,12 @@ public class GameEntryTagsTests
     [Fact]
     public void Tags_PreservesOrder()
     {
-        var game = MakeGame(tags: ["RPG", "Co-op", "Story Rich"]);
+        var game = MakeGame(tags: [Tag.User("RPG"), Tag.User("Co-op"), Tag.User("Story Rich")]);
         Assert.Equal(3, game.Tags.Count);
-        Assert.Equal("RPG", game.Tags[0]);
-        Assert.Equal("Co-op", game.Tags[1]);
-        Assert.Equal("Story Rich", game.Tags[2]);
+        Assert.Equal("RPG", game.Tags[0].Name);
+        Assert.Equal("Co-op", game.Tags[1].Name);
+        Assert.Equal("Story Rich", game.Tags[2].Name);
+        Assert.Equal(TagKind.User, game.Tags[0].Kind);
     }
 
     [Fact]
@@ -79,8 +80,8 @@ public class GameEntryTagsTests
     [Fact]
     public void ScalarFields_Match_ForSameData()
     {
-        var game1 = MakeGame(tags: ["RPG", "Co-op"]);
-        var game2 = MakeGame(tags: ["RPG", "Co-op"]);
+        var game1 = MakeGame(tags: [Tag.User("RPG"), Tag.User("Co-op")]);
+        var game2 = MakeGame(tags: [Tag.User("RPG"), Tag.User("Co-op")]);
 
         Assert.Equal(game1.Id, game2.Id);
         Assert.Equal(game1.DisplayName, game2.DisplayName);
@@ -91,8 +92,8 @@ public class GameEntryTagsTests
     [Fact]
     public void TagsList_ContainsSameElements()
     {
-        var game1 = MakeGame(tags: ["RPG"]);
-        var game2 = MakeGame(tags: ["Co-op"]);
+        var game1 = MakeGame(tags: [Tag.User("RPG")]);
+        var game2 = MakeGame(tags: [Tag.User("Co-op")]);
 
         Assert.Single(game1.Tags);
         Assert.Single(game2.Tags);
@@ -115,8 +116,8 @@ public class GameEntryTagsTests
     [Fact]
     public void WithExpression_CanUpdateTags()
     {
-        var original = MakeGame(tags: ["RPG"]);
-        var updated = original with { Tags = ["RPG", "Co-op"] };
+        var original = MakeGame(tags: [Tag.User("RPG")]);
+        var updated = original with { Tags = [Tag.User("RPG"), Tag.User("Co-op")] };
 
         Assert.Single(original.Tags);
         Assert.Equal(2, updated.Tags.Count);

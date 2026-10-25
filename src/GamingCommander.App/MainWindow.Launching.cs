@@ -86,7 +86,10 @@ public partial class MainWindow
 
             _viewModel.StatusText = $"Launched: {item.Title}";
             if (game is not null)
+            {
+                RecordLaunch(game);
                 QueueSilentMetadataIfStale(game);
+            }
         }
         catch (Exception ex)
         {
@@ -94,5 +97,18 @@ public partial class MainWindow
         }
 
         return Task.CompletedTask;
+    }
+
+    /// <summary>Records a launch in the game's tracking info (Plan 127 B7).</summary>
+    private void RecordLaunch(GameEntry game)
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        TrackingInfo tracking = game.Tracking with
+        {
+            FirstSeen = game.Tracking.FirstSeen ?? now,
+            LastPlayed = now,
+            LaunchCount = game.Tracking.LaunchCount + 1,
+        };
+        _dbService.UpdateGameEntry(game with { Tracking = tracking });
     }
 }

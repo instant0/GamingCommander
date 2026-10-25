@@ -19,7 +19,7 @@ public sealed class GameFilterMatcherTests
             },
             Location: new LocationInfo { FolderPath = @"D:\g", FolderName = name },
             Launch: new LaunchInfo { ExecutablePath = @"D:\g.exe" },
-            Tags: [.. tags],
+            Tags: [.. tags.Select(n => Tag.User(n))],
             UserOverrides: [],
             LastScanned: T,
             LastModified: T);

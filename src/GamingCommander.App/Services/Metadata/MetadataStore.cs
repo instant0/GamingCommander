@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using GamingCommander.Core;
 using GamingCommander.Core.Models;
+using GamingCommander.Core.Services;
 
 namespace GamingCommander.App.Services.Metadata;
 
@@ -64,13 +65,16 @@ public sealed class MetadataStore : IMetadataStore
             _path,
             () => new SidecarFile(),
             JsonFileHelper.DefaultOptions) ?? new SidecarFile();
+        // A sidecar from a newer build is discarded rather than misread.
+        if (!SchemaVersioning.IsReadable(_cache.Version))
+            _cache = new SidecarFile();
         _cache.Entries ??= [];
         return _cache;
     }
 
     private void Save(SidecarFile file)
     {
-        file.Version = file.Version == 0 ? 1 : file.Version;
+        file.Version = SchemaVersioning.Current;
         JsonFileHelper.WriteToFile(_path, file);
         _cache = file;
     }
@@ -78,7 +82,7 @@ public sealed class MetadataStore : IMetadataStore
     private sealed class SidecarFile
     {
         [JsonPropertyName("version")]
-        public int Version { get; set; } = 1;
+        public int Version { get; set; } = SchemaVersioning.Current;
 
         [JsonPropertyName("entries")]
         public Dictionary<string, SidecarEntry> Entries { get; set; } = [];

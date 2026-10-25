@@ -12,19 +12,6 @@ namespace GamingCommander.App.Services;
 /// </summary>
 public sealed class SteamLibraryScanner
 {
-    /// <summary>
-    /// Known Steam-internal directories under steamapps/common that are NOT games.
-    /// Bug 10: "Steam Controller Configs" etc. were reported as Orphaned because
-    /// SteamLibraryScanner does not consult FolderScanner's NoiseSubDirNames.
-    /// This is the Steam-scanner's OWN skip list — it must never filter the literal
-    /// name "steam" (installdirs are arbitrary; "Steam" could be a real game title).
-    /// </summary>
-    private static readonly HashSet<string> s_nonGameCommonFolderNames = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "steam controller configs",
-        "steamworks shared",
-    };
-
     private readonly IReadOnlyList<string> _configuredSteamPaths;
 
     /// <summary>Creates a new scanner with the specified configured Steam library paths.</summary>
@@ -235,6 +222,7 @@ public sealed class SteamLibraryScanner
             Detection = DetectionTierDeriver.Derive(GameSourceKind.Steam),
             Store = new StoreInfo { SteamAppId = acf.AppId },
             Acf = acfInfo,
+            Install = new InstallInfo { State = InstallStateMap.FromStoreStatus(status) },
         };
     }
 
@@ -265,6 +253,7 @@ public sealed class SteamLibraryScanner
             Detection = DetectionTierDeriver.Derive(GameSourceKind.Steam),
             Store = new StoreInfo(),
             Acf = new SteamAcfInfo { Status = "Orphaned" },
+            Install = new InstallInfo { State = InstallState.Orphaned },
         };
     }
 
@@ -314,6 +303,7 @@ public sealed class SteamLibraryScanner
                 StateFlags = acf.StateFlags,
                 ExpectedPath = Path.Combine(acf.LibraryPath, "steamapps", "common", acf.Installdir),
             },
+            Install = new InstallInfo { State = InstallState.Missing },
         };
     }
 
@@ -366,6 +356,6 @@ public sealed class SteamLibraryScanner
     /// </summary>
     private static bool IsNonGameCommonFolder(string folderName)
     {
-        return s_nonGameCommonFolderNames.Contains(folderName);
+        return DetectionNoise.SteamCommonNoise.Contains(folderName);
     }
 }

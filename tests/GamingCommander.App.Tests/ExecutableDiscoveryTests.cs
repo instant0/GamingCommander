@@ -325,6 +325,24 @@ public sealed class ExecutableDiscoveryTests : IDisposable
         Assert.Contains("FlatGame.exe", results[0]);
     }
 
+    [Fact]
+    public void FindPrimaryExecutable_EqualScore_TieBreaksOnBaseName()
+    {
+        // Two root exes with no folder-name relationship and equal size → equal scores.
+        // The deterministic tie-break must pick the alphabetically-first base name.
+        string gameDir = CreateDir("TieGame");
+        CreateExe(gameDir, "bbb.exe");
+        CreateExe(gameDir, "aaa.exe");
+
+        var result = ExecutableDiscovery.FindPrimaryExecutable(
+            new DirectoryInfo(gameDir),
+            Directory.GetFiles(gameDir, "*.exe"),
+            EmptyNoiseExes, EmptyNoiseDirs, []);
+
+        Assert.NotNull(result.ExePath);
+        Assert.EndsWith("aaa.exe", result.ExePath);
+    }
+
     // ════════════════════════════════════════════════════════════════
     //  Helpers
     // ════════════════════════════════════════════════════════════════

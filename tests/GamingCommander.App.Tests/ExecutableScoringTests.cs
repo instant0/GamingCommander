@@ -452,4 +452,48 @@ public sealed class ExecutableScoringTests : IDisposable
         }
         return path;
     }
+
+    // ════════════════════════════════════════════════════════════════
+    //  Python-parity scoring rules (2026-10-14)
+    // ════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void ScoreExecutable_LeadingDashBackup_Penalized()
+    {
+        string good = CreateTempExeWithSize("MyGame.exe", 600_000);
+        string backup = CreateTempExeWithSize("-MyGame.exe", 600_000);
+        int goodScore = ExecutableDiscovery.ScoreExecutable(good, "MyGame", [], [], _ => 999).Score;
+        int backupScore = ExecutableDiscovery.ScoreExecutable(backup, "MyGame", [], [], _ => 999).Score;
+        Assert.True(goodScore > backupScore, $"{goodScore} vs {backupScore}");
+    }
+
+    [Fact]
+    public void ScoreExecutable_UnderscoreCopy_Penalized()
+    {
+        string good = CreateTempExeWithSize("MyGame.exe", 600_000);
+        string copy = CreateTempExeWithSize("MyGame_copy.exe", 600_000);
+        Assert.True(
+            ExecutableDiscovery.ScoreExecutable(good, "MyGame", [], [], _ => 999).Score
+            > ExecutableDiscovery.ScoreExecutable(copy, "MyGame", [], [], _ => 999).Score);
+    }
+
+    [Fact]
+    public void ScoreExecutable_ToolName_Penalized()
+    {
+        string game = CreateTempExeWithSize("MyGame.exe", 600_000);
+        string tool = CreateTempExeWithSize("configtool.exe", 600_000);
+        Assert.True(
+            ExecutableDiscovery.ScoreExecutable(game, "MyGame", [], [], _ => 999).Score
+            > ExecutableDiscovery.ScoreExecutable(tool, "MyGame", [], [], _ => 999).Score);
+    }
+
+    [Fact]
+    public void ScoreExecutable_Between100And500KB_Penalized()
+    {
+        string small = CreateTempExeWithSize("small.exe", 300_000);
+        string big = CreateTempExeWithSize("big.exe", 600_000);
+        Assert.True(
+            ExecutableDiscovery.ScoreExecutable(big, "X", [], [], _ => 999).Score
+            > ExecutableDiscovery.ScoreExecutable(small, "X", [], [], _ => 999).Score);
+    }
 }

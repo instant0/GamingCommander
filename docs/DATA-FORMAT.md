@@ -110,8 +110,8 @@ record; the flat field names are exposed as read-only accessors in code.
 |----------|------|---------|
 | `Identity` | **IdentityInfo** | `Id`, `Library` (anchor), `DisplayName`, `GameSource`, `IsSourceOverridden`, `IdentityKeys[]` |
 | `Location` | **LocationInfo** | `FolderPath`, `FolderName`, `LibraryRoot`, `ActualLibraryRoot`, `GameFolder`, `PreviousLocations[]` |
-| `Launch` | **LaunchInfo** | `ExecutablePath`, `LauncherPath`, `CommandLineArguments`, `ExtraLaunchArguments`, `ManifestPath` |
-| `Tags` | array of string | User tags (F4). Additive merge with metadata tags |
+| `Launch` | **LaunchInfo** | `ExecutablePath`, `LauncherPath`, `CommandLineArguments`, `ExtraLaunchArguments`, `ManifestPath`, `Profiles[]` (`LaunchProfile`: Name, ExecutablePath, Arguments, Environment, WorkingDirectory, RunAsAdmin, Engine — Plan 127 B10) |
+| `Tags` | **Tag[]** | Typed tags `{ Name, Kind (User/Store/Engine/Genre), Color, Auto }` — Plan 127 B13 |
 | `UserOverrides` | object (string→string) | Fields the user manually set (F4); keys are field names (§3), values are ISO timestamps |
 | `GameEngine` | `GameEngineKind` (int) | Detected engine; `Unknown` when no signal |
 | `LastScanned` | ISO-8601 `DateTimeOffset` | When this entry was last produced by a scan |
@@ -120,6 +120,10 @@ record; the flat field names are exposed as read-only accessors in code.
 | `Store` | **StoreInfo** | Typed store identifiers — Steam/GOG/Epic ids (§4) |
 | `Acf` | **SteamAcfInfo** | Steam ACF status/paths/build (§4) |
 | `Epic` | **EpicInfo** | Epic status + `.item` path (§4) |
+| `Install` | **InstallInfo** | Unified `State` (`InstallState` int), `Version`, `UpdateAvailable`, `LastVerified` (Plan 127 B8) |
+| `Tracking` | **TrackingInfo** | `FirstSeen`, `LastPlayed`, `LaunchCount`, `PlayTimeSeconds`, `LastSessionSeconds` (Plan 127 B7) |
+| `UserState` | **UserStateInfo** | `Favourite`, `Hidden`, `Pinned`, `Archived`, `Rating`, `Notes`, `Completion` (`CompletionState` int) (Plan 127 B9) |
+| `Relations` | **RelationsInfo** | `Kind` (`GameKind` int: Game/Dlc/Tool/Demo/Soundtrack/Mod), `ParentId`, `AddOnIds[]` (Plan 127 B11) |
 
 `Identity.Id` is the deterministic ID: `first 16 hex of MD5("{physicalLibraryRoot\|folderName}")`,
 lowercase. `physicalLibraryRoot` is the **physical library folder being scanned** (e.g.
@@ -245,6 +249,24 @@ The `merged` record corresponds to `GameMetadataRecord`:
 
 ---
 
+## 5b. `collections.json` — named collections (Plan 127 B12)
+
+Written by `CollectionsDatabaseService` (`ICollectionsService`). Shape:
+
+| Property | Type | Meaning |
+|----------|------|---------|
+| `version` | int | Schema version (`SchemaVersioning.Current`) |
+| `collections` | object (name → **collection object**) | One entry per collection |
+
+Collection object:
+
+| Property | Type | Meaning |
+|----------|------|---------|
+| `gameIds` | string[] | Explicitly included game ids (manual playlists) |
+| `smartQuery` | string/null | Filter query (F8 syntax); when set the collection is dynamic |
+
+---
+
 ## 6. Persistence invariants
 
 - **Location:** only `{app-base}/data/`. Never write to game installs, the
@@ -255,8 +277,10 @@ The `merged` record corresponds to `GameMetadataRecord`:
   read. JSON property names match the record/DTO property names shown in this document
   (`Identity`, `Location`, `Launch`, `Detection`, `Store`, `Acf`, `Epic`).
 - **Idempotent reads:** a missing/corrupt file returns defaults (empty), never throws.
-- **Skip migration:** existing on-disk data from earlier versions is not migrated
-  (work-in-progress).
+- **Schema versioning (Plan 127 A4):** every file carries a `version` field written as
+  `SchemaVersioning.Current` (Core). On read, a file from a **newer** build is rejected (returned as
+  defaults) rather than silently misread. No migrations exist yet (nothing shipped); a future
+  breaking change bumps `Current` and adds an upgrade step in that file's load path.
 - **Merge rule on rescan:** user overrides survive; scanned values fill the rest;
   `TitleSource` pinned to `PcgwPick`/`UserOverride` is preserved.
 - **Steam aggregation:** one `Steam` anchor owns many physical folders; games are

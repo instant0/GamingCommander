@@ -103,11 +103,11 @@ internal static partial class ExecutableDiscovery
     }
 
     /// <summary>
-    /// UE platform directory names under Binaries/.
+    /// UE platform directory names under Binaries/. Shared via FileSystemHelper.
     /// Matches detect.py _find_game_executables (Win64, WinGDK) + _find_exe_in_subdirs (Win32, Steam).
     /// Linux dropped (Windows-only app).
     /// </summary>
-    private static readonly string[] s_uePlatformNames = ["Win64", "Win32", "WinGDK", "Steam"];
+    private static IReadOnlyList<string> s_uePlatformNames => FileSystemHelper.UePlatformNames;
 
     /// <summary>
     /// Walks subdirectories up to maxDepth, collecting non-noise executables.
@@ -204,8 +204,10 @@ internal static partial class ExecutableDiscovery
             return null;
 
         // Score against the PARENT folder name (not the child) and pick the best.
+        // Deterministic tie-break: score desc, then base filename asc (parity with detect.py).
         var best = candidates
             .OrderByDescending(exe => ScoreExecutable(exe, dir.Name, [], noiseExePatterns, _ => 999).Score)
+            .ThenBy(exe => Path.GetFileName(exe), StringComparer.OrdinalIgnoreCase)
             .First();
         return Path.GetRelativePath(root, best);
     }
@@ -294,14 +296,19 @@ internal static partial class ExecutableDiscovery
                 if (!fname.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
                     continue;
                 // Python noise gate equivalent: skip clearly-noise exes
-                if (IsNoiseExeByPath(full, NoiseSkipForTerminating))
+                if (IsNoiseExeByPath(full, DetectionNoise.NonGameExe))
                     continue;
 
                 string stem = Path.GetFileNameWithoutExtension(fname).ToLowerInvariant();
                 if (StemMatches(stem, folderTokens, folderWhole))
                 {
-                    if (best is null || depth < best.Value.Depth)
+                    // Shallowest wins; deterministic tie-break on relative path.
+                    if (best is null || depth < best.Value.Depth
+                        || (depth == best.Value.Depth
+                            && string.CompareOrdinal(rel, best.Value.RelPath) < 0))
+                    {
                         best = (depth, rel);
+                    }
                 }
             }
         }
@@ -315,16 +322,6 @@ internal static partial class ExecutableDiscovery
         return best?.RelPath;
     }
 
-    /// <summary>
-    /// Noise patterns used ONLY by the terminating rule. Kept deliberately small:
-    /// the exact stem match is the guard. Installers/updaters/bootstraps that
-    /// happen to share the folder name must not terminate.
-    /// </summary>
-    private static readonly string[] NoiseSkipForTerminating =
-    [
-        "install", "setup", "updater", "launcher", "bootstrap", "unins",
-        "redist", "vcredist", "dxsetup", "oalinst", "crash",
-    ];
     /// <summary>
     /// Removes platform/binary-type tokens from a letters+digits name key so
     /// "mygamewin64shipping" compares equal to folder key "mygame".
@@ -389,12 +386,14 @@ internal static partial class ExecutableDiscovery
             return new PrimaryExeResult(candidates[0], result.FileDescription, candidates);
         }
 
-        // Score all candidates and pick the best
+        // Score all candidates and pick the best.
+        // Deterministic tie-break: score desc, then base filename asc (parity with detect.py).
         string folderNameForScoring = dir.Name;
         Func<string, int> lookup = tierLookup ?? (_ => 999);
         var scored = candidates
             .Select(exe => (Exe: exe, Result: ScoreExecutable(exe, folderNameForScoring, launcherPatterns, noiseExePatterns, lookup)))
             .OrderByDescending(x => x.Result.Score)
+            .ThenBy(x => Path.GetFileName(x.Exe), StringComparer.OrdinalIgnoreCase)
             .First();
         return new PrimaryExeResult(scored.Exe, scored.Result.FileDescription, candidates);
     }

@@ -56,8 +56,13 @@ internal static partial class ExecutableDiscovery
         if (launcherPatterns.Any(p => name.Contains(p)))
             score -= 20;
 
-        // Penalize backup copies / cracks / org groups (org_ and 12-org-game)
-        if (name.Contains("copy of") || name.Contains(" - copy"))
+        // Leading-dash backup (`-Name.exe`) — detect.py _pick_best_root_exe
+        if (name.StartsWith("-", StringComparison.Ordinal))
+            score -= 15;
+
+        // Penalize backup copies / cracks / org groups (parity with detect.py)
+        if (name.Contains("copy of") || name.Contains(" - copy")
+            || name.Contains("_copy") || name.EndsWith(" copy", StringComparison.Ordinal))
             score -= 25;
         else if (name.Contains("org_", StringComparison.Ordinal)
                  || name.Contains("-org-", StringComparison.Ordinal)
@@ -66,9 +71,15 @@ internal static partial class ExecutableDiscovery
                  || name.StartsWith("org-", StringComparison.Ordinal)
                  || Regex.IsMatch(name, @"^\d{1,3}-org"))
             score -= 25;
+        else if (Regex.IsMatch(name, @"^\d{1,3}_org"))
+            score -= 15; // numbered underscore backup (N_org_)
         else if (name.Contains("original"))
             score -= 15;
         if (name.Contains("crack"))
+            score -= 25;
+
+        // Specific tool binaries (detect.py _TOOL_NAMES) — never the game
+        if (s_toolNames.Any(t => name.Contains(t, StringComparison.Ordinal)))
             score -= 25;
 
         // Classic main binary names (Silent Storm, many 2000s titles)
@@ -85,6 +96,8 @@ internal static partial class ExecutableDiscovery
             fileSize = new FileInfo(exePath).Length;
             if (fileSize < 100_000) // < 100KB
                 score -= 15;
+            else if (fileSize < 500_000) // < 500KB
+                score -= 5;
         }
         catch { }
 
@@ -129,9 +142,9 @@ internal static partial class ExecutableDiscovery
             || pathLower.Contains(@"\shipping\"))
             score += 12;
 
-        // File size bonus: up to +5 for very large files (>= 100MB)
+        // File size bonus: up to +10 for very large files (>= 100MB), parity with detect.py.
         // Uses cached fileSize from above (Plan 112 Step 4B)
-        score += (int)Math.Min(fileSize / 20_000_000, 5);
+        score += (int)Math.Min(fileSize / 10_000_000, 10);
 
         // PE metadata: skip read for confirmed-noise candidates (Plan 112 Step 4C).
         // A -30 penalty from Tier 1-4 noise cannot be rescued by PE metadata bonuses.
@@ -226,5 +239,16 @@ internal static partial class ExecutableDiscovery
     [
         ("2", "ii"), ("3", "iii"), ("4", "iv"), ("5", "v"),
         ("6", "vi"), ("7", "vii"), ("8", "viii"), ("9", "ix"),
+    ];
+
+    /// <summary>
+    /// Specific tool/editor binary names (detect.py <c>_TOOL_NAMES</c>) — always non-game.
+    /// Broader than the blacklist tiers; these are exact tool identifiers.
+    /// </summary>
+    private static readonly string[] s_toolNames =
+    [
+        "faces viewer", "ini editor", "luaedit", "map editor", "profile editor",
+        "xml editor", "configtool", "config tool", "autorun", "setupanox",
+        "dparse", "particleman", "videoconfig", "afscmd", "drv_",
     ];
 }

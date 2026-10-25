@@ -13,8 +13,8 @@ public sealed record GameEntry(
     LocationInfo Location,
     /// <summary>How the game is launched.</summary>
     LaunchInfo Launch,
-    /// <summary>User-defined tags (e.g., "RPG", "Co-op", "Story Rich").</summary>
-    List<string> Tags,
+    /// <summary>Typed tags (user + auto-derived engine/genre) — Plan 127 B13.</summary>
+    List<Tag> Tags,
     /// <summary>Fields manually set by the user via F4; values are ISO timestamps.</summary>
     Dictionary<string, string> UserOverrides,
     /// <summary>Detected game engine (Plan 102 Phase 2). Unknown when no signal.</summary>
@@ -35,6 +35,18 @@ public sealed record GameEntry(
 
     /// <summary>Epic Games Store metadata (Plan 127 A2).</summary>
     public EpicInfo Epic { get; init; } = new();
+
+    /// <summary>Unified install state + version (Plan 127 B8).</summary>
+    public InstallInfo Install { get; init; } = new();
+
+    /// <summary>Usage tracking — last played, launch count, play time (Plan 127 B7).</summary>
+    public TrackingInfo Tracking { get; init; } = new();
+
+    /// <summary>User-owned state — favourite/hidden/rating/notes/completion (Plan 127 B9).</summary>
+    public UserStateInfo UserState { get; init; } = new();
+
+    /// <summary>Kind + parent/add-on links (Plan 127 B11).</summary>
+    public RelationsInfo Relations { get; init; } = new();
 
     // ── Read-only convenience accessors (historical flat surface) ──────────────
 

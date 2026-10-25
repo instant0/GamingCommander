@@ -5,10 +5,8 @@
 ## Next (directive 2026-10-14: DETECTION FIRST)
 
 1. **Plan 123 — detection closeout (essentially done).** E6a ✅, ScanDepth ✅, confidence-tier marking ✅ (Plan 127 A3). **Remaining (process only):** run the amended review gate over the final Python scanner; refresh `planning/103` notes.
-2. **Plan 127 — continue persistence v2** (`planning/127-persistence-v2.md`). Next slices in order:
-   - **A4 (schema versioning)** — add a version + migrator hook to each file; then **B7/B8/B9** (tracking/install/user-state); then B10–B13.
-   - Done: A1 (composed `GameEntry`), A2 (bag retired), A3 (tier/provenance), A5 (identity reconciliation), A6 (file ownership), `ScanDepth`.
-   - A5 follow-ups (not blocking): cross-library move reconciliation; explicit `InstallState.Missing` marker.
+2. **Plan 127 — persistence v2: A + B COMPLETE** (`planning/127-persistence-v2.md`). Done: A1–A6 and B7–B13. Remaining: **C** (`Extensions{}` / emulator/ROM model) — deferred; and follow-ups (launch-profile picker UI, `Relations.Kind` scanner wiring, collections UI, per-tag colour, play-time tracking).
+   - With A/B done, the next product priorities are: **Plan 123 amended review gate** (process) and, once detection is confirmed working, **SyncMove Phase 2.1** (currently deferred).
 3. **Detection from manifest files (read-only)** — ensure Epic/Steam/GOG detection identifies games from existing `.item`/`.mancpn`/`.manifest`/ACF files. No manifest writing.
 
 ## Deferred (do NOT start)

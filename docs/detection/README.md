@@ -13,6 +13,7 @@ behavior is validated here FIRST, then ported to C#.
 | `06-deep-scan-fallbacks.md` | Deep signal scan, engine detection, `.lnk`, GOG metadata, non-game filter layers, UE-aware filter, `install` audit. |
 | `07-csharp-parity.md` | C# ↔ Python gaps, which 2026-09-07 fixes must be ported, port order. |
 | `08-validation.md` | Verification tools, current green results, fixture layout, real corpora, regression rules. |
+| `09-blueprint.md` | **Full-scope blueprint:** pipeline, signals, tiers, containers, scoring, titles, engines, catalogs, diagnostics, validation, **overlap/duplication backlog**, and the two-way C#↔Python sync plan. |
 
 Related: `planning/123-detection-bugfixes.md` (the plan), `planning/103-detect-py-port-status.md`
 (parity matrix), `META/SESSION/CURRENT.md` (session state).

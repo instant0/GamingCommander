@@ -9,8 +9,8 @@ namespace GamingCommander.App.Services;
 /// </summary>
 internal static class FallbackSignalDetector
 {
-    /// <summary>UE platform directory names under Binaries/. Matches ExecutableDiscovery.</summary>
-    private static readonly string[] s_uePlatformNames = ["Win64", "Win32", "WinGDK", "Steam"];
+    /// <summary>UE platform directory names under Binaries/. Shared via FileSystemHelper.</summary>
+    private static IReadOnlyList<string> s_uePlatformNames => FileSystemHelper.UePlatformNames;
 
     /// <summary>
     /// Tests fallback signals in priority order and returns the first match.

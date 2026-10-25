@@ -76,7 +76,7 @@ public partial class GameSetupWindow : Window
         ExtraLaunchArguments = game.ExtraLaunchArguments;
         _catalog = catalog ?? [];
         ManifestPath = game.ManifestPath;
-        _currentTags = new List<string>(game.Tags);
+        _currentTags = game.Tags.Select(t => t.Name).ToList();
         TagsInput = TagNormalizer.ToCommaSeparated(_currentTags);
 
         this.FindControl<TextBlock>("TitleText")!.Text = $"Configure: {game.DisplayName}";
@@ -554,7 +554,7 @@ public partial class GameSetupWindow : Window
                 ExtraLaunchArguments = ExtraLaunchArguments,
                 ManifestPath = ManifestPath,
             },
-            Tags = newTags,
+            Tags = newTags.Select(n => GamingCommander.Core.Models.Tag.User(n)).ToList(),
             UserOverrides = userOverrides,
             Detection = detection,
         };

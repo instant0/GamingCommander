@@ -35,6 +35,8 @@ Verified by reading the latest commits (`d2da6d7`, `3027f4f`, `d6a3306`, `9b28f8
 - Added `META/TASKS/phase-j-followups/` tracker (T78 deferred, T79 detection P0, T80 SyncMove deferred).
 
 ### Implemented this session (code)
+- **Detector review P1 (2026-10-14):** small noise sets centralized in `DetectionNoise` (`NonGameExe`, `LnkSkip`, `SteamCommonNoise`); container non-game layer + terminating-rule gate now share one `NonGameExe` set (parity with Python's fuller noise gate); `SteamLibraryScanner`/`LnkParser`/`ContainerScanner`/`ExecutableDiscovery` de-duplicated. Remaining P1: title canonicalization (O9), SteamEmu design call, Epic engine detection.
+- **Detector review (2026-10-14):** full-scope blueprint at `docs/detection/09-blueprint.md` (pipeline, signals, tiers, containers, scoring, titles, engines, catalogs, diagnostics, validation, **overlap/duplication backlog**, two-way sync plan, **prioritized backlog**). C# corrections: deterministic exe tie-break (3 sites); Python scoring parity (leading-dash −15, `_copy` −25, `N_org_` −15, tool-name −25, `<500KB` −5, size cap `/10M,+10`); container deep-signal parity (SteamEmu/Ubisoft-legacy/root `.lnk` + authoritative over data-only layer); dead `EpicManifestParser.NormalizePath` removed. **P0 follow-ups done:** UE platform-list dedup (`FileSystemHelper.UePlatformNames`), registry store-priority aligned to filesystem order, Plan 123 review gate closed. Python synced with C# strengths (whole-name +40, classic +18, UE shipping +28/path +12); matrix 22/22. +6 tests.
 - **E6a:** `"tool"` added to `data/blacklist.json` `tier_10_dev_editor_tools`.
 - **Configurable scan depth:** `AppConfig.ScanDepth` (default 3, clamp 1–5) → `JsonConfigService` round-trip → `FolderScanner` → `ExecutableDiscovery.FindPrimaryExecutable`/`FindExecutablesDeep` recursive fallback. 3 new tests.
 - **Detection tier (Plan 127 A3 / T79):** `IdentificationTier` enum, `DetectionInfo` + `StoreInfo` records, `DetectionTierDeriver`; wired into `FolderScanner`, `SteamLibraryScanner` (3 paths), `EpicLibraryScanner` (2 paths); persisted in `games.json` DTO.
@@ -42,8 +44,11 @@ Verified by reading the latest commits (`d2da6d7`, `3027f4f`, `d6a3306`, `9b28f8
 - **Plan 127 A1 (GameEntry composed):** `GameEntry` is now `Identity` + `Location` + `Launch` (positional) + `Detection`/`Store`/`Acf`/`Epic` (body), with flat names as read-only accessors. All 9 constructors, `with` expressions, DTO mapping, and tests migrated. The JSON shape is now nested.
 - **Plan 127 A5 (identity reconciliation):** `IdentityKey`/`IdentityKeyKinds`, `IdentityInfo.IdentityKeys`, `LocationInfo.PreviousLocations`, `GameIdentity.WithRebuiltKeys`, and move reconciliation in `SetGamesForLibrary` (`FindRelocated`): strong store-id keys match regardless of disk; the weak folder-name key matches only when the old folder is gone; the existing `Id` + sidecar are preserved and the old path appended to `PreviousLocations`. 5 new tests. `Id` stays folder-derived (deviation — reconciliation preserves it).
 - **Plan 127 A6 (file ownership):** sidecar `SteamAppId`/`GogGameId`/`Engine` renamed to `FetchedSteamAppId`/`FetchedGogGameId`/`FetchedEngine` (they are fetched PCGW/Steam values, not the detected `GameEntry.Store`/`GameEngine`); `GameMetadataRecord` XML docs + `docs/DATA-FORMAT.md` §5 now state `games.json` is authoritative and the sidecar owns fetched enrichment only.
+- **Plan 127 A4 (schema versioning):** `SchemaVersioning.Current` + `IsReadable` (Core); all four files (`settings.json`, `libraries.json`, `games.json`, `games_metadata.json`) write `version` as current and discard a newer-version file on read. Lean mechanism (no speculative migrator registry). 5 new tests.
+- **Plan 127 B7/B8/B9:** `TrackingInfo`, `InstallInfo`+`InstallState`, `UserStateInfo`+`CompletionState` added to `GameEntry` and persisted; `Install.State` set by the Steam/Epic/Folder scanners via `InstallStateMap`; launch tracking (`LastPlayed`/`LaunchCount`/`FirstSeen`) wired in `MainWindow.RecordLaunch`. B8 scoped to avoid duplicating `SteamAcfInfo`'s size/build fields.
+- **Plan 127 B10–B13:** `LaunchProfile[]` on `LaunchInfo` (B10); `RelationsInfo`/`GameKind` on `GameEntry` (B11); `Collection` + `ICollectionsService` + `CollectionsDatabaseService` writing `data/collections.json` (B12); typed `Tag`/`TagKind` replacing `List<string> Tags` across 12 files (B13).
 - **Plan 127 written** (`planning/127-persistence-v2.md`) — full A/B/C spec incl. identity (A5) + file ownership (A6) + deferred `Extensions{}`/emulator (C); revised for the no-back-compat clean-cut policy.
-- **Build/tests:** 0 errors; **583 pass / 0 fail** (Core 163 + Migration 1 + App 419; was 564 at session start).
+- **Build/tests:** 0 errors; **607 pass / 0 fail** (Core 173 + Migration 1 + App 433; was 564 at session start).
 - **Doc corrections:** `docs/detection/05`/`06`/`07` stale gap claims; Epic `.item` recreation marked DEFERRED.
 
 ### Back-compat policy (2026-10-14)
@@ -57,8 +62,10 @@ Verified by reading the latest commits (`d2da6d7`, `3027f4f`, `d6a3306`, `9b28f8
 ### Open TECH_DEBT (remaining)
 - Bug 12 — library-type ComboBox too narrow (`MinWidth`).
 - EA format caveat — research doc based on staged install only.
-- Plan 127 A4 (schema versioning), B7–B13 (tracking, install state, user state, launch profiles, relationships, collections, typed tags).
-- Plan 123 amended review gate (process).
+- Plan 127 C (`Extensions{}` / emulator/ROM model) — deferred.
+- Plan 127 follow-ups: launch-profile picker UI; `Relations.Kind` scanner wiring; collections UI; per-tag colour; play-time tracking.
+- Plan 123 amended review gate — **CLOSED** (agent, 2026-10-14; pending human sign-off).
+- Detector P1 backlog (`docs/detection/09-blueprint.md` §14): noise exe/dir list consolidation (O1/O2), title canonicalization (O9), SteamEmu design call, Epic engine detection.
 - SDK .NET 8→9 — deferred indefinitely.
 
 ## Prior session context (superseded)

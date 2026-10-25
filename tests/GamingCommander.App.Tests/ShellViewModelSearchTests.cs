@@ -142,7 +142,7 @@ public sealed class ShellViewModelSearchTests
             },
             Location: new LocationInfo { FolderPath = @"C:\SteamLib\common\HalfLife", FolderName = "HalfLife" },
             Launch: new LaunchInfo { ExecutablePath = @"C:\SteamLib\common\HalfLife\hl.exe" },
-            Tags: ["FPS"],
+            Tags: [Tag.User("FPS")],
             UserOverrides: new Dictionary<string, string>(),
             LastScanned: DateTimeOffset.UtcNow,
             LastModified: DateTimeOffset.UtcNow)
@@ -229,7 +229,7 @@ public sealed class ShellViewModelSearchTests
             },
             Location: new LocationInfo { FolderPath = $@"{RootA}\{folder}", FolderName = folder },
             Launch: new LaunchInfo { ExecutablePath = $@"{RootA}\{folder}\game.exe" },
-            Tags: tags.ToList(),
+            Tags: tags.Select(n => Tag.User(n)).ToList(),
             UserOverrides: new Dictionary<string, string>(),
             LastScanned: DateTimeOffset.UtcNow,
             LastModified: DateTimeOffset.UtcNow);

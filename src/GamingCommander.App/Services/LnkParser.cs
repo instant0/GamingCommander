@@ -9,12 +9,6 @@ namespace GamingCommander.App.Services;
 /// </summary>
 internal static partial class LnkParser
 {
-    // DLLs and patterns to skip (not real game exes)
-    private static readonly HashSet<string> s_skipExeNames = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "steam_api.dll", "steam_api64.dll", "eos.dll", "upc.dll",
-    };
-
     /// <summary>
     /// Extracts the target .exe filename from a .lnk shortcut file.
     /// Returns true if a valid exe name was found.
@@ -35,7 +29,7 @@ internal static partial class LnkParser
             foreach (Match m in matches)
             {
                 string candidate = m.Value;
-                if (s_skipExeNames.Contains(candidate)) continue;
+                if (DetectionNoise.LnkSkip.Contains(candidate)) continue;
                 if (best is null || candidate.Length > best.Length)
                     best = candidate;
             }

@@ -1,5 +1,6 @@
 using GamingCommander.Core;
 using GamingCommander.Core.Models;
+using GamingCommander.Core.Services;
 
 namespace GamingCommander.App.Services;
 
@@ -24,7 +25,7 @@ public sealed class JsonConfigService : IConfigService
         ConfigDto? loaded = JsonFileHelper.ReadFromFile<ConfigDto>(
             _configPath,
             () => new ConfigDto());
-        if (loaded is null)
+        if (loaded is null || !SchemaVersioning.IsReadable(loaded.Version))
         {
             return new AppConfig(HiddenFolders: [], IsFirstRun: true);
         }
@@ -43,6 +44,7 @@ public sealed class JsonConfigService : IConfigService
     {
         var dto = new ConfigDto
         {
+            Version = SchemaVersioning.Current,
             HiddenFolders = config.HiddenFolders.ToList(),
             IsFirstRun = config.IsFirstRun,
             LastSeenVersion = config.LastSeenVersion,
@@ -55,6 +57,7 @@ public sealed class JsonConfigService : IConfigService
 
     private sealed class ConfigDto
     {
+        public int Version { get; set; } = SchemaVersioning.Current;
         public List<string>? HiddenFolders { get; set; }
         public bool IsFirstRun { get; set; }
         public string? LastSeenVersion { get; set; }

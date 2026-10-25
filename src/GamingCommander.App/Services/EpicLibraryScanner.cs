@@ -105,6 +105,7 @@ internal sealed class EpicLibraryScanner
                     EpicAppName = item.AppName,
                 },
                 Epic = new EpicInfo { Status = epicStatus, ItemPath = item.ItemFilePath },
+                Install = new InstallInfo { State = InstallStateMap.FromStoreStatus(epicStatus) },
             });
         }
 
@@ -125,6 +126,7 @@ internal sealed class EpicLibraryScanner
             {
                 Detection = DetectionTierDeriver.Derive(GameSourceKind.Epic, epicStatus: "Orphaned"),
                 Epic = game.Epic with { Status = "Orphaned" },
+                Install = game.Install with { State = InstallState.Orphaned },
                 Location = game.Location with
                 {
                     GameFolder = folder,

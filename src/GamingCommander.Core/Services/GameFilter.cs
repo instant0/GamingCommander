@@ -53,7 +53,7 @@ public static class GameFilterMatcher
         var stores = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach ((GameEntry game, IEnumerable<string> extra) in rows)
         {
-            foreach (string tag in game.Tags.Concat(extra))
+            foreach (string tag in game.Tags.Select(t => t.Name).Concat(extra))
             {
                 if (!string.IsNullOrWhiteSpace(tag))
                     tags.Add(tag.Trim());
@@ -74,7 +74,7 @@ public static class GameFilterMatcher
         GameSourceParser.ToDisplayName(game.GameSource);
 
     private static bool HasTag(GameEntry game, string tag, IReadOnlyList<string> extra) =>
-        game.Tags.Concat(extra).Any(t => t.Equals(tag, StringComparison.OrdinalIgnoreCase));
+        game.Tags.Select(t => t.Name).Concat(extra).Any(t => t.Equals(tag, StringComparison.OrdinalIgnoreCase));
 
     private static bool Wildcard(GameEntry game, string needle, IReadOnlyList<string> extra)
     {
@@ -85,6 +85,6 @@ public static class GameFilterMatcher
             return true;
         }
 
-        return game.Tags.Concat(extra).Any(t => t.Contains(needle, StringComparison.OrdinalIgnoreCase));
+        return game.Tags.Select(t => t.Name).Concat(extra).Any(t => t.Contains(needle, StringComparison.OrdinalIgnoreCase));
     }
 }

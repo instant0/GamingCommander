@@ -1,5 +1,6 @@
 using GamingCommander.Core;
 using GamingCommander.Core.Models;
+using GamingCommander.Core.Services;
 
 namespace GamingCommander.App.Services;
 
@@ -24,7 +25,7 @@ public sealed class LibrariesDatabaseService : ILibrariesService
             LibrariesDto? dto = JsonFileHelper.ReadFromFile<LibrariesDto>(
                 _librariesPath,
                 () => new LibrariesDto());
-            if (dto?.Libraries is null)
+            if (dto?.Libraries is null || !SchemaVersioning.IsReadable(dto.Version))
                 return [];
 
             return dto.Libraries
@@ -66,26 +67,30 @@ public sealed class LibrariesDatabaseService : ILibrariesService
         LibrariesDto? dto = JsonFileHelper.ReadFromFile<LibrariesDto>(
             _librariesPath,
             () => new LibrariesDto());
-        if (dto?.Libraries is null || !dto.Libraries.TryGetValue(name, out LibraryDto? lib) || lib is null)
+        if (dto?.Libraries is null || !SchemaVersioning.IsReadable(dto.Version)
+            || !dto.Libraries.TryGetValue(name, out LibraryDto? lib) || lib is null)
             return null;
         return new Library(name, lib.Type, lib.Folders ?? []);
     }
 
     private LibrariesDto ReadDto()
     {
-        return JsonFileHelper.ReadFromFile<LibrariesDto>(
+        LibrariesDto dto = JsonFileHelper.ReadFromFile<LibrariesDto>(
             _librariesPath,
             () => new LibrariesDto()) ?? new LibrariesDto();
+        // A file from a newer build is discarded rather than rewritten as current.
+        return SchemaVersioning.IsReadable(dto.Version) ? dto : new LibrariesDto();
     }
 
     private void Write(LibrariesDto dto)
     {
+        dto.Version = SchemaVersioning.Current;
         JsonFileHelper.WriteToFile(_librariesPath, dto);
     }
 
     private sealed class LibrariesDto
     {
-        public int Version { get; set; } = 1;
+        public int Version { get; set; } = SchemaVersioning.Current;
         public Dictionary<string, LibraryDto>? Libraries { get; set; }
     }
 
