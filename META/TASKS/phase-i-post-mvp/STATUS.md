@@ -20,9 +20,9 @@
 
 | # | Task | Phase | Priority | Status |
 |---|------|-------|----------|--------|
-| T72 | [Top-level mode switcher](T72-top-level-mode-switcher.md) | 1 | P2 | Pending |
-| T73 | Flatten library view | 2 | P2 | Pending (not yet written) |
-| T74 | [Game filter (F5) + user-editable tags](T74-game-filter-and-tags.md) | 3 | P2 | **Superseded in part** — F8/S filter shipped 2026-08-22 (not this task’s F5 design) |
+| T72 | [Top-level mode switcher](T72-top-level-mode-switcher.md) | 1 | P2 | Pending (stale; see T99) |
+| T73 | Flatten library view | 2 | P2 | Pending (no doc; see T99) |
+| T74 | [Game filter (F5) + user-editable tags](T74-game-filter-and-tags.md) | 3 | P2 | Superseded/Complete (F4/F8 shipped) |
 
 ---
 

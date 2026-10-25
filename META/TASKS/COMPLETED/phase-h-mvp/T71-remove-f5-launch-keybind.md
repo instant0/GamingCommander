@@ -4,7 +4,7 @@
 **Phase:** H — MVP (post-UX polish)
 **Effort:** ~10 min
 **Risk:** Low
-**Status:** Pending
+**Status:** Complete (2026-07-26)
 **Prerequisites:** None
 **WP:** WP-4 (UX polish)
 

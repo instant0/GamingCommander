@@ -15,8 +15,8 @@
 > - **Confidence-tier marking DONE** — `IdentificationTier` enum, `DetectionInfo` record, `StoreInfo`
 >   record, `DetectionTierDeriver`, wired into `FolderScanner`, `SteamLibraryScanner` (all 3 paths),
 >   `EpicLibraryScanner` (both paths), persisted in `games.json` DTO, tested (14 new tests). See Plan 127 A3.
-> - **Remaining (process only):** run the amended review gate over the final Python scanner; refresh
->   `planning/103` notes.
+> - **Review gate CLOSED (agent, 2026-10-14; human sign-off pending).** The `planning/103` note
+>   refresh is tracked in `T87`; no code work remains.
 
 ---
 
@@ -29,24 +29,22 @@ E1/E4/E5/E6/E7/E8.**
 
 ## What Needs to Change
 
-### 1. Confidence-tier marking (§0.1)
-**File:** `src/GamingCommander.Core/Models/PlatformMetadataKeys.cs`
+### 1. Confidence-tier marking (§0.1) — shipped
+**Shipped files:**
+- `src/GamingCommander.Core/Models/IdentificationTier.cs` — enum (`Locked`, `Secure`, `Candidate`, `Unknown`).
+- `src/GamingCommander.Core/Models/DetectionInfo.cs` — record carrying the tier and title provenance.
+- `src/GamingCommander.App/Services/DetectionTierDeriver.cs` — derives `DetectionInfo` from signals the scanners already produced.
+
 **Actions:**
-- [ ] Add `public const string IdentificationTier = "IdentificationTier";` (persisted value — never rename).
-
-**New file:** `src/GamingCommander.App/Services/IdentificationTier.cs`
-**Content:** a small static helper `Derive(GameSourceKind source, bool hasAuthoritativeManifest, bool hasStoreSignal, bool hasTitleEvidence)` returning `"Locked" | "Secure" | "Candidate" | "Unknown"`:
-- Steam structural path → `Locked`.
-- Epic global `.item` matched to InstallLocation → `Locked`.
-- Epic local `.item`/`.mancpn`, other store marker, registry fallback → `Secure`.
-- Root exe / engine layout / container child with evidence → `Candidate`.
-- No signal → `Unknown`.
-
-**Wiring:**
-- [ ] `FolderScanner` (`StoreMetadataEnricher` / `AddGameEntry`) writes `IdentificationTier` from the signals that produced the entry.
-- [ ] `SteamLibraryScanner` writes `IdentificationTier = "Locked"`.
-- [ ] `EpicLibraryScanner` writes `Locked` (global `.item`) / `Secure` (local).
-- [ ] Tier is additive metadata only — it must **not** overwrite a `UserOverrides`-pinned field or a `Locked` title on rescan.
+- [x] `IdentificationTier`/`DetectionInfo` replace the old key-based metadata carrier.
+- [x] `DetectionTierDeriver.Derive(...)` returns `Locked` / `Secure` / `Candidate` / `Unknown`:
+  - Steam structural path → `Locked`.
+  - Epic global `.item` matched to InstallLocation → `Locked`.
+  - Epic local `.item`/`.mancpn`, other store marker, registry fallback → `Secure`.
+  - Root exe / engine layout / container child with evidence → `Candidate`.
+  - No signal → `Unknown`.
+- [x] Wired into `FolderScanner`, `SteamLibraryScanner` (all 3 paths), and `EpicLibraryScanner` (both paths).
+- [x] Persisted as `Detection` in the `games.json` DTO; additive metadata only — does not overwrite user overrides or pinned titles on rescan.
 
 ### 2. E6a — bare `"tool"` penalty
 **File:** `data/blacklist.json`
@@ -65,7 +63,7 @@ E1/E4/E5/E6/E7/E8.**
 
 - `docs/detection/07-csharp-parity.md` §2 = "ALL PORTED"; §3 lists the only remaining gaps.
 - `docs/detection/04-containers.md` §6 records the dropped single-child rule.
-- §0.1 specifies the tier carrier is `PlatformMetadata` (not a new independent model field).
+- §0.1 proposed a key-based tier carrier; the shipped design uses the dedicated `DetectionInfo` record on `GameEntry` instead.
 - Constraint: constants values are pinned by contract tests — `IdentificationTier` value strings are persisted, so add a pin test.
 
 ## Requirements
@@ -90,4 +88,4 @@ E1/E4/E5/E6/E7/E8.**
 - **What was done:** E6a (`"tool"` in `blacklist.json` tier 10); configurable `AppConfig.ScanDepth` (default 3) threaded into the exe fallback; confidence-tier marking via `IdentificationTier` + `DetectionInfo` + `StoreInfo` + `DetectionTierDeriver`, wired into the generic, Steam, and Epic scanners and persisted in `games.json`.
 - **Verification:** `dotnet build` 0 errors; `dotnet test` **581 pass / 0 fail** (+14 tests: deriver + config + depth + DTO round-trip).
 - **Issues encountered:** the "3-level fallback" gap was a documentation error, not a code gap.
-- **Remaining (process):** amended review gate over the final Python scanner; `planning/103` note refresh.
+- **Review gate:** CLOSED (agent, 2026-10-14; human sign-off pending). `planning/103` refresh tracked in `T87`.

@@ -4,7 +4,7 @@
 **Phase:** F — Docs & Bug Fixes
 **Effort:** ~15 min
 **Risk:** Minimal
-**Status:** pending
+**Status:** completed
 
 ---
 
@@ -54,7 +54,7 @@ These tasks were completed during a previous session but the task files were not
 
 ## Completion Notes
 
-- **Completed:**
-- **What was done:**
-- **Verification:**
-- **Issues encountered:**
+- **Completed:** 2026-10-25
+- **What was done:** Verified the stated condition is already met. Phase D T16, T18, T19, T20, T21, and T22 all have `**Status:** ✅ completed` and non-empty completion notes dated 2026-07-19. No further edits were needed.
+- **Verification:** `grep` over the six phase-D docs shows `completed` status and a completion date for each; no phase-D task remains pending.
+- **Issues encountered:** None.

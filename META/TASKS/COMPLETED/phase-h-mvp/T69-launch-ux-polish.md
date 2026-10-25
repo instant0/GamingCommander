@@ -4,7 +4,7 @@
 **Phase:** H — MVP
 **Effort:** ~10 min
 **Risk:** Minimal
-**Status:** Pending
+**Status:** Complete (2026-07-26)
 **Prerequisites:** T71 (Remove F5 first to avoid verifying a removed keybind)
 **WP:** WP-4
 

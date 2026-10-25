@@ -35,10 +35,11 @@ If new work or a split is warranted, hand it to `tasks-plan`.
 ## Steps
 
 1. **CONSOLIDATE**
-   - Merge `## Completion Notes` + changed paths into `META/SESSION/CURRENT.md` as a concise
-     bullet (state what changed and the verification counts). Point to the task doc for detail —
-     do not duplicate the whole note.
-   - Merge durable findings into the master named by `## Context`:
+   - Do **not** copy `## Completion Notes` into `META/SESSION/CURRENT.md`. Update it only if the
+     state, blockers, or verification baseline actually changed — as a slim state entry with no
+     task ID and no per-task narrative.
+   - Merge durable findings into the master named by `## Context`, describing the **subject** and
+     its current state. Never cite the task ID or "task X did Y" in the master:
      - plan doc → refresh its `**Status:**` / findings / revision note;
      - `docs/<area>/*` → update the relevant section.
    - Keep each master ≤ ~500 lines and inside its area. If it would exceed that or needs
@@ -78,3 +79,5 @@ and restore the task doc's status, using the SAME ID. Never mint a new ID.
 - Task docs stay plan + `## Completion Notes`.
 - `STATUS.md` row labels and `META/SESSION/NEXT.md` are not written here.
 - Read headers, not whole documents, except the one master being consolidated.
+- Never write a task ID into a non-task document (`planning/`, `docs/`, `CURRENT.md`, roadmap,
+  code map, backlog, completed records).

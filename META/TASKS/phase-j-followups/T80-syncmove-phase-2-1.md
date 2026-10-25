@@ -4,7 +4,7 @@
 **Phase:** J — Post-126 Follow-ups
 **Effort:** ~3–4 hours (split into slices)
 **Risk:** High (writes launcher manifests — safety-critical)
-**Status:** Pending
+**Status:** Deferred
 **Prerequisites:** Plan 124 anchor model (done); Plan 123 §8.3 `libraryfolders.vdf` bootstrap (for cross-library ACF, can be deferred)
 
 ---

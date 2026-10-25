@@ -93,6 +93,13 @@ Avoid unnecessary network-dependent tests.
 - After successful build and test: `Build clean, continuing with <next task>`
 - Do not provide large summaries unless explicitly requested.
 
+## Documentation Hygiene
+
+- `META/SESSION/CURRENT.md` is a **slim state tracker**, not a session journal: current state, active-queue pointer, blockers, verification baseline, updated date. No feature narratives, task history, or per-change logs.
+- Task descriptions live only in `META/TASKS/**`. `META/SESSION/NEXT.md` is the ordered work queue; each phase `STATUS.md` is its tracker. Those are the only places task IDs belong.
+- **Do not reference task IDs, or "task X did Y", in planning docs, product docs, architecture, roadmap, code map, backlog, completed records, or CURRENT.md.** Describe the subject and its current state; the task doc is the provenance.
+- Completed tasks are removed from active `STATUS.md` trackers; the task doc remains the record. Never renumber or reorder the remaining rows.
+
 ## After Context Compaction
 
 After any context reset or compaction, provide only:

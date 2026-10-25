@@ -4,7 +4,7 @@
 **Phase:** H — MVP
 **Effort:** ~2–3 hours
 **Risk:** Medium
-**Status:** Pending
+**Status:** Complete (2026-07-26)
 **Prerequisites:** T70 partial validation complete
 **WP:** WP-5 (MVP gate)
 

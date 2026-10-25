@@ -18,6 +18,7 @@ This folder contains implementation plans following the FILE NAMING CONTRACT (`n
 
 | Document | Description | Status |
 | :--- | :--- | :--- |
+| **`128-doc-and-task-audit.md`** | Documentation/task-backlog audit: corrections + small-task backlog | **IN PROGRESS** (2026-10-25) — next code task `T102` (O9) after hygiene `T81`–`T88`; decisions pending (SteamEmu, T72/T73, Plan 127 C, EA) |
 | **`126-epic-manifest-review-pass.md`** + `126-facts-*.md` | Epic orphan `.item` registration review + EOSH gate reverse-engineering (DISCOVERY) | **INVESTIGATION CLOSED** (2026-09-10) — no file-based registration path; EOSH reporting is server/account-driven (`.egi` plant falsified). Product follow-ups listed in the plan (EpicItemWriter `.mancpn` AppName; `epic_item_format.md` correction). Optional RE tail remains in `126-facts-eosh-re.md`. |
 | **`123-detection-bugfixes.md`** | Detection tightening: confidence tiers (Locked/Secure), Steam locked, Epic manifest Secure, Missing-Manifest fix, safe-first | **SUBSTANTIALLY COMPLETE** (verified 2026-10-14) — Python phases 0–3 done; **C# port shipped 2026-09-07** (`docs/detection/07`, 10 parity tests). Residuals: confidence-tier marking, review gate. **Closed:** E6a (`"tool"`), fallback-depth (now `AppConfig.ScanDepth`). Scope: `d:\games`; P-layout = §8.3 separate plan |
 | **`127-persistence-v2.md`** | Typed game records + detection provenance (tier/signals), identity, file ownership, tracking/customization; A/B/C proposals | **IN PROGRESS** (2026-10-14) — A1–A6 + B7–B13 done (composed `GameEntry`; bag retired; tier/provenance; schema versioning; identity reconciliation; sidecar ownership; tracking/install/user-state; launch profiles; relations; collections; typed tags); C deferred |
@@ -102,6 +103,9 @@ This folder contains implementation plans following the FILE NAMING CONTRACT (`n
 | :--- | :--- |
 | `META/TASKS/phase-h-mvp/STATUS.md` | MVP T61–T77 — complete |
 | `META/TASKS/phase-i-post-mvp/STATUS.md` | Post-MVP mode/filter tasks |
+| `META/TASKS/phase-j-followups/STATUS.md` | T78 deferred, T79 complete, T80 deferred |
+| `META/TASKS/phase-k-audit-followups/STATUS.md` | Docs/state hygiene T81–T88 |
+| `META/TASKS/phase-l-detection-followups/STATUS.md` | T102 O9 + T103 SteamEmu ADR |
 
 ---
 

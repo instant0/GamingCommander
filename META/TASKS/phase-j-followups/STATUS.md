@@ -21,8 +21,8 @@
 | # | Task | Tier | Priority | Status |
 |---|------|------|----------|--------|
 | T78 | [Epic .item AppName precedence + EOSH copy](T78-epic-item-appname-and-eosh-copy.md) | 3 | P3 | **Deferred — manifest re-creation is a dead end (2026-10-14)** |
-| T79 | [Plan 123 closeout — tier marking + E6a](T79-detection-tier-marking-and-e6a.md) | 3 | **P0** | Complete — E6a ✅, ScanDepth ✅, tier marking ✅; review gate remains (process) |
-| T80 | [SyncMove Phase 2.1 — registration repair](T80-syncmove-phase-2-1.md) | 3 | P3 | **Deferred — do NOT start until detection is working** |
+| T79 | [Plan 123 closeout — tier marking + E6a](T79-detection-tier-marking-and-e6a.md) | 3 | **P0** | Complete — E6a ✅, ScanDepth ✅, tier marking ✅; review gate **CLOSED** (agent, human sign-off pending). Doc refresh tracked in T87. |
+| T80 | [SyncMove Phase 2.1 — registration repair](T80-syncmove-phase-2-1.md) | 3 | P3 | **Deferred — do NOT start until detection is working**; header/slice split tracked in T93. |
 
 ---
 
@@ -39,5 +39,6 @@
 
 ## Notes
 
+- 2026-10-25: task/doc drift audit → `planning/128-doc-and-task-audit.md`. T79's residual doc refresh is `T87`; T80's header/status and slice split is `T93`.
 - The Plan 123 **C# detection port is already shipped** (2026-09-07). T79 covers only the genuine residuals — do not re-port E1/E4/E5/E6/E7/E8.
 - T78/T79 are code+docs; T80 is a feature. Each requires `dotnet build` + `dotnet test` per `META/RULES.md`.

@@ -21,14 +21,16 @@ record. You do not author tasks and you do not write shared planning docs.
 
 ## YOU ARE THE ONLY WRITER OF
 
-Code/tests; the task doc's `**Status:**` field and `## Completion Notes`; the task's row status
-in its phase `STATUS.md`; and `META/SESSION/CURRENT.md`.
+Code/tests; the task doc's `**Status:**` field and `## Completion Notes`; the task's row in its
+phase `STATUS.md`; and `META/SESSION/CURRENT.md`. On completion you **remove** the row rather
+than leaving a completed entry.
 
 ## YOU MUST NEVER
 
 Write `planning/` docs, add/reorder task docs or tracker rows, edit `AGENTS.md` or
 `META/RULES.md`, rewrite `META/ARCHITECTURE.md` (append-only for a decision — ask first), write
-status into another task doc, or attempt a large refactor / architecture change without asking.
+status into another task doc, cite the task ID in a non-task document, or attempt a large
+refactor / architecture change without asking.
 
 ## Protocol
 
@@ -71,10 +73,12 @@ status into another task doc, or attempt a large refactor / architecture change 
 7. **COMPLETE**
    - Fill `## Completion Notes`: `Completed`, `What was done`, `Verification`, `Issues encountered`.
    - Set `**Status:** completed` (or `Complete (YYYY-MM-DD)`).
-   - Set the `STATUS.md` row to `Complete`.
+   - **Remove the task's row from `STATUS.md`.** Completed tasks are retired from the tracker;
+     the task doc is the record. Never renumber or reorder the remaining rows.
    - **Leave the task doc in its phase folder** — this repo moves whole phase directories to
      `META/TASKS/COMPLETED/` when the phase closes (Planner/Librarian), not per task.
-   - Update `META/SESSION/CURRENT.md` with the completed work and test counts.
+   - Update `META/SESSION/CURRENT.md` only if state/blockers/verification changed: a slim state
+     entry, no task ID, no per-task narrative.
    - Update `META/SESSION/NEXT.md` only if the next priority actually changed.
 
 8. **TRIGGER** the `tasks-review` skill by exact name for the finished ID.
@@ -90,3 +94,4 @@ status into another task doc, or attempt a large refactor / architecture change 
 - Create before delete — never remove the working version until the replacement is proven.
 - Tracker rows are append-only; never renumber or reorder.
 - Detection changes go in behind the corpus matrix; never silently alter a known-answer fixture.
+- Non-task documents never cite the task ID; describe the subject.

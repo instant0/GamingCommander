@@ -4,7 +4,7 @@
 **Phase:** I — Post-MVP Navigation
 **Effort:** ~2–3 hours
 **Risk:** Low
-**Status:** Pending
+**Status:** Superseded/Complete (F4/F8 shipped)
 **Prerequisites:** T72 (Mode Switcher — for engine data), T73 (Flatten — optional)
 **WP:** Post-MVP (Plan 101, Phase 3)
 

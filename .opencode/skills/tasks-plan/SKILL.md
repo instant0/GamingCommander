@@ -42,8 +42,9 @@ work artifacts. You never implement tasks and never write task completion notes.
 
 Execute a task, write code, fill `## Completion Notes`, edit a completed task, edit
 `AGENTS.md` or `META/RULES.md`, delete `META/COMPLETED/*`, `META/ADR/*`, or completed
-`planning/*`, renumber existing IDs, or reorder existing tracker rows. Never invent build/test
-tasks unless the user asked. Never state effort or time estimates.
+`planning/*`, renumber existing IDs, reorder existing tracker rows, or write task IDs into
+`planning/` docs or other non-task documents. Never invent build/test tasks unless the user
+asked. Never state effort or time estimates.
 
 ## Modes (pick one; state it)
 
@@ -86,7 +87,9 @@ Header from `META/TASKS/TEMPLATE/task-template.md`:
 
 ## Phase tracker (`STATUS.md`)
 
-Append a row; never reorder or renumber. Keep the repo's legend and Execution Order current:
+List **Pending / In Progress / Deferred** only. `tasks-execute` removes a row when the task
+completes, so the tracker never accumulates completed entries. Append a row; never reorder or
+renumber. Keep the repo's legend and Execution Order current:
 
 ```markdown
 | Tnn | [Title](Tnn-kebab-title.md) | <tier> | P0–P3 | Pending |
@@ -120,7 +123,7 @@ Append a row; never reorder or renumber. Keep the repo's legend and Execution Or
 
 - [ ] Every task `Tnn` is unique including `COMPLETED/`; no reuse/renumber.
 - [ ] Every task doc matches the canonical header + six sections; no `Effort` field; no logs.
-- [ ] Every tracker row has a doc and every pending doc has a row (Completed/ excluded).
+- [ ] Every tracker row has a doc and every Pending/Deferred doc has a row; no completed rows remain.
 - [ ] Every `Prerequisites` ID resolves to a task doc or a `COMPLETED/` doc.
 - [ ] Every referenced `planning/`, `docs/`, and code path exists (or is created by the task).
 - [ ] Planning filenames follow `nnn-short-name.md`; `planning/README.md` updated if needed.

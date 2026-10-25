@@ -4,7 +4,7 @@
 **Phase:** H — MVP
 **Effort:** ~30 min
 **Risk:** Medium
-**Status:** Pending
+**Status:** Complete (2026-07-25)
 **Prerequisites:** None
 **WP:** WP-1
 

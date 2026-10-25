@@ -9,13 +9,14 @@
 ```markdown
 # Task TX-N: [Clear, Descriptive Title]
 
-**Tier:** [1-3] — [Category]
+**Tier:** [1-5] — [Category]
 **Phase:** [Phase Letter] — [Phase Name]
-**Effort:** ~X min
 **Risk:** [Minimal | Low | Medium | High]
 **Status:** [pending | in_progress | completed]
 **Prerequisites:** [None | Task TX-N depends on Task TX-M]
 ```
+
+> **Legacy note:** the `Effort` header field is legacy-only and appears in older tasks. Do not add it to new tasks — `AGENTS.md` forbids effort estimates.
 
 ### Tier Definitions
 
@@ -24,6 +25,10 @@
 | 1 | Documentation | Docs, comments, README updates — no logic changes |
 | 2 | Code Structure | File splits, extractions, renames — pure refactors, no logic changes |
 | 3 | Logic/Behavior | Feature work, bug fixes, test creation — changes observable behavior |
+| 4 | Cleanup | Dead-code removal, stale-file deletion, low-risk tidy-up |
+| 5 | Removal | Deleting a deprecated project, feature, or entire subsystem |
+
+> Tiers 4–5 are retained because live tasks (`T51`, `T57`) already use them; do not renumber those tasks.
 
 ### Risk Definitions
 
@@ -124,15 +129,11 @@ Tasks are grouped by phase in subdirectories:
 META/TASKS/
 ├── TEMPLATE/
 │   └── task-template.md
-├── phase-d-complexity-reduction/
-│   ├── T16-extract-filesystem-helpers.md
-│   ├── T17-rename-ambiguous-variables.md
-│   └── ...
-├── phase-e-stabilization/
-│   ├── T25-noise-check-divergence-fix.md
+├── phase-<letter>-<focus>/
+│   ├── T<number>-<description>.md
 │   └── ...
 └── COMPLETED/
-    └── (moved here when done)
+    └── phase-<letter>-<focus>/  (moved here when done)
 ```
 
 ---
@@ -230,7 +231,6 @@ If YES to any: split proactively. It's cheaper to split a 200-line file than a 5
 
 **Tier:** 1 — Documentation
 **Phase:** A — Documentation Safety Net
-**Effort:** ~5 min
 **Risk:** Minimal
 **Status:** pending
 
@@ -281,7 +281,6 @@ The README.md links to `docs/architecture.md` which doesn't exist. The correct p
 
 **Tier:** 2 — Code Structure
 **Phase:** D — Complexity Reduction
-**Effort:** ~25 min
 **Risk:** Minimal
 **Status:** pending
 **Prerequisites:** None

@@ -2,11 +2,23 @@
 
 **Nature:** Scratch. **Overwritten** every session handoff.
 **Audience:** All agents. Read every session.
-**Updated:** 2026-10-14 — Pending/active task audit + task review. Plans 124/125 COMPLETE. Plan 126 EOSH CLOSED — **Epic `.item` re-creation is a dead end and DEFERRED**. **Directive: detection first (read existing manifest files); SyncMove deferred.**
+**Updated:** 2026-10-25 — Documentation/task-backlog audit; next product task = O9 title canonicalization. Prior: 2026-10-14 task/tracker audit. Plans 124/125 COMPLETE. Plan 126 EOSH CLOSED — **Epic `.item` re-creation is a dead end and DEFERRED**. **Directive: detection first (read existing manifest files); SyncMove deferred.**
 
 ---
 
-## This session (2026-10-14) — task/tracker audit
+## This session (2026-10-25) — documentation/task audit
+
+Four read-only sub-agent audits (`planning/`, `META/TASKS/`, `docs/`, META governance) produced `planning/128-doc-and-task-audit.md`:
+
+- **State corrected:** `META/SESSION/NEXT.md` rewritten as an ordered queue; Plan 123 review gate stated consistently as **CLOSED** (agent, human sign-off pending).
+- **New tasks:** `T81`–`T88` (docs/state hygiene, authored), `T102` (O9 title canonicalization, next code task), `T103` (SteamEmu ADR, blocked on user). Backlog `T89`–`T114` specified in Plan 128 §2.
+- **Key drift found:** phase-h/g/f task headers disagree with their trackers; T73 has no doc; T72/T74 are stale; `planning/103/123/110/111/05` overstate open work; `docs/ONLINE-AND-DATA`/`DATA-FORMAT` are stale; `GAME-DETECTION-LOGIC` (1073 lines) duplicates `docs/detection/*`; `CODE_MAP`/`ROADMAP`/`TECH_DEBT` miss Plan 127 and detector-review reality.
+- **Correction:** Epic engine detection is **P2**, not P1 (per `docs/detection/09-blueprint.md` §14). Remaining P1: O9 title canonicalization + the SteamEmu design call.
+- **No code/build/test run** (documentation-only session).
+
+---
+
+## Prior session (2026-10-14) — task/tracker audit
 
 Verified by reading the latest commits (`d2da6d7`, `3027f4f`, `d6a3306`, `9b28f81`), the `126-*` fact docs, `123`, `04-phase-2-syncmove`, and the live code.
 
@@ -14,7 +26,7 @@ Verified by reading the latest commits (`d2da6d7`, `3027f4f`, `d6a3306`, `9b28f8
 - **Plan 124 (anchor library + flat game DB) — COMPLETE** (2026-09-08). Code present: `Core/Models/Library.cs`, flat `Core/Models/GamesDatabase.cs` (`List<GameEntry>`), `Core/ILibrariesService.cs`, `App/Services/LibrariesDatabaseService.cs`; `GameRoot.cs`/`LibraryRoot.cs` removed. `AppConfig` now holds only `HiddenFolders`/`IsFirstRun`/`LastSeenVersion`/`EnableOnlineMetadata`.
 - **Plan 125 (stabilization refactor) — COMPLETE** (2026-09-09). 564 tests green per plan/NEXT history.
 - **Plan 126 (EOSH / Epic orphan `.item`) — INVESTIGATION CLOSED** (2026-09-10). See below.
-- **Plan 123 (detection tightening) — SUBSTANTIALLY COMPLETE.** The Phase 4 C# port shipped 2026-09-07 (`docs/detection/07` "ALL PORTED", `PythonParityDetectionTests`, 10 tests; code confirms `FindExactFolderMatch`/`FindParentBoundExe`/`AcronymMatchesTitle`/`IsNoiseExeName`). **Residuals now:** confidence-tier marking (`IdentificationTier` not in code) and the amended review gate. **Closed 2026-10-14:** E6a (`"tool"` added to `blacklist.json` tier 10) and the "3-level fallback" gap (was a doc error — C# matches/exceeds Python; depth now user-configurable via `AppConfig.ScanDepth`).
+- **Plan 123 (detection tightening) — SUBSTANTIALLY COMPLETE.** The Phase 4 C# port shipped 2026-09-07 (`docs/detection/07` "ALL PORTED", `PythonParityDetectionTests`, 10 tests; code confirms `FindExactFolderMatch`/`FindParentBoundExe`/`AcronymMatchesTitle`/`IsNoiseExeName`). **Residual now:** human review-gate sign-off only — tier marking shipped via Plan 127 A3/T79; E6a and the "3-level fallback" doc error closed 2026-10-14 (depth is now `AppConfig.ScanDepth`).
 - **SyncMove (`04-phase-2-syncmove.md`, Phase 2.1) — PLANNED**, no tasks started. Last Phase 2 leftover per ROADMAP.
 
 ### Plan 126 outcome (why it is closed)
@@ -35,7 +47,7 @@ Verified by reading the latest commits (`d2da6d7`, `3027f4f`, `d6a3306`, `9b28f8
 - Added `META/TASKS/phase-j-followups/` tracker (T78 deferred, T79 detection P0, T80 SyncMove deferred).
 
 ### Implemented this session (code)
-- **Detector review P1 (2026-10-14):** small noise sets centralized in `DetectionNoise` (`NonGameExe`, `LnkSkip`, `SteamCommonNoise`); container non-game layer + terminating-rule gate now share one `NonGameExe` set (parity with Python's fuller noise gate); `SteamLibraryScanner`/`LnkParser`/`ContainerScanner`/`ExecutableDiscovery` de-duplicated. Remaining P1: title canonicalization (O9), SteamEmu design call, Epic engine detection.
+- **Detector review P1 (2026-10-14):** small noise sets centralized in `DetectionNoise` (`NonGameExe`, `LnkSkip`, `SteamCommonNoise`); container non-game layer + terminating-rule gate now share one `NonGameExe` set (parity with Python's fuller noise gate); `SteamLibraryScanner`/`LnkParser`/`ContainerScanner`/`ExecutableDiscovery` de-duplicated. Remaining P1: title canonicalization (O9), SteamEmu design call. Epic engine detection is P2.
 - **Detector review (2026-10-14):** full-scope blueprint at `docs/detection/09-blueprint.md` (pipeline, signals, tiers, containers, scoring, titles, engines, catalogs, diagnostics, validation, **overlap/duplication backlog**, two-way sync plan, **prioritized backlog**). C# corrections: deterministic exe tie-break (3 sites); Python scoring parity (leading-dash −15, `_copy` −25, `N_org_` −15, tool-name −25, `<500KB` −5, size cap `/10M,+10`); container deep-signal parity (SteamEmu/Ubisoft-legacy/root `.lnk` + authoritative over data-only layer); dead `EpicManifestParser.NormalizePath` removed. **P0 follow-ups done:** UE platform-list dedup (`FileSystemHelper.UePlatformNames`), registry store-priority aligned to filesystem order, Plan 123 review gate closed. Python synced with C# strengths (whole-name +40, classic +18, UE shipping +28/path +12); matrix 22/22. +6 tests.
 - **E6a:** `"tool"` added to `data/blacklist.json` `tier_10_dev_editor_tools`.
 - **Configurable scan depth:** `AppConfig.ScanDepth` (default 3, clamp 1–5) → `JsonConfigService` round-trip → `FolderScanner` → `ExecutableDiscovery.FindPrimaryExecutable`/`FindExecutablesDeep` recursive fallback. 3 new tests.
@@ -65,7 +77,7 @@ Verified by reading the latest commits (`d2da6d7`, `3027f4f`, `d6a3306`, `9b28f8
 - Plan 127 C (`Extensions{}` / emulator/ROM model) — deferred.
 - Plan 127 follow-ups: launch-profile picker UI; `Relations.Kind` scanner wiring; collections UI; per-tag colour; play-time tracking.
 - Plan 123 amended review gate — **CLOSED** (agent, 2026-10-14; pending human sign-off).
-- Detector P1 backlog (`docs/detection/09-blueprint.md` §14): noise exe/dir list consolidation (O1/O2), title canonicalization (O9), SteamEmu design call, Epic engine detection.
+- Detector P1 backlog (`docs/detection/09-blueprint.md` §14): title canonicalization (O9), SteamEmu design call. O1/O2 partially done; Epic engine detection is P2.
 - SDK .NET 8→9 — deferred indefinitely.
 
 ## Prior session context (superseded)

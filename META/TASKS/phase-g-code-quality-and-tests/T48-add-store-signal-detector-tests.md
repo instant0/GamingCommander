@@ -4,7 +4,7 @@
 **Phase:** G — Code Quality & Tests
 **Effort:** ~45 min
 **Risk:** Low
-**Status:** pending
+**Status:** completed
 
 ---
 
