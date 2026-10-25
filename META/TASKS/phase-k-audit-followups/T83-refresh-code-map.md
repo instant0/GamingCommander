@@ -3,7 +3,7 @@
 **Tier:** 1 — Documentation
 **Phase:** K — Audit Follow-ups
 **Risk:** Minimal
-**Status:** pending
+**Status:** completed
 **Prerequisites:** None
 
 > Documentation-only. Do not run build/test.
@@ -45,7 +45,7 @@ still describes removed fields. Refresh it so it matches the code.
 
 ## Completion Notes
 
-- **Completed:**
-- **What was done:**
-- **Verification:**
-- **Issues encountered:**
+- **Completed:** 2026-10-25
+- **What was done:** Added `DetectionNoise` (three sets + blacklist-scoring distinction), `ICollectionsService`, and `CollectionsDatabaseService` to `META/CODE_MAP.md`; extended the `GameEntry` row with `Install`, `Tracking`, `UserState`, `Relations` and the `Acf`/`Install` replacement for `Extra`; fixed the `SteamLibraryScanner` notes that still referenced `GameEntry.Extra`; added `collections.json` to the data-file table; replaced the stale test snapshot with the 607 baseline (Core 173, Migration 1, App 433) and a pointer to `META/SESSION/CURRENT.md`.
+- **Verification:** `rg -n "DetectionNoise|ICollectionsService|TrackingInfo|UserStateInfo|InstallInfo|RelationsInfo" META/CODE_MAP.md` returns entries. `rg -n "GameEntry\.Extra|PlatformMetadata|217" META/CODE_MAP.md` returns nothing. No build/test run (docs-only).
+- **Issues encountered:** None. Test counts taken from `META/SESSION/CURRENT.md`; not re-run by design.

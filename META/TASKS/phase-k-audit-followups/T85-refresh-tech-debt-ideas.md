@@ -3,7 +3,7 @@
 **Tier:** 1 — Documentation
 **Phase:** K — Audit Follow-ups
 **Risk:** Minimal
-**Status:** pending
+**Status:** completed
 **Prerequisites:** None
 
 > Documentation-only. Do not run build/test.
@@ -46,7 +46,12 @@ the detector backlog. `META/BACKLOG/IDEAS.md` contains shipped/dead ideas withou
 
 ## Completion Notes
 
-- **Completed:**
+- **Completed:** 2026-10-25
 - **What was done:**
+  - `META/BACKLOG/TECH_DEBT.md`: set last-verified to 2026-10-25; closed Bug 12 (`MinWidth = 148`); marked per-tag colour shipped (`TagColorService`, `ITagColorProvider`, `tag_colors.json`); replaced the removed `PlatformMetadata` reference with typed `StoreInfo` records; kept the EA caveat and marked it blocked on a real install; added a **Detector Review Backlog** section (O1/O2 residual, O9, SteamEmu, Epic engine, deep 4-level walk, `DetectionLogger`, play-time, `Relations.Kind`, collections UI) pointing at `docs/detection/09-blueprint.md` §14.
+  - `META/BACKLOG/IDEAS.md`: annotated shipped/dead/superseded items without deleting history (ExeCandidateSelector shipped, KODI/F8 stale, quick search shipped as type-to-search, Epic manifest patching dead end, local game DB/merge superseded, launch counter partial, F9 hint dead); updated `ExeCandidateSelector` to `DetectionInfo.CandidateExes`; updated hardcoded-list references to `DetectionNoise`.
 - **Verification:**
-- **Issues encountered:**
+  - `grep -n "Bug 12\|PlatformMetadata" META/BACKLOG/TECH_DEBT.md` → only the header date line and the Bug 12 heading; no open Bug 12 status and no removed type.
+  - `grep -n "DetectionNoise\|CandidateExes" META/BACKLOG/IDEAS.md` → matches on the shipped candidate-exe idea and the detection-signals idea.
+  - No build/test run (documentation-only).
+- **Issues encountered:** None.

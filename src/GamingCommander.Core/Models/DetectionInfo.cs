@@ -21,6 +21,12 @@ public sealed record DetectionInfo
     /// <summary>Kind of manifest that identified the game (e.g. <c>EpicItem</c>, <c>Acf</c>, <c>GogInfo</c>); empty when none.</summary>
     public string ManifestKind { get; init; } = string.Empty;
 
+    /// <summary>
+    /// High-level source path that created or last confirmed this entry. Null for legacy entries
+    /// whose provenance was not recorded.
+    /// </summary>
+    public DetectionOrigin? Origin { get; init; }
+
     /// <summary>Signal identifiers that contributed (e.g. <c>SteamStructural</c>, <c>EpicItemGlobal</c>).</summary>
     public List<string> Signals { get; init; } = [];
 

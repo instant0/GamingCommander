@@ -37,6 +37,7 @@ GamingCommander.sln
 | `ILibraryManager` | `ILibraryManager.cs` | `Libraries`, `GetGamesForLibrary()`, `UpsertLibrary()`, `RemoveLibrary()`, `ScanFolder()`, `RescanLibrary()`, `SelectScannerAndScan()`, `UpdateGameEntry()`, `DeleteGameEntry()`, `RetagGame()` |
 | `IGamesDatabaseService` | `IGamesDatabaseService.cs` | `Load()` → flat `GamesDatabase`, `Save()`, `GetGamesForLibrary()`, `SetGamesForLibrary()`, `RemoveGamesForLibrary()`, `UpdateGameEntry()`, `DeleteGameEntry()`, `RetagGame()` |
 | `ILibrariesService` | `ILibrariesService.cs` | `Libraries`, `Upsert(Library)`, `Remove(name)`, `Get(name)` — owns `libraries.json` (Plan 124) |
+| `ICollectionsService` | `ICollectionsService.cs` | `Collections`, `Upsert(Collection)`, `Remove(name)`, `Get(name)` — named collections (Plan 127 B12) |
 | `IMetadataStore` | `IMetadataStore.cs` | Get/Upsert sidecar by game id. Must not touch `games.json`. |
 | `IMetadataService` | `IMetadataService.cs` | `RefreshAsync` + `SearchPagesAsync` (F3 picker) |
 
@@ -57,16 +58,21 @@ GamingCommander.sln
 | `MigrationMode` | enum | `MoveOnly=0, MoveAndLink=1 (deprecated), ManifestRepairOnly=2` |
 | `TagType` | enum | `User=0, Store=1, Engine=2` |
 | `GameRecord` | record (implements IGame) | Id, Title, Source, InstallPath, LaunchTarget, ExecutablePath, LastModified, SupportsPointerInteraction, SupportsKeyboardOnlyFlow |
-| `GameEntry` | record | Composed of `Identity` (IdentityInfo), `Location` (LocationInfo), `Launch` (LaunchInfo) + `Detection`, `Store`, `Acf`, `Epic`, `Tags`, `UserOverrides`, `GameEngine`, `LastScanned`, `LastModified`. Flat names (`Id`, `DisplayName`, `ExecutablePath`, …) are read-only accessors — Plan 127 A1 |
+| `GameEntry` | record | Composed of `Identity` (IdentityInfo), `Location` (LocationInfo), `Launch` (LaunchInfo) + `Detection`, `Store`, `Acf`, `Epic`, `Install`, `Tracking`, `UserState`, `Relations`, `Tags`, `UserOverrides`, `GameEngine`, `LastScanned`, `LastModified`. Flat names (`Id`, `DisplayName`, `ExecutablePath`, …) are read-only accessors — Plan 127 A1. Status/ACF facts live in `Acf` (`SteamAcfInfo`) and `Install` (`InstallInfo`); no `Extra` bag exists after Plan 127 A2 |
 | `IdentityInfo` | record | Id, Library (anchor), DisplayName, GameSource, IsSourceOverridden — Plan 127 A1 |
 | `LaunchInfo` | record | ExecutablePath, LauncherPath, CommandLineArguments, ExtraLaunchArguments, ManifestPath — Plan 127 A1 |
-| `DetectionInfo` | record | Detection provenance: Tier, TitleSource, AutoDetectedTitle, PeFileDescription, ManifestKind, Signals[], CandidateExes[], IdentifiedAt — Plan 127 A3 |
-| `StoreInfo` | record | SteamAppId, GogGameId, EpicCatalogNamespace, EpicCatalogItemId, EpicAppName, Studio, EaGameName, BlizzardProduct, UbisoftReadme — Plan 127 A2 |
+| `DetectionInfo` | record | Detection provenance: Tier, TitleSource, AutoDetectedTitle, PeFileDescription, ManifestKind, Origin (`DetectionOrigin?`), Signals[], CandidateExes[], IdentifiedAt — Plan 127 A3 |
+| `DetectionOrigin` | enum | `StoreManifest=0, FileScan=1, User=2, Merged=3` — high-level source path (Plan 129 §3.3) |
+| `StoreInfo` | record | StoreKey (`"<GameSourceKind>:<storeId>"`), SteamAppId, GogGameId, EpicCatalogNamespace, EpicCatalogItemId, EpicAppName, Studio, EaGameName, EaContentId, BlizzardProduct, UbisoftReadme, UbisoftGameId, XboxPackageFamily, RockstarTitleId — Plan 127 A2 / Plan 129 |
 | `SteamAcfInfo` | record | Status, FilePath, LibraryPath, ExpectedPath, BuildId, SizeOnDisk, StateFlags — Plan 127 A2 |
 | `EpicInfo` | record | Status, ItemPath — Plan 127 A2 |
 | `LocationInfo` | record | FolderPath, FolderName, LibraryRoot, ActualLibraryRoot, GameFolder — Plan 127 A1/A2 |
-| `InstallInfo` | record | State (`InstallState`), Version, UpdateAvailable, LastVerified — Plan 127 B8 |
+| `InstallInfo` | record | State (`InstallState`), Version, UpdateAvailable, StoreReportedState, LastStoreSeenUtc, LastVerified — Plan 127 B8 / Plan 129 |
 | `InstallState` | enum | Unknown=0, Installed=1, Owned=2, Moved=3, Missing=4, Orphaned=5, Updating=6 — Plan 127 B8 |
+| `StoreReportedState` | enum | Unknown=0, Installed=1, UpdateRequired=2, Incomplete=3 — store evidence, separate from disk `InstallState` (Plan 129 §3.4) |
+| `LauncherKinds` | static class | `All` (Steam, Epic, Gog, EaApp, UbisoftConnect, BattleNet, Xbox, Rockstar), `IsLauncher(GameSourceKind)` — no duplicate launcher enum (Plan 129) |
+| `StorePolicy` | record | Kind (`GameSourceKind`), IndexEnabled, CheckOnLaunch, EnrichNewGames, SkipUnchangedManifests (default true), InventoryPathOverride |
+| `StorePolicySettings` | record | Stores (`IReadOnlyList<StorePolicy>`) |
 | `TrackingInfo` | record | FirstSeen, LastPlayed, LaunchCount, PlayTimeSeconds, LastSessionSeconds — Plan 127 B7 |
 | `UserStateInfo` | record | Favourite, Hidden, Pinned, Archived, Rating, Notes, Completion — Plan 127 B9 |
 | `CompletionState` | enum | None=0, Backlog=1, Playing=2, Completed=3, Abandoned=4 — Plan 127 B9 |
@@ -80,7 +86,7 @@ GamingCommander.sln
 | `IdentityKey` | record | Kind, Value — natural key for move/rename reconciliation (Plan 127 A5) |
 | `Library` | record | Name (anchor key), Type (`GameSourceKind`), Folders (IReadOnlyList\<string\>) — Plan 124 |
 | `GamesDatabase` | record | Games (flat List\<GameEntry\>); each links to a `Library` by name — Plan 124 |
-| `AppConfig` | record | HiddenFolders, IsFirstRun, LastSeenVersion, EnableOnlineMetadata (library anchors moved to `libraries.json`) |
+| `AppConfig` | record | HiddenFolders, IsFirstRun, LastSeenVersion, EnableOnlineMetadata, ScanDepth, StorePolicies (`StorePolicySettings?`) |
 | `MigrationPlanSummary` | record | GameId, SourcePath, TargetPath, Mode, RequiresManifestBackup, RequiresLinkCreation (deprecated), IsDryRunOnly |
 | `FileSystemEntry` | record | Name, FullPath, Kind, LastModified, Size |
 | `GameSourceParser` | static class | `InferFromPath(string)`, `ParseFromString(string)`, `AvailableTypes` — shared by all ViewModels |
@@ -96,6 +102,8 @@ GamingCommander.sln
 | `GameIdentity` | Core `Services/GameIdentity.cs` | Plan 127 A5: rebuilds `IdentityKeys` from folder name + store ids |
 | `SchemaVersioning` | Core `Services/SchemaVersioning.cs` | Plan 127 A4: current schema version + readable-guard for the four JSON files |
 | `InstallStateMap` | Core `Services/InstallStateMap.cs` | Plan 127 B8: store status string → `InstallState` |
+| `GameStoreIndex` | `Core/Services/GameStoreIndex.cs` | Plan 129 §3.3: read-only in-memory index (`ByStoreKey`, normalized `ByPath`, `ByStore`, duplicate keys, missing manifest keys); no I/O |
+| `IStorePolicyProvider` | Core `Services/IStorePolicyProvider.cs` | Per-store policy reads/writes, `EnabledStores`, `CheckOnLaunchStores`, `CanImport`, `CanSync` |
 | `PeProductYear` | `PeProductYear.cs` | Year hint from PE FileVersion / LastWriteTime |
 
 ---
@@ -173,8 +181,10 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 | `GamesDatabaseService` | `GamesDatabaseService.cs` | JSON-file CRUD for the flat game list (`games.json`) via private DTOs, in-memory cache, anchor-keyed access (Plan 124) |
 | `LibrariesDatabaseService` | `LibrariesDatabaseService.cs` | Reads/writes `libraries.json` (named `Library` anchors) implementing `ILibrariesService` (Plan 124) |
 | `CollectionsDatabaseService` | `CollectionsDatabaseService.cs` | Reads/writes `collections.json` implementing `ICollectionsService` (Plan 127 B12) |
-| `JsonConfigService` | `JsonConfigService.cs` | JSON-file persistence for AppConfig |
+| `JsonConfigService` | `JsonConfigService.cs` | JSON-file persistence for AppConfig, including per-store `StorePolicies` (enum names as strings) |
+| `StorePolicyProvider` | `StorePolicyProvider.cs` | `IStorePolicyProvider` over `IConfigService`: per-store opt-in, normalization, `CanImport`/`CanSync` (thread-safe) |
 | `BlacklistLoader` | `BlacklistLoader.cs` | Loads noise patterns from `data/blacklist.json`; missing/corrupt file falls back to embedded resource and restores disk copy (Bug 16) |
+| `DetectionNoise` | `DetectionNoise.cs` | Small detection noise sets (`NonGameExe`, `LnkSkip`, `SteamCommonNoise`) shared by `FolderScanner`, `ContainerScanner`, `ExecutableDiscovery`, `LnkParser`, and `SteamLibraryScanner`; separate from the tiered `data/blacklist.json`, which drives exe scoring |
 | `FileSystemHelper` | `FileSystemHelper.cs` | Shared filesystem utilities: GetDirectoriesSafe, GetFilesSafe, GetLastWriteTimeSafe, NormalizeDisplayName, NoiseSubDirNames |
 | `JsonFileHelper` | `JsonFileHelper.cs` | Shared JSON read/write: ReadFromFile\<T\>, WriteToFile\<T\>, DefaultOptions |
 | `HelpDialogBuilder` | `HelpDialogBuilder.cs` | Builds and shows the help dialog with keyboard shortcuts |
@@ -198,8 +208,8 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 - `DiscoverLibraryPaths()` — parses libraryfolders.vdf for additional Steam library paths
 - Detects Installed/Moved/Orphaned/Missing status via ACF cross-referencing
 - "Missing" detection: iterates all ACFs, checks if each installdir exists in any library's common/
-- "Moved" games store `AcfExpectedPath` in Extra for cross-library context
-- Stores status in `GameEntry.Extra` dict (SteamStatus, SteamAppId, AcfLibraryPath, AcfExpectedPath, etc.)
+- "Moved" games set `Acf.ExpectedPath` and `Location.ActualLibraryRoot` for cross-library context
+- Stores status/ACF facts in `Acf` (`SteamAcfInfo`) and install state in `Install` (`InstallInfo`); no `Extra` dict exists
 - Skips known non-game `common/` children (`Steam Controller Configs`, `Steamworks Shared`); never skips a game named `steam`
 - Exe: root `*.exe`, else only named folders (`Shipping`, `Binaries\Win64`, `bin`…). No tree walk. Lookup uses ACF name/AppID if exe is empty.
 - Uses `GameEntryId.Compute()` from Core
@@ -244,6 +254,7 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 |------|---------|
 | `blacklist.json` | Aggregated noise patterns for exe names, directory names, PE metadata defaults, PCGW page title noise. Consumed by FolderScanner and SteamLibraryScanner. |
 | `tag_colors.json` | Configurable tag badge colors: default, store-specific (Steam, GOG, Epic, etc.), engine-specific (Unreal, Unity, etc.). Consumed by TagColorService. |
+| `collections.json` | Named collections (game id lists + smart-query definitions). Read/written by `CollectionsDatabaseService`. |
 
 ## Existing Python Tools (tools/)
 
@@ -300,13 +311,14 @@ testdata/mock/
 
 ## Test Coverage
 
-Count last snapshotted mid-2026 (~217). Metadata / PCGW / scoring tests added after that — do not treat the table as live.
+**Current baseline:** 607 pass / 0 fail. `META/SESSION/CURRENT.md` is the source for the live count; this table is a pointer, not a running test log.
 
-| Project | Tests | What |
-|---------|-------|------|
-| `Core.Tests` | 33 | VdfParser (20), GameEntryId (8), GameRecord (1), FileSystemEntryKind (4) |
-| `Migration.Tests` | 1 | DesignTimeMigrationPlanner dry-run plan |
-| `App.Tests` | 183 | GamesDatabaseService (20), SteamLibraryScanner (14), BlacklistLoader (11), ExecutableScoring (10), ScannerFilter (12), ExecutableDiscovery (15), GogInfoParser (10), LnkParser (13), FolderScannerContainer (13), LibraryManager (8), JsonConfigService (3), MockDataIntegration (5), RescanMerge (4), GameSetupWindow/HelpDialog/Theme (65) |
+| Project | Tests |
+|---------|-------|
+| `Core.Tests` | 173 |
+| `Migration.Tests` | 1 |
+| `App.Tests` | 433 |
+| **Total** | **607** |
 
 ---
 

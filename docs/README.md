@@ -12,6 +12,7 @@ Do **not** treat every file here as current. Use this map.
 | [../README.md](../README.md) | GitHub / how to build |
 | [../GamingCommander.Readme.txt](../GamingCommander.Readme.txt) | Shipped with the exe |
 | [../META/ROADMAP.md](../META/ROADMAP.md) | Shipped vs not |
+| [detection/10-store-capabilities.md](detection/10-store-capabilities.md) | **Store capability matrix** — launcher, inventory, metadata, exe, health per store |
 | [../META/CODE_MAP.md](../META/CODE_MAP.md) | Code layout |
 | [../META/ARCHITECTURE.md](../META/ARCHITECTURE.md) | Decisions (append-only) |
 | [../planning/README.md](../planning/README.md) | Which plan is next |

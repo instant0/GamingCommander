@@ -41,6 +41,7 @@ MATRIX: dict[str, tuple[str, str, str | None]] = {
     "Store Blizzard": ("StoreBlizzard", "Secure", "Blizzard"),
     "Store Blizzard bnet-manifest (real: Diablo III/COD)": ("StoreBlizzardBnet/Diablo III", "Secure", "Blizzard"),
     "Store SteamEmu": ("StoreSteamEmu", "Secure", "Steam Emulator"),
+    "Store Steam library no ACF": ("SteamLibrary/steamapps/common/SteamGameWithDll", "Locked", "Steam"),
     "Store Xbox": ("StoreXbox", "Secure", "Xbox"),
     "Store Rockstar": ("StoreRockstar", "Secure", "Rockstar"),
 }

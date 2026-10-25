@@ -106,7 +106,10 @@ internal static class ContainerScanner
             // only evidence is a deep SteamEmu/Ubisoft marker is promoted with that type.
             if (summary.HasSteamEmuDeep)
             {
-                addGameEntry(entries, child, rootPath, GameSourceKind.SteamEmu);
+                GameSourceKind promotedType = SteamLibraryMembership.IsUnderSteamLibrary(child.FullName)
+                    ? GameSourceKind.Steam
+                    : GameSourceKind.SteamEmu;
+                addGameEntry(entries, child, rootPath, promotedType);
                 continue;
             }
             if (summary.HasUbisoftLegacy)
@@ -170,7 +173,8 @@ internal static class ContainerScanner
     /// </summary>
     private static SignalSummary Summarize(DirectoryInfo child, IReadOnlyList<string> noiseExePatterns)
     {
-        GameSourceKind storeType = StoreSignalDetector.DetectType(child);
+        GameSourceKind storeType = StoreSignalDetector.DetectType(
+            child, SteamLibraryMembership.IsUnderSteamLibrary(child.FullName));
         bool hasSteamEmu = FallbackSignalDetector.HasSteamEmuDeepSignal(child);
         bool hasUbiLegacy = FallbackSignalDetector.HasUbisoftLegacySignal(child);
         return new SignalSummary(

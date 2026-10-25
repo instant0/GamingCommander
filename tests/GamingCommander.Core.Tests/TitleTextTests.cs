@@ -45,6 +45,51 @@ public sealed class TitleTextTests
             "Dying Light 2 Stay Human",
             TitleText.StripEdition("Dying Light 2 Stay Human - Reloaded Edition"));
 
+    public static IEnumerable<object[]> TailTokens() =>
+        EditionTokens.TailTokens.Select(token => new object[] { token });
+
+    [Theory]
+    [MemberData(nameof(TailTokens))]
+    public void StripEdition_StripsEachTailToken(string token)
+    {
+        const string title = "Dying Light 2 Stay Human";
+
+        Assert.Equal(title, TitleText.StripEdition($"{title} - {token}"));
+        Assert.Equal(title, TitleText.StripEdition($"{title}: {token}"));
+        Assert.Equal(title, TitleText.StripEdition($"{title} - {token} Edition"));
+    }
+
+    [Theory]
+    [InlineData("Reloaded - Dying Light 2 Stay Human")]
+    [InlineData("Dying Light 2 Stay Human - Reloaded Edition - Stay Human")]
+    [InlineData("Dying Light 2 Stay Human: Gold - Stay Human")]
+    public void StripEdition_LeavesMidTitleToken(string input) =>
+        Assert.Equal(input, TitleText.StripEdition(input));
+
+    [Theory]
+    [InlineData("Dying Light 2 Stay Human - Reloaded Edition")]
+    [InlineData("Dying Light 2 Stay Human: GOTY")]
+    [InlineData("Dying Light 2 Stay Human")]
+    public void StripEdition_IsIdempotent(string input)
+    {
+        string once = TitleText.StripEdition(input);
+        Assert.Equal(once, TitleText.StripEdition(once));
+    }
+
+    [Theory]
+    [InlineData(GameSourceKind.Steam)]
+    [InlineData(GameSourceKind.Epic)]
+    [InlineData(GameSourceKind.Gog)]
+    public void LookupName_StoreTitleStillResolves(GameSourceKind source)
+    {
+        // Store-sourced display titles are used verbatim (TitleSource contract);
+        // edition stripping only supplies an extra search variant.
+        const string display = "Dying Light 2 Stay Human - Reloaded Edition";
+
+        Assert.Equal(display, TitleText.LookupName(display, "DyingLight2", source));
+        Assert.Contains("Dying Light 2 Stay Human", TitleText.SearchQueries(display, "DyingLight2"));
+    }
+
     [Fact]
     public void LookupName_EpicUsesItemDisplayName() =>
         Assert.Equal(

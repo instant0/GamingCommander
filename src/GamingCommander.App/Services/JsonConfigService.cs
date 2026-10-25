@@ -36,7 +36,8 @@ public sealed class JsonConfigService : IConfigService
             IsFirstRun: !fileExists,
             LastSeenVersion: loaded.LastSeenVersion,
             EnableOnlineMetadata: loaded.EnableOnlineMetadata,
-            ScanDepth: loaded.ScanDepth > 0 ? loaded.ScanDepth : 3);
+            ScanDepth: loaded.ScanDepth > 0 ? loaded.ScanDepth : 3,
+            StorePolicies: MapPolicies(loaded.StorePolicies));
     }
 
     /// <summary>Serializes and persists the application configuration to disk.</summary>
@@ -50,10 +51,72 @@ public sealed class JsonConfigService : IConfigService
             LastSeenVersion = config.LastSeenVersion,
             EnableOnlineMetadata = config.EnableOnlineMetadata,
             ScanDepth = config.ScanDepth,
+            StorePolicies = MapPolicies(config.StorePolicies),
         };
 
         JsonFileHelper.WriteToFile(_configPath, dto);
     }
+
+    private static StorePolicySettings MapPolicies(StorePolicySettingsDto? dto)
+    {
+        var stores = new List<StorePolicy>();
+        var seen = new HashSet<GameSourceKind>();
+        foreach (StorePolicyDto store in dto?.Stores ?? [])
+        {
+            if (store is null
+                || !TryParseLauncher(store.Kind, out GameSourceKind kind)
+                || !seen.Add(kind))
+            {
+                continue;
+            }
+
+            stores.Add(Normalize(new StorePolicy(
+                kind,
+                store.IndexEnabled,
+                store.CheckOnLaunch,
+                store.EnrichNewGames,
+                store.SkipUnchangedManifests,
+                store.InventoryPathOverride)));
+        }
+
+        return new StorePolicySettings { Stores = stores };
+    }
+
+    private static StorePolicySettingsDto MapPolicies(StorePolicySettings? settings)
+    {
+        return new StorePolicySettingsDto
+        {
+            Stores = (settings?.Stores ?? [])
+                .Where(policy => policy is not null && LauncherKinds.IsLauncher(policy.Kind))
+                .Select(policy =>
+                {
+                    StorePolicy normalized = Normalize(policy);
+                    return new StorePolicyDto
+                    {
+                        Kind = normalized.Kind.ToString(),
+                        IndexEnabled = normalized.IndexEnabled,
+                        CheckOnLaunch = normalized.CheckOnLaunch,
+                        EnrichNewGames = normalized.EnrichNewGames,
+                        SkipUnchangedManifests = normalized.SkipUnchangedManifests,
+                        InventoryPathOverride = normalized.InventoryPathOverride,
+                    };
+                })
+                .ToList(),
+        };
+    }
+
+    private static bool TryParseLauncher(string? name, out GameSourceKind kind)
+    {
+        kind = default;
+        return !string.IsNullOrWhiteSpace(name)
+            && Enum.TryParse(name, ignoreCase: true, out kind)
+            && LauncherKinds.IsLauncher(kind);
+    }
+
+    private static StorePolicy Normalize(StorePolicy policy) =>
+        policy.IndexEnabled
+            ? policy
+            : policy with { CheckOnLaunch = false, EnrichNewGames = false };
 
     private sealed class ConfigDto
     {
@@ -63,5 +126,21 @@ public sealed class JsonConfigService : IConfigService
         public string? LastSeenVersion { get; set; }
         public bool EnableOnlineMetadata { get; set; }
         public int ScanDepth { get; set; } = 3;
+        public StorePolicySettingsDto? StorePolicies { get; set; }
+    }
+
+    private sealed class StorePolicySettingsDto
+    {
+        public List<StorePolicyDto>? Stores { get; set; }
+    }
+
+    private sealed class StorePolicyDto
+    {
+        public string? Kind { get; set; }
+        public bool IndexEnabled { get; set; }
+        public bool CheckOnLaunch { get; set; }
+        public bool EnrichNewGames { get; set; }
+        public bool SkipUnchangedManifests { get; set; } = true;
+        public string? InventoryPathOverride { get; set; }
     }
 }

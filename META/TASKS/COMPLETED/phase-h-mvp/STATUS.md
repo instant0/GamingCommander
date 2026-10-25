@@ -1,6 +1,6 @@
 # Phase H — MVP Status Tracker
 
-**Plan:** [`planning/100-mvp-next-steps.md`](../../../planning/100-mvp-next-steps.md)
+**Plan:** [`planning/100-mvp-next-steps.md`](../../../../planning/100-mvp-next-steps.md)
 **Gate:** Windows smoke validation (T70) must pass before MVP is declared READY.
 
 ---

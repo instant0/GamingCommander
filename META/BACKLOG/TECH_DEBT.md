@@ -1,7 +1,7 @@
 # META/BACKLOG/TECH_DEBT.md — Technical Debt & Known Issues
 
 **Nature:** Mutable. Entries appended by Builder/Reviewer, moved to `planning/` when prioritized.
-**Last verified:** 2026-08-22 (status alignment; Bugs 10/13/16 closed)
+**Last verified:** 2026-10-25 (status alignment; Bug 12 fixed, per-tag colour shipped, detector review backlog added)
 
 ---
 
@@ -87,7 +87,7 @@
 - **Discovered:** 2026-04-17
 - **Where:** App startup
 - **Issue:** Default `settings.json` and `games.json` should be created alongside exe for clean installs.
-- **Status:** ✅ Fixed — T64: `JsonConfigService.Load()` checks `File.Exists` before read; `IsFirstRun` returns true when settings.json missing.
+- **Status:** ✅ Fixed — `JsonConfigService.Load()` checks `File.Exists` before read; `IsFirstRun` returns true when settings.json missing.
 - **Verified:** 2026-07-26
 
 ---
@@ -96,7 +96,8 @@
 - **Discovered:** 2026-Q1
 - **Where:** docs/research/ea_format.md
 - **Issue:** EA format doc based on staged install only — needs verification against a complete EA game install.
-- **Status:** Open
+- **Status:** Open — **blocked on a real EA game install**. The current signal set (`__Installer/`, `touchup.exe`, `activationui.exe`) is implemented and tested against staged fixtures; no complete install has been available to confirm the full layout.
+- **Verified:** 2026-10-25 (blocker re-confirmed)
 
 ---
 
@@ -139,7 +140,7 @@
 - **Where:** `FileSystemHelper.cs` line 22, `FolderScanner.cs` lines 100-101
 - **Issue:** `"blizzard"` is hardcoded in `FileSystemHelper.NoiseSubDirNames`. When the library root is `d:\games\`, the `blizzard\` subdirectory is **skipped entirely** by the noise filter before any store signal detection runs. Diablo III is never discovered.
 - **If root is `d:\games\blizzard\`:** Diablo III is discovered but `HasBlizzardSignal` checks for `.battle.net/` directory which often doesn't exist in game folders. Parent propagation also fails if `blizzard\` doesn't contain `.battle.net/`. Falls through to `FallbackSignalDetector.HasRootExecutableSignal` → classified as Standalone.
-- **Impact:** HIGH — BattleNet games not detected when under a publisher folder. T75 BUG-9 fix is effectively bypassed by the noise filter.
+- **Impact:** HIGH — BattleNet games not detected when under a publisher folder. The earlier BattleNet detection fix is effectively bypassed by the noise filter.
 - **Root cause:** Two blocking points:
   1. `NoiseSubDirNames.Contains("blizzard")` — skips the entire directory
   2. `HasBlizzardSignal` requires `.battle.net/` which doesn't always exist
@@ -179,7 +180,8 @@
 - **Issue:** ComboBox for library type (Standalone, Battle.net, etc.) is too narrow to show the full text.
 - **Impact:** LOW — cosmetic.
 - **Suggested fix:** Set `MinWidth` on the ComboBox or use a wider layout.
-- **Status:** Open
+- **Status:** ✅ Fixed — ComboBox `MinWidth = 148` set in the F2 library setup window.
+- **Verified:** 2026-10-25 — `src/GamingCommander.App/LibrarySetupWindow.axaml.cs:127`
 
 ### Bug 13: FolderScanner noise gaps + nested Steam exclusion (no cross-scanner wiring)
 - **Discovered:** 2026-07-26
@@ -269,7 +271,7 @@ Same when the child is the full Steam application folder containing `steamapps\c
 - **Issue:** `FindEpicManifest()` returns a file path, but no data is parsed from it. `ManifestPath` is stored on `GameEntry` but `DisplayName`, `CatalogItemId`, `CatalogNamespace`, `LaunchExecutable` are never extracted.
 - **Impact:** HIGH — Epic games show codename/folder names instead of marketing names. No store IDs available for cross-referencing.
 - **Suggested fix:** Implement `EpicManifestParser` (Plan 109 Phase 2) to parse `.item`/`.mancpn` files and extract metadata; integrate into FolderScanner (Phase 4).
-- **Status:** ✅ Fixed — Plan 109 Phases 2+4. `EpicManifestParser.ExtractLocalIdentifiers()` + `FolderScanner` integration. `EpicCatalogItemId`, `EpicCatalogNamespace`, `EpicAppName` stored in `PlatformMetadata`.
+- **Status:** ✅ Fixed — Plan 109 Phases 2+4. `EpicManifestParser.ExtractLocalIdentifiers()` + `FolderScanner` integration. Epic identity fields are stored in typed records (`StoreInfo` on `GameEntry`, with `StoreInfo.EpicCatalogItemId`, `StoreInfo.EpicCatalogNamespace`, `StoreInfo.EpicAppName`); the old untyped platform-metadata bag no longer exists in live code.
 - **Verified:** 2026-07-26 — FolderScanner.cs lines 263-313
 
 ### Bug 19: No global .item cross-reference
@@ -426,5 +428,65 @@ Same when the child is the full Steam application folder containing `steamapps\c
 - **Issue:** `ShellPaneItemViewModel` doesn't have a `Tags` property. `LoadGamesForRoot()` doesn't read `game.Tags`. UI templates don't display tags.
 - **Impact:** LOW — feature incomplete.
 - **Suggested fix:** Add `Tags` to `ShellPaneItemViewModel`, populate in `LoadGamesForRoot()`, add to left-pane item template and right-pane details panel.
-- **Status:** ✅ Fixed — Plan 102 Phase 4 + Plan 114. Right-pane colored `TagBadges` via `TagColorService` / `tag_colors.json`. Left-pane layout redesign residual → `planning/117-left-pane-layout.md`.
-- **Verified:** 2026-08-10 — TagColorService, ShellViewModel.BuildTagBadges, MainWindow.axaml
+- **Status:** ✅ Fixed — Plan 102 Phase 4 + Plan 114. Per-tag colour is **shipped**: `TagColorService` (+ `ITagColorProvider`) resolves colours from `tag_colors.json`; right-pane coloured `TagBadges` render in `MainWindow.axaml`. Left-pane layout redesign residual → `planning/117-left-pane-layout.md`.
+- **Verified:** 2026-10-25 — `TagColorService.cs`, `ITagColorProvider.cs`, `data/tag_colors.json`
+
+---
+
+## Detector Review Backlog (verified 2026-10-25)
+
+Source of record: `docs/detection/09-blueprint.md` §14 (prioritized detector backlog) and the
+follow-ups recorded in `META/SESSION/CURRENT.md`. These are open design/cleanup items, not
+regressions — do not duplicate them as bugs.
+
+### Noise-list consolidation — O1/O2 residual
+
+- **O1 (exe lists, P1, partially done):** small sets are centralized in `DetectionNoise`, and the
+  container-L3 + terminating-rule sets share one `NonGameExe`. Remaining work is threading the
+  full blacklist into every scanner (`SteamLibraryScanner`, `EpicLaunchResolver`,
+  `EpicItemWriter`, `LnkParser`, `ExecutableDiscovery`) instead of per-scanner copies.
+- **O2 (dir lists, P1, partially done):** `SteamCommonNoise` is centralized and
+  `FileSystemHelper.NoiseSubDirNames` is a single source. Container, parent-bound, and blacklist
+  directory sets remain distinct **by design**; reconcile substring vs exact semantics before
+  merging.
+- **Risk:** changing which list wins can flip detection outcomes — do it behind the corpus matrix.
+
+### Title canonicalization — O9 (P1)
+
+`FileSystemHelper.NormalizeDisplayName` (display) and `TitleText.StripEdition` (search) use
+different edition-word lists. Align them while preserving the `TitleSource` contract; assert with
+title tests.
+
+### SteamEmu false-positive refinement (P1)
+
+`StoreSignalDetector` returns `SteamEmu` for any root `steam_api64.dll`/`steam_api.dll` (plus weak
+`steam_appid.txt`). This is intentional today, but classifies a legitimate Steamworks standalone as
+`SteamEmu`. Needs an explicit design call: keep grouping as-is, require
+`steam_emu.ini`/`steam_settings/`, or add a distinct `Steamworks` kind. Do not change unilaterally —
+update the fixture and Python `_check_steam_emu` with the decision.
+
+### Epic engine detection (P2)
+
+Engine detection currently does not run for Epic rows. Add the existing engine probes to the Epic
+scan path. Steam engine detection stays deliberately excluded for performance.
+
+### Deep 4-level store-marker walk (P2)
+
+Python's `_deep_signal_scan` walks four levels for store markers; C# uses targeted probes plus
+container recursion. A bounded walk for otherwise-unknown folders is a recall improvement, but only
+after measuring performance on large libraries.
+
+### Structured `DetectionLogger` (P3)
+
+Python has a chain-oriented detector logger; C# emits status messages only. A structured
+decision-chain log would help diagnosis, but is not required for the shipped app.
+
+### Game model follow-ups
+
+- **Play-time tracking:** `TrackingInfo` increments a launch counter, but `PlayTimeSeconds` /
+  `LastSessionSeconds` are not populated — URI launches provide no process handle. Needs a
+  process-tracking or launcher-wrapper design.
+- **`Relations.Kind` wiring:** `RelationsInfo` / `GameKind` exist on `GameEntry`, but scanners do
+  not yet set `Relations.Kind` (for example Epic addons → `Dlc`).
+- **Collections UI:** `Collection` + `ICollectionsService` + `CollectionsDatabaseService` persist
+  `data/collections.json`; there is no UI to create or browse collections yet.

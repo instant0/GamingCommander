@@ -7,6 +7,9 @@ namespace GamingCommander.Core.Models;
 /// </summary>
 public sealed record StoreInfo
 {
+    /// <summary>Stable composite key <c>"&lt;GameSourceKind&gt;:&lt;storeId&gt;"</c> (e.g. <c>Steam:400</c>); empty when none.</summary>
+    public string StoreKey { get; init; } = string.Empty;
+
     /// <summary>Steam numeric AppID.</summary>
     public string SteamAppId { get; init; } = string.Empty;
 
@@ -28,17 +31,34 @@ public sealed record StoreInfo
     /// <summary>EA game name (non-trademarked) from the install log.</summary>
     public string EaGameName { get; init; } = string.Empty;
 
+    /// <summary>EA App content id (natural key for EA inventory and launch).</summary>
+    public string EaContentId { get; init; } = string.Empty;
+
     /// <summary>Blizzard product codename from <c>.build.info</c>.</summary>
     public string BlizzardProduct { get; init; } = string.Empty;
 
     /// <summary>Ubisoft readme game title (Plan 112 Step 3B).</summary>
     public string UbisoftReadme { get; init; } = string.Empty;
 
+    /// <summary>Ubisoft Connect game id.</summary>
+    public string UbisoftGameId { get; init; } = string.Empty;
+
+    /// <summary>Xbox / Microsoft Store package family name.</summary>
+    public string XboxPackageFamily { get; init; } = string.Empty;
+
+    /// <summary>Rockstar Games Launcher title id.</summary>
+    public string RockstarTitleId { get; init; } = string.Empty;
+
     /// <summary>True when no store identifier is present.</summary>
     public bool IsEmpty =>
-        string.IsNullOrEmpty(SteamAppId)
+        string.IsNullOrEmpty(StoreKey)
+        && string.IsNullOrEmpty(SteamAppId)
         && string.IsNullOrEmpty(GogGameId)
         && string.IsNullOrEmpty(EpicCatalogNamespace)
         && string.IsNullOrEmpty(EpicCatalogItemId)
-        && string.IsNullOrEmpty(EpicAppName);
+        && string.IsNullOrEmpty(EpicAppName)
+        && string.IsNullOrEmpty(EaContentId)
+        && string.IsNullOrEmpty(UbisoftGameId)
+        && string.IsNullOrEmpty(XboxPackageFamily)
+        && string.IsNullOrEmpty(RockstarTitleId);
 }

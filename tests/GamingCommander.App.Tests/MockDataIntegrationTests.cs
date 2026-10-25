@@ -72,13 +72,12 @@ public sealed class MockDataIntegrationTests
     /// <summary>
     /// Scan the Steam common folder mock root.
     /// Expected entries:
-    ///   - MockGameAlpha (GameAlpha.exe + steam_appid.txt → SteamEmu via FolderScanner)
-    ///   - MockGameBeta  (GameBeta.exe + steam_appid.txt → SteamEmu via FolderScanner)
-    /// Note: In production, Steam library paths like this one are handled by
-    /// SteamLibraryScanner (structural detection), not FolderScanner.
+    ///   - MockGameAlpha (GameAlpha.exe + steam_appid.txt → Steam via FolderScanner)
+    ///   - MockGameBeta  (GameBeta.exe + steam_appid.txt → Steam via FolderScanner)
+    /// Steam-library location is authoritative even without an ACF.
     /// </summary>
     [Fact]
-    public void SteamCommonRoot_ScansAsSteamEmuViaFolderScanner()
+    public void SteamCommonRoot_ScansAsSteamViaFolderScanner()
     {
         string root = Path.Combine(MockRoot, "steam", "steamapps", "common");
         var scanner = new FolderScanner();
@@ -86,11 +85,11 @@ public sealed class MockDataIntegrationTests
 
         Assert.Contains(results, g =>
             g.FolderName.Equals("MockGameAlpha", StringComparison.OrdinalIgnoreCase)
-            && g.GameSource == GameSourceKind.SteamEmu);
+            && g.GameSource == GameSourceKind.Steam);
 
         Assert.Contains(results, g =>
             g.FolderName.Equals("MockGameBeta", StringComparison.OrdinalIgnoreCase)
-            && g.GameSource == GameSourceKind.SteamEmu);
+            && g.GameSource == GameSourceKind.Steam);
     }
 
     /// <summary>

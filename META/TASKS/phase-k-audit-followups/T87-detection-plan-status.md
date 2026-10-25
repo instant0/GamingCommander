@@ -3,7 +3,7 @@
 **Tier:** 1 — Documentation
 **Phase:** K — Audit Follow-ups
 **Risk:** Minimal
-**Status:** pending
+**Status:** completed
 **Prerequisites:** None
 
 > Documentation-only. Do not run build/test.
@@ -44,7 +44,12 @@ detector task.
 
 ## Completion Notes
 
-- **Completed:**
+- **Completed:** 2026-10-25
 - **What was done:**
+  - `planning/103-detect-py-port-status.md`: corrected `tools/detect.py` to 2690 LOC; added "Superseded by `docs/detection/07-csharp-parity.md`"; replaced the stale name-only / not-ported / capped-at-2 / missing-deep-parity claims with the verified current state (`IsNonGameFolder` three layers, `AppConfig.ScanDepth` default 3 clamp 1–5, container deep-signal parity, remaining intentional deep-walk/logger differences).
+  - `planning/123-detection-bugfixes.md`: rewrote the status/revision blocks so only human review-gate sign-off and doc refresh remain; marked the 3-level fallback discussion as a historical documentation error; changed the `IdentificationTier` line to `[x]` citing `IdentificationTier.cs`, `DetectionInfo`, `StoreInfo`, and `DetectionTierDeriver`; removed remaining `PlatformMetadata` references in favour of typed records.
 - **Verification:**
-- **Issues encountered:**
+  - `grep -n "name-only\|not ported\|capped at 2\|no IdentificationTier" planning/103-*.md planning/123-*.md` → no matches.
+  - `wc -l tools/detect.py` → `2690`, matching the number written in plan 103.
+  - No build/test run (documentation-only).
+- **Issues encountered:** None.

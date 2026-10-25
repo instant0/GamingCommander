@@ -190,6 +190,51 @@ public sealed class GamesDatabaseServiceTests : IDisposable
     }
 
     [Fact]
+    public void SaveLoad_StoreIdentityProvenanceAndReportedState_RoundTrip()
+    {
+        var svc = CreateService();
+        DateTimeOffset lastStoreSeen = DateTimeOffset.FromUnixTimeSeconds(1_760_000_000);
+        GameEntry game = MakeGame("g1", "Steam") with
+        {
+            Detection = new DetectionInfo
+            {
+                Origin = DetectionOrigin.StoreManifest,
+                ManifestKind = "Acf",
+            },
+            Store = new StoreInfo
+            {
+                StoreKey = "EaApp:ea-content-1",
+                EaContentId = "ea-content-1",
+                UbisoftGameId = "ubi-42",
+                XboxPackageFamily = "Publisher.Game_8wekyb3d8bbwe",
+                RockstarTitleId = "rockstar-7",
+            },
+            Install = new InstallInfo
+            {
+                State = InstallState.Installed,
+                StoreReportedState = StoreReportedState.UpdateRequired,
+                LastStoreSeenUtc = lastStoreSeen,
+                UpdateAvailable = true,
+            },
+        };
+        svc.SetGamesForLibrary("Steam", [game]);
+        svc.Save(svc.Load());
+
+        GameEntry loaded = CreateService().Load().Games.Single();
+        Assert.Equal(DetectionOrigin.StoreManifest, loaded.Detection.Origin);
+        Assert.Equal("Acf", loaded.Detection.ManifestKind);
+        Assert.Equal("EaApp:ea-content-1", loaded.Store.StoreKey);
+        Assert.Equal("ea-content-1", loaded.Store.EaContentId);
+        Assert.Equal("ubi-42", loaded.Store.UbisoftGameId);
+        Assert.Equal("Publisher.Game_8wekyb3d8bbwe", loaded.Store.XboxPackageFamily);
+        Assert.Equal("rockstar-7", loaded.Store.RockstarTitleId);
+        Assert.Equal(InstallState.Installed, loaded.Install.State);
+        Assert.Equal(StoreReportedState.UpdateRequired, loaded.Install.StoreReportedState);
+        Assert.Equal(lastStoreSeen, loaded.Install.LastStoreSeenUtc);
+        Assert.True(loaded.Install.UpdateAvailable);
+    }
+
+    [Fact]
     public void Save_CreatesFile_OnDisk()
     {
         var svc = CreateService();

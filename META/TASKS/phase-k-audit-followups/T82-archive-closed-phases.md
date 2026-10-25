@@ -3,7 +3,7 @@
 **Tier:** 2 — Repository Layout
 **Phase:** K — Audit Follow-ups
 **Risk:** Low
-**Status:** pending
+**Status:** completed
 **Prerequisites:** Task T82 depends on Task T81
 
 > Documentation/repository-only. Do not run build/test.
@@ -47,7 +47,7 @@ existing phase-a/b/c convention.
 
 ## Completion Notes
 
-- **Completed:**
-- **What was done:**
-- **Verification:**
-- **Issues encountered:**
+- **Completed:** 2026-10-25
+- **What was done:** Moved the four closed phase directories (`phase-d-complexity-reduction`, `phase-e-stabilization`, `phase-f-docs-and-bugfixes`, `phase-h-mvp`) into `META/TASKS/COMPLETED/` with `git mv`. Kept phases G, I, J, K, and L active. Updated stale directory references in `META/TASKS/TEMPLATE/task-template.md`, `COMPLETED/phase-f-docs-and-bugfixes/T42-update-stale-phase-d-tasks.md`, and `COMPLETED/phase-h-mvp/T68C-detection-robustness-plan.md`. Fixed the upward relative plan link in `COMPLETED/phase-h-mvp/STATUS.md` (`../../../planning/` → `../../../../planning/`). `planning/README.md` was left untouched for T86.
+- **Verification:** `find META/TASKS -maxdepth 1 -type d` lists only `TEMPLATE`, `COMPLETED`, and `phase-g-*`, `phase-i-*`, `phase-j-*`, `phase-k-*`, `phase-l-*`. `grep -rn "phase-h-mvp/\|phase-f-docs-and-bugfixes/\|phase-e-stabilization/\|phase-d-complexity-reduction/" META | grep -v "COMPLETED"` returns nothing. All moved task links resolve; no build or test was run (docs-only).
+- **Issues encountered:** Pre-existing broken relative links remain in `META/TASKS/COMPLETED/phase-a-docs/T04-delete-or-update-features.md` (`../META/...`) and `META/TASKS/TEMPLATE/task-template.md` (`docs/architecture.md`); both predate this task and are out of scope. `planning/README.md` still points at the old locations pending T86.

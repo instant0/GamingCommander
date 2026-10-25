@@ -176,3 +176,11 @@ Appended after Plans 124/125 shipped. Does not replace ADRs above.
 - **Test baseline:** Plan 125 recorded 564 tests green (App 398 + Core 165 + Migration 1).
 - **Epic orphan `.item` write is display-only:** Plan 126 proved the EOSH reported set is server/account-driven; a written `.item`/`.egi` cannot register an app EOSH does not report. Do not advertise registration for unreported Epic installs.
 - **Open product work:** Plan 123 Phase 4 C# detection port; SyncMove Phase 2.1 manifest repair.
+
+---
+
+## Current Reality (2026-10-25, Steam location rule)
+
+- **Steam location is authoritative.** A folder under `<library>/steamapps/common/` is **Steam**, even when its `appmanifest_*.acf` is missing; the Steam scanner reports that folder as Orphaned/fixable.
+- **SteamEmu is a fallback outside libraries.** A root `steam_api64.dll`/`steam_api.dll` signals SteamEmu only when the folder sits outside every known Steam library.
+- **Fixture/matrix consequence:** the SteamEmu fixture lives outside a library; a DLL-carrying game inside a library classifies as Steam, so the matrix asserts the location split rather than the bare DLL signal.

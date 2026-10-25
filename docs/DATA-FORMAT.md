@@ -91,6 +91,47 @@ Rules:
 
 ---
 
+## 1b. `settings.json` — application configuration
+
+Written by `JsonConfigService` (`IConfigService`). Per-user preferences only; never store
+inventory data here.
+
+Top-level shape:
+
+| Property | Type | Meaning |
+|----------|------|---------|
+| `Version` | int | Schema version (`SchemaVersioning.Current`) |
+| `HiddenFolders` | string[] | Folder names excluded from scanning |
+| `IsFirstRun` | bool | First-run wizard still pending |
+| `LastSeenVersion` | string/null | Last launched app version |
+| `EnableOnlineMetadata` | bool | Online metadata lookups allowed |
+| `ScanDepth` | int | Recursive exe-search depth (1–5, default 3) |
+| `StorePolicies` | object/null | Per-store opt-in policy; null means all disabled |
+
+`StorePolicies` shape:
+
+| Property | Type | Meaning |
+|----------|------|---------|
+| `Stores` | array of **policy object** | Configured launcher policies; absent stores are disabled |
+
+Policy object:
+
+| Property | Type | Meaning |
+|----------|------|---------|
+| `Kind` | string | `GameSourceKind` enum **name** (`Steam`, `Epic`, `Gog`, `EaApp`, `UbisoftConnect`, `BattleNet`, `Xbox`, `Rockstar`) |
+| `IndexEnabled` | bool | Store may be indexed (default false) |
+| `CheckOnLaunch` | bool | Store is checked at startup (default false) |
+| `EnrichNewGames` | bool | New imports get metadata enrichment (default false) |
+| `SkipUnchangedManifests` | bool | Skip redundant manifest reads (default true) |
+| `InventoryPathOverride` | string/null | Optional user-supplied inventory path |
+
+Rules:
+- Unknown or non-launcher `Kind` values are ignored on load, never fatal.
+- `CheckOnLaunch` and `EnrichNewGames` are forced false whenever `IndexEnabled` is false.
+- No store files are written; this file is app-owned configuration only.
+
+---
+
 ## 2. `games.json` — Game database
 
 All game entries, each linked to an anchor by name.

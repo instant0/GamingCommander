@@ -2,7 +2,7 @@
 
 **Nature:** Reference. Updated by Planner after milestones.  
 **Audience:** All agents. Read when determining what to work on next.  
-**Updated:** 2026-10-14 — Plans 124/125 recorded; Plan 126 (EOSH) closed; next product track identified.
+**Updated:** 2026-10-25 — Plan 127 A/B (typed persistence) recorded shipped; current track set to O9 title canonicalization → SteamEmu decision; SyncMove deferred.
 
 ---
 
@@ -21,14 +21,14 @@ GamingCommander is a C# Windows-native game management and launcher application 
 | Phase 1.1: UI Polish & UX | ✅ COMPLETE | First-run wizard, virtual FS, F2/T key workflows, details panel |
 | Phase 1.1a: Stabilization | ✅ COMPLETE | Navigation/mouse fixes, mock data, scanner tests, Python tools |
 | Phase 1.2: Research & Data Collection | ✅ COMPLETE | Format research for Steam ACF, Epic, standalone; Python validation |
-| **Phase 2: Steam & Standalone Games** | **✅ BASELINE COMPLETE** | Scan + launch shipped. Leftover: SyncMove (2.1) |
-| Phase 2.1: SyncMove Migration | ⏳ PLANNED | Manifest repair after user-relocated files (Steam first) |
+| **Phase 2: Steam & Standalone Games** | **✅ BASELINE COMPLETE** | Scan + launch shipped. SyncMove (2.1) deferred |
+| Phase 2.1: SyncMove Migration | ⏸ DEFERRED | Manifest repair after user-relocated files (Steam first); blocked until detection is working |
 | Phase 2.2: Game Metadata Lookup | ✅ SHIPPED (narrowed) | Sidecar extras via PCGW + Steam Store. No SteamDB / IGDB / Cargo. |
 | Phase 3: Multi-Launcher Support | 🔵 DETECTION SHIPPED / CLIENTS FUTURE | Folder/registry detection for GOG, Epic, EA, Ubisoft, Battle.net, Rockstar exists. Full store APIs / repair do not. |
 | Phase 3.5: Category Browsing & Search | 🔮 FUTURE | F8 category view, S key quick search, cross-root aggregation |
 | Phase 4: Advanced Features & Polish | 🔮 FUTURE | PCGamingWiki integration, metadata sync, UX polish |
 
-**Post-MVP product track (current):** 117 + 119 + 120 + F8 filter shipped. Plan **121** Epic catalog (F2 + orphans) shipped. Plans **124** (anchor library/game DB) + **125** (stabilization refactor) shipped. Plan **126** EOSH investigation closed. **Next product-code plan: 123 (detection tightening, Phase 4 C# port); then SyncMove (2.1).** Plan 101 mode switcher remains future.
+**Post-MVP product track (current):** 117 + 119 + 120 + F8 filter shipped. Plan **121** Epic catalog (F2 + orphans) shipped. Plans **124** (anchor library/game DB), **125** (stabilization refactor), and **127 A/B** (typed persistence v2) shipped. Plan **126** EOSH investigation closed. **Current track: O9 title canonicalization → SteamEmu design decision.** SyncMove (Phase 2.1) is deferred until detection is working. Plan 127 C (`Extensions{}` / emulator/ROM model) is deferred. Plan 101 mode switcher remains future.
 
 ---
 
@@ -55,6 +55,8 @@ GamingCommander is a C# Windows-native game management and launcher application 
 | Shipped | Not shipped |
 |---------|-------------|
 | Dual-pane VFS over `data/games.json` | SyncMove manifest repair |
+| Typed persistence: composed `GameEntry`, typed detection/store/install/tracking/user-state/relations records, schema versioning, identity reconciliation (Plan 127 A/B) | Plan 127 C (`Extensions{}` / emulator/ROM model) |
+| Launch-profile model, relations model, collections service (`collections.json`), and typed tags (Plan 127 B) | Profile picker / collections UI; `Relations.Kind` scanner wiring |
 | F2 / first-run `LibrarySetupWindow` | SteamDB / IGDB / Cargo / Epic GraphQL |
 | F5 async rescan + cancel | Plan 101 mode switcher / category folders |
 | Steam ACF + multi-library | Full GOG/Epic/EA/Ubisoft *clients* |
@@ -91,3 +93,4 @@ GamingCommander is a C# Windows-native game management and launcher application 
 | 2026-08 | Docs: FAQ + Readme | `docs/FAQ.md`; Readme install/first-run/rescan sections; freshness drift fixed to 60 days |
 | 2026-09 | Plans 124 + 125 | Anchor-based library + flat game DB (`libraries.json`/`games.json`); stabilization refactor (564 tests green) |
 | 2026-09 | Plan 126 closed | Epic orphan `.item`/EOSH gate: identity rules proven correct, but registration is server/account-driven — no file-based workaround |
+| 2026-10 | **Plan 127 A/B shipped** | Composed `GameEntry` + typed metadata; detection tier/provenance; schema versioning; identity reconciliation; sidecar ownership; install/tracking/user-state; launch profiles; relations; collections; typed tags (607 tests). Plan 127 C (`Extensions{}` / emulator) deferred |

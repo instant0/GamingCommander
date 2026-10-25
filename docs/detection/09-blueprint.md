@@ -30,12 +30,12 @@ plus the overlap/sync backlog.
 main-binary names +18, UE `-shipping` +28, path `\Binaries\win64\` +12 (both scorers). Validation
 matrix still **22/22 PASS**.
 
-**Still open (documented, not implemented):** O1/O2 full blacklist→scanner threading; O3–O10 dedup; store-priority alignment (**done**); SteamEmu false-positive refinement; engine detection for Steam/Epic; deep 4-level store walk; structured `DetectionLogger`.
+**Still open (documented, not implemented):** O1/O2 full blacklist→scanner threading; O3–O10 dedup; store-priority alignment (**done**); engine detection for Steam/Epic; deep 4-level store walk; structured `DetectionLogger`.
 
 **Added 2026-10-14 (P1 pass):** small detection noise sets centralized in `DetectionNoise`
 (`NonGameExe`, `LnkSkip`, `SteamCommonNoise`); the container non-game layer and the terminating-rule
-gate now share one `NonGameExe` set; registry store-priority aligned. Remaining P1: title
-canonicalization (O9), SteamEmu design call, Epic engine detection.
+gate now share one `NonGameExe` set; registry store-priority aligned. Remaining P1:
+Epic engine detection.
 
 ---
 
@@ -76,7 +76,7 @@ Pre-filters: hidden names → `IsNoiseDirectory` (substring, blacklist) → `Noi
 | BattleNet | `.battle.net/`, `.build.info`, `.product.db`, `.patch.result` | Secure |
 | Xbox | `default-metadata.json` | Secure |
 | Rockstar | `title.rgl` | Secure |
-| Steam Emu | `steam_api64.dll`/`steam_api.dll` (strong), `steam_appid.txt` (weak), deep `steam_emu.ini`, copied `steamapps/`+`.acf` (Python only) | Secure |
+| Steam Emu | **outside every Steam library:** root `steam_api64.dll`/`steam_api.dll` (strong), `steam_appid.txt` (weak), deep `steam_emu.ini`, copied `steamapps/`+`.acf` (Python only). Inside a library, `steamapps/common/<Game>` is Steam regardless of ACF | Secure |
 | Standalone | root exe / `.lnk` / UE layout | Candidate |
 
 **Registry fallback:** EA, Ubisoft, GOG, Rockstar (exact-path + name tiering).
@@ -156,7 +156,8 @@ These are real duplications of the *same rule* across components. They risk dive
 - **Container children classified with fewer signals** than top-level: `ContainerScanner.Summarize` omits
   SteamEmu-deep / Ubisoft-legacy / root `.lnk` that Pass 2 uses → a child whose only evidence is those
   is silently dropped. **Corrected in this pass.**
-- **SteamEmu false positive:** any `steam_api*.dll` ⇒ `SteamEmu`; legit Steamworks standalones mislabeled.
+- **SteamEmu false positive — corrected:** `steam_api*.dll` ⇒ `SteamEmu` only outside Steam libraries;
+  a folder under a library's `steamapps/common/` is Steam (ACF optional).
 - **Engine detection only in `FolderScanner`** (Steam/Epic never get an engine).
 - **GOG signal root-only** but GOG metadata root+1 subdir.
 
@@ -194,6 +195,10 @@ These are real duplications of the *same rule* across components. They risk dive
 
 ## 14. Prioritized backlog (evaluated 2026-10-14)
 
+Per-store launcher/inventory facts and gaps live in
+[10-store-capabilities.md](10-store-capabilities.md); use that matrix as the source of truth
+for what each store scanner does today.
+
 ### Priority key
 - **P0 — do now:** high impact, low risk, verifiable.
 - **P1 — next:** clear value, moderate effort/risk (often needs a design call or fixture work).
@@ -207,8 +212,8 @@ These are real duplications of the *same rule* across components. They risk dive
 | — | Plan 123 amended review gate | Process closeout | S | Low | **P0** | Close (see §15) |
 | O1 | Noise **exe** list consolidation | Consistency | M | Med | **P1** | **PARTIAL DONE** — small sets centralized in `DetectionNoise`; container-L3 + terminating-rule sets unified to one `NonGameExe`. Full blacklist→scanner threading deferred (behavior change). |
 | O2 | Noise **dir** list consolidation | Consistency | M | Med | **P1** | **PARTIAL DONE** — `SteamCommonNoise` centralized; `NoiseSubDirNames` already single. Container/parent-bound/blacklist dir sets remain distinct by design. |
-| O9 | Title canonicalization (`NormalizeDisplayName` vs `TitleText.StripEdition`) | Title quality | S | Med | **P1** | Next — align edition lists; assert with title tests |
-| — | SteamEmu false-positive refinement | Semantics | M | Med | **P1** | Design call required (see note) |
+| O9 | Title canonicalization (`NormalizeDisplayName` vs `TitleText.StripEdition`) | Title quality | S | Med | **P1** | **DONE** — single `EditionTokens` source; display substring set and anchored tail set stay distinct |
+| — | SteamEmu false-positive refinement | Semantics | M | Med | **P1** | **DONE** — location authoritative; DLL signal is a fallback outside Steam libraries (see note) |
 | O3 | Epic `.egstore` detection dedup | Cleanup | S | Low | **P2** | Later |
 | O4 | Ubisoft detection dedup | Cleanup | S | Low | **P2** | Later (signals vs registry vs title are distinct concerns) |
 | O5 | Rockstar `title.rgl` dedup | Cleanup | S | Low | **P2** | Later |
@@ -234,16 +239,17 @@ detection outcomes, so do it behind the corpus matrix.
 
 **O9 — title canonicalization.** `FileSystemHelper.NormalizeDisplayName` (display) strips
 Remastered/Definitive/Enhanced/Ultimate/Special/GOTY/Edition; `TitleText.StripEdition` (search) strips
-Reloaded/Definitive/Complete/Enhanced/Ultimate/Deluxe/Gold/Anniversary/GOTY. They are used in
-different contexts, so alignment must preserve the `TitleSource` contract. **Do with title tests.**
+Reloaded/Definitive/Complete/Enhanced/Ultimate/Deluxe/Gold/Anniversary/GOTY. Both now read one
+`EditionTokens` source while keeping their distinct matching algorithms (substring vs anchored tail),
+so the `TitleSource` contract is unchanged.
 
-**SteamEmu false-positive — design call.** `StoreSignalDetector` returns `SteamEmu` for any root
-`steam_api64.dll`/`steam_api.dll` (and weak `steam_appid.txt`). This is **intentional** — the corpus
-fixture `StoreSteamEmu` is built from `steam_api64.dll` and the matrix expects `Steam Emulator`. A
-legit Steamworks standalone therefore groups as `SteamEmu`. Options:
-(a) keep as-is (grouping by "uses Steamworks"); (b) require `steam_emu.ini`/`steam_settings/` for
-`SteamEmu` and map `steam_api*.dll`-only to `Standalone`; (c) add a distinct `Steamworks` kind.
-Requires a decision, then a fixture + Python `_check_steam_emu` update. **Do not change unilaterally.**
+**SteamEmu false-positive — decided: location wins.** A folder under
+`<library>/steamapps/common/` is **Steam**, even when its `appmanifest_*.acf` is missing (the Steam
+scanner reports it as Orphaned/fixable). Outside every Steam library, a root
+`steam_api64.dll`/`steam_api.dll` (and weak `steam_appid.txt`) is **SteamEmu**. The DLL signal is
+only a fallback outside libraries. Consequence: a legit Steamworks game installed in a Steam
+library is Steam; a DLL-only folder outside any library is SteamEmu. Fixtures and the validation
+matrix assert this location split rather than the bare DLL signal.
 
 ---
 

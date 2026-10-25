@@ -11,10 +11,16 @@ internal static class StoreSignalDetector
 {
     /// <summary>
     /// Tests each store/platform signal in priority order and returns the first match.
+    /// A folder under a Steam library's <c>steamapps/common</c> is always Steam,
+    /// even without an ACF or with an emulator DLL present.
     /// Returns GameSourceKind.Unknown if no signals are detected.
     /// </summary>
-    internal static GameSourceKind DetectType(DirectoryInfo subDir)
+    internal static GameSourceKind DetectType(DirectoryInfo subDir, bool isInSteamLibrary = false)
     {
+        // Location is authoritative: inside a Steam library, the folder is Steam.
+        if (isInSteamLibrary)
+            return GameSourceKind.Steam;
+
         // 1 — GOG: goggame* files at root
         if (HasGogSignal(subDir))
             return GameSourceKind.Gog;

@@ -3,7 +3,7 @@
 **Tier:** 1 — Documentation
 **Phase:** K — Audit Follow-ups
 **Risk:** Minimal
-**Status:** pending
+**Status:** completed
 **Prerequisites:** None
 
 > Documentation-only. Do not run build/test.
@@ -48,7 +48,13 @@ Three plans mix obsolete keybindings, removed models, and superseded designs int
 
 ## Completion Notes
 
-- **Completed:**
+- **Completed:** 2026-10-25
 - **What was done:**
+  - `planning/05-phase-3-category-browse.md`: added `**Status:** SUPERSEDED/STALE (2026-10-25)` with a shipped-reality summary; annotated the historical F8 view-toggle, F9 jump, and S-search guidance; replaced obsolete untyped extras references with typed metadata wording; annotated the old per-root library getter and `ILibraryManager` aggregation proposals as historical (`GetGamesForLibrary` is current). Design body retained.
+  - `planning/111-logging-toggle-readme-metadata.md`: added `**Status:** PARTIAL — Task 1 open; Tasks 2–3 shipped`; replaced `PlatformMetadata` references with typed `DetectionInfo`/`LastMetadataSource` records; removed the "227 existing tests" criterion.
+  - `planning/04-phase-2-metadata-lookup.md`: verified the existing SUPERSEDED banner and links to plans 119/120; body and line count left unchanged.
 - **Verification:**
-- **Issues encountered:**
+  - `grep -n "GameEntry.Extra\|GetGamesForRoot\|PlatformMetadata\|227 existing tests" planning/05-*.md planning/111-*.md planning/04-phase-2-metadata-lookup.md` → no matches.
+  - `wc -l planning/04-phase-2-metadata-lookup.md` → `518` (unchanged); banner links 119/120 present at the top.
+  - No build/test run (documentation-only).
+- **Issues encountered:** None.

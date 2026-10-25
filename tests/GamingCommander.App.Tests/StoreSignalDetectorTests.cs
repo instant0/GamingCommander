@@ -264,6 +264,16 @@ public sealed class StoreSignalDetectorTests : IDisposable
         Assert.Equal(GameSourceKind.SteamEmu, result);
     }
 
+    [Fact]
+    public void DetectType_SteamApi64Dll_SteamLibraryLocation_ReturnsSteam()
+    {
+        CreateFile("steam_api64.dll");
+        DirectoryInfo dir = AsDirInfo(_tempDir);
+
+        Assert.Equal(GameSourceKind.Steam, StoreSignalDetector.DetectType(dir, true));
+        Assert.Equal(GameSourceKind.SteamEmu, StoreSignalDetector.DetectType(dir, false));
+    }
+
     // ════════════════════════════════════════════════════════════════
     //  Steam Signal (Priority 10 — weak)
     // ════════════════════════════════════════════════════════════════

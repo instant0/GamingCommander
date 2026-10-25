@@ -14,4 +14,4 @@ Shipped: the ProgramData manifests folder reads as one Epic catalog root (F2 **A
 **Correction (2026-10-14, Plan 126):** "AppName from `.manifest`" is the Death-Stranding-specific rule;
 the authoritative source is the `.mancpn` AppName (see `planning/126-facts-identity.md`). Also, the
 orphan `.item` write is **identification-only** — it cannot register an app absent from the EOSH
-reported set (server/account-driven). Tracked in `META/TASKS/phase-j-followups/T78-*.md`.
+reported set (server/account-driven). The limitation is documented in the phase-j follow-up records.

@@ -145,8 +145,11 @@ public sealed class FolderScanner
             if (IsNestedSteamTree(subDir))
                 continue;
 
-            // Pass 1: Check for launcher/store signals at this folder level
-            GameSourceKind signalType = StoreSignalDetector.DetectType(subDir);
+            // Pass 1: Check for launcher/store signals at this folder level.
+            // Steam-library location wins over signal files: a folder under
+            // steamapps/common is Steam even when the ACF is missing.
+            GameSourceKind signalType = StoreSignalDetector.DetectType(
+                subDir, SteamLibraryMembership.IsUnderSteamLibrary(subDir.FullName));
 
             // NOTE: Pass 1b (parent propagation) REMOVED.
             // Detection is based on signal files inside the game folder, NOT on parent directory signals.

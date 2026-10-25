@@ -372,6 +372,27 @@ public sealed class FolderScannerContainerTests : IDisposable
     }
 
     // ════════════════════════════════════════════════════════════════
+    //  Steam library location
+    // ════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void Scan_SteamLibraryChild_WithApiDllNoAcf_DetectedAsSteam()
+    {
+        // A child under steamapps/common is Steam by location, even with a
+        // steam_api64.dll (emulator signal) and no appmanifest ACF.
+        string commonDir = CreateDir("steamapps", "common");
+        string gameDir = CreateDir("steamapps", "common", "GameA");
+        CreateExe(gameDir, "GameA.exe");
+        File.WriteAllBytes(Path.Combine(gameDir, "steam_api64.dll"), new byte[16]);
+
+        var entries = _scanner.Scan(commonDir, GameSourceKind.Steam);
+
+        var entry = Assert.Single(entries);
+        Assert.Equal("GameA", entry.FolderName);
+        Assert.Equal(GameSourceKind.Steam, entry.GameSource);
+    }
+
+    // ════════════════════════════════════════════════════════════════
     //  Helpers
     // ════════════════════════════════════════════════════════════════
     private string CreateDir(params string[] parts)

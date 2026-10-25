@@ -249,7 +249,7 @@ Prioritized by impact on real-world game detection.
 
 ## Verification
 
-- [ ] Document created in `META/TASKS/phase-h-mvp/T68C-detection-robustness-plan.md`
+- [ ] Document created in `META/TASKS/COMPLETED/phase-h-mvp/T68C-detection-robustness-plan.md`
 - [ ] `dotnet build` passes (no code changes)
 - [ ] `dotnet test` passes (no code changes)
 - [ ] Document is referenced from `STATUS.md` task tracker

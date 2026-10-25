@@ -3,7 +3,7 @@
 **Tier:** 1 — Documentation
 **Phase:** K — Audit Follow-ups
 **Risk:** Minimal
-**Status:** pending
+**Status:** completed
 **Prerequisites:** Task T86 depends on Task T81 and Task T82
 
 > Documentation-only. Do not run build/test.
@@ -48,7 +48,7 @@ next session.
 
 ## Completion Notes
 
-- **Completed:**
-- **What was done:**
-- **Verification:**
-- **Issues encountered:**
+- **Completed:** 2026-10-25
+- **What was done:** Corrected the status rows for `123`, `103`, `124`, `111`, `110`, `126`, `05-phase-3-category-browse`, and `04-phase-2-metadata-lookup`; linked the `124` completion record. Verified the `phase-j`/`phase-k`/`phase-l` tracker rows and corrected the `phase-h` tracker path to its archived location. Normalized the naming contract to `nnn-short-name.md` with a note that legacy 0–99 slots use two digits. Removed task IDs from `planning/README.md` in favour of plan numbers/status.
+- **Verification:** Every linked path in `planning/README.md` exists (checked programmatically, including the `126-facts-*.md` glob). `grep -n "phase-j-followups\|phase-k-audit\|phase-l-detection" planning/README.md` returns all three rows. No task IDs remain in the file. Documentation-only; no build/test run.
+- **Issues encountered:** The `phase-h-mvp` tracker had moved to `META/TASKS/COMPLETED/phase-h-mvp/`; its path was corrected rather than the row removed. The `phase-j`/`phase-k`/`phase-l` rows were already present and were retained.

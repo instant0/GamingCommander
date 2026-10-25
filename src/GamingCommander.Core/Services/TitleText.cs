@@ -130,8 +130,8 @@ public static class TitleText
     }
 
     /// <summary>
-    /// Drop store SKU tails PCGW does not use
-    /// (<c>Dying Light 2 Stay Human - Reloaded Edition</c> → <c>Dying Light 2 Stay Human</c>).
+    /// Drop store SKU edition tails PCGW does not use
+    /// (<c>Game Name - Deluxe Edition</c> → <c>Game Name</c>).
     /// </summary>
     public static string StripEdition(string? name)
     {
@@ -142,8 +142,17 @@ public static class TitleText
     }
 
     private static readonly Regex EditionTail = new(
-        @"\s*[-:]\s*(Reloaded|Definitive|Complete|Enhanced|Ultimate|Deluxe|Gold|Anniversary|Game of the Year|GOTY)(\s+Edition)?\s*$",
+        @"\s*[-:]\s*(" + BuildEditionTailPattern() + @")(\s+Edition)?\s*$",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    /// <summary>
+    /// Longest-first keeps multi-word tokens (e.g. <c>Game of the Year</c>) ahead
+    /// of their shorter prefixes in the alternation.
+    /// </summary>
+    private static string BuildEditionTailPattern() =>
+        string.Join("|", EditionTokens.TailTokens
+            .OrderByDescending(token => token.Length)
+            .Select(Regex.Escape));
 
     /// <summary>Folder <c>elexII</c> → <c>elex II</c> for display and PCGW.</summary>
     public static string FromFolderName(string? folderName)

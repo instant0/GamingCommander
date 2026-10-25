@@ -20,4 +20,6 @@ public sealed record AppConfig(
     /// (`docs/detection/05-executable-discovery.md`) shows real game exes at rel 1–4, ~85% at
     /// rel ≤3, so the default is 3. Clamped to 1–5 at use.
     /// </summary>
-    int ScanDepth = 3);
+    int ScanDepth = 3,
+    /// <summary>Per-store indexing policy. Null means every store is disabled.</summary>
+    StorePolicySettings? StorePolicies = null);

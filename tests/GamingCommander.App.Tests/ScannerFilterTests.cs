@@ -45,13 +45,12 @@ public sealed class ScannerFilterTests
     }
 
     /// <summary>
-    /// Folder with exe and steam_appid.txt should be detected as SteamEmu
-    /// by FolderScanner. (Real Steam library detection is structural via
-    /// SteamLibraryScanner — steam_appid.txt alone is NOT a definitive Steam
-    /// signal; many standalone games include it.)
+    /// A folder under steamapps/common is Steam by location, even when its only
+    /// signal is steam_appid.txt. Outside a Steam library, steam_appid.txt alone
+    /// is not a definitive Steam signal (many standalone games include it).
     /// </summary>
     [Fact]
-    public void SteamGame_WithAppidOnly_IsDetectedAsSteamEmu()
+    public void SteamGame_UnderLibrary_IsDetectedAsSteam()
     {
         string root = Path.Combine(MockRoot, "steam", "steamapps", "common");
         var scanner = new FolderScanner();
@@ -59,7 +58,7 @@ public sealed class ScannerFilterTests
 
         Assert.Contains(results, g =>
             g.FolderName.Equals("MockGameAlpha", StringComparison.OrdinalIgnoreCase)
-            && g.GameSource == GameSourceKind.SteamEmu);
+            && g.GameSource == GameSourceKind.Steam);
     }
 
     /// <summary>

@@ -1,6 +1,6 @@
 # Planning Documents
 
-This folder contains implementation plans following the FILE NAMING CONTRACT (`nn-short-name.md`).
+This folder contains implementation plans following the FILE NAMING CONTRACT (`nnn-short-name.md`; legacy 0–99 phase slots use two digits).
 
 **Project memory, session state, roadmap, and architecture live in `META/`.**
 
@@ -18,22 +18,23 @@ This folder contains implementation plans following the FILE NAMING CONTRACT (`n
 
 | Document | Description | Status |
 | :--- | :--- | :--- |
-| **`128-doc-and-task-audit.md`** | Documentation/task-backlog audit: corrections + small-task backlog | **IN PROGRESS** (2026-10-25) — next code task `T102` (O9) after hygiene `T81`–`T88`; decisions pending (SteamEmu, T72/T73, Plan 127 C, EA) |
-| **`126-epic-manifest-review-pass.md`** + `126-facts-*.md` | Epic orphan `.item` registration review + EOSH gate reverse-engineering (DISCOVERY) | **INVESTIGATION CLOSED** (2026-09-10) — no file-based registration path; EOSH reporting is server/account-driven (`.egi` plant falsified). Product follow-ups listed in the plan (EpicItemWriter `.mancpn` AppName; `epic_item_format.md` correction). Optional RE tail remains in `126-facts-eosh-re.md`. |
-| **`123-detection-bugfixes.md`** | Detection tightening: confidence tiers (Locked/Secure), Steam locked, Epic manifest Secure, Missing-Manifest fix, safe-first | **SUBSTANTIALLY COMPLETE** (verified 2026-10-14) — Python phases 0–3 done; **C# port shipped 2026-09-07** (`docs/detection/07`, 10 parity tests). Residuals: confidence-tier marking, review gate. **Closed:** E6a (`"tool"`), fallback-depth (now `AppConfig.ScanDepth`). Scope: `d:\games`; P-layout = §8.3 separate plan |
+| **`129-store-capabilities-and-launcher-discovery.md`** | Store capability matrix + launcher-driven inventory import proposal | **PROPOSED** (2026-10-25) — matrix published; implementation split into Phase M |
+| **`128-doc-and-task-audit.md`** | Documentation/task-backlog audit: corrections + small-task backlog | **COMPLETE** (2026-10-25) — hygiene wave + O9 done; SteamEmu decided |
+| **`126-epic-manifest-review-pass.md`** + `126-facts-*.md` | Epic orphan `.item` registration review + EOSH gate reverse-engineering (DISCOVERY) | **INVESTIGATION CLOSED** (2026-09-10) — no file-based registration path; EOSH reporting is server/account-driven (`.egi` plant falsified). Product follow-ups (EpicItemWriter `.mancpn` AppName; `epic_item_format.md` correction) **DEFERRED**. Optional RE tail remains in `126-facts-eosh-re.md`. |
+| **`123-detection-bugfixes.md`** | Detection tightening: confidence tiers (Locked/Secure), Steam locked, Epic manifest Secure, Missing-Manifest fix, safe-first | **SUBSTANTIALLY COMPLETE** (verified 2026-10-25) — Python phases 0–4 done; **C# port shipped 2026-09-07** (`docs/detection/07-csharp-parity.md`, 10 parity tests); confidence tiers shipped and wired; E6a (`"tool"`) and fallback-depth (`AppConfig.ScanDepth`) closed. Only final documentation refresh + human review-gate sign-off remain. Scope: `d:\games`; P-layout = §8.3 separate plan |
 | **`127-persistence-v2.md`** | Typed game records + detection provenance (tier/signals), identity, file ownership, tracking/customization; A/B/C proposals | **IN PROGRESS** (2026-10-14) — A1–A6 + B7–B13 done (composed `GameEntry`; bag retired; tier/provenance; schema versioning; identity reconciliation; sidecar ownership; tracking/install/user-state; launch profiles; relations; collections; typed tags); C deferred |
 | **`125-stabilization-refactor.md`** | Code architecture refactor: split oversized files, dedup composition/projection, settle GameEntryId contract | **COMPLETE** (2026-09-09) — all phases + final stage; 564 tests green; Phase 3 dropped (N/A). Predecessor: `124` COMPLETE |
 | `122-type-to-search.md` | Silent type-to-search: 3+ chars filters all roots by name + tags (frees S/T keys) | **COMPLETE** (2026-08-23) |
 | **`04-phase-2-syncmove.md`** | SyncMove — repair store registration after user moves files | PLANNED (Phase 2.1) |
 | `102-tags-metadata-display.md` | Tags + local engine | Phases 1+2+4 ✅; Phase 3 → **119/120 COMPLETE** |
-| `103-detect-py-port-status.md` | C# vs detect.py parity gaps | REFERENCE / gaps remain |
+| `103-detect-py-port-status.md` | C# vs detect.py parity gaps | **SUPERSEDED / REFERENCE** — use `docs/detection/07-csharp-parity.md` and `docs/detection/09-blueprint.md`; retained as historical parity audit |
 | `104-detect-py-module-split.md` | Split detect.py into modules | PLANNED (P3) |
 | `101-top-level-modes-and-filter.md` | Mode switcher + flatten + category folders | PLANNED. **F8/S filter shipped** (tags/stores/wildcard; not this plan’s full UI) |
-| `04-phase-2-metadata-lookup.md` | Historical Phase 2.2 (Cargo/SteamDB/IGDB) | **SUPERSEDED** by 119 + 120 |
+| `04-phase-2-metadata-lookup.md` | Historical Phase 2.2 (Cargo/SteamDB/IGDB) | **SUPERSEDED** by `119-metadata-sidecar.md` + `120-pcgw-identity-and-details.md` |
 | `04-phase-2.md` | Steam & standalone baseline | **Baseline COMPLETE**; leftover = SyncMove |
 | `97-multi-theme-system.md` | Runtime theme switching | PLANNED |
-| `111-logging-toggle-readme-metadata.md` | Logging toggle / readme metadata | PLANNED |
-| `110-user-tags-source-tagging.md` | User tags + override protection | Partial (tags model shipped) |
+| `111-logging-toggle-readme-metadata.md` | Logging toggle / readme metadata | **PARTIAL** (2026-10-25) — Task 1 open; Tasks 2–3 shipped |
+| `110-user-tags-source-tagging.md` | User tags + override protection | **PARTIAL** — Phases 1–5 shipped; future phases remain |
 
 ---
 
@@ -41,7 +42,7 @@ This folder contains implementation plans following the FILE NAMING CONTRACT (`n
 
 | Document | Description | Status |
 | :--- | :--- | :--- |
-| `124-anchor-library-game-db.md` | Anchor-based Library + Game DB split (`libraries.json` + flat `games.json`) | **COMPLETE** (2026-09-08) — `Library`, `ILibrariesService`, `LibrariesDatabaseService`; `GameRoot`/`LibraryRoot` removed |
+| `124-anchor-library-game-db.md` | Anchor-based Library + Game DB split (`libraries.json` + flat `games.json`) | **COMPLETE** (2026-09-08) — `Library`, `ILibrariesService`, `LibrariesDatabaseService`; `GameRoot`/`LibraryRoot` removed — [completion record](../META/COMPLETED/plan-124-anchor-library-game-db.md) |
 | `121-epic-manifest-vfs-investigation.md` | Epic catalog VFS (F2 Add Epic Games Store) + Missing/Orphaned + orphan `.item` write | **COMPLETE** (orphan `.item` write limit now proven by 126 — see plan) |
 | `120-pcgw-identity-and-details.md` | PCGW details sidecar + F3/F4 extras | **COMPLETE** |
 | `119-metadata-sidecar.md` | `games_metadata.json` + Steam Store / PCGW | **COMPLETE** |
@@ -91,7 +92,7 @@ This folder contains implementation plans following the FILE NAMING CONTRACT (`n
 | Document | Description | Status |
 | :--- | :--- | :--- |
 | `05-phase-3.md` | Multi-launcher stub | **Archived stub** — use research docs + Plans 109/115 |
-| `05-phase-3-category-browse.md` | Category browse | PLANNED — see also Plan 101 |
+| `05-phase-3-category-browse.md` | Category browse | **SUPERSEDED/STALE** (2026-10-25) — do not implement; design retained as historical reference |
 | `06-phase-4.md` | Advanced polish stub | **Archived stub** — split into concrete plans |
 | `90-sdk-upgrade.md` | .NET 8 → .NET 9 | **Deferred indefinitely** |
 
@@ -101,21 +102,20 @@ This folder contains implementation plans following the FILE NAMING CONTRACT (`n
 
 | Path | Notes |
 | :--- | :--- |
-| `META/TASKS/phase-h-mvp/STATUS.md` | MVP T61–T77 — complete |
+| `META/TASKS/COMPLETED/phase-h-mvp/STATUS.md` | MVP — complete (archived) |
 | `META/TASKS/phase-i-post-mvp/STATUS.md` | Post-MVP mode/filter tasks |
-| `META/TASKS/phase-j-followups/STATUS.md` | T78 deferred, T79 complete, T80 deferred |
-| `META/TASKS/phase-k-audit-followups/STATUS.md` | Docs/state hygiene T81–T88 |
-| `META/TASKS/phase-l-detection-followups/STATUS.md` | T102 O9 + T103 SteamEmu ADR |
+| `META/TASKS/phase-j-followups/STATUS.md` | Deferred follow-ups; detection tier complete; SyncMove deferred |
+| `META/TASKS/phase-k-audit-followups/STATUS.md` | Docs/state hygiene — complete |
+| `META/TASKS/phase-l-detection-followups/STATUS.md` | Steam vs SteamEmu complete; later detector work |
+| `META/TASKS/phase-m-store-capabilities/STATUS.md` | Store matrix, launcher discovery, inventory import, health |
 
 ---
 
 ## Naming convention
 
 ```
-00-overview.md             — Project overview (historical)
-01-phase-0.md … 06-…       — Phase plans
-04-phase-2-<feature>.md    — Phase 2 features
-90–99-*.md                 — Cross-cutting / tooling
-100+                       — Post-phase numbered plans
 nnn-short-name.md          — FILE NAMING CONTRACT
+  Legacy 0–99 slots use two digits — 00-overview.md, 01-phase-0.md … 06-…,
+  04-phase-2-<feature>.md, 90–99-*.md
+  100+                     — Post-phase numbered plans
 ```

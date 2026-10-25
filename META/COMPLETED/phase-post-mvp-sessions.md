@@ -15,7 +15,7 @@
 
 ## Phase
 **Post-MVP** — MVP complete. Plan [`planning/100-mvp-next-steps.md`](../../planning/100-mvp-next-steps.md) ✅ COMPLETE.
-Code quality Phases D–G largely done (T58–T60 complete; T48–T57 deferred).
+Code quality Phases D–G largely done (naming/docs/noise consolidation complete; test-coverage gaps deferred).
 
 ## Priority Roadmap
 1. **P1 — Detection Bug Fixes from Live Testing** — Plan 114: ✅ **COMPLETE** — all 11 bugs fixed (B23-B33). 358 tests passing.
@@ -30,7 +30,7 @@ Code quality Phases D–G largely done (T58–T60 complete; T48–T57 deferred).
 10. **P3 — Category Browse / Search (F8, S key)** — See Plan 101
 
 ### Deferred
-- **Phase G Quality (T48–T57)** — Test coverage gaps. **DEFERRED** — will not write special Linux-only tests. Either tests work cross-platform or they are omitted.
+- **Phase G Quality** — Test coverage gaps. **DEFERRED** — will not write special Linux-only tests. Either tests work cross-platform or they are omitted.
 
 ## Objectives Achieved
 1. ✅ Game detection overhaul — Phase 1+2 complete
@@ -40,14 +40,14 @@ Code quality Phases D–G largely done (T58–T60 complete; T48–T57 deferred).
 5. ✅ Bug fixes & cleanup — Plan 95 complete
 6. ✅ Theme extraction — all hardcoded colors/fonts centralized
 7. ✅ VFS display enhancements — Plan 96 complete
-8. ✅ Documentation & code structure cleanup — T01–T15 complete (3 phases: docs, XML docs, code splits)
-9. ✅ Complexity reduction — T16–T22 complete (Phase D: shared helpers, extracted constants, unified methods, XML docs, JSON I/O)
-10. ✅ Code quality — T58–T60 complete (naming fixes, XML docs, noise-check consolidation)
+8. ✅ Documentation & code structure cleanup — complete (3 phases: docs, XML docs, code splits)
+9. ✅ Complexity reduction — complete (shared helpers, extracted constants, unified methods, XML docs, JSON I/O)
+10. ✅ Code quality — complete (naming fixes, XML docs, noise-check consolidation)
 
 ## Known Issues Found During Investigation
 
 ### Bugs
-- ~~**Static vs instance noise check divergence (HIGH)**~~ ✅ Fixed by T21
+- ~~**Static vs instance noise check divergence (HIGH)**~~ ✅ Fixed in the complexity-reduction pass
 - ~~**Battle.net detection fails (HIGH)**~~ ✅ **FIXED** — `"blizzard"` and `"battle.net"` removed from `NoiseSubDirNames` and `s_nonGameFolderNames`
 - **Blacklist tier flattening (MEDIUM)** — 21 tiers reduced to flat list at load; can't apply per-tier severity.
 - **Scoring ignores JSON blacklist (MEDIUM)** — Only ~10 hardcoded launcher patterns penalized.
@@ -110,8 +110,8 @@ Updated Plan 108 to account for multi-library Steam setups. Key insight: most us
 | `ShellViewModel.cs` | Missing message now suggests: "game might be in an unconfigured library — add it via F2" |
 | `planning/108-steam-status-messages.md` | Rewritten with multi-library context, ACF move workflow, why ACF move is instant (1KB file) |
 
-### Documentation Review — P2 Task Analysis (Complete)
-Created formal task plans for three P2 priorities:
+### Documentation Review — P2 Work Analysis (Complete)
+Created formal work plans for three P2 priorities:
 
 | Plan | File | Content |
 |------|------|---------|
@@ -227,8 +227,8 @@ Fixed 5 crash paths in the rescan pipeline and moved F6→F5:
 **Tests added:** 2 (duplicate ID handling in `GamesDatabaseServiceTests`)
 **Total:** 219 tests passing (33 Core + 1 Migration + 185 App). Build clean.
 
-### MVP — T75: Windows Smoke Bugfixes (Complete)
-Fixed 11 of 12 bugs from T70 Windows smoke gate. Build clean, 209 tests passing.
+### MVP — Windows Smoke Bugfixes (Complete)
+Fixed 11 of 12 bugs from the Windows smoke gate. Build clean, 209 tests passing.
 
 | Bug | Severity | Fix |
 |-----|----------|-----|
@@ -248,14 +248,14 @@ Fixed 11 of 12 bugs from T70 Windows smoke gate. Build clean, 209 tests passing.
 **Files changed:** 11 (GamesDatabaseService, ShellViewModel, MainWindow, LibraryManager, ILibraryManager, FileSystemHelper, ContainerScanner, StoreSignalDetector, FolderScanner, ExecutableDiscovery, GameSetupWindow, MainWindow.axaml)
 **Tests added:** 4 new (209 total)
 
-### MVP — T77: Remove F7 (Add Root) (Complete)
+### MVP — Remove F7 (Add Root) (Complete)
 - Removed F7 from all entry points: `OnKeyDown()`, `CommandButtonPressed()`, `ShellViewModel.Commands`, `HelpDialogBuilder`
 - Removed `AddRootAsync()` method and unused `Avalonia.Platform.Storage` import from MainWindow
 - Updated F6 empty-roots message: "F2 or F7" → "F2"
 - Rationale: F7 was a strict subset of F2 (Library Setup) with worse type detection (Steam-only vs 10-store inference), no type override, no remove/rescan
 - Build clean, 209 tests passing
 
-### MVP — T76: Library Root Nesting Prevention (Complete)
+### MVP — Library Root Nesting Prevention (Complete)
 - Added `LibraryManager.IsChildOf()` static method — checks if one path is inside another
 - Added nesting check in `LibrarySetupViewModel.AddRootAsync()` and `WizardViewModel.AddEntryAsync()`
 - Both reject with a message if the new path conflicts with an existing entry (child-of or parent-of)
@@ -264,7 +264,7 @@ Fixed 11 of 12 bugs from T70 Windows smoke gate. Build clean, 209 tests passing.
 - ~40 lines added total, no interfaces changed, no existing code modified
 - Build clean, 217 tests passing
 
-### MVP — T71: Remove F5 Launch Keybind (Complete)
+### MVP — Remove F5 Launch Keybind (Complete)
 - Removed `case Key.F5:` keyboard handler and `case "F5":` command dispatcher from `MainWindow.axaml.cs`
 - Removed F5 entry from `ShellViewModel.Commands` collection (9 commands remain)
 - Removed `F5: launch` from `InteractionHint` string
@@ -272,7 +272,7 @@ Fixed 11 of 12 bugs from T70 Windows smoke gate. Build clean, 209 tests passing.
 - Only remaining F5 reference is XML doc example in `ShellCommandViewModel.cs` (harmless)
 - Build clean, 206 tests passing
 
-### MVP — T69: Launch UX Polish (Complete)
+### MVP — Launch UX Polish (Complete)
 - Fixed F4 help text: `"Edit game type / tags"` → `"Configure game — name, type, exe, args"` in HelpDialogBuilder
 - Unified F9 label to `"Library Roots"` across command bar, help dialog, and InteractionHint
 - Updated InteractionHint to remove F5 and reflect new F4/F9 wording
@@ -370,19 +370,19 @@ All hardcoded colors and font sizes centralized to `App.axaml` Application.Resou
 - `MainWindow.axaml` left-pane ListBox — Title TextBlock bound to `ItemStatusColor` via `HexToBrushConverter`
 - `HexToBrushConverter` — empty string now returns `TextPrimary` (so non-game items keep default color)
 
-### Code Quality — T58–T60:
-- T58: Fixed 37 naming inaccuracies (Priority 1: public API renames — `Override`→`IsSourceOverridden`, `CmdlineArgs`→`CommandLineArguments`, `Extra`→`PlatformMetadata`, `Path`→`RootPath`, `Type`→`OverrideType`, `Size`→`SizeInBytes`, `Compute`→`ComputeId`, `AvailableTypes`→`SourceDisplayNames`; Priority 2: private field renames — `_db`→`_databaseService`, `idx`/`gIdx`→`rootIndex`/`gameIndex`, `_original`→`_originalGame`, `fieldIdx`→`fieldIndex`, `bgColor`/`textColor`→`backgroundBrush`/`bodyBrush`, VdfParser `idx`/`pos`→`lineIndex`/`charPos`, BlacklistLoader abbreviations→full names). JSON serialization boundary preserved via DTOs.
-- T59: Added 21 XML docs to private methods across FolderScanner (8), SteamLibraryScanner (5), ExecutableDiscovery (2), BlacklistData (1), AppTheme (2), GameSetupWindow (2), MigrationMode (1).
-- T60: Consolidated noise-check duplication into `FileSystemHelper.IsNoiseExeName` and `FileSystemHelper.IsNoiseDirectory`. Updated FolderScanner and ExecutableDiscovery to delegate to FileSystemHelper. SteamLibraryScanner kept separate (intentionally different 7-item subset).
+### Code Quality:
+- Fixed 37 naming inaccuracies (Priority 1: public API renames — `Override`→`IsSourceOverridden`, `CmdlineArgs`→`CommandLineArguments`, `Extra`→`PlatformMetadata`, `Path`→`RootPath`, `Type`→`OverrideType`, `Size`→`SizeInBytes`, `Compute`→`ComputeId`, `AvailableTypes`→`SourceDisplayNames`; Priority 2: private field renames — `_db`→`_databaseService`, `idx`/`gIdx`→`rootIndex`/`gameIndex`, `_original`→`_originalGame`, `fieldIdx`→`fieldIndex`, `bgColor`/`textColor`→`backgroundBrush`/`bodyBrush`, VdfParser `idx`/`pos`→`lineIndex`/`charPos`, BlacklistLoader abbreviations→full names). JSON serialization boundary preserved via DTOs.
+- Added 21 XML docs to private methods across FolderScanner (8), SteamLibraryScanner (5), ExecutableDiscovery (2), BlacklistData (1), AppTheme (2), GameSetupWindow (2), MigrationMode (1).
+- Consolidated noise-check duplication into `FileSystemHelper.IsNoiseExeName` and `FileSystemHelper.IsNoiseDirectory`. Updated FolderScanner and ExecutableDiscovery to delegate to FileSystemHelper. SteamLibraryScanner kept separate (intentionally different 7-item subset).
 
-### MVP — T61: Fix Launch Target Resolution (Complete)
+### MVP — Fix Launch Target Resolution (Complete)
 - Added `CommandLineArguments` property to `ShellPaneItemViewModel`
 - `LoadGamesForRoot()` now resolves `LaunchTarget`: prefers `steam://` URI over raw `ExecutablePath` when `CommandLineArguments` starts with `steam://`
 - `LaunchSelectedGameAsync()` now passes `CommandLineArguments` as `ProcessStartInfo.Arguments` for non-URI launches (guard prevents passing URI as args)
 - Steam games launch via protocol; standalone games launch with stored args
 - Build clean, 99 tests passing
 
-### MVP — T62: Fix Launch Execution (Complete)
+### MVP — Fix Launch Execution (Complete)
 - Updated no-exe guard: message now reads `"No launch target for {item.Title}"` with proper null handling
 - Moved `args` computation before URI/filesystem branching so it's available for status display
 - Status bar now shows `"Launching: {target} {args}"` when args are present
@@ -390,15 +390,15 @@ All hardcoded colors and font sizes centralized to `App.axaml` Application.Resou
 - Fixed CS8602 nullable warning introduced by including `item.Title` in the status message
 - Build clean, 99 tests passing
 
-### MVP — T63: Launch Pipeline Tests (Cancelled)
+### MVP — Launch Pipeline Tests (Cancelled)
 - Cancelled: launch resolution logic is a single ternary; testing via ShellViewModel requires Avalonia runtime; extraction to pure function not worth the refactor for 2 lines of code
 
-### MVP — T64: First-Run Config Defaults (Complete)
+### MVP — First-Run Config Defaults (Complete)
 - Fixed `JsonConfigService.Load()` to check `File.Exists` before read — `IsFirstRun` now correctly returns `true` when `settings.json` doesn't exist
 - Created `JsonConfigServiceTests.cs` with 3 tests: missing file → IsFirstRun=true, save+load → IsFirstRun=false, missing games.json → empty database
 - Build clean, 102 tests passing
 
-### MVP — T65: GOG goggame-*.info Parser (Complete)
+### MVP — GOG goggame-*.info Parser (Complete)
 - Created `GogInfoParser.cs` — parses `goggame-*.info` JSON for title, exe, args, game ID
 - Searches root + 1 level of non-noise subdirs; filters DLC by `gameId == rootGameId`
 - Resolves relative exe paths to absolute via `Path.GetFullPath(Path.Combine(...))`
@@ -406,74 +406,74 @@ All hardcoded colors and font sizes centralized to `App.axaml` Application.Resou
 - Created `GogInfoParserTests.cs` — 10 tests covering parsing, paths, DLC, edge cases
 - Build clean, 112 tests passing
 
-### Documentation & Code Structure Cleanup (T01–T15 — Complete)
+### Documentation & Code Structure Cleanup (Complete)
 
-**Phase A — Documentation Cleanup (T01–T07):**
-- T01: Deleted stale `AGENTS.md.old`
-- T02: Updated `README.md` with current phase, layout, build instructions
-- T03: Archived `.sisyphus/plans/` → `META/COMPLETED/.sisyphus-plans-archive/`
-- T04: Replaced 1340-line stale `docs/FEATURES.md` with 12-line redirect stub
-- T05: Cleaned ILauncher ghost references in 4 files
-- T06: Fixed test count 18→17 in 2 files
-- T07: Updated `META/CODE_MAP.md` Python tools table
+**Phase A — Documentation Cleanup:**
+- Deleted stale `AGENTS.md.old`
+- Updated `README.md` with current phase, layout, build instructions
+- Archived `.sisyphus/plans/` → `META/COMPLETED/.sisyphus-plans-archive/`
+- Replaced 1340-line stale `docs/FEATURES.md` with 12-line redirect stub
+- Cleaned ILauncher ghost references in 4 files
+- Fixed test count 18→17 in 2 files
+- Updated `META/CODE_MAP.md` Python tools table
 
-**Phase B — XML Documentation (T08–T12):**
-- T08: Added `/// <summary>` to 4 Core interfaces
-- T09: Added XML docs to 8 Core model files
-- T10: Added XML docs to 5 App service files
-- T11: Added XML docs to 6 ViewModel files
-- T12: Added XML docs to 2 Migration files
+**Phase B — XML Documentation:**
+- Added `/// <summary>` to 4 Core interfaces
+- Added XML docs to 8 Core model files
+- Added XML docs to 5 App service files
+- Added XML docs to 6 ViewModel files
+- Added XML docs to 2 Migration files
 
-**Phase C — Code Structure (T13–T15):**
-- T13: Split `GameEntry.cs` → `GameRoot.cs` + `GamesDatabase.cs`; split `LibraryRoot.cs` → `FolderOverride.cs`; split `FileSystemEntry.cs` → `FileSystemEntryKind.cs` (4 new files)
-- T14: Extracted `BlacklistData` record from `BlacklistLoader.cs` → `BlacklistData.cs`
-- T15: Extracted `LibraryRootEntry` and `WizardLibraryEntry` to their own files (2 new files)
+**Phase C — Code Structure:**
+- Split `GameEntry.cs` → `GameRoot.cs` + `GamesDatabase.cs`; split `LibraryRoot.cs` → `FolderOverride.cs`; split `FileSystemEntry.cs` → `FileSystemEntryKind.cs` (4 new files)
+- Extracted `BlacklistData` record from `BlacklistLoader.cs` → `BlacklistData.cs`
+- Extracted `LibraryRootEntry` and `WizardLibraryEntry` to their own files (2 new files)
 
-**Phase D — Complexity Reduction (T16–T22):**
-- T16: Extracted `FileSystemHelper.cs` — shared `GetDirectoriesSafe`, `GetFilesSafe`, `GetLastWriteTimeSafe` (removed from FolderScanner + SteamLibraryScanner)
-- T17: Extracted `JsonFileHelper.cs` — shared `ReadFromFile<T>`/`WriteToFile<T>` with parameterized options; integrated into GamesDatabaseService, JsonConfigService, BlacklistLoader
-- T18: Extracted `GameSourceParser.AvailableTypes` — single definition in Core; removed from 4 App files
-- T19: Renamed ambiguous variables — `p`→`pattern`/`steamPath`, `a/b`→`leftVersion/rightVersion`, `sid/eid`→`steamAppId/epicCatalogItemId`, `ov`→`folderOverride`, `swPath/svDir`→`steamworksPath/steamworksVersionDir`
-- T20: Added XML docs to ~20 public members across 8 files (GameSetupWindow, WizardWindow, LibrarySetupWindow, MainWindow, HexToBrushConverter, BlacklistLoader, ShellViewModel, Program)
-- T21: Deleted dead `IsNoiseExePattern`; renamed `IsNonGameExe`→`IsNoiseExeByPath`; kept `IsNoiseExeName` with XML docs
-- T22: Unified `NormalizeDisplayName` — extracted to FileSystemHelper with suffix stripping; removed from FolderScanner + SteamLibraryScanner
+**Phase D — Complexity Reduction:**
+- Extracted `FileSystemHelper.cs` — shared `GetDirectoriesSafe`, `GetFilesSafe`, `GetLastWriteTimeSafe` (removed from FolderScanner + SteamLibraryScanner)
+- Extracted `JsonFileHelper.cs` — shared `ReadFromFile<T>`/`WriteToFile<T>` with parameterized options; integrated into GamesDatabaseService, JsonConfigService, BlacklistLoader
+- Extracted `GameSourceParser.AvailableTypes` — single definition in Core; removed from 4 App files
+- Renamed ambiguous variables — `p`→`pattern`/`steamPath`, `a/b`→`leftVersion/rightVersion`, `sid/eid`→`steamAppId/epicCatalogItemId`, `ov`→`folderOverride`, `swPath/svDir`→`steamworksPath/steamworksVersionDir`
+- Added XML docs to ~20 public members across 8 files (GameSetupWindow, WizardWindow, LibrarySetupWindow, MainWindow, HexToBrushConverter, BlacklistLoader, ShellViewModel, Program)
+- Deleted dead `IsNoiseExePattern`; renamed `IsNonGameExe`→`IsNoiseExeByPath`; kept `IsNoiseExeName` with XML docs
+- Unified `NormalizeDisplayName` — extracted to FileSystemHelper with suffix stripping; removed from FolderScanner + SteamLibraryScanner
 
-**Phase D — Proactive Splits (T23–T29):**
-- T23: Extracted `StoreSignalDetector.cs` — `DetectType` + 10 signal methods (GOG, EA, Ubisoft, Epic, Blizzard, Xbox, Rockstar, Steam, SteamEmu) from FolderScanner
-- T24: Extracted `ExecutableDiscovery.cs` — `FindExecutablesDeep`, `ScoreExecutable`, `FindPrimaryExecutable`, `FindLauncherExecutable`, `ExeNameMatchesFolderName`, `FindEpicManifest` from FolderScanner. Moved `NoiseSubDirNames` to FileSystemHelper.
-- T25: Extracted `SteamAcfParser.cs` — `ParseAcfFile`, `DiscoverLibraryPaths`, `NormalizePath`, `AcfInfo` record from SteamLibraryScanner
-- T27: Extracted `HelpDialogBuilder.cs` — `ShowHelpAsync(Window)` from MainWindow (107 lines)
-- T26: Skipped — overengineered (two 10-case switch statements are clear as-is)
-- T28: Skipped — high risk, low value (ShellViewModel under 500-line limit, XAML binding changes error-prone)
-- T29: Skipped — trivial (LibraryManager.NormalizeLibraryRoot already exists, duplicate check is 1 line)
+**Phase D — Proactive Splits:**
+- Extracted `StoreSignalDetector.cs` — `DetectType` + 10 signal methods (GOG, EA, Ubisoft, Epic, Blizzard, Xbox, Rockstar, Steam, SteamEmu) from FolderScanner
+- Extracted `ExecutableDiscovery.cs` — `FindExecutablesDeep`, `ScoreExecutable`, `FindPrimaryExecutable`, `FindLauncherExecutable`, `ExeNameMatchesFolderName`, `FindEpicManifest` from FolderScanner. Moved `NoiseSubDirNames` to FileSystemHelper.
+- Extracted `SteamAcfParser.cs` — `ParseAcfFile`, `DiscoverLibraryPaths`, `NormalizePath`, `AcfInfo` record from SteamLibraryScanner
+- Extracted `HelpDialogBuilder.cs` — `ShowHelpAsync(Window)` from MainWindow (107 lines)
+- Skipped — overengineered (two 10-case switch statements are clear as-is)
+- Skipped — high risk, low value (ShellViewModel under 500-line limit, XAML binding changes error-prone)
+- Skipped — trivial (LibraryManager.NormalizeLibraryRoot already exists, duplicate check is 1 line)
 
-**Phase E — Stabilization (T31–T40):**
-- T31: Verified Bugs 1-5 in TECH_DEBT.md are fixed, added verification dates
-- T32: Added `BlacklistTierEntry` record, `TieredExePatterns` property to BlacklistData, updated BlacklistLoader to populate tiered entries
-- T33: Updated `ScoreExecutable` to accept noise patterns and tier lookup, added tier-based penalty logic
-- T34: Created VdfParserTests.cs — 20 tests covering basic parsing, edge cases, error handling, Steam formats, ExtractFields
-- T35: Created BlacklistLoaderTests.cs — 11 tests covering loading, pattern verification, tier preservation, error handling
-- T36: Created SteamLibraryScannerTests.cs — 14 tests covering scanning, ACF parsing, cross-library detection, status fields, ScanAll
-- T37: Added 3 noise-check regression tests for Bug 5 to ScannerFilterTests.cs
-- T38: Created ExecutableScoringTests.cs — 10 tests covering token matching, launcher penalties, noise tier penalties, shipping/Win64 bonuses, file size, combined factors
-- T39: Created GameEntryIdTests.cs — 8 tests covering determinism, uniqueness, format, edge cases
-- T40: Created GamesDatabaseServiceTests.cs — 16 tests covering Load/Save, CRUD, caching, rescan, multi-root isolation
+**Phase E — Stabilization:**
+- Verified Bugs 1-5 in TECH_DEBT.md are fixed, added verification dates
+- Added `BlacklistTierEntry` record, `TieredExePatterns` property to BlacklistData, updated BlacklistLoader to populate tiered entries
+- Updated `ScoreExecutable` to accept noise patterns and tier lookup, added tier-based penalty logic
+- Created VdfParserTests.cs — 20 tests covering basic parsing, edge cases, error handling, Steam formats, ExtractFields
+- Created BlacklistLoaderTests.cs — 11 tests covering loading, pattern verification, tier preservation, error handling
+- Created SteamLibraryScannerTests.cs — 14 tests covering scanning, ACF parsing, cross-library detection, status fields, ScanAll
+- Added 3 noise-check regression tests for Bug 5 to ScannerFilterTests.cs
+- Created ExecutableScoringTests.cs — 10 tests covering token matching, launcher penalties, noise tier penalties, shipping/Win64 bonuses, file size, combined factors
+- Created GameEntryIdTests.cs — 8 tests covering determinism, uniqueness, format, edge cases
+- Created GamesDatabaseServiceTests.cs — 16 tests covering Load/Save, CRUD, caching, rescan, multi-root isolation
 
-### MVP — T66: UE-Aware Executable Discovery (Complete)
+### MVP — UE-Aware Executable Discovery (Complete)
 - Replaced hardcoded Win64/WinGDK probes with platform loop (`Win64`, `Win32`, `WinGDK`, `Steam`) matching `detect.py _find_game_executables` behavior
 - Added `child/bin/` probe for older UE games (Gothic, Jagged Alliance)
 - Added `FindExesRecursive` (maxDepth=2) for BioShock pattern (root with no exes, scan subdirs)
 - Created `ExecutableDiscoveryTests.cs` — 15 tests covering Win64, Win32, WinGDK, Steam, child/bin, recursive fallback, noise filtering, multiple platforms
 - Build clean, 107 tests passing
 
-### MVP — T67: .lnk Shortcut Exe Resolution (Complete)
+### MVP — .lnk Shortcut Exe Resolution (Complete)
 - Created `LnkParser.cs` — parses .lnk binary files via latin-1 decode + regex to extract exe names
 - `ResolveExeFromLnk` searches root + subdirs (3 levels) for the target exe, handles backup renames
 - Integrated into `FolderScanner.AddGameEntry()` as fallback when primary exe discovery fails
 - Created `LnkParserTests.cs` — 13 tests covering extraction, resolution, fuzzy matching, edge cases
 - Build clean, 120 tests passing
 
-### MVP — T68: Container Recursion & Organization Detection (Complete)
+### MVP — Container Recursion & Organization Detection (Complete)
 - `HasUnrealLayoutSignal` now checks all UE platforms (Win64, Win32, WinGDK, Steam) — not just Win64
 - Added UE3 fast path: `Binaries/{platform}/*.exe` at root (no Engine/ required)
 - Organization folder detection: ≥2 children with game signals → parent is organization → recurse
@@ -494,7 +494,7 @@ All hardcoded colors and font sizes centralized to `App.axaml` Application.Resou
 - Created `ExecutableDiscoveryTests.cs` — 15 tests covering Win64, Win32, WinGDK, Steam, child/bin, recursive fallback, noise filtering, multiple platforms
 - Build clean, 128 tests passing
 
-### Game Detection Logic Documentation (T67/T68 Review — Complete)
+### Game Detection Logic Documentation (Review — Complete)
 - Created `docs/GAME-DETECTION-LOGIC.md` — comprehensive reference document covering:
   - Full three-pass detection architecture (Store Signals → Fallback → Container)
   - All 10 store signal checks with priority order, C# vs Python parity analysis
@@ -612,13 +612,13 @@ F5 rescan no longer blocks the UI thread. Scanning runs on `Task.Run()` with ful
 - Created `docs/F2-WIZARD-UNIFICATION-ANALYSIS.md` — verification pass on Plan 106: cross-referenced all 18 feature claims against actual code, found 1 inaccuracy (needsWizard condition simplified), 1 data model gap (LibraryRootEntry missing IsScanning/IsScanned), refined effort estimate to ~2 hours, documented complete file change matrix
 - Fixed stale test count in CODE_MAP.md (99→217, App.Tests 65→183)
 - Removed F5/F7 from CODE_MAP.md MainWindow handler list
-- Removed stale "Critical bug" section from NEXT.md (bug fixed in T61/T62)
-- Updated NEXT.md recently completed list with full task history
-- Marked TECH_DEBT default settings entry as fixed (T64), updated UI button stale info
+- Removed stale "Critical bug" section from NEXT.md (bug fixed in the launch-resolution pass)
+- Updated NEXT.md recently completed list with full work history
+- Marked TECH_DEBT default settings entry as fixed (first-run config defaults), updated UI button stale info
 - Added MVP milestone to ROADMAP.md
 - Updated README.md with MVP-complete status and feature summary
 - Updated plan 100 status to COMPLETE with checkboxes filled
-- Fixed stale test counts in T61/T75 completion notes
+- Fixed stale test counts in the launch-resolution and smoke-bugfix completion notes
 - Removed .NET 9 from active backlog (deferred indefinitely)
 - Created Plan 102: Tags + Metadata Display System (user tags, PCGW scraping, engine/store badges, metadata display)
 - Created Plan 103: detect.py Port Status (detailed C# parity analysis, ~75% complete)
@@ -627,7 +627,7 @@ F5 rescan no longer blocks the UI thread. Scanning runs on `Task.Run()` with ful
 ## Next Session Notes
 - **MVP complete** — 358 tests passing, all gate criteria satisfied
 - **Tags Display ✅ COMPLETE** — Configurable tag color system: `TagColorService` reads from `data/tag_colors.json`, `TagBadgeViewModel` renders colored badges in right pane. User tags = neutral, store/engine tags = configurable per-brand.
-- **deferred items:** Test coverage gaps (T48-T57) — will not write special Linux-only tests
+- **deferred items:** Test coverage gaps — will not write special Linux-only tests
 - **deferred indefinitely:** .NET 9 upgrade
 
 ## Key Architecture Decisions

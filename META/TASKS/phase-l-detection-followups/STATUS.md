@@ -21,17 +21,17 @@
 
 | # | Task | Tier | Priority | Status |
 |---|------|------|----------|--------|
-| T102 | [O9 — unify title edition stripping](T102-o9-title-canonicalization.md) | 3 | P1 | Pending |
-| T103 | [SteamEmu classification decision (ADR)](T103-steam-emu-adr.md) | 1 | P1 | **Blocked — user decision** |
+| — | No pending tasks | — | — | — |
 
-**Not yet authored** (specified in `planning/128-doc-and-task-audit.md` §2): T104 Epic engine detection, T105 O3 Epic signal + dead-code removal, T106 O4/O5 store-signal dedup, T107 O8 path normalizer, T108 O10 Epic cheap-exe, T109 structured `DetectionLogger`.
+Steam location rule complete. Completed task docs remain the record.
+
+**Not yet authored:** Epic engine detection; Epic signal check + dead-code removal; store-signal dedup; path normalizer; Epic cheap-exe; structured `DetectionLogger`. Author each as its wave starts.
 
 ---
 
 ## Execution Order
 
 ```
-T102 (O9) ──────────────────────────────► next code task
-T103 (SteamEmu ADR) — blocked on user; do not start code
-T104 (Epic engine) after T102
+Steam location rule complete.
+T104 (Epic engine detection) — author the task doc next.
 ```

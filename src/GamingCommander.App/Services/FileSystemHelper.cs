@@ -143,19 +143,16 @@ internal static class FileSystemHelper
 
     /// <summary>
     /// Normalizes a game folder name into a human-readable display name.
-    /// Strips common edition suffixes (Remastered, Definitive Edition, etc.)
+    /// Strips common edition suffixes (Definitive Edition, GOTY, etc.)
     /// and replaces underscores/hyphens with spaces.
     /// </summary>
     internal static string NormalizeDisplayName(string folderName)
     {
-        return TitleText.ForSearch(folderName)
-            .Replace("Remastered", "")
-            .Replace("Definitive Edition", "")
-            .Replace("Enhanced Edition", "")
-            .Replace("Ultimate Edition", "")
-            .Replace("Special Edition", "")
-            .Replace("GOTY", "")
-            .Replace("Edition", "")
+        string text = TitleText.ForSearch(folderName);
+        foreach (string token in EditionTokens.DisplayTokens)
+            text = text.Replace(token, "", StringComparison.Ordinal);
+
+        return text
             .Replace("_", " ")
             .Replace("-", " ")
             .Trim();

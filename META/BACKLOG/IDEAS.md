@@ -6,30 +6,30 @@
 
 ## Feature Ideas
 
-- **ExeCandidateSelector** — Replace filesystem "Browse..." in F4 with a dropdown of detected candidate exes. During scan, store all non-noise exe paths in `GameEntry.Extra["CandidateExes"]` (semicolon-separated). F4 dialog shows a combo box of candidates instead of a file picker. User selects which exe is the game launcher. Keeps the entire experience self-contained — only browse for library roots, never for individual files. Eliminates the need for `SuggestedStartLocation` API and avoids the "wrong folder" UX issue.
-- KODI-style category browsing (F8) — fully designed in planning/05-phase-3-category-browse.md
-- Quick-search overlay (S key) — designed in planning/05-phase-3-category-browse.md
+- ✅ **Shipped — ExeCandidateSelector.** Replace filesystem "Browse..." in F4 with a dropdown of detected candidate exes. During scan, all non-noise exe paths are recorded in `DetectionInfo.CandidateExes`; the F4/setup dialog exposes those candidates instead of a bare file picker. User selects which exe is the game launcher. Keeps the entire experience self-contained — only browse for library roots, never for individual files. Eliminates the need for `SuggestedStartLocation` API and avoids the "wrong folder" UX issue.
+- ⚠️ **Superseded/stale — KODI-style category browsing (F8)** — designed in `planning/05-phase-3-category-browse.md`, which is now marked SUPERSEDED/STALE. F8 is the Filter key; category browsing is not the shipped F8 behavior.
+- ✅ **Shipped — quick search** — shipped as type-to-search (not an S-key overlay). The overlay design in `planning/05-phase-3-category-browse.md` is superseded.
 - GOG Galaxy detection and integration
-- Epic Games Store manifest patching
+- ❌ **Dead end — Epic Games Store manifest patching.** Rewriting/patching store manifests externally was abandoned; Epic identity recovery ships through `EpicItemWriter`, which writes an identification `.item` only from `.mancpn`/`.ovt` evidence and never invents catalog IDs.
 - EA App and Ubisoft Connect support
 - GamingResourcesManifest as registry of all metadata sources
 - PCGamingWiki Cargo API integration for rich metadata
 - IGDB integration (requires API key)
 - SteamDB as secondary metadata source
-- Local game database with merge logic (data/games_db.json)
+- ✅ **Superseded/shipped — local game database with merge logic.** Shipped as typed `GameEntry` persistence plus the metadata sidecar (`planning/119-metadata-sidecar.md`, `planning/127-persistence-v2.md`); a separate `data/games_db.json` merge layer is not the direction.
 - Cover art display in details panel
 - Save location display from PCGamingWiki
 - Theme support (Norton Commander color schemes)
 - Batch operations (multi-game migration, retagging)
 - GitHub metadata repository sync
-- Game launch counter and play time tracking
+- ↔️ **Partial — game launch counter and play time tracking.** The launch counter shipped (`TrackingInfo` increments on launch); play-time (`PlayTimeSeconds`/`LastSessionSeconds`) is not populated yet because URI launches give no process handle.
 - Category value normalization (publisher name merging)
 - Rating bucketing for gamerankings display
 - Cheat Engine table linking — F4 editor option to associate a `.CT` file with a game; on launch, optionally start Cheat Engine with the table loaded
 - Library root display: show game count + top used tags per root (e.g., "D:\SteamLibrary (123 games) [RPG, Action, Co-op]")
 - SteamDB metadata: tags, user ratings, active users for Steam games — populate GameEntry.Tags automatically
 - Library root details page: aggregate info (total games, top 5 rated, last played)
-- F9 interaction hint shows current mode: `"F9: Mode [Library]"`
+- ❌ **Dead — F9 interaction hint.** F9 was removed (navigation uses Esc/Backspace); there is no mode-toggle hint.
 
 ## Technical Ideas
 
@@ -37,7 +37,7 @@
 - Build-time code generation for GamingResourcesManifest from YAML/JSON source
 - Windows registry abstraction layer for testability
 - Integration test framework using mock data in data/mock/
-- **Configurable detection signals** — Move UE platform names, non-game folder patterns, and noise exe patterns to `data/blacklist.json` (or new `data/signals.json`). This allows updating detection logic without recompiling. Currently hardcoded in: `ExecutableDiscovery.s_uePlatformNames`, `FolderScanner.s_nonGameFolderNames`, `FileSystemHelper.NoiseSubDirNames`, `FolderScanner.DefaultNoiseExePatterns`.
+- **Configurable detection signals** — Move UE platform names, non-game folder patterns, and noise exe patterns to `data/blacklist.json` (or new `data/signals.json`). This allows updating detection logic without recompiling. Currently hardcoded in: `FileSystemHelper.UePlatformNames`, `DetectionNoise` (non-game exe + Steam `common/` noise sets), `FileSystemHelper.NoiseSubDirNames`, and the tiered `data/blacklist.json`.
 
 ---
 

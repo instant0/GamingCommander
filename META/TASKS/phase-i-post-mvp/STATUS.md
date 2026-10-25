@@ -20,16 +20,15 @@
 
 | # | Task | Phase | Priority | Status |
 |---|------|-------|----------|--------|
-| T72 | [Top-level mode switcher](T72-top-level-mode-switcher.md) | 1 | P2 | Pending (stale; see T99) |
-| T73 | Flatten library view | 2 | P2 | Pending (no doc; see T99) |
-| T74 | [Game filter (F5) + user-editable tags](T74-game-filter-and-tags.md) | 3 | P2 | Superseded/Complete (F4/F8 shipped) |
+| T72 | [Top-level mode switcher](T72-top-level-mode-switcher.md) | 1 | P2 | Pending (stale; needs a navigation decision) |
+| T73 | Flatten library view | 2 | P2 | Pending (no task doc; needs a navigation decision) |
 
 ---
 
 ## Execution Order
 
 ```
-T72 (Mode Switcher) → T73 (Flatten) → T74 (Filter)
+T72 (Mode Switcher) → T73 (Flatten)
 ```
 
-T73 and T74 are independent of each other but both depend on T72.
+T73 is independent of the shipped filter work but depends on T72.

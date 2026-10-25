@@ -1,5 +1,7 @@
 # Plan 111: Logging Toggle + Online Connectivity Docs + Metadata Source Tracking
 
+**Status:** PARTIAL — Task 1 open; Tasks 2–3 shipped (2026-10-25). The readme online-connectivity section and record-level `LastMetadataSource` tracking are in place; the `EnableStartupLogging` config/UI toggle is absent.
+
 ## Context
 
 The startup logging feature is currently controlled only by the `GC_STARTUP_LOGGING` environment variable. Users should be able to toggle it from the F2 Setup screen like the online metadata toggle. The readme needs an online connectivity section explaining what the app connects to (when online features are enabled). The metadata source tracking question needs evaluation.
@@ -63,11 +65,11 @@ Add a new section "Online Connectivity" after the permissions section. Content:
 
 ### Current state
 
-Source tracking exists ONLY for game titles, and only for GOG and EA games:
-- `PlatformMetadata["TitleSource"]` = `"GogInfo"` or `"EaInstallLog"`
-- `PlatformMetadata["AutoDetectedTitle"]` = the folder-name fallback
+Title source tracking is stored on the typed detection record:
+- `DetectionInfo.TitleSource` = the provenance marker (e.g. `"GogInfo"`, `"EaInstallLog"`, `"AcfName"`, `"PeFileDescription"`)
+- `DetectionInfo.AutoDetectedTitle` = the title that was replaced (audit trail)
 
-Steam games have NO title source tracking. No other fields (developer, publisher, engine, etc.) have source tracking because those fields don't exist yet in the model.
+The old untyped platform-metadata bag has been removed. Record-level `LastMetadataSource` on `GameMetadataRecord` tracks the most recent metadata provider (`Steam`, `Pcgw`, `Local`, `User`); per-field source tracking is still not modelled because those fields are not per-provider on the entry.
 
 ### Plan 102's approach
 
@@ -100,20 +102,20 @@ This is sufficient because:
 2. If debugging is needed, log the full merge details to `data/metadata_merge.log` (debug mode only)
 3. User overrides (Plan 110) protect manually-set fields regardless of source
 
-**Exception**: Track `TitleSource` for Steam games too (currently missing). Add to `SteamLibraryScanner`:
+**Exception**: Track `TitleSource` for Steam games too. In `SteamLibraryScanner`:
 ```csharp
-platformMetadata["TitleSource"] = "AcfName";
+detectionInfo = detectionInfo with { TitleSource = "AcfName" };
 ```
 
-This is a one-line change that completes the existing pattern.
+This completes the existing typed pattern; no untyped metadata bag is needed.
 
 ### What changes (minimal)
 
 **SteamLibraryScanner** (`src/GamingCommander.App/Services/SteamLibraryScanner.cs`):
-- Add `platformMetadata["TitleSource"] = "AcfName";` after line ~227 where `displayName` is set from ACF
+- Set `DetectionInfo.TitleSource = "AcfName"` where `displayName` is set from ACF
 
 **GameSetupWindow.axaml.cs** (`src/GamingCommander.App/GameSetupWindow.axaml.cs`):
-- In `SaveAndClose()`, detect if `DisplayName` changed and set `PlatformMetadata["TitleSource"] = "User"` — see Plan 110 §9 for details
+- In `SaveAndClose()`, detect if `DisplayName` changed and set the entry's `DetectionInfo.TitleSource = "User"` — see Plan 110 §9 for details
 
 **GamingCommander.Readme.txt**:
 - No change needed — source tracking is an internal detail, not a user-facing permission
@@ -136,7 +138,7 @@ This is a one-line change that completes the existing pattern.
 - [ ] F2 Setup shows "Enable startup logging" checkbox, defaults ON
 - [ ] Toggle persists to `settings.json` and takes effect on next launch
 - [ ] `GC_STARTUP_LOGGING=0` env var still overrides the setting
-- [ ] Steam games have `TitleSource = "AcfName"` in PlatformMetadata
-- [ ] F4 title edit sets `TitleSource = "User"` in PlatformMetadata
-- [ ] Readme has complete online connectivity section with URLs, rates, data sent/received
-- [ ] All 227 existing tests pass
+- [ ] Steam games have `TitleSource = "AcfName"` on the typed detection record
+- [ ] F4 title edit sets `TitleSource = "User"` on the typed detection record
+- [x] Readme has complete online connectivity section with URLs, rates, data sent/received
+- [x] Record-level `LastMetadataSource` tracking is implemented

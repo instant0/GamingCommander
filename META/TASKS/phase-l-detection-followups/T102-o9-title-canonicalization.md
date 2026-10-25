@@ -3,7 +3,7 @@
 **Tier:** 3 — Logic/Behavior
 **Phase:** L — Detection Follow-ups
 **Risk:** Medium
-**Status:** pending
+**Status:** completed
 **Prerequisites:** None
 
 ## Objective
@@ -55,7 +55,17 @@ edition-token source and align both while preserving their distinct contracts.
 
 ## Completion Notes
 
-- **Completed:**
-- **What was done:**
-- **Verification:**
-- **Issues encountered:**
+- **Completed:** 2026-10-25
+- **What was done:** Added `EditionTokens` in `GamingCommander.Core/Services` with the two deliberate
+  sets: `DisplayTokens` (specific editions before generic "Edition") and `TailTokens` (search-only
+  vocabulary). `FileSystemHelper.NormalizeDisplayName` now iterates `DisplayTokens` with ordinal
+  substring removal; `TitleText.EditionTail` builds its anchored `-`/`:` tail regex from escaped
+  `TailTokens` sorted longest-first. Matching behavior is unchanged. Added tests for every tail token
+  at `-`/`:`, mid-title non-stripping, idempotence, every display token, pinned caller sets, and store
+  `LookupName`/`SearchQueries` regression coverage. Updated blueprint §14 O9 row and note.
+- **Verification:** `dotnet build GamingCommander.sln` — 0 errors (3 pre-existing Avalonia AVLN3001
+  warnings in untouched AXAML; no new warnings). `dotnet test GamingCommander.sln` — 641 passed,
+  0 failed (Core 194, App 446, Migration 1). `validate_probe_matrix.py` — ALL SCENARIOS PASS (22/22).
+  `grep -rn "Remastered\|Reloaded" src/` — only `EditionTokens.cs`.
+- **Issues encountered:** None affecting behavior. The three build warnings are pre-existing Avalonia
+  XAML loader warnings unrelated to this change.

@@ -1,8 +1,14 @@
 # Phase: KODI-Style Category Browsing & Quick Search
 
+**Status:** SUPERSEDED/STALE (2026-10-25). Do not implement from this file.
+
+Shipped reality: **F8 = Filter** (not a view-mode toggle), **F9 was removed**, and search shipped as **type-to-search** (not an S-key overlay). The untyped extras bag and the old per-root library getter described below no longer exist — current code uses typed records and `GetGamesForLibrary`. The design body is retained as historical reference only.
+
 ## Goal
 
 Add a category-driven browsing mode alongside the existing library-root navigation, plus a universal quick-search. The default view remains **Library Roots** (configured paths → games inside them). Users can quickly toggle to **Browse by Category** (KODI-style drill-down) via F8, or press **S** to open a text search that matches across game names, genres, developers, publishers, and paths.
+
+> ⚠️ Historical design (see status banner): the F8 category toggle and S-key search were never shipped. Current behavior is F8 = Filter and type-to-search.
 
 ## UX Model
 
@@ -30,9 +36,11 @@ After reaching Level 2b, selecting a game shows its details in the right pane �
 
 ### Default View
 
-On launch (and after pressing F9), the app shows **Library Roots** — the configured library paths as "drives" (e.g. `D:\SteamLibrary (Steam)`). Drilling into a root shows all scanned games inside it. This is the default, always-available navigation mode.
+On launch (and after returning to the default view), the app shows **Library Roots** — the configured library paths as "drives" (e.g. `D:\SteamLibrary (Steam)`). Drilling into a root shows all scanned games inside it. This is the default, always-available navigation mode. *(Historical note: the original design used F9 to jump here; F9 was later removed — use Esc/Backspace.)*
 
 ### Quick Mode Toggle (F8)
+
+> ⚠️ Historical: this binding was never shipped. F8 is now the **Filter** key; category browsing is not bound.
 
 - **F8** toggles between `Library Roots` and `Browse by Category` at the top level.
 - This is a **flat toggle**, not a nested menu — one press switches, second press switches back.
@@ -44,9 +52,9 @@ On launch (and after pressing F9), the app shows **Library Roots** — the confi
 
 ### What Happens to Existing F-Keys
 
-- F2 (Library Root Setup), F9 (Jump to Root), T (Retag), arrow keys, Enter, Backspace — all unchanged.
-- F8 becomes the **View Mode Toggle** (Library Roots ↔ Categories). This is a new binding.
-- **S** becomes the **Quick Search** hotkey (not Shift+S — plain S key).
+- F2 (Library Root Setup), T (Retag), arrow keys, Enter, Backspace — unchanged. *(Historical: this section assumed F9 Jump to Root; F9 was later removed.)*
+- ⚠️ Historical: this design made F8 the **View Mode Toggle** (Library Roots ↔ Categories). The shipped binding is **F8 = Filter**.
+- ⚠️ Historical: this design made **S** the **Quick Search** hotkey. Search shipped as **type-to-search**; there is no S overlay.
 - When in Category view, F2 could optionally open a "Category Setup" to define custom categories or toggle which categories appear.
 
 ---
@@ -157,10 +165,10 @@ Styled consistently with the existing status bar border. The input box takes key
 | Category | Data Source | Availability |
 |---|---|---|
 | **Launcher** | `GameEntry.GameSource` enum | Always available for every game |
-| **Genre** | `GameEntry.Extra["Genre"]` (from Phase 2.2 metadata lookup) | Empty until user runs F4 metadata lookup |
-| **Publisher** | `GameEntry.Extra["Publisher"]` | Empty until metadata lookup |
-| **Year of Release** | `GameEntry.Extra["ReleaseYear"]` (extracted from release date in Phase 2.2) | Empty until metadata lookup |
-| **Gamerankings Rating** | `GameEntry.Extra["Rating"]` or computed from aggregated scores | Empty until metadata lookup |
+| **Genre** | Typed metadata tag on the entry (historical design used the removed untyped extras bag) | Empty until user runs F4 metadata lookup |
+| **Publisher** | Typed metadata record | Empty until metadata lookup |
+| **Year of Release** | Typed metadata record (release date) | Empty until metadata lookup |
+| **Gamerankings Rating** | Typed metadata record or computed from aggregated scores | Empty until metadata lookup |
 
 Categories with zero data should either be hidden or shown greyed-out with a note "No metadata — press F4 to look up."
 
@@ -200,7 +208,7 @@ Drilling into a value shows the actual game entries (same rendering as current p
 
 Category browsing **aggregates across all library roots**. A genre, publisher, or launcher category shows games from every configured root, not just one. This is the key difference from the per-root game view.
 
-**Implementation:** `ILibraryManager` or a new helper class collects all `GameEntry` objects from all roots (via `GetGamesForRoot` for each root) and applies the category filter in memory.
+**Implementation:** `ILibraryManager` or a new helper class collects all `GameEntry` objects from all libraries (current surface: `GetGamesForLibrary(libraryName)` for each library; the historical per-root getter no longer exists) and applies the category filter in memory.
 
 **Potential issue:** If two roots have games with the same ID (same folder name on different drives), display both but note the duplicate. In practice, each `GameEntry.Id` is derived from `rootPath + folderName` via `ComputeId`, so IDs are unique per root — no collision.
 
@@ -222,9 +230,11 @@ Category values need consistent casing and grouping:
 
 ### New/Modified Interface Members
 
+> ⚠️ Historical: the current `ILibraryManager` exposes `GetGamesForLibrary(libraryName)`, not a per-root getter. The aggregation members below were proposed and never added.
+
 `ILibraryManager` additions:
 ```
-IReadOnlyList<GameEntry> GetAllGames();                    // aggregate across all roots
+IReadOnlyList<GameEntry> GetAllGames();                    // aggregate across all libraries
 IReadOnlyList<string> GetCategoryValues(string category);  // distinct values for a category
 IReadOnlyList<GameEntry> GetGamesByCategory(string category, string value);
 IReadOnlyList<string> AvailableCategories { get; }         // ["Genre", "Publisher", "Launcher", "Year", "Rating"]
@@ -236,10 +246,10 @@ Or alternatively, a new `ICategoryBrowseService` to keep `ILibraryManager` focus
 
 - Add `ViewMode` enum: `LibraryRoots | Categories`
 - Add `CurrentCategory` and `CurrentCategoryValue` properties
-- Modify `JumpToLibraryRoots()` → becomes `JumpToViewSelector()` or keep F9 bound to the view selector
+- Modify `JumpToLibraryRoots()` → becomes `JumpToViewSelector()` *(historical: F9 was removed; this handler no longer has a key binding)*
 - Modify `NavigateInto()` / `NavigateUp()` to handle category drill levels
 - Add category-specific detail display (show category breakdown for a selected value)
-- Add `F8` handler for view mode toggle
+- ⚠️ Historical: add an `F8` handler for the view mode toggle. Shipped F8 is Filter.
 
 ### New Category Icons/Display
 
@@ -275,9 +285,11 @@ Consider adding visual distinction for category entries vs library root entries 
 
 ## Tasks
 
+> ⚠️ Historical checklist. The F8/F9/S bindings and untyped metadata references below were superseded; see the status banner. Do not schedule these as written.
+
 ### 1. Data Layer
 - [ ] Add `GetAllGames()`, `GetCategoryValues()`, `GetGamesByCategory()` to `ILibraryManager` or new `ICategoryBrowseService`
-- [ ] Implement category value extraction from `GameEntry.GameSource` + `GameEntry.Extra`
+- [ ] Implement category value extraction from `GameEntry.GameSource` + typed metadata/tag records (the untyped extras bag was removed)
 - [ ] Implement value normalization and de-duplication
 
 ### 2. ViewModel State Machine

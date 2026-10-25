@@ -15,6 +15,12 @@ public sealed record InstallInfo
     /// <summary>True when an update is known to be available.</summary>
     public bool UpdateAvailable { get; init; }
 
+    /// <summary>Raw state reported by the store inventory; independent of the disk-derived <see cref="State"/>.</summary>
+    public StoreReportedState StoreReportedState { get; init; } = StoreReportedState.Unknown;
+
+    /// <summary>When a store inventory last reported this game.</summary>
+    public DateTimeOffset? LastStoreSeenUtc { get; init; }
+
     /// <summary>When the install state was last verified.</summary>
     public DateTimeOffset? LastVerified { get; init; }
 }

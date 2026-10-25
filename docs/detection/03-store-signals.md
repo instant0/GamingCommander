@@ -23,6 +23,15 @@ Checked **in this exact order**; first match wins (matching C# `StoreSignalDetec
 
 C# also adds: registry fallback (EA/Ubi/GOG/Rockstar) and `steam_appid.txt` (weak Steam-Emu signal).
 
+### Steam library wins
+
+Location is authoritative for Steam:
+
+- A folder under `<library>/steamapps/common/` is **Steam**, even when no `appmanifest_*.acf`
+  exists — the Steam scanner reports that folder as Orphaned/fixable.
+- Outside every known Steam library, a root `steam_api64.dll`/`steam_api.dll` is **SteamEmu**.
+- The DLL signal is only a fallback outside Steam libraries; inside a library, structure wins.
+
 ---
 
 ## 2. Steam registry bootstrap (planned, 2026-09-07)

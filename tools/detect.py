@@ -561,6 +561,20 @@ def _check_steam_emu(d: Path) -> bool:
     return (d / "steam_api64.dll").exists() or (d / "steam_api.dll").exists()
 
 
+def _is_in_steam_library(path: str | Path) -> bool:
+    """True when *path* sits under an adjacent ``steamapps/common`` pair.
+
+    The two segments must be adjacent (e.g. ``.../steamapps/common/Game``) so a
+    stray folder merely named ``steamapps`` or ``common`` does not qualify.
+    Case-insensitive to match Windows paths.
+    """
+    parts = [p.lower() for p in Path(path).resolve().parts]
+    return any(
+        parts[i] == "steamapps" and parts[i + 1] == "common"
+        for i in range(len(parts) - 1)
+    )
+
+
 # Ordered list: (store_name, signal_label, check_fn)
 _ROOT_SIGNAL_CHECKS = [
     ("GOG",              "goggame",          _check_gog),
@@ -607,6 +621,10 @@ def _scan_root(path: Path):
     has_root_exe = len(root_exes) > 0
     # Pick best root exe via scoring (if multiple candidates)
     root_exe = _pick_best_root_exe(path, root_exes) if root_exes else None
+
+    # Steam library: structure beats the steam_api*.dll emulator signal.
+    if _is_in_steam_library(path):
+        return "Steam", "steam_library", has_root_exe, root_exe, has_root_lnk, child_dirs
 
     # ── Check all store signals from collected names (single pass) ──
 
@@ -2255,8 +2273,7 @@ def _probe_folder(path: str) -> dict:
     _step(1, False, reason="User overrides are app-level; not evaluated here", next_=2)
 
     # Stage 2 — Steam structural path
-    steam_sig = any(p.lower() == "steamapps" for p in d.parts) and any(
-        p.lower() == "common" for p in d.parts)
+    steam_sig = _is_in_steam_library(d)
     signals["steam_structural"] = [{"signal": "steamapps/common in path", "found": steam_sig, "evidence": []}]
     if steam_sig:
         tier = "Locked"

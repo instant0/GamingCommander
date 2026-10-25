@@ -3,7 +3,7 @@
 **Tier:** 1 — Documentation
 **Phase:** K — Audit Follow-ups
 **Risk:** Minimal
-**Status:** pending
+**Status:** completed
 **Prerequisites:** None
 
 > Documentation-only. Do not run build/test.
@@ -43,7 +43,7 @@ record. Add both so the roadmap and archive match `CURRENT.md`.
 
 ## Completion Notes
 
-- **Completed:**
-- **What was done:**
-- **Verification:**
-- **Issues encountered:**
+- **Completed:** 2026-10-25
+- **What was done:** Added the Plan 127 A/B shipped milestone and roadmap rows (typed persistence, launch-profile/relations models, collections service, typed tags), updated the phase summary and current-track text to O9 title canonicalization → SteamEmu decision with SyncMove and Plan 127 C deferred. Created `META/COMPLETED/plan-127-persistence-v2.md` covering A1–A6, B7–B13, C deferred, the 607-test result, and updated docs.
+- **Verification:** `rg -n "127|O9|SteamEmu|SyncMove" META/ROADMAP.md` shows the milestone and track. `test -f META/COMPLETED/plan-127-persistence-v2.md` succeeds. No task IDs were added to ROADMAP/CODE_MAP/the completion record. No build/test run (docs-only).
+- **Issues encountered:** None. Plan 127 A/B facts cross-checked against `planning/127-persistence-v2.md`; C is explicitly recorded as deferred, not shipped.
