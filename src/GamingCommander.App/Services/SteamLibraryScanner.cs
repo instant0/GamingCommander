@@ -17,7 +17,11 @@ public sealed class SteamLibraryScanner
     /// <summary>Creates a new scanner with the specified configured Steam library paths.</summary>
     public SteamLibraryScanner(IEnumerable<string> configuredSteamPaths)
     {
-        _configuredSteamPaths = configuredSteamPaths.Select(SteamAcfParser.NormalizePath).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        _configuredSteamPaths = configuredSteamPaths
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .GroupBy(PathText.NormalizeForCompare, StringComparer.OrdinalIgnoreCase)
+            .Select(group => PathText.TrimTrailingSeparators(group.First()))
+            .ToList();
     }
 
     /// <summary>
@@ -32,7 +36,7 @@ public sealed class SteamLibraryScanner
     /// </summary>
     public IReadOnlyList<GameEntry> Scan(string libraryRootPath)
     {
-        string root = SteamAcfParser.NormalizePath(libraryRootPath);
+        string root = PathText.TrimTrailingSeparators(libraryRootPath);
         if (!Directory.Exists(root))
             return [];
 
@@ -61,7 +65,7 @@ public sealed class SteamLibraryScanner
                 {
                     // ACF found — determine status
                     string acfLibrary = acfInfo.LibraryPath;
-                    string status = acfLibrary.Equals(root, StringComparison.OrdinalIgnoreCase)
+                    string status = PathText.Equals(acfLibrary, root)
                         ? "Installed"
                         : "Moved";
 
@@ -90,7 +94,7 @@ public sealed class SteamLibraryScanner
             }
 
             if (!found
-                && acfInfo.LibraryPath.Equals(root, StringComparison.OrdinalIgnoreCase))
+                && PathText.Equals(acfInfo.LibraryPath, root))
             {
                 entries.Add(CreateMissingAcfEntry(root, acfInfo));
             }

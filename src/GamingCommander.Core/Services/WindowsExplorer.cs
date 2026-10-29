@@ -80,15 +80,9 @@ public static class WindowsExplorer
         return slash >= 2 ? text[..slash] : null;
     }
 
-    private static bool IsUnder(string folder, string? root)
-    {
-        if (string.IsNullOrWhiteSpace(root))
-            return false;
-
-        string a = folder.TrimEnd('\\') + "\\";
-        string b = root.Replace('/', '\\').TrimEnd('\\') + "\\";
-        return a.StartsWith(b, StringComparison.OrdinalIgnoreCase);
-    }
+    /// <summary>True when the folder is the root itself or strictly below it.</summary>
+    private static bool IsUnder(string folder, string? root) =>
+        PathText.Equals(folder, root) || PathText.IsUnder(folder, root);
 
     /// <summary>Local <c>X:\…</c> folder only. No UNC, no <c>..</c>, no extra colons.</summary>
     public static bool TryNormalizeFolder(string path, out string folder)

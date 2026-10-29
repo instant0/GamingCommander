@@ -240,10 +240,5 @@ internal sealed class RegistryFallbackDetector
     /// Normalizes a path for consistent comparison.
     /// Converts forward slashes to backslashes, trims trailing separators.
     /// </summary>
-    internal static string NormalizePath(string path)
-    {
-        string normalized = path.Replace('/', '\\');
-        normalized = normalized.TrimEnd('\\');
-        return normalized;
-    }
+    internal static string NormalizePath(string path) => PathText.NormalizeForCompare(path);
 }

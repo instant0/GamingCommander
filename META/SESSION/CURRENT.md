@@ -1,6 +1,6 @@
 # Current Project State
 
-**Updated:** 2026-10-25
+**Updated:** 2026-10-29
 
 ## State
 - Dual-pane shell over typed JSON persistence (`libraries.json`, `games.json`, sidecar metadata, `collections.json`); schema versioning and identity reconciliation shipped.
@@ -9,6 +9,17 @@
 - Store launcher discovery + read-only inventory import is the next product track (`planning/129`); manifest-first/stat-only checks, per-store opt-in, launch-time sync, enrichment, and Setup controls.
 - Epic `.item` re-creation is a dead end: registration is server/account-driven, so detection stays read-only. SyncMove migration is deferred.
 - Local-only app; online extras remain opt-in PCGW + Steam Store. No full store clients; nothing has shipped, so persisted schemas carry no back-compat burden.
+
+## Security review outcome (docs-only, 2026-10-29)
+
+Class-calibrated review of a local single-user launcher: no elevation, no services, no telemetry, no writes into game installs, no hidden network. Out of scope by decision: Authenticode, provenance/SLSA, reproducible builds, PSIRT/CVE, bounty, fuzzing, sandboxing, encryption at rest.
+
+- **Split, not one review:** T124 (detection/store/identity duplicates), T124A (connection map), T124B (persistence write integrity), T124C (repair-write safety), T124D (Epic online client disposition). Each has its own plan slot: 130, 132, 133, 134.
+- **Repair writers:** no `Directory.CreateDirectory` outside the application data root. Generate in `data/staging/`, read it back to prove it parses, copy to the target, length-check, delete the staging file. Nothing else is written to the store directory — no temp files, no renames.
+- **Safe local-state writes, not tamper detection.** One sequence: copy to `data/games.json.bak` → write → read back and parse → accept, or restore the `.bak` and report. On read, a parse failure keeps the damaged bytes as `.corrupt`, restores the `.bak`, and says so; it never returns an empty catalogue. No hash, signature, or hash chain. Required before per-launch sync; a one-shot import may land first.
+- **`EpicStoreSearch` stays.** It is the deferred Epic leg of the planned online-metadata feature (plans 109/111/119), not dead code; it is gated and never called by default. The earlier removal proposal is withdrawn.
+- **`games.json` integrity checks dropped.** Same-user write access is not a boundary worth controlling.
+- **Not carried:** CC BY-NC licence terms, version stamping/publish path, absolute paths in `startup.log`.
 
 ## Active queue
 See `META/SESSION/NEXT.md` for the ordered work queue and current priority.

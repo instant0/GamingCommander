@@ -19,7 +19,7 @@ the "populate the inventory like a normal file scanner" proposal.
 - [ ] `IStoreInventoryReader`: `GameSourceKind Kind`, `StoreManifestFingerprint? Fingerprint`, `IReadOnlyList<StoreInventoryEntry> Read()`.
 
 ### 2. Import service
-- [ ] `StoreInventoryImportService.Import(kind)`: read the manifest once → map to `GameEntry` → stat each folder/exe (no recursion) → set `DetectionOrigin.StoreManifest` → persist through the shared JSON store defined by the consolidation plan, not a direct file write.
+- [ ] `StoreInventoryImportService.Import(kind)`: read the manifest once → map to `GameEntry` → stat each folder/exe (no recursion) → set `DetectionOrigin.StoreManifest` → persist through the shared JSON store if it exists, otherwise `JsonFileHelper` — never a new direct `File.WriteAllText`.
 - [ ] Imported `LaunchExe` must resolve to an existing file under the reported install root; otherwise store `null` and mark `ExeMissing`.
 - [ ] Do **not** call `FolderScanner` in this path. Enrichment is a separate opt-in step for new games only.
 - [ ] Set `Detection` confidence: authoritative store record → `Secure`/`Locked`; disk-only → `Candidate`.

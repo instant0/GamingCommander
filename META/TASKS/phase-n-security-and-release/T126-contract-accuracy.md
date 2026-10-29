@@ -4,7 +4,7 @@
 **Phase:** N — Security and Release Integrity
 **Risk:** Low
 **Status:** pending
-**Prerequisites:** None
+**Prerequisites:** Task T126 depends on Task T124D
 
 > Documentation-only. Do not run build/test. Do not change code in this task.
 
@@ -18,8 +18,8 @@ no more and no less — before the launcher-discovery and inventory work adds ne
 ### 1. `docs/ONLINE-AND-DATA.md`
 - [ ] Add the Epic `.item` write to §2 with its exact target folder, trigger, and user-visible entry point.
 - [ ] Reconcile the "never written" and "never contacted" lists with the code.
-- [ ] Record the `data/games.json` trust boundary: it supplies `ExecutablePath` and arguments at launch,
-      is local user data, and is not integrity-checked.
+- [ ] State that the repair writers never create a store or ProgramData directory; a missing target is a
+      refusal, not a creation.
 - [ ] State what deleting `data/` removes and what backups/journals retain.
 
 ### 2. `GamingCommander.Readme.txt`
@@ -33,21 +33,23 @@ no more and no less — before the launcher-discovery and inventory work adds ne
 
 ### 4. `docs/detection/10-store-capabilities.md`
 - [ ] Confirm the `.item` write description matches §1 of this task.
-- [ ] Remove or qualify any statement that the store GraphQL endpoint is contacted.
+- [ ] State that the store GraphQL endpoint is **not called in v1** and is reserved for opt-in Epic
+      metadata. Do not describe it as removed.
 
 ## Context
 
 - `docs/README.md` names `ONLINE-AND-DATA.md` as the live contract for "ACF/`.item` writes".
 - `src/GamingCommander.App/Services/EpicItemWriter.cs` and `SteamAcfWriter.cs` are the only writers
   outside `data/`.
-- `src/GamingCommander.App/Services/EpicStoreSearch.cs` is compiled but unreferenced; do not remove it
-  here (it is classified by the consolidation review).
+- `src/GamingCommander.App/Services/EpicStoreSearch.cs` is compiled but unreferenced. It is a deferred
+  opt-in metadata client, not dead code; do not remove it here.
 - ADR-005 defines the safety expectations for writes of this class.
 
 ## Requirements
 
 - [ ] Every write path in the code appears in the contract with its target and trigger.
-- [ ] Every network endpoint in the code appears in the contract, or is marked as not shipped.
+- [ ] Every network endpoint in the code appears in the contract, or is marked as deferred / not called
+      in v1.
 - [ ] The Readme access inventory and the contract agree.
 - [ ] No new "never" claim is introduced without a code reference to support it.
 - [ ] No task IDs appear in the documents.
@@ -57,6 +59,7 @@ no more and no less — before the launcher-discovery and inventory work adds ne
 - [ ] `grep` for `HttpClient`, `File.Write`, `Directory.CreateDirectory`, `Process.Start` and compare the
       results with §2 of the contract.
 - [ ] `grep` for `.item`, `ACF`, `graphql`, and `never` across the live docs; no contradiction remains.
+- [ ] The GraphQL endpoint is described as deferred, not absent.
 - [ ] `docs/README.md` live table still points at the correct files.
 
 ## Completion Notes

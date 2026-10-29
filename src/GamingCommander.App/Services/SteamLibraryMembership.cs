@@ -1,3 +1,5 @@
+using GamingCommander.Core.Services;
+
 namespace GamingCommander.App.Services;
 
 /// <summary>
@@ -14,11 +16,11 @@ internal static class SteamLibraryMembership
     /// </summary>
     internal static bool IsUnderSteamLibrary(string path)
     {
-        string normalized = Normalize(path);
+        string normalized = PathText.NormalizeForCompare(path);
         if (normalized.Length == 0)
             return false;
 
-        string[] segments = normalized.Split('/');
+        string[] segments = normalized.Split('\\');
         for (int i = 0; i + 1 < segments.Length; i++)
         {
             if (segments[i].Equals("steamapps", StringComparison.OrdinalIgnoreCase)
@@ -38,31 +40,22 @@ internal static class SteamLibraryMembership
         if (IsUnderSteamLibrary(path))
             return true;
 
-        string normalized = Normalize(path);
+        string normalized = PathText.NormalizeForCompare(path);
         if (normalized.Length == 0)
             return false;
 
         foreach (string root in libraryRoots)
         {
-            string normalizedRoot = Normalize(root);
+            string normalizedRoot = PathText.NormalizeForCompare(root);
             if (normalizedRoot.Length == 0)
                 continue;
 
-            string commonPrefix = normalizedRoot + "/steamapps/common";
+            string commonPrefix = normalizedRoot + "\\steamapps\\common";
             if (normalized.Equals(commonPrefix, StringComparison.OrdinalIgnoreCase)
-                || normalized.StartsWith(commonPrefix + "/", StringComparison.OrdinalIgnoreCase))
+                || normalized.StartsWith(commonPrefix + "\\", StringComparison.OrdinalIgnoreCase))
                 return true;
         }
 
         return false;
-    }
-
-    /// <summary>Normalizes separators and trims trailing separators without resolving the path.</summary>
-    private static string Normalize(string? path)
-    {
-        if (string.IsNullOrWhiteSpace(path))
-            return string.Empty;
-
-        return path.Replace('\\', '/').TrimEnd('/');
     }
 }

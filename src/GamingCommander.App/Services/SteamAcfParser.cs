@@ -79,14 +79,8 @@ internal static class SteamAcfParser
         {
             var parts = line.Split('"');
             if (parts.Length >= 4 && parts[1] == SteamAcfFields.Path)
-                yield return parts[3].Replace(@"\\", @"\");
+                yield return PathText.TrimTrailingSeparators(parts[3].Replace(@"\\", @"\"));
         }
-    }
-
-    /// <summary>Normalizes a path by trimming trailing directory separators.</summary>
-    internal static string NormalizePath(string path)
-    {
-        return path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
     }
 }
 

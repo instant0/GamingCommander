@@ -3,129 +3,169 @@
 **Tier:** 1 — Documentation / Architecture
 **Phase:** M — Store Capabilities
 **Risk:** Low (analysis only)
-**Status:** pending
+**Status:** completed (D1 implemented at human direction; D2–D7 deferred)
 **Prerequisites:** Task T124 depends on Task T120 and Task T123
 
-> Documentation-only. Do not run build/test. Do not implement the remedy here.
+> Human direction overrode the documentation-only rule for D1: the path rule was implemented and the
+> duplicate normalisers removed. D2–D7 remain decisions to be taken with their consumers.
+> Original constraint, still true for D2–D7: do not redesign, do not add an interface without a caller.
 
 ## Objective
 
-Produce a review and a prioritized **plan** for consolidating duplicated detection, store, path,
-identity, persistence, and gating helpers into generic methods that every gate reuses — before
-T117/T118/T121 add more. The deliverable is a plan, not code.
+Produce **decisions**, not a refactor: name the shared contract for each capability that T117, T118,
+and T121 would otherwise each re-implement. The deliverable is one plan document with a decision per
+item, the evidence for it, the consumer, the migration order, and the test.
 
-## Scope
+## Why this is a decision gate
 
-**In:** existing C# helpers plus the already-designed/planned store pipeline (T117/T118/T121/T122/T123).
-**Out:** behavior changes, Python/C# parity, UI polish, new store support, decrypting store formats.
+T117 (launcher discovery), T118 (inventory import), and T121 (launch sync) all need the same five
+things: path comparison, store identity, launcher location, manifest reading, and the decision to
+write. Each already exists somewhere in the codebase, in one or more variants. If the consumers are
+built first, each picks whichever helper is nearest and the duplication doubles — and the variants
+disagree in ways that only show up as detection bugs.
 
-## Known candidates (start here; verify with `grep`, do not rediscover from zero)
+The point of this task is to make that choice once, in writing, before the consumers exist.
 
-### Detection (blueprint §11)
-- **O1/O2** residual noise exe/dir duplication (`DetectionNoise` is only a partial consolidation; `FolderScanner`, `ContainerScanner`, `ExecutableDiscovery`, `SteamLibraryScanner`, `EpicLaunchResolver`, `EpicItemWriter` still own lists).
-- **O3** Epic `.egstore`/store search in multiple places (`StoreSignalDetector`, `EpicLibraryScanner`, `EpicOrphanDiscovery`, `EpicStoreSearch`).
-- **O4/O5/O6** Ubisoft/Rockstar/Blizzard signal checks repeated across `StoreSignalDetector`, `FallbackSignalDetector`, `ContainerScanner`.
-- **O7** UE platform/layout tokens (`FileSystemHelper.UePlatformNames` fixed one; check remaining copies).
-- **O8** path normalizers: `SteamAcfParser.NormalizePath`, `RegistryFallbackDetector.NormalizePath`, `GameStoreIndex.NormalizePath`, `SteamLibraryMembership.Normalize`, `LibraryManager.IsChildOf`/`NormalizeLibraryRoot`.
-- **O10** cheap-exe finders (`SteamLibraryScanner`, `EpicItemWriter`, `EpicLaunchResolver`, `ExecutableDiscovery`).
-- **O9** is done (`EditionTokens`) — record it as a successful pattern, not a candidate.
+## Blocking decisions (the only thing this task must resolve)
 
-### Store pipeline (designed, not all built)
-- Planned `ILauncherLocator` vs existing `SteamInstallPathLocator` and `RegistryFallbackDetector` registry probing.
-- Planned `IStoreInventoryReader` vs existing `SteamLibraryScanner`/`EpicLibraryScanner` (avoid a second inventory path).
-- Planned `StoreSyncService` vs `LibraryManager.RescanLibrary`/`SelectScannerAndScan`.
-- Planned `StoreManifestFingerprint`/stat checks vs `FileSystemHelper.GetLastWriteTimeSafe`.
-- `StoreKey`/`GameStoreIndex` (built) vs `IdentityKey`/`GameIdentity`/`GameSourceParser` key derivation.
-- `IStorePolicyProvider`/`CanImport`/`CanSync` (built) vs future direct policy checks in T117/T118/T121/T122.
+| # | Capability | Existing code | Planned consumer | Decision required |
+|---|---|---|---|---|
+| D1 | Path text | `SteamAcfParser.NormalizePath`, `RegistryFallbackDetector.NormalizePath`, `EpicInstallPath.Normalize`, `SteamLibraryMembership.Normalize` (private), `LibraryManager.NormalizeLibraryRoot` | locators, readers, index | one canonical form: separators, trailing separator, case rules, drive-letter, UNC |
+| D2 | Store identity | `GameStoreIndex.StoreKey`, `GameIdentity`/`IdentityKey`, `GameSourceParser` | import, sync, dedup | one resolver: `GameSourceKind` + store id → key, and what happens when the id is missing |
+| D3 | Launcher location | `SteamInstallPathLocator`, `RegistryFallbackDetector` registry probing | `ILauncherLocator` (planned) | extend the existing locator, or define the interface and make it the only entry |
+| D4 | Inventory read | `SteamLibraryScanner`, `EpicLibraryScanner` | `IStoreInventoryReader` (planned) | does the interface wrap the scanners or replace them; who owns the manifest-first rule |
+| D5 | Scan/sync write | `LibraryManager.RescanLibrary`, `SelectScannerAndScan` | `StoreSyncService` (planned) | one writer of scan results; the other becomes a caller |
+| D6 | Policy gate | `IStorePolicyProvider` (`CanImport`/`CanSync`) | T117/T118/T121/T122 | it is the only gate; no direct per-store checks |
+| D7 | Stat/fingerprint | `FileSystemHelper.GetLastWriteTimeSafe` | `StoreManifestFingerprint` (planned) | one stat helper; define what "changed" means (mtime, size, both) |
 
-### Security-sensitive helpers (from the security review)
-- **Repair writers:** `SteamAcfWriter` and `EpicItemWriter` are the only code paths that mutate state
-  outside `data/`. Classify them as either one guarded repair contract (backup, journal, dry-run,
-  target validation) or removal candidates. Do not leave two unguarded writers.
-- **Local-state writes:** `JsonFileHelper.WriteToFile` is a non-atomic `File.WriteAllText`, and
-  `ReadFromFile` returns defaults on any failure. The consolidation plan must define write-integrity
-  semantics (atomic replace, backup, visible failure) before new readers depend on it.
-- **Contract-only dead code:** `EpicStoreSearch` (O3) is compiled but unreferenced, and its endpoint
-  contradicts `docs/ONLINE-AND-DATA.md`. Classify it as a removal candidate, not a consolidation target.
-- **Trust boundary:** `data/games.json` supplies the `ExecutablePath` and arguments that get launched.
-  Record whether that file is treated as trusted input; do not add integrity checks in this task.
+Each decision is recorded even if the answer is "keep the existing code and document it". A decision to
+do nothing is a valid outcome and must be written down as one.
 
-### Persistence and config
-- Private DTO + mapping patterns in `JsonConfigService`, `GamesDatabaseService`, `LibrariesDatabaseService`, `CollectionsDatabaseService`.
-- Schema-version guards repeated per service.
-- Enum-name vs enum-number JSON conventions (the new policy DTO uses names).
-- Write integrity: atomic replace + backup + visible read failure, owned by the shared JSON store.
+**Constraint for D1 (write it into the plan):** NTFS is case-insensitive by default, so the *filesystem*
+never cares about case. String comparison still does: paths arrive from the registry (`\`), from ACF
+files, from Epic JSON (`/`), and from the user's folder picker, and the same folder can arrive with
+different casing. So:
 
-### Identity and platform mapping
-- `StoreInfo` IDs vs `IdentityKey`/`GameIdentity` keys; registry name matching; ACF/Epic ID extraction.
-- `GameSourceKind` ↔ store-key prefix ↔ display label mapping.
+- Normalise separators and trailing separators once, then compare with `OrdinalIgnoreCase`
+  (never culture-aware — a culture-aware compare changes behaviour under a Turkish locale).
+- Never lowercase the value you store, display, or use as a key; fold case only at comparison time.
+  `EpicInstallPath.Normalize` lowercases, which is fine for a comparison helper but must not leak into
+  persisted paths.
+- Per-directory case sensitivity does exist (`fsutil file setCaseSensitiveInfo`, used by WSL), so a
+  comparison must not *assume* the filesystem folded case — it folds case because the strings may
+  disagree, not because the disk does.
+- Do not uppercase a path you keep. `ToUpper()` is culture-sensitive (`install` → `İNSTALL` under a
+  Turkish locale), allocates, and destroys the casing Windows preserved for display and for the real
+  path on disk. Compare with `StringComparison.OrdinalIgnoreCase` and use
+  `StringComparer.OrdinalIgnoreCase` for dictionaries. A separate derived compare key is allowed only
+  if it is never displayed, stored as the path, or passed to the shell.
 
-## What Needs to Change
+## Deferred duplicates (record one line each, do not analyse)
 
-### 1. Inventory (evidence required)
-- [ ] For each candidate: `file:line`, what it does, current callers, and whether it is a true duplicate.
-- [ ] Include the planned T117/T118/T121 interfaces and where they would duplicate existing code.
+These are real duplications, but nothing in T117/T118/T121 depends on them, and they have a home in
+`docs/detection/09-blueprint.md` §11. They stay there:
 
-### 2. Classify each candidate
-- [ ] **True duplicate** → consolidate into one generic method.
-- [ ] **Deliberate divergence** → document why (e.g. display substring vs tail edition; registry fallback vs store inventory are different sources).
-- [ ] **Future risk** → add a contract/reuse rule before the task is built.
+- **O1/O2** noise exe and directory lists (9 and 5 declarations) — backlog.
+- **O3** Epic `.egstore` detection in four places — backlog.
+- **O4/O5/O6** Ubisoft/Rockstar/Blizzard signal checks — backlog.
+- **O7** UE layout and platform tokens — backlog.
+- **O10** cheap-exe finders — backlog, and note the repair writer is a consumer (T124C).
 
-### 3. Produce the plan
-- [ ] Propose names/signatures for the generic contracts, for example:
-  - `PathText.NormalizeForCompare` / `IsUnder`
-  - `StoreIdentity.Resolve` (GameSourceKind + store ID → StoreKey)
-  - `IStoreInventorySource` (locator + reader + fingerprint)
-  - `StoreGate.CanImport`/`CanSync`
-  - `JsonDocumentStore<T>` (private DTO + schema guard + atomic write + `.bak`)
-  - `RepairWriter` / `RepairJournal` (backup directory, dry-run, target validation)
-  - `ManifestStat`/`Fingerprint`
-- [ ] State the write-integrity contract for the shared JSON store: atomic replace, backup file, and a
-      read result that distinguishes "missing" from "corrupt".
-- [ ] State the repair-write safety contract: what is backed up, where the journal lives, what a dry run
-      returns, and which targets are refused.
-- [ ] For each: migration order, risk, tests, and which upcoming work must consume it.
-- [ ] Explicit "do not consolidate" list with reasons.
-- [ ] A short **reuse checklist** for upcoming store tasks: search for the generic helper first; new readers implement the shared interface; no new path normalizer/store-key parser.
+Also record the store-priority disagreement (`StoreSignalDetector` GOG→EA vs `RegistryFallbackDetector`
+EA→Ubi) as a known behavioural inconsistency; it is not a consolidation decision, it is a bug to fix
+where the signal order is defined.
 
-### 4. Deliverable
-- [ ] Create `planning/130-duplicate-feature-consolidation.md` with the review + plan.
-- [ ] Link it from `docs/detection/09-blueprint.md` §11 (overlap backlog).
-- [ ] Do not put task IDs in the planning document; describe work areas.
+## Evidence corrections (found while scoping this task)
 
-### 5. Connection map (subtask T124A)
-- [ ] Generate/refresh the how-it-connects map (see T124A): composition root, data flows, scan/store/launch pipelines, extension recipes.
-- [ ] The consolidation plan links to that map instead of restating wiring.
+Record these in the plan; they supersede the stale text in the blueprint:
+
+- **O9 is closed.** `EditionTokens` (Core) is consumed by `FileSystemHelper`, so the edition lists are
+  aligned. The blueprint still lists O9 as open.
+- **O8's list is wrong in the blueprint.** `EpicManifestParser.NormalizePath` no longer exists.
+  `GameStoreIndex` has no `NormalizePath`. The live variants are the five in D1, plus
+  `SteamLibraryMembership.Normalize`, which is private and therefore cannot be reused as-is.
+- **Dead-code line is stale.** The blueprint says `EpicStoreSearch` was removed; the file exists and is
+  compiled. Its disposition belongs to T124D, and the wording correction belongs to that task.
+- **Two concrete divergences to cite as evidence, not as hypotheticals:**
+  - `SteamAcfParser.NormalizePath` does not convert `/` to `\`, while `RegistryFallbackDetector` does.
+    An ACF path written with forward slashes and a registry path for the same folder compare unequal.
+  - `LibraryManager.IsChildOf` is a raw `StartsWith(OrdinalIgnoreCase)` on untrimmed-of-`/` strings, so
+    `C:/Games/X` is not recognised as under `C:\Games`.
+- **Fuzzy identity heuristic in `EpicInstallPath.Same`.** When normalised paths differ it falls back to
+  comparing the last folder name (length ≥ 3) and returns true. Two different games in different
+  libraries that share a folder name are treated as the same game. This is a D2 input, not a path fix.
+
+## Deliverable
+
+`planning/130-duplicate-feature-consolidation.md`:
+
+- [ ] **Decisions:** one entry per D1–D7: the decision, `file:line` evidence, the consumer, the
+      migration order, and the test that proves the migration kept behaviour.
+- [ ] **Do-not-consolidate list** with reasons (display-string edition matching vs filename tail;
+      registry fallback vs manifest inventory are different sources; parent-bound child names are an
+      intentional set).
+- [ ] **Reuse checklist** for future store work: find the shared helper first; a new reader implements
+      the shared interface; no new path normaliser, store-key parser, or stat helper.
+- [ ] Link to the connection map (T124A) instead of restating wiring.
+- [ ] Link to the three companion plans (persistence, repair writes, Epic client) instead of
+      duplicating them.
+- [ ] No task IDs in the plan document.
+- [ ] Link it from `docs/detection/09-blueprint.md` §11 as the decided outcomes for D1–D7.
+
+## Stop rules
+
+- **No `src/` change.** If a decision seems obvious, write the migration and its test; do not apply it.
+- **No interface without a named consumer.** A proposed abstraction that T117/T118/T121 would not call
+  is out of scope.
+- **No silent behaviour change.** If two variants disagree today, merging them is a behaviour decision:
+  state which behaviour wins and what test covers it. "They look the same" is not evidence.
+- **Stop at D1–D7.** The deferred list is recorded, not resolved.
+- **The blueprint is the inventory of record.** Plan 130 records decisions; it does not paste a second
+  copy of the overlap table.
 
 ## Context
 
-- Existing overlap inventory: `docs/detection/09-blueprint.md` §11 (O1–O10).
+- Overlap inventory: `docs/detection/09-blueprint.md` §11 (O1–O10), plus the corrections above.
 - Store design: `planning/129-store-capabilities-and-launcher-discovery.md`.
-- Built foundations: `DetectionNoise`, `EditionTokens`, `GameStoreIndex`, `IStorePolicyProvider`.
-- This task should complete **before T117/T118** so their interfaces adopt the generic contracts.
+- Built foundations: `DetectionNoise`, `EditionTokens` (Core), `GameStoreIndex` (Core),
+  `IStorePolicyProvider` (Core), `GameIdentity`/`IdentityKey` (Core).
+- Companion reviews: T124B (persistence), T124C (repair writes), T124D (Epic online client).
+- Must complete before T117/T118 so their interfaces adopt the decided contracts.
 
 ## Requirements
 
-- [ ] Every candidate has `file:line` evidence.
-- [ ] Every candidate is classified (duplicate / deliberate / future risk).
-- [ ] Security-sensitive helpers (repair writers, `JsonFileHelper`, `EpicStoreSearch`) are classified
-      with `file:line` evidence.
-- [ ] The plan states the write-integrity contract and the repair-write safety contract.
-- [ ] The plan names concrete signatures and the consumer task area (no task IDs in the plan doc).
-- [ ] No behavior changes, no code, no build/test.
+- [ ] Every D1–D7 item has a decision, evidence, consumer, migration order, and test.
+- [ ] Every variant named in D1/D2 exists at the cited location (verify with `grep`, the blueprint is
+      stale in two places).
+- [ ] The "do not consolidate" list is present.
+- [ ] The reuse checklist is present.
+- [ ] Deferred duplicates are recorded, not analysed.
+- [ ] No code, no behaviour change, no build/test.
 
 ## Verification
 
 - [ ] `test -f planning/130-duplicate-feature-consolidation.md`.
-- [ ] Each candidate in the doc cites a file/line or a planning doc.
+- [ ] Each decision cites `file:line` or a planning document.
 - [ ] A "do not consolidate" section exists.
-- [ ] A security-sensitive section exists and classifies every writer and the shared JSON store.
 - [ ] The reuse checklist is present.
+- [ ] The three delegated areas are linked, not duplicated.
+- [ ] `git status --short src/` is empty (the task changed no source).
 - [ ] No build/test (docs-only).
 
 ## Completion Notes
 
-- **Completed:**
-- **What was done:**
-- **Verification:**
-- **Issues encountered:**
+- **Completed:** 2026-10-29
+- **What was done:** D1 decided and implemented. Added `PathText` (Core) as the single path rule and
+  removed the duplicate normalisers (`SteamAcfParser.NormalizePath`, `RegistryFallbackDetector.NormalizePath`,
+  `EpicInstallPath.Normalize`/folder-name fallback, `SteamLibraryMembership`'s private `Normalize`,
+  `LibraryManager.IsChildOf`, `WindowsExplorer.IsUnder`). Real paths are only trimmed, never rewritten;
+  comparison is `OrdinalIgnoreCase` on a derived form. `planning/130-duplicate-feature-consolidation.md`
+  records the rule, the behaviour changes, the D2–D7 open list, the do-not-consolidate list, and the
+  reuse checklist.
+- **Verification:** `dotnet build GamingCommander.sln` — 0 errors. `dotnet test GamingCommander.sln` —
+  Migration 1, Core 219, App 488, all passing. 19 of the Core tests are the new `PathTextTests`.
+- **Issues encountered:** A first pass used the comparison form as a real path inside
+  `SteamLibraryScanner`/`SteamInstallPathLocator`, which broke 17 Steam tests on the Linux test host.
+  Fixed by splitting `TrimTrailingSeparators` (real paths) from `NormalizeForCompare` (comparison only).
+  This distinction is now the first rule in the reuse checklist.
+

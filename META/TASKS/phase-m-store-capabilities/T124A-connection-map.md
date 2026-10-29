@@ -33,6 +33,7 @@ or add a companion, and fills the missing "how it connects" layer without duplic
 - [ ] **Metadata/online pipeline:** `MetadataService`/queue/gate → sidecar.
 - [ ] **Trust boundaries and write paths:** what is read, what is written, what leaves the machine. Mark
       the two user-started repair writes, the app-owned `data/` writes, and the opt-in HTTP egress.
+      External targets are checked for existence, never created; only `data/` subdirectories are created.
 - [ ] **Extension recipes:** add a store, add a store signal, add a metadata provider, add a persisted field, add a UI action, add a detection gate.
 - [ ] Each flow names the real class/file; planned arrows are labelled "planned".
 

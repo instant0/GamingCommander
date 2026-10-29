@@ -103,6 +103,7 @@ GamingCommander.sln
 | `SchemaVersioning` | Core `Services/SchemaVersioning.cs` | Plan 127 A4: current schema version + readable-guard for the four JSON files |
 | `InstallStateMap` | Core `Services/InstallStateMap.cs` | Plan 127 B8: store status string → `InstallState` |
 | `GameStoreIndex` | `Core/Services/GameStoreIndex.cs` | Plan 129 §3.3: read-only in-memory index (`ByStoreKey`, normalized `ByPath`, `ByStore`, duplicate keys, missing manifest keys); no I/O |
+| `PathText` | `Core/Services/PathText.cs` | Plan 130: the single path rule — `TrimTrailingSeparators` (real paths), `NormalizeForCompare`, `Equals`, `IsUnder`, `Leaf`. Opaque Windows strings, no I/O, no case rewriting of stored values |
 | `IStorePolicyProvider` | Core `Services/IStorePolicyProvider.cs` | Per-store policy reads/writes, `EnabledStores`, `CheckOnLaunchStores`, `CanImport`, `CanSync` |
 | `PeProductYear` | `PeProductYear.cs` | Year hint from PE FileVersion / LastWriteTime |
 

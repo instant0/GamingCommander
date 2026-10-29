@@ -11,8 +11,15 @@ public sealed class EpicInstallPathTests
     }
 
     [Fact]
-    public void Same_FolderNameOnly()
+    public void Same_DoesNotMatchOnFolderNameAlone()
     {
-        Assert.True(EpicInstallPath.Same(@"D:\games\cavestoryplus", @"E:\elsewhere\cavestoryplus"));
+        Assert.False(EpicInstallPath.Same(@"D:\games\cavestoryplus", @"E:\elsewhere\cavestoryplus"));
+    }
+
+    [Fact]
+    public void Same_EmptyInputIsNotAMatch()
+    {
+        Assert.False(EpicInstallPath.Same(null, @"D:\games\cavestoryplus"));
+        Assert.False(EpicInstallPath.Same("  ", @"D:\games\cavestoryplus"));
     }
 }

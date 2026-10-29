@@ -161,12 +161,6 @@ public sealed class GameStoreIndex
         return missing;
     }
 
-    /// <summary>Normalizes a folder path for comparison: forward slashes, no trailing separator, trimmed.</summary>
-    public static string NormalizePath(string? path)
-    {
-        if (string.IsNullOrWhiteSpace(path))
-            return string.Empty;
-
-        return path.Trim().Replace('\\', '/').TrimEnd('/');
-    }
+    /// <summary>Normalizes a folder path for comparison. Delegates to <see cref="PathText"/>.</summary>
+    public static string NormalizePath(string? path) => PathText.NormalizeForCompare(path);
 }

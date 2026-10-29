@@ -35,7 +35,7 @@ public sealed class SteamInstallPathLocator
     public string? FindInstallPath()
     {
         string? raw = _registry.ReadStringValue(ValveSteamKey, InstallPathValue);
-        return string.IsNullOrWhiteSpace(raw) ? null : SteamAcfParser.NormalizePath(raw);
+        return string.IsNullOrWhiteSpace(raw) ? null : PathText.TrimTrailingSeparators(raw);
     }
 
     /// <summary>

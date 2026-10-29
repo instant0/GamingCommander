@@ -1,5 +1,6 @@
 using GamingCommander.Core;
 using GamingCommander.Core.Models;
+using GamingCommander.Core.Services;
 
 namespace GamingCommander.App.Services;
 
@@ -158,22 +159,6 @@ public sealed class LibraryManager : ILibraryManager
     }
 
     /// <summary>Returns true if <paramref name="childPath"/> is inside <paramref name="parentPath"/>.</summary>
-    public static bool IsChildOf(string childPath, string parentPath)
-    {
-        string child = childPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar, '\\');
-        string parent = parentPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar, '\\');
-
-        if (!child.StartsWith(parent, StringComparison.OrdinalIgnoreCase))
-            return false;
-
-        // Exact match is not a child
-        if (child.Length == parent.Length)
-            return false;
-
-        // Must be followed by a separator (not a partial directory name match like "games2" vs "games")
-        char next = child[parent.Length];
-        return next == Path.DirectorySeparatorChar
-            || next == Path.AltDirectorySeparatorChar
-            || next == '\\';
-    }
+    public static bool IsChildOf(string childPath, string parentPath) =>
+        PathText.IsUnder(childPath, parentPath);
 }
