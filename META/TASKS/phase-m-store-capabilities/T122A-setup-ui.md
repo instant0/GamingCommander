@@ -28,6 +28,7 @@ Build the per-store rows, bind them to the policy provider, and save changes.
 - [ ] Toggles round-trip through persistence.
 - [ ] No store is enabled by default.
 - [ ] No store-file writes.
+- [ ] `Test detection` and `Scan now` are read-only; they perform no directory creation and no repair.
 
 ## Verification
 

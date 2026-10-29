@@ -38,10 +38,23 @@ T117/T118/T121 add more. The deliverable is a plan, not code.
 - `StoreKey`/`GameStoreIndex` (built) vs `IdentityKey`/`GameIdentity`/`GameSourceParser` key derivation.
 - `IStorePolicyProvider`/`CanImport`/`CanSync` (built) vs future direct policy checks in T117/T118/T121/T122.
 
+### Security-sensitive helpers (from the security review)
+- **Repair writers:** `SteamAcfWriter` and `EpicItemWriter` are the only code paths that mutate state
+  outside `data/`. Classify them as either one guarded repair contract (backup, journal, dry-run,
+  target validation) or removal candidates. Do not leave two unguarded writers.
+- **Local-state writes:** `JsonFileHelper.WriteToFile` is a non-atomic `File.WriteAllText`, and
+  `ReadFromFile` returns defaults on any failure. The consolidation plan must define write-integrity
+  semantics (atomic replace, backup, visible failure) before new readers depend on it.
+- **Contract-only dead code:** `EpicStoreSearch` (O3) is compiled but unreferenced, and its endpoint
+  contradicts `docs/ONLINE-AND-DATA.md`. Classify it as a removal candidate, not a consolidation target.
+- **Trust boundary:** `data/games.json` supplies the `ExecutablePath` and arguments that get launched.
+  Record whether that file is treated as trusted input; do not add integrity checks in this task.
+
 ### Persistence and config
 - Private DTO + mapping patterns in `JsonConfigService`, `GamesDatabaseService`, `LibrariesDatabaseService`, `CollectionsDatabaseService`.
 - Schema-version guards repeated per service.
 - Enum-name vs enum-number JSON conventions (the new policy DTO uses names).
+- Write integrity: atomic replace + backup + visible read failure, owned by the shared JSON store.
 
 ### Identity and platform mapping
 - `StoreInfo` IDs vs `IdentityKey`/`GameIdentity` keys; registry name matching; ACF/Epic ID extraction.
@@ -64,8 +77,13 @@ T117/T118/T121 add more. The deliverable is a plan, not code.
   - `StoreIdentity.Resolve` (GameSourceKind + store ID → StoreKey)
   - `IStoreInventorySource` (locator + reader + fingerprint)
   - `StoreGate.CanImport`/`CanSync`
-  - `JsonDocumentStore<T>` (private DTO + schema guard)
+  - `JsonDocumentStore<T>` (private DTO + schema guard + atomic write + `.bak`)
+  - `RepairWriter` / `RepairJournal` (backup directory, dry-run, target validation)
   - `ManifestStat`/`Fingerprint`
+- [ ] State the write-integrity contract for the shared JSON store: atomic replace, backup file, and a
+      read result that distinguishes "missing" from "corrupt".
+- [ ] State the repair-write safety contract: what is backed up, where the journal lives, what a dry run
+      returns, and which targets are refused.
 - [ ] For each: migration order, risk, tests, and which upcoming work must consume it.
 - [ ] Explicit "do not consolidate" list with reasons.
 - [ ] A short **reuse checklist** for upcoming store tasks: search for the generic helper first; new readers implement the shared interface; no new path normalizer/store-key parser.
@@ -90,6 +108,9 @@ T117/T118/T121 add more. The deliverable is a plan, not code.
 
 - [ ] Every candidate has `file:line` evidence.
 - [ ] Every candidate is classified (duplicate / deliberate / future risk).
+- [ ] Security-sensitive helpers (repair writers, `JsonFileHelper`, `EpicStoreSearch`) are classified
+      with `file:line` evidence.
+- [ ] The plan states the write-integrity contract and the repair-write safety contract.
 - [ ] The plan names concrete signatures and the consumer task area (no task IDs in the plan doc).
 - [ ] No behavior changes, no code, no build/test.
 
@@ -98,6 +119,7 @@ T117/T118/T121 add more. The deliverable is a plan, not code.
 - [ ] `test -f planning/130-duplicate-feature-consolidation.md`.
 - [ ] Each candidate in the doc cites a file/line or a planning doc.
 - [ ] A "do not consolidate" section exists.
+- [ ] A security-sensitive section exists and classifies every writer and the shared JSON store.
 - [ ] The reuse checklist is present.
 - [ ] No build/test (docs-only).
 

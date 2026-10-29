@@ -18,6 +18,7 @@ This folder contains implementation plans following the FILE NAMING CONTRACT (`n
 
 | Document | Description | Status |
 | :--- | :--- | :--- |
+| **`131-security-and-release-integrity.md`** | Release gate, live-contract accuracy, atomic local state, guarded repair writes, supply-chain hygiene | **PROPOSED** (2026-10-29) — folded from the security review; Phase N, T125/T126 independent |
 | **`129-store-capabilities-and-launcher-discovery.md`** | Store capability matrix + launcher-driven inventory import proposal | **PROPOSED** (2026-10-25) — matrix published; implementation split into Phase M |
 | **`128-doc-and-task-audit.md`** | Documentation/task-backlog audit: corrections + small-task backlog | **COMPLETE** (2026-10-25) — hygiene wave + O9 done; SteamEmu decided |
 | **`126-epic-manifest-review-pass.md`** + `126-facts-*.md` | Epic orphan `.item` registration review + EOSH gate reverse-engineering (DISCOVERY) | **INVESTIGATION CLOSED** (2026-09-10) — no file-based registration path; EOSH reporting is server/account-driven (`.egi` plant falsified). Product follow-ups (EpicItemWriter `.mancpn` AppName; `epic_item_format.md` correction) **DEFERRED**. Optional RE tail remains in `126-facts-eosh-re.md`. |

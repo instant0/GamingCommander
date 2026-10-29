@@ -23,6 +23,7 @@ launch check, and enrichment, and test/scan it on demand.
   - `Scan now`.
 - [ ] All toggles default off; saving persists via `IStorePolicyProvider` (T120).
 - [ ] Stores not detected show "Not found" and still allow a manual inventory path.
+- [ ] A manual inventory path is validated as an existing directory before it is saved; relative and UNC paths are refused.
 - [ ] No full folder scan from the Setup screen unless `EnrichNewGames` is on.
 
 ## Context
@@ -30,12 +31,15 @@ launch check, and enrichment, and test/scan it on demand.
 - Existing setup: `LibrarySetupWindow`, `LibrarySetupViewModel`, `MainWindow.LibrarySetup`.
 - First-run opt-in (T117B) and this screen use the same policy model.
 - No writes to store files.
+- Repair and store-file writes are out of scope for this screen. If a repair action is surfaced later, it must use the guarded repair contract; do not add a direct writer here.
 
 ## Requirements
 
 - [ ] Every store can be enabled/disabled independently.
 - [ ] Settings survive restart.
 - [ ] Test/scan actions never block the UI or write store files.
+- [ ] No store is enabled by default.
+- [ ] The screen exposes no repair or store-write action.
 
 ## Verification
 

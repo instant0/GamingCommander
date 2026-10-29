@@ -28,7 +28,7 @@ GamingCommander is a C# Windows-native game management and launcher application 
 | Phase 3.5: Category Browsing & Search | 🔮 FUTURE | F8 category view, S key quick search, cross-root aggregation |
 | Phase 4: Advanced Features & Polish | 🔮 FUTURE | PCGamingWiki integration, metadata sync, UX polish |
 
-**Post-MVP product track (current):** 117 + 119 + 120 + F8 filter shipped. Plan **121** Epic catalog (F2 + orphans) shipped. Plans **124** (anchor library/game DB), **125** (stabilization refactor), and **127 A/B** (typed persistence v2) shipped. Plan **126** EOSH investigation closed. **Current track: O9 title canonicalization → SteamEmu design decision.** SyncMove (Phase 2.1) is deferred until detection is working. Plan 127 C (`Extensions{}` / emulator/ROM model) is deferred. Plan 101 mode switcher remains future.
+**Post-MVP product track (current):** 117 + 119 + 120 + F8 filter shipped. Plan **121** Epic catalog (F2 + orphans) shipped. Plans **124** (anchor library/game DB), **125** (stabilization refactor), and **127 A/B** (typed persistence v2) shipped. Plan **126** EOSH investigation closed. **Current track: store capabilities (consolidation → launcher discovery → inventory import → launch sync → setup controls → health), with a parallel release-integrity and local-state hardening track.** SyncMove (Phase 2.1) is deferred until detection is working. Plan 127 C (`Extensions{}` / emulator/ROM model) is deferred. Plan 101 mode switcher remains future.
 
 ---
 

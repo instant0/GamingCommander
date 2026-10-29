@@ -31,6 +31,8 @@ or add a companion, and fills the missing "how it connects" layer without duplic
 - [ ] **Store inventory pipeline (current + planned):** policy (`IStorePolicyProvider`) → launcher locator → inventory reader → import/sync → health → UI. Mark planned parts.
 - [ ] **Launch pipeline:** UI → `GameLaunchResolver` → `steam://` or exe.
 - [ ] **Metadata/online pipeline:** `MetadataService`/queue/gate → sidecar.
+- [ ] **Trust boundaries and write paths:** what is read, what is written, what leaves the machine. Mark
+      the two user-started repair writes, the app-owned `data/` writes, and the opt-in HTTP egress.
 - [ ] **Extension recipes:** add a store, add a store signal, add a metadata provider, add a persisted field, add a UI action, add a detection gate.
 - [ ] Each flow names the real class/file; planned arrows are labelled "planned".
 
@@ -51,6 +53,7 @@ or add a companion, and fills the missing "how it connects" layer without duplic
 
 - [ ] A single entry point ("start here") for feature work.
 - [ ] Composition root + the six pipelines above are covered.
+- [ ] Read, write, and network boundaries are visible on the map.
 - [ ] Extension recipes are actionable and point to the real files/classes.
 - [ ] Planned vs shipped is explicit.
 - [ ] `CODE_MAP.md` links to it (or contains it); no duplicate catalog.

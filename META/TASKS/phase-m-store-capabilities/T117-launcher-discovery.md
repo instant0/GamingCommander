@@ -38,7 +38,7 @@ foundation for the first-run "Detect launchers?" offer.
 
 - [ ] Every store returns `Found`, `Not found`, or `Unsupported`; no exceptions escape.
 - [ ] Results are deterministic and testable with a mock registry.
-- [ ] No writes.
+- [ ] No writes, no directory creation, and no network access.
 
 ## Verification
 

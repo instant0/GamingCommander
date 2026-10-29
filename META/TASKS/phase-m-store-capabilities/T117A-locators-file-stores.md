@@ -38,12 +38,15 @@ inventory source we can read, with an explicit read-only safety rating.
 
 - Evidence and paths: `docs/research/launcher_discovery.md`, `planning/129` §2.
 - Use the repository's registry abstraction (`IRegistryReader`) so tests can use mock `.reg` data.
+- Registry values and documented defaults are the only path sources. Never take an inventory root from
+  `data/games.json` or from an unvalidated override.
 
 ## Requirements
 
 - [ ] Every locator validates that a plausible inventory source exists before reporting `Found`.
 - [ ] Missing keys/values return `Not found` with a reason, not an exception.
-- [ ] No writes.
+- [ ] Reject relative paths, UNC paths, and roots outside the launcher's documented locations.
+- [ ] No writes, no directory creation, and no network access.
 
 ## Verification
 

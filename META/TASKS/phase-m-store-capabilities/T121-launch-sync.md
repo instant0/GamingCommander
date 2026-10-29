@@ -23,7 +23,7 @@ Enrich newly added games only if the user opted in.
 ### 2. Orchestrator
 - [ ] `StoreSyncService.RunOnStartupAsync(CancellationToken)`: only stores with `CheckOnLaunch`.
 - [ ] Skip a store when its manifest fingerprint (path + mtime + size) is unchanged and `SkipUnchangedManifests` is on.
-- [ ] Persist fingerprint + last-run summary in a small disposable `data/store-sync.json` cache (not `settings.json`, not `games.json`).
+- [ ] Persist fingerprint + last-run summary in a small disposable `data/store-sync.json` cache (not `settings.json`, not `games.json`) through the shared JSON store; no direct file write.
 - [ ] Read the inventory once; stat each folder/exe only — **no folder walk**.
 - [ ] Per-store budget (e.g. 2 s) and overall budget (e.g. 5 s); cancel cleanly; emit `StoreSyncReport`.
 - [ ] Added → import via T118; updated → path/version refresh; missing → `InstallState.Missing` (never delete); exe missing → `ExeMissing`.
@@ -48,7 +48,8 @@ Enrich newly added games only if the user opted in.
 - [ ] The diff uses `GameStoreIndex` (O(manifest)), not a scan of `games.json`.
 - [ ] An unchanged manifest fingerprint skips parsing and produces no writes.
 - [ ] A no-change launch stays within the time budget.
-- [ ] No writes to store files.
+- [ ] No writes to store files and no directory creation.
+- [ ] The sync cache contains paths and fingerprints only; no secrets or user content.
 
 ## Verification
 

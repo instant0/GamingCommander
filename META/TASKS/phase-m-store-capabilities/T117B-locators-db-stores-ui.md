@@ -38,12 +38,14 @@ which stores were found. No inventory import yet (T118).
 
 - UI hooks: `LibrarySetupWindow.axaml`, `LibrarySetupWindow.axaml.cs`, `LibrarySetupViewModel` (mirror the Steam/Epic `CanAdd*` pattern).
 - No writes to store files.
+- The preview reads launcher state only; it does not read the catalogue to decide what to probe.
 
 ## Requirements
 
 - [ ] All three locators return Found/Not found/Unsupported without throwing.
 - [ ] The preview is skippable and never blocks startup.
-- [ ] No write operations.
+- [ ] The preview never enables a store by default and never creates a directory.
+- [ ] No write operations and no network access.
 
 ## Verification
 

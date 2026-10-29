@@ -19,7 +19,8 @@ the "populate the inventory like a normal file scanner" proposal.
 - [ ] `IStoreInventoryReader`: `GameSourceKind Kind`, `StoreManifestFingerprint? Fingerprint`, `IReadOnlyList<StoreInventoryEntry> Read()`.
 
 ### 2. Import service
-- [ ] `StoreInventoryImportService.Import(kind)`: read the manifest once → map to `GameEntry` → stat each folder/exe (no recursion) → set `DetectionOrigin.StoreManifest` → persist via `IGamesDatabaseService`.
+- [ ] `StoreInventoryImportService.Import(kind)`: read the manifest once → map to `GameEntry` → stat each folder/exe (no recursion) → set `DetectionOrigin.StoreManifest` → persist through the shared JSON store defined by the consolidation plan, not a direct file write.
+- [ ] Imported `LaunchExe` must resolve to an existing file under the reported install root; otherwise store `null` and mark `ExeMissing`.
 - [ ] Do **not** call `FolderScanner` in this path. Enrichment is a separate opt-in step for new games only.
 - [ ] Set `Detection` confidence: authoritative store record → `Secure`/`Locked`; disk-only → `Candidate`.
 - [ ] Keep import **idempotent**: re-running must not duplicate entries; match by `StoreKey` (fall back to normalized path/name).
@@ -49,7 +50,9 @@ the "populate the inventory like a normal file scanner" proposal.
 - [ ] Import performs no recursive enumeration; only `Directory.Exists`/`File.Exists`.
 - [ ] Import uses `GameStoreIndex` for O(1) duplicate checks.
 - [ ] Enrichment is the existing pipeline, not a parallel one.
-- [ ] No store-file writes.
+- [ ] No store-file writes, no directory creation, and no network access.
+- [ ] Imported paths are validated before persistence; a record cannot point outside its reported install root.
+- [ ] Persistence uses the shared JSON store (atomic replace, `.bak`, visible failure); no direct `File.WriteAllText`.
 
 ## Verification
 
