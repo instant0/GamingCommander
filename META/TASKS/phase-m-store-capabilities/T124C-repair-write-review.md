@@ -3,10 +3,11 @@
 **Tier:** 1 — Documentation / Architecture
 **Phase:** M — Store Capabilities
 **Risk:** Low (analysis only; the decision is high-impact)
-**Status:** pending
+**Status:** done
 **Prerequisites:** None
 
-> Documentation-only. Do not run build/test. Do not implement the remedy here.
+> Review complete. The decision is in `planning/133-repair-write-safety.md`; the remedy is implemented
+> separately and must not be added here.
 
 ## Objective
 
@@ -28,6 +29,9 @@ the application folder, prove it parses, then copy. Produce `planning/133-repair
 - [ ] Present the three outcomes with their user-visible consequence:
       **guard both**, **guard Steam + remove Epic**, **remove both**.
 - [ ] Recommend one. Do not decide silently.
+- [x] **Decided: keep both, with different jobs — Steam creates, Epic modifies.** Removing Epic on the
+      grounds that a full item cannot be generated was rejected: updating an existing item after the user
+      moves the files is the legitimate Epic repair, and ADR-005 calls for it.
 
 ### 3. Contract
 - [ ] Preflight: `Directory.Exists(targetDir)` then `File.Exists(targetFile)`. Refuse with a message
@@ -42,18 +46,21 @@ the application folder, prove it parses, then copy. Produce `planning/133-repair
          are proven to parse.
 - [ ] Copy to the target:
       4. `File.Copy(staged, target)` — one call, from a validated source.
-      5. Compare the target length with the staged length. On mismatch, delete the target and report.
-      6. On `IOException`, delete a zero-length or oversized target if one exists, then report.
+      5. Compare the target length with the staged length. On mismatch, undo (see below) and report.
+      6. On `IOException`, undo a partial result and report.
       7. Delete the staged file; journal the outcome.
 - [ ] Nothing else is written to the target directory: no temp file, no rename step, no second pass.
-- [ ] Replace path (hollow `.item`): back up to `data/backups/<timestamp>/`, copy, length-check, and
-      restore the backup on mismatch.
+- [ ] Steam undo: delete the target — it did not exist before the copy.
+- [ ] Epic precondition: the target `.item` must exist, parse, and name the same installation. Refuse when
+      absent or unreadable; never create and never replace an item we cannot read. Set only
+      `InstallLocation`, `ManifestLocation`, and an empty `LaunchExecutable`; preserve every other member.
+- [ ] Epic undo: back up to `data/backups/<utc-stamp>/` before the copy; restore the backup on mismatch or
+      failure and name its path.
 - [ ] Do not record a hash. Length plus a successful re-parse is the validation; a digest protects
       nothing here and nothing would verify it.
 - [ ] Journal: `data/repair-journal.jsonl`, recording target, backup location, staged length, final
       length, and outcome.
 - [ ] Dry run: return target, backup location, payload length, and validation result without writing.
-- [ ] Restore: copy the backup back, with the same preflight and no directory creation.
 - [ ] Refuse relative paths, UNC paths, and paths the application did not discover itself.
 
 ### 4. Windows facts to record
@@ -94,15 +101,33 @@ the application folder, prove it parses, then copy. Produce `planning/133-repair
 ## Verification
 
 - [ ] `test -f planning/133-repair-write-safety.md`.
-- [ ] The plan contains a test matrix: missing target dir, existing target file, hollow `.item`,
-      read-only target, interrupted copy (short target), wrong library root.
+- [ ] The plan contains a test matrix: missing target dir, existing target file, corrupt `.item`,
+      read-only target, interrupted copy (short target), wrong library root, moved game (modify).
 - [ ] The plan states that a missing target directory is refused and not created.
 - [ ] The plan names the target marker used for each store.
 - [ ] The contract contains no digest, signature, or hash-chain step.
 
 ## Completion Notes
 
-- **Completed:**
-- **What was done:**
-- **Verification:**
-- **Issues encountered:**
+- **Completed:** 2026-10-29
+- **What was done:** Wrote `planning/133-repair-write-safety.md` with the evidence for both writers and the
+  adopted decision: **keep both, with different jobs** — Steam **creates** `appmanifest_<appId>.acf` from a
+  fully known format when the target is absent; Epic **modifies** an `.item` Epic already wrote (moved game)
+  and refuses when it is absent, unparseable, or names a different installation. The Epic writer stops
+  creating the manifests folder, stops replacing an unparseable item (the `IsHollowItem` branch), and stops
+  rewriting the whole fixed schema: it edits only `InstallLocation`, `ManifestLocation`, and an empty
+  `LaunchExecutable`, preserving every unknown member, with a backup and restore on mismatch.
+  Shared: preflight with no directory creation, one staging routine, length plus re-parse, journal, dry run.
+  Revised `T129` to match.
+- **Verification:** `test -f planning/133-repair-write-safety.md` — present. Test matrix covers both stores,
+  including absent target (Steam writes / Epic refuses), corrupt target (Epic refuses), moved game (Epic
+  modifies with members preserved), read-only target, interrupted copy, wrong root, dry run. Markers named
+  per store. No digest/signature step.
+- **Issues encountered:** The first version of this review removed the Epic writer on the grounds that a
+  valid item cannot be generated. That was wrong: the legitimate Epic action is modifying an existing item
+  after the user moves files, which is ADR-005's "Fix Registration". The review was revised before
+  implementation. Also recorded: `GamingCommander.Readme.txt:256-260` claims `data/` is the only folder
+  written to, which is false and belongs to the contract-accuracy work.
+- **Follow-up:** the per-store decision tree (intent → gate → locator → reader → writer → failure → test) is
+  now a required deliverable of the connection-map task; `planning/133` §4 is the two-row seed for it.
+

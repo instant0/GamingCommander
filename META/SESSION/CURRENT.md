@@ -10,6 +10,10 @@
 - Epic `.item` re-creation is a dead end: registration is server/account-driven, so detection stays read-only. SyncMove migration is deferred.
 - Local-only app; online extras remain opt-in PCGW + Steam Store. No full store clients; nothing has shipped, so persisted schemas carry no back-compat burden.
 
+## Shared path rule (2026-10-29)
+
+`PathText` (`Core/Services/PathText.cs`) is the single path rule: `TrimTrailingSeparators` for real paths, `NormalizeForCompare`/`Equals`/`IsUnder`/`Leaf` for comparison. The five duplicate normalisers and the Epic folder-name fallback are gone; stored paths keep their original casing and separators, comparison is `OrdinalIgnoreCase` on a derived form. Behaviour changes (all tested): `/` vs `\` now compare equal, `C:/Games/X` is under `C:\Games`, and two folders sharing a last name are no longer the same game. Recorded in `planning/130`; store identity, locator, reader, writer, policy gate and stat decisions stay open for their consumers.
+
 ## Security review outcome (docs-only, 2026-10-29)
 
 Class-calibrated review of a local single-user launcher: no elevation, no services, no telemetry, no writes into game installs, no hidden network. Out of scope by decision: Authenticode, provenance/SLSA, reproducible builds, PSIRT/CVE, bounty, fuzzing, sandboxing, encryption at rest.
@@ -31,5 +35,5 @@ See `META/SESSION/NEXT.md` for the ordered work queue and current priority.
 
 ## Verification baseline
 - Build: 0 errors / 0 warnings.
-- Tests: 686 passing (Core 200, Migration 1, App 485).
+- Tests: 708 passing (Core 219, Migration 1, App 488).
 - Detection matrix: 22/22.

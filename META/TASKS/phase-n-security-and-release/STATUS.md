@@ -44,7 +44,9 @@ T131 deferred until online Epic metadata is scheduled
 T128 at a phase boundary (lock files and warnings-as-errors)
 ```
 
-T125 may start immediately. T129 must land before any repair action is exposed again. T130 must land
+T125 may start immediately. T129 must land before any repair action is exposed again; its reviewed
+outcome keeps both writers with different jobs — Steam creates a missing ACF, Epic modifies an existing
+`.item` (`planning/133`). T130 must land
 before per-launch store sync (T121), which writes on every launch; a one-shot import (T118) may land
 first and must use the shared store if it exists, otherwise `JsonFileHelper`. None of these tasks may
 add a second writer or a parallel JSON path. T131 is kept so the deferred Epic client is not deleted

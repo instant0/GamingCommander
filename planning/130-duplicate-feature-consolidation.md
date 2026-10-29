@@ -83,4 +83,6 @@ Each is decided when its consumer is about to be built, in the plan for that wor
 - [ ] Using a path with `Directory`/`File`? `TrimTrailingSeparators` at most; do not change separators.
 - [ ] Storing a path? Store what the source gave you.
 - [ ] Dictionaries keyed by path? `StringComparer.OrdinalIgnoreCase`.
+- [ ] Creating a directory? Call `Directory.CreateDirectory` and handle the failure; do not test first.
+- [ ] Opening a file? Open it and catch the exception; do not test with `File.Exists` first.
 - [ ] New reader/locator? Implement the decided interface, do not add another entry point.

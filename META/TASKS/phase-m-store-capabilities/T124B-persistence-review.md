@@ -3,10 +3,10 @@
 **Tier:** 1 — Documentation / Architecture
 **Phase:** M — Store Capabilities
 **Risk:** Low (analysis only)
-**Status:** pending
+**Status:** done
 **Prerequisites:** None
 
-> Documentation-only. Do not run build/test. Do not implement the remedy here.
+> Review complete; the remedy is implemented separately and must not be added here.
 
 ## Objective
 
@@ -77,7 +77,18 @@ that persist through the shared store.
 
 ## Completion Notes
 
-- **Completed:**
-- **What was done:**
-- **Verification:**
-- **Issues encountered:**
+- **Completed:** 2026-10-29
+- **What was done:** Wrote `planning/132-persistence-write-integrity.md`. It inventories all six JSON
+  paths with `file:line`, classifies every directory creation, and records that the current read path
+  cannot distinguish missing from corrupt. Contract: `JsonDocumentStore<T>` with a four-state read result
+  (`Ok`/`Missing`/`Corrupt`/`Unreadable`), copy → write → re-read verification with one rolling `.bak`,
+  damaged bytes kept as `.corrupt`, newer-version files never overwritten, and one app-root-only
+  `Directory.CreateDirectory` guard (`AppPaths.EnsureAppDataPath`). No temp file, no rename, no hash.
+  Migration order, per-step test list, and sequencing included.
+- **Verification:** `test -f planning/132-persistence-write-integrity.md` — present. Caller table cites
+  every path. Test plan covers first run, zero-byte, corrupt with/without `.bak`, newer version,
+  interrupted write, read-back failure, outside-root guard.
+- **Issues encountered:** `CollectionsDatabaseService` exists but is not constructed by the app, so its
+  migration is optional; recorded rather than silently included. `docs/FAQ.md:91,101,173` currently
+  states the silent reset is intended behaviour and must be corrected with the implementation.
+
