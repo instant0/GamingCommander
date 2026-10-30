@@ -26,7 +26,7 @@ Class-calibrated review of a local single-user launcher: no elevation, no servic
 - **Not carried:** CC BY-NC licence terms, version stamping/publish path, absolute paths in `startup.log`.
 
 ## Active queue
-See `META/SESSION/NEXT.md` for the ordered work queue and current priority.
+See `META/SESSION/NEXT.md` for the ordered work queue. Pending tasks are T124A (connection map + decision tree), T124D (Epic client disposition → `planning/134`), T125 (release cleanup), T126 (contract accuracy), T127 (verification docs), T128 (supply chain), T129 (guarded repair writes), T130 (safe local-state writes), T132 (registry/filesystem call audit), and the T117/T118/T121/T122/T119 chains.
 
 ## Blockers / deferred
 - Steam-vs-SteamEmu is implemented; the `Extensions{}` / emulator model still needs a user decision.

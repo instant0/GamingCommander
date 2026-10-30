@@ -4,8 +4,8 @@
 
 ## Active queue (ordered)
 
-1. **T124D** — Epic online metadata client disposition: keep deferred, define the opt-in gate.
-2. **T124A** — connection map, including the per-store decision tree (intent → gate → locator → reader → writer → failure → test).
+1. **T124A** — connection map at `META/CONNECTION_MAP.md` (Proposal B, adopted), including the per-store decision tree (intent → gate → locator → reader → writer → failure → test).
+2. **T124D** — Epic online metadata client disposition: keep deferred, define the opt-in gate.
 3. **T125** — release path cleanup (one workflow, high/critical scan gate, SHA-pinned actions, checksum; independent).
 4. **T126** — reconcile the data contract and Readme access inventory (after T124D; before T117).
 5. **T129** — guarded repair writes: Steam create-only, Epic modify-only (after T124C; before T117).
@@ -20,12 +20,19 @@
 14. **T128** — supply-chain hygiene (Dependabot, lock files, warnings-as-errors; phase boundary).
 15. **Epic engine detection (P2)** — author its task doc after the store work.
 16. **Remaining detector/docs backlog** — O3 is covered by T124D; O4/O5/O8/O10 dedup, deep 4-level walk, `DetectionLogger`, doc splits.
+
+## Parallel UI track (P2)
+
+- **T72** — view-mode state machine (Library / Stores / Engines), F9. Spec rewritten 2026-10-30.
+- **T73** — Flat mode as the home view plus one-key scope to a store or anchor; depends on T72.
+
+Neither blocks the store-capability chain. Both are specified and can start whenever the P1 path is idle.
+
 ## Deferred (do NOT start)
 
 - **T131 — Epic online metadata opt-in gate** — deferred until online Epic metadata is scheduled. The client is kept, not deleted, and must not be called by default.
 - **Epic `.item` re-creation / registration** — dead end; detection reads existing manifests only.
 - **SyncMove Phase 2.1** — blocked until detection is working.
-- **T72/T73** — P2; not next.
 - **Plan 127 C** (`Extensions{}` / emulator) — needs a user decision.
 - **SDK .NET 8→9** — deferred indefinitely.
 

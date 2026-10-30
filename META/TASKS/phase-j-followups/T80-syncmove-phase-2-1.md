@@ -4,8 +4,19 @@
 **Phase:** J — Post-126 Follow-ups
 **Effort:** ~3–4 hours (split into slices)
 **Risk:** High (writes launcher manifests — safety-critical)
-**Status:** Deferred
+**Status:** Deferred — **must be rewritten before it can start** (see note)
 **Prerequisites:** Plan 124 anchor model (done); Plan 123 §8.3 `libraryfolders.vdf` bootstrap (for cross-library ACF, can be deferred)
+
+> **2026-10-30 — rewrite required.** The guarded repair contract (`planning/133`) makes the current UI
+> repair create-only for Steam: it refuses when the ACF exists. Updating an existing ACF (this task's
+> Slice 2) is therefore a **different modify path**: it needs its own preconditions, a backup, and a
+> restore rule. Before starting, reconcile this task with `planning/132` and `planning/133`:
+> - backup location must be `data/backups/<utc-stamp>/`, not `data/backups/<gameid>.<ext>.bak`;
+> - the operation log is `data/repair-journal.jsonl`, not a second `migration_log.jsonl`;
+> - no `Directory.CreateDirectory` outside the app data root; cross-library copy must refuse a missing
+>   `steamapps` rather than create it;
+> - the "keep original as backup" step is a copy, not a rename.
+> Do not start until detection is settled (unchanged).
 
 ---
 

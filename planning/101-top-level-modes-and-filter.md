@@ -2,6 +2,10 @@
 
 **Status:** DRAFT — mode switcher / flatten / category folders **not** built.  
 **Shipped outside this plan (2026-08-22):** F8 / S filter — click a details tag, or pick tag/store/wildcard. Backspace/Esc/Clear/.. return to library roots. Cross-root list. Not the F9 mode switcher or category tree in this file.  
+**Live specs (2026-10-30):** the two Phase I task docs under `META/TASKS/phase-i-post-mvp/`
+(`top-level-mode-switcher`, `flatten-library-view`). Design change from §1: Flat becomes a fourth
+top-level mode and the home view, not a boolean on the Library list; the grouping idea stays. This file
+remains the background for Phase 3 (tags/filter) and the category-folder idea.  
 **Audience:** Planner / Builder  
 **Priority:** P2 (post-MVP feature)  
 **Depends on:** MVP complete (T61–T70)

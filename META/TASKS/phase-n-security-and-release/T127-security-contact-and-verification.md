@@ -10,8 +10,9 @@
 
 ## Objective
 
-Give a user one obvious way to report a security problem, and one obvious way to check that the
-downloaded archive is the one that was built. A contact, not a programme.
+Give a user one obvious way to report a security problem, and one obvious way to check that a
+downloaded archive arrived intact. A contact, not a programme. The checksum is a corruption check, not
+an authenticity guarantee.
 
 ## What Needs to Change
 
@@ -19,7 +20,8 @@ downloaded archive is the one that was built. A contact, not a programme.
       private reporting route, the supported version line, and an explicit statement that there is no
       bounty, SLA, or CVE process.
 - [ ] Add a "Verify your download" section to `GamingCommander.Readme.txt`:
-      `sha256sum -c SHA256SUMS` on Linux/macOS, `Get-FileHash` on Windows, and what a mismatch means.
+      `sha256sum -c SHA256SUMS` on Linux/macOS, `Get-FileHash` on Windows, and what a mismatch means:
+      the download is incomplete or was altered in transit — re-download; it is not a tamper-proof check.
 - [ ] State that the archive is not Authenticode-signed and that the checksum is the verification path.
 - [ ] Link the release assets from `docs/FAQ.md` troubleshooting where a user is asked to reinstall.
 

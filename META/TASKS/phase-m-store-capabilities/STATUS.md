@@ -21,7 +21,7 @@
 | # | Task | Tier | Priority | Status |
 |---|------|------|----------|--------|
 | T124 | [Duplicate-capability decision gate](T124-consolidation-review.md) | 1 | P1 | Done (D1; D2–D7 deferred) |
-| T124A | [Connection map + per-store decision tree](T124A-connection-map.md) | 1 | P1 | Pending |
+| T124A | [Connection map + per-store decision tree](T124A-connection-map.md) | 1 | P1 | Ready (Proposal B adopted) |
 | T124B | [Persistence write-integrity review](T124B-persistence-review.md) | 1 | P1 | Done |
 | T124C | [Repair-write safety review](T124C-repair-write-review.md) | 1 | P1 | Done (Steam create-only, Epic modify-only) |
 | T124D | [Epic online metadata client disposition](T124D-epic-client-disposition.md) | 1 | P2 | Pending |
@@ -53,9 +53,11 @@ T116A–C were folded into T116; their docs remain as reference.
 ```
 T123/T120 complete → T124 (done: path rule) / T124B (done: persistence contract) / T124C (done: Steam create-only, Epic modify-only) / T124D
      → T124A
+     → T129 (guarded repair) and T130 (shared JSON store)
      → T117 → T117A/T117B
-     → T118 → T118A/T118B/T118C
-     → T121 → T121A/T121B/T121C
+     → T118 → T118A/T118B/T118C        (T118 requires T130)
+     → T132 → (read/write audit; after T124A, T129, T130)
+     → T121 → T121A/T121B/T121C        (T121 requires T130)
      → T122 → T122A/T122B
      → T119 → T119A/T119B
 ```

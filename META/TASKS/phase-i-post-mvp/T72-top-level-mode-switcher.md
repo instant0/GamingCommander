@@ -1,173 +1,190 @@
-# Task T72: Top-Level Mode Switcher (Library / Store / Engine)
+# Task T72: Top-Level View Modes (F9) — Library / Stores / Engines
 
 **Tier:** 1 — Feature
 **Phase:** I — Post-MVP Navigation
-**Effort:** ~2–3 hours
 **Risk:** Medium
-**Status:** Pending
-**Prerequisites:** MVP complete (T70), T71 (F5 removed)
-**WP:** Post-MVP (Plan 101, Phase 1)
+**Status:** ready (spec rewritten 2026-10-30)
+**Prerequisites:** None. The engine data this task needs already shipped (Plan 102 Phase 2 / Plan 103).
 
----
+> Flat mode is a separate task (T73). This task must leave a clean seam for it: one enum, one switch,
+> one partial file. Do not add Flat here.
 
 ## Objective
 
-Replace F9's "Jump to Library Roots" behavior with a **3-mode cycle** that toggles the top-level view between Library (filesystem roots), Store (game platforms), and Engine (game engines). This gives users semantic browsing instead of only filesystem-path browsing.
+Replace the single "Library Roots" top level with a small view-mode state machine. F9 cycles
+**Library → Stores → Engines → Library**. Stores and Engines are group lists built from the in-memory
+catalogue, with drill-in scoped to one group. No filesystem I/O in the aggregate views.
 
-## What Needs to Change
+## What already exists — do not redo
 
-### 1. New File: `src/GamingCommander.Core/Models/GameEngineKind.cs`
+| Old T72 step | Reality |
+|---|---|
+| `GameEngineKind` enum | `Core/Models/GameEngineKind.cs` |
+| `EngineDetector` | `App/Services/EngineDetector.cs`, ported in Plan 102/103 |
+| `GameEntry.GameEngine` | present, persisted by `GamesDatabaseService` |
+| `FolderScanner` sets it | done |
+| F9 binding | none — F9 is free (F1–F5, F8, F10 are bound) |
+| `JumpToLibraryRoots()` | exists; it is the **reset** used by startup, filter clear, search end, and up-navigation (`ShellViewModel.Filtering.cs:32`, `.Search.cs:68`, `.cs:62`, `.Navigation.cs:103,139`) |
 
-Create enum:
-```csharp
-public enum GameEngineKind
-{
-    Unknown = 0,
-    UnrealEngine = 1,
-    Unity = 2,
-    Rage = 3,
-    Frostbite = 4,
-}
-```
+`ShellViewModel` is a partial class (`Navigation`, `Filtering`, `Search`, `Loading`, `Scanning`,
+`Details*`, `Tags`). New mode code goes in a new `ShellViewModel.ViewModes.cs`.
 
-### 2. New File: `src/GamingCommander.App/Services/EngineDetector.cs`
+## Design
 
-Port `_detect_engine()` from `tools/detect.py` (lines 769–804):
+### 1. State
 
-- `DetectEngine(DirectoryInfo dir)` → `GameEngineKind`
-- `_hasUnrealEngine(dir)` → `Engine/` dir + `Binaries/` child
-- `_hasUnity(dir)` → `UnityPlayer.dll` + `*_Data/` dir
-- `_hasRage(dir)` → `title.rgl` + `common.rpf`
-- `_hasFrostbite(dir)` → `Engine.BuildInfo_Win64_retail.dll`
-
-### 3. `src/GamingCommander.Core/Models/GameEntry.cs`
-
-Add field:
-```csharp
-GameEngineKind GameEngine = GameEngineKind.Unknown
-```
-
-### 4. `src/GamingCommander.App/Services/FolderScanner.cs`
-
-In `AddGameEntry()`, after exe discovery:
-- Call `EngineDetector.DetectEngine(gameDir)` 
-- Set `GameEngine` on the `GameEntry`
-
-### 5. `src/GamingCommander.App/Services/GamesDatabaseService.cs`
-
-Add `GameEngine` to `GameEntryDto`:
-```csharp
-public GameEngineKind GameEngine { get; set; }
-```
-
-Update Load/Save mapping to include `GameEngine`. Backward-compatible: missing field defaults to `Unknown`.
-
-### 6. `src/GamingCommander.UI/ViewModels/ShellViewModel.cs`
-
-Add view mode enum and cycling logic:
+New partial `ShellViewModel.ViewModes.cs`:
 
 ```csharp
-public enum TopLevelViewMode { Library, Store, Engine }
+public enum ShellViewMode { Library, Stores, Engines }   // T73 adds Flat
 
-private TopLevelViewMode _viewMode = TopLevelViewMode.Library;
+public ShellViewMode ViewMode { get; private set; }      // default Library
+public string? ScopedGroup { get; private set; }         // store kind name, or engine label
+public bool IsAggregateView => ViewMode != ShellViewMode.Library;
+
+public void CycleViewMode();                             // Library → Stores → Engines → Library
 ```
 
-**New methods:**
-- `CycleTopLevelViewMode()` — cycles Library → Store → Engine → Library
-- `LoadStoreView()` — populates Items with game stores (grouped by `GameSourceKind`)
-- `LoadEngineView()` — populates Items with game engines (grouped by `GameEngine`)
+Rules:
 
-**Modify `JumpToLibraryRoots()`:**
-- Now checks `_viewMode` and dispatches to `LoadStoreView()` or `LoadEngineView()` as appropriate
-- Left pane title changes: `"Library Roots"` / `"Game Stores"` / `"Game Engines"`
+- `CycleViewMode()` resets `ScopedGroup`, rebuilds the list, updates title/hint/status, keeps the
+  previous selection index where valid (clamped).
+- `JumpToLibraryRoots()` becomes the **Library-mode reset**: it sets `ViewMode = Library` and
+  `ScopedGroup = null` in addition to its current work. It must not cycle.
+- Do **not** persist the mode. Every run starts in Library. (`settings.json` stays untouched.)
+- Do **not** add `GetAllGames`/`GetGamesByStore` to `ILibraryManager`. There is no non-UI consumer yet,
+  and the interface has a test fake. Aggregate in the ViewModel by iterating
+  `_libraryManager.Libraries` + `GetGamesForLibrary(lib.Name)` — the pattern already used by
+  `CollectFilterOptions()`.
 
-**Store/Engine entries:**
-Each store/engine is a `ShellPaneItemViewModel` with:
-- `Title` = display name (e.g., "Steam", "Unreal Engine")
-- `SourceLabel` = mode name (e.g., "Store", "Engine")
-- `PathSummary` = game count (e.g., "45 games")
-- `Kind` = `Directory` (drillable)
-- `GameCount` = number of games in group
+### 2. Group lists
 
-**Drill-in:**
-`NavigateInto()` for Store/Engine entries:
-- Store entry → call `GetGamesByStore(GameSourceKind)` 
-- Engine entry → call `GetGamesByEngine(GameEngineKind)`
-- Both aggregate across all roots
+`LoadStoreGroups()`:
 
-### 7. `src/GamingCommander.App/Services/LibraryManager.cs` (or `ILibraryManager`)
+- group all games by `GameEntry.GameSource`;
+- one row per non-empty group, ordered by enum value (`Unknown` last);
+- title `GameSourceParser.ToDisplayName(kind)`, subtitle `(N games)`;
+- `Kind = Directory`, `GroupKey = kind.ToString()`, `StoreBadge = BuildStoreBadge(kind)`;
+- `PathSummary` must **not** carry the group key (it is used as a library name elsewhere). Add
+  `public string GroupKey { get; init; } = string.Empty;` to `ShellPaneItemViewModel`.
 
-Add methods:
-```csharp
-IReadOnlyList<GameEntry> GetAllGames();                           // aggregate all roots
-IReadOnlyList<GameEntry> GetGamesByStore(GameSourceKind store);  // filter by store
-IReadOnlyList<GameEntry> GetGamesByEngine(GameEngineKind engine); // filter by engine
-```
+`LoadEngineGroups()`:
 
-Implementation: iterate all `LibraryRoots`, collect games from each, filter in memory.
+- group by `GameEntry.GameEngine`, **skip `Unknown`** (a row called "Unknown" is noise);
+- title `EngineDetector.ToTag(kind)`, subtitle `(N games)`;
+- `GroupKey = kind.ToString()`.
 
-### 8. `src/GamingCommander.App/MainWindow.axaml.cs`
+If a mode has no groups, show an empty list and set `StatusText` ("No store groups yet. Scan a library
+first."). Do not fabricate a row.
 
-**F9 handler (line 160):**
-Replace `_viewModel.JumpToLibraryRoots()` with `_viewModel.CycleTopLevelViewMode()`.
+### 3. Scoped lists
 
-**Command dispatcher (line 434):**
-Same change for `case "F9":`.
+`LoadGamesForScope()` uses `ScopedGroup` and `ViewMode`:
 
-### 9. `src/GamingCommander.App/MainWindow.axaml`
+- Stores → games where `GameSource` matches;
+- Engines → games where `GameEngine` matches;
+- add the existing `..` parent row at the top ("Back to stores" / "Back to engines");
+- project game rows through the existing `ToPaneItem(game, game.Library, leftPathOverride: null)` and
+  apply the same status colour/detail/multi-exe extras as `LoadGamesForLibrary`. Extract that extras
+  block into `ApplyLibraryExtras(item, game)` so both loaders share it (no duplicated projection).
 
-Update F9 button label binding (currently hardcoded `Label = "Library Roots"` in Commands collection — already dynamic via `ShellViewModel.Commands`, so label updates automatically when Commands[8].Label changes).
+### 4. Navigation semantics
 
-### 10. `src/GamingCommander.App/Services/HelpDialogBuilder.cs`
+`NavigateInto()` order:
 
-Update F9 description:
-- Current: `"Jump to Library Roots"`
-- New: `"Cycle view mode: Library / Store / Engine"`
+1. `ParentDirectory` → `NavigateUp()`.
+2. Aggregate mode at group level and the row has `GroupKey` → set `ScopedGroup`, load the scoped list.
+3. `File` → launch (existing).
+4. Library mode → existing root/drill behaviour.
 
-### 11. InteractionHint update
+`NavigateUp()`:
 
-In `ShellViewModel.cs` constructor, update hint:
-- Current: `"...F9: Library Roots"`
-- New: `"...F9: Mode [current]"` (e.g., `"F9: Mode [Library]"`, `"F9: Mode [Store]"`, `"F9: Mode [Engine]"`)
+| Current state | Result |
+|---|---|
+| scoped list | group list of the same mode |
+| group list (Stores/Engines) | `JumpToLibraryRoots()` (T73 changes this target to Flat) |
+| Library, inside a root | roots (existing) |
+| Library, at roots | no-op (existing) |
 
-The hint updates dynamically when mode changes.
+Filters and search:
 
-## Context
+- Applying an F8 filter or typing a search is a **transient pseudo-mode**. `ApplyFilter` keeps its
+  current behaviour but also sets `ViewMode = Library` and clears `ScopedGroup`.
+- F9 while a filter or search is active: clear it (`ClearFilter()`/`CancelSearch()`), then cycle. One
+  key, no dead state. Document it in Help.
 
-- **Engine detection** exists in `detect.py` (`_detect_engine()`, lines 769–804) covering Unreal, Unity, RAGE, Frostbite. The C# `FallbackSignalDetector.HasUnrealLayoutSignal()` already checks for Unreal layout but doesn't persist the result. `EngineDetector` extracts this into a standalone, reusable component.
-- **Store grouping** uses existing `GameEntry.GameSource` (`GameSourceKind` enum with 11 values). No new data needed.
-- **Cross-root aggregation** is new — `LibraryManager` currently only serves per-root queries. `GetAllGames()` / `GetGamesByStore()` / `GetGamesByEngine()` aggregate in memory.
-- F9 cycling is discoverable: status bar shows current mode, hint text says "F9: mode". Users learn by pressing it.
-- Backspace and ".." already handle "go up" navigation, so no dedicated "jump to top" button is needed.
+### 5. Titles, hint, command bar
+
+- `LeftPaneTitle`: keep the existing search/filter cases; then
+  `Stores` → `"Stores"`, `Engines` → `"Engines"`, scoped → `"Store: Steam"` / `"Engine: Unreal Engine"`,
+  Library → existing `"Library Roots"` / path.
+- `InteractionHint`: append `| F9: View` (static; the current property has a private setter and no
+  binding to a dynamic label).
+- `Commands`: add `new ShellCommandViewModel { Hotkey = "F9", Label = "View" }` before F10.
+  `ShellCommandViewModel.Label` is init-only, so it stays static; the status bar carries the mode.
+- `HelpDialogBuilder`: add `("F9", "Cycle view: Library / Stores / Engines")`; T73 extends the list
+  with Flat.
+
+### 6. Key and command wiring
+
+- `App/MainWindow.Navigation.cs`: `case Key.F9: _viewModel.CycleViewMode(); e.Handled = true;`
+- `App/MainWindow.Commands.cs`: `case "F9": _viewModel.CycleViewMode(); break;`
+- No other key changes. Ctrl+Enter / chords belong to T73.
+
+### 7. F5 rescan
+
+`RefreshCurrentRootAsync` currently rescans all libraries when `IsAtRootLevel || IsFilterActive`.
+Change the condition to `IsAtRootLevel || IsFilterActive || IsAggregateView`, so F5 in Stores/Engines
+rescans all libraries, then reloads the current mode (the ViewModel already reloads after a scan).
+
+### 8. Performance
+
+- Group rebuild is O(games) over the cached `GamesDatabase`; no disk, no allocation per group beyond the
+  rows.
+- Do not add caching, indexes, or background work. `GameStoreIndex.ByStore` exists but is not needed for
+  a single pass; use it only if a future consumer needs lookups.
+- No `Directory.*`/`File.*` call in the aggregate loaders. Enforced by review and by the fake manager in
+  tests.
 
 ## Requirements
 
-- [ ] `GameEngineKind` enum created
-- [ ] `EngineDetector` class created with 4 engine probes
-- [ ] `GameEntry.GameEngine` field added with backward-compatible default
-- [ ] `FolderScanner` sets `GameEngine` during scan
-- [ ] `GamesDatabaseService` persists/loads `GameEngine`
-- [ ] `LibraryManager` has `GetAllGames()`, `GetGamesByStore()`, `GetGamesByEngine()`
-- [ ] `ShellViewModel` has `TopLevelViewMode` enum and `CycleTopLevelViewMode()`
-- [ ] Store view groups games by `GameSourceKind` across all roots
-- [ ] Engine view groups games by `GameEngine` across all roots
-- [ ] F9 cycles Library → Store → Engine → Library
-- [ ] Left pane title reflects current mode
-- [ ] Status bar shows mode and game count
-- [ ] InteractionHint updated to `"...F9: mode"`
-- [ ] HelpDialogBuilder F9 description updated
-- [ ] Build clean, existing tests pass
+- [ ] `ShellViewMode` + state + `CycleViewMode()` in `ShellViewModel.ViewModes.cs`.
+- [ ] `ShellPaneItemViewModel.GroupKey` added (init-only).
+- [ ] Store and engine group loaders with counts, ordering, and empty-state status.
+- [ ] Scoped game loaders reuse `ToPaneItem` and the shared extras helper.
+- [ ] `NavigateInto`/`NavigateUp` follow the table above, including the `..` row.
+- [ ] `JumpToLibraryRoots()` sets Library mode and clears the scope; it still does not cycle.
+- [ ] Filter/search interaction as specified (F9 clears then cycles).
+- [ ] `LeftPaneTitle`, `InteractionHint`, Commands, Help updated.
+- [ ] F9 wired in the key handler and the command dispatcher.
+- [ ] F5 rescans all libraries from aggregate views.
+- [ ] No persistence change; no `ILibraryManager` change; no new dependency.
+- [ ] Library mode behaviour is unchanged (roots, drill-in, tags, launch).
 
 ## Verification
 
-- [ ] `dotnet build` passes (0 errors)
-- [ ] `dotnet test` passes (no regressions)
-- [ ] `grep -rn "Jump to Library Roots" src/` returns no matches
-- [ ] Manual: press F9 → mode cycles, status bar updates
-- [ ] Manual: drill into a store → shows games from that store
-- [ ] Manual: drill into an engine → shows games from that engine
-- [ ] Manual: Backspace returns to mode list
-- [ ] Existing Library mode still works as before
+- [ ] New `ShellViewModelViewModeTests` (fake `ILibraryManager`, same pattern as
+      `ShellViewModelSearchTests`): cycle order, scope reset, store group counts, engine groups skip
+      `Unknown`, scoped list contents, Backspace chain, filter→F9 behaviour.
+- [ ] Library-mode regression: existing navigation/search/filter tests unchanged and green.
+- [ ] `dotnet build` 0 errors; `dotnet test` green.
+- [ ] Manual: F9 cycles; Enter on a store shows only that store; Enter on a game launches; Backspace
+      returns to groups, then to roots; F5 in Stores rescans all; F8 then F9 exits the filter and cycles.
+- [ ] Manual: mode is Library again after restart.
+
+## Deliberate non-goals
+
+- Flat mode, scope chords, sorting options — T73.
+- Category/folder trees, engine filters as tags, per-store icons, saved views.
+- Grouping by library anchor in a fourth group list (the Library mode already shows anchors).
+- Any persistence of the last mode.
+
+## Stop rules
+
+- **Do not modify `JumpToLibraryRoots()` into a cycle.** Four existing callers rely on it as a reset.
+- **Do not add aggregation methods to `ILibraryManager`** without a non-UI consumer.
+- **Do not duplicate the game-row projection.** Extract the extras block, do not copy it a third time.
+- **Do not touch `data/` or scanning behaviour** beyond the F5 condition.
 
 ## Completion Notes
 

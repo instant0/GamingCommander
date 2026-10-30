@@ -26,8 +26,9 @@ failure would damage the user:
 3. **The release path has drifted.** Two overlapping workflows can both publish; the vulnerability
    step is advisory (`continue-on-error`); one action is pinned by branch; two SBOMs disagree; no
    checksum is published, so a truncated download cannot be spotted.
-4. **The live data contract is incomplete.** `ONLINE-AND-DATA.md §2` omits the Epic `.item` write, and
-   its "never contacted" list does not distinguish a deferred endpoint from an absent one.
+4. **The live data contract is incomplete.** `ONLINE-AND-DATA.md §2` omits the Epic `.item`
+   modification and the Steam ACF creation, and its "never contacted" list does not distinguish a
+   deferred endpoint from an absent one.
 
 ### Corrections to the first review
 
@@ -71,8 +72,8 @@ contact line is included; a disclosure programme is not.
 
 ### 2. Data-contract accuracy
 
-- Add the Epic `.item` write to `docs/ONLINE-AND-DATA.md §2` and reconcile its "never written" list
-  with the code.
+- Add the Epic `.item` **modification** and the Steam ACF **creation** to `docs/ONLINE-AND-DATA.md §2`
+  and reconcile its "never written" list with the code.
 - Bring the shipped `GamingCommander.Readme.txt` access inventory into line with actual writes.
 - Describe the Epic storefront endpoint as **not called in v1, reserved for opt-in Epic metadata**.
   Do not describe it as absent or removed.

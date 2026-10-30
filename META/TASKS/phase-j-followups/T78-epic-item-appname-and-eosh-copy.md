@@ -12,6 +12,12 @@
 > supported path is **detection from existing manifest files** (read `.item`/`.mancpn`/`.manifest`),
 > not writing them. Keep this task as recorded knowledge for a possible future revisit; do **not**
 > implement the writer changes now. The AppName precedence finding is preserved below.
+>
+> **2026-10-30 — partly superseded.** The repair writer is now **modify-only**: it updates
+> `InstallLocation`/`ManifestLocation` in an existing `.item` and refuses to create one
+> (`planning/133`). It does not set `AppName`, so the writer precedence actions below are moot unless a
+> future decision allows item creation. The documentation corrections in §2–§4 remain valid and should
+> move to the contract-accuracy work.
 
 ---
 

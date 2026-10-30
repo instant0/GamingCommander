@@ -196,3 +196,8 @@ Steam or Epic installation. The Steam tests need `libraryfolders.vdf`; the Epic 
   modify case.
 - The per-store decision tree and its failure points are the connection map's job; until that exists, §4 is
   the whole map.
+- A future "update an existing ACF" repair (cross-library or installdir correction) is a **modify** path,
+  not this create path. It needs its own preconditions, a backup, and a restore rule before it is exposed;
+  the deferred SyncMove task is the recorded consumer.
+- `EpicItemWriter` is the only writer that replaces a launcher-owned file today. If a second replace path
+  appears, the backup/restore rules here are the template, not a new invention.

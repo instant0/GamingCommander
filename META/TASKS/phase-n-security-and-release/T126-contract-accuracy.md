@@ -16,15 +16,21 @@ no more and no less — before the launcher-discovery and inventory work adds ne
 ## What Needs to Change
 
 ### 1. `docs/ONLINE-AND-DATA.md`
-- [ ] Add the Epic `.item` write to §2 with its exact target folder, trigger, and user-visible entry point.
+- [ ] Add the Epic `.item` **modification** to §2 with its exact target folder, trigger, and user-visible
+      entry point. State plainly that the app cannot create an `.item`; it updates one Epic already wrote,
+      and refuses when it is absent or unreadable.
+- [ ] Add the Steam ACF **creation** rule: only when the target is absent, only in an existing Steam library.
+- [ ] Add `data/repair-journal.jsonl` and `data/backups/<utc-stamp>/` to the app-owned write list, and state
+      what deleting `data/` removes.
 - [ ] Reconcile the "never written" and "never contacted" lists with the code.
-- [ ] State that the repair writers never create a store or ProgramData directory; a missing target is a
+- [ ] State that neither repair path creates a store or ProgramData directory; a missing target is a
       refusal, not a creation.
-- [ ] State what deleting `data/` removes and what backups/journals retain.
 
 ### 2. `GamingCommander.Readme.txt`
 - [ ] Bring ACCESS 1–12 into line with the writes the app can perform, including the Steam library and
       Epic ProgramData paths.
+- [ ] Correct ACCESS 10: it currently says `data/` is "the ONLY folder GamingCommander writes to". Name the
+      two repair writes and the journal/backups, or the claim is false.
 - [ ] Keep the existing plain-language register; do not turn it into a security document.
 
 ### 3. `docs/FAQ.md`

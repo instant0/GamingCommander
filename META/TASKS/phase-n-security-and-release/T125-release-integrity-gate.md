@@ -74,7 +74,7 @@ more than publishing.
 - [ ] Exactly one workflow can publish a release.
 - [ ] A high/critical finding fails the workflow; low/medium does not.
 - [ ] No action is referenced by a mutable branch or tag.
-- [ ] The release contains the archive, the SBOM, and `SHA256SUMS`.
+- [ ] The release contains the archive, the SBOM, the scan report, and `SHA256SUMS`.
 - [ ] Only one SBOM exists.
 - [ ] No document describes the checksum as proof of authenticity.
 - [ ] The workflow parses and the job graph is valid.

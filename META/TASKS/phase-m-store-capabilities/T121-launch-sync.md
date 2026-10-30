@@ -4,7 +4,7 @@
 **Phase:** M — Store Capabilities
 **Risk:** High
 **Status:** pending
-**Prerequisites:** Task T121 depends on Task T118, Task T120, and Task T123
+**Prerequisites:** Task T121 depends on Task T118, Task T120, Task T123, and Task T130
 
 ## Objective
 
@@ -16,7 +16,7 @@ Enrich newly added games only if the user opted in.
 
 ### 1. Diff model
 - [ ] `StoreInventoryDiff`: `Added`, `Updated`, `Missing`, `ExeMissing`.
-- [ ] Match by `StoreKey` first (via `GameStoreIndex`); fall back to normalized install path then name.
+- [ ] Match by `StoreKey` first (via `GameStoreIndex`); fall back to normalized install path (`PathText`). A name-only match is allowed only inside the same store and only when exactly one entry has that name; otherwise the record is added.
 - [ ] An unchanged inventory must produce an empty diff (no writes).
 - [ ] Preserve `DetectionOrigin` and user data (tags, launch profiles, relations) through the merge.
 
@@ -24,7 +24,10 @@ Enrich newly added games only if the user opted in.
 - [ ] `StoreSyncService.RunOnStartupAsync(CancellationToken)`: only stores with `CheckOnLaunch`.
 - [ ] Skip a store when its manifest fingerprint (path + mtime + size) is unchanged and `SkipUnchangedManifests` is on.
 - [ ] Persist fingerprint + last-run summary in a small disposable `data/store-sync.json` cache (not `settings.json`, not `games.json`) through the shared JSON store; no direct file write.
-- [ ] Read the inventory once; stat each folder/exe only — **no folder walk**.
+- [ ] Read the inventory once and use what the enumeration/read returned; check existence only where the
+      state itself is the answer (`planning/135` read rule). **No folder walk, no probe-before-read.**
+- [ ] The sync cache is written through the shared JSON store (`planning/132`). This task must not land
+      before that store exists, and must not add a second write path.
 - [ ] Per-store budget (e.g. 2 s) and overall budget (e.g. 5 s); cancel cleanly; emit `StoreSyncReport`.
 - [ ] Added → import via T118; updated → path/version refresh; missing → `InstallState.Missing` (never delete); exe missing → `ExeMissing`.
 - [ ] `EnrichNewGames` → run the normal folder scan only on newly added paths.
@@ -50,6 +53,7 @@ Enrich newly added games only if the user opted in.
 - [ ] A no-change launch stays within the time budget.
 - [ ] No writes to store files and no directory creation.
 - [ ] The sync cache contains paths and fingerprints only; no secrets or user content.
+- [ ] The launch path performs no redundant registry or filesystem call (`planning/135`).
 
 ## Verification
 
