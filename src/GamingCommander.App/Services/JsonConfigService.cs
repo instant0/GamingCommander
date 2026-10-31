@@ -23,13 +23,7 @@ public sealed class JsonConfigService : IConfigService
     /// <summary>Loads application configuration from disk. Returns defaults if file missing.</summary>
     public AppConfig Load()
     {
-        StoreReadResult<ConfigDto> result = _store.Read(
-            () => new ConfigDto(),
-            dto => SchemaVersioning.IsReadable(dto.Version));
-        if (result.Status == StoreReadStatus.Unreadable)
-        {
-            return new AppConfig(HiddenFolders: [], IsFirstRun: true);
-        }
+        StoreReadResult<ConfigDto> result = _store.Read(() => new ConfigDto());
 
         ConfigDto loaded = result.Value ?? new ConfigDto();
         IReadOnlyList<string> hiddenFolders = loaded.HiddenFolders ?? [];
@@ -47,7 +41,6 @@ public sealed class JsonConfigService : IConfigService
     {
         var dto = new ConfigDto
         {
-            Version = SchemaVersioning.Current,
             HiddenFolders = config.HiddenFolders.ToList(),
             IsFirstRun = config.IsFirstRun,
             LastSeenVersion = config.LastSeenVersion,
@@ -122,7 +115,6 @@ public sealed class JsonConfigService : IConfigService
 
     private sealed class ConfigDto
     {
-        public int Version { get; set; } = SchemaVersioning.Current;
         public List<string>? HiddenFolders { get; set; }
         public bool IsFirstRun { get; set; }
         public string? LastSeenVersion { get; set; }

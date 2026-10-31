@@ -72,7 +72,7 @@ UI / MainWindow
 
 | File | Service | DTO | Read behaviour today | Write behaviour today |
 |---|---|---|---|---|
-| `data/games.json` | `GamesDatabaseService` | `GamesDatabaseDto` | four-state store | `.bak` → write → verify |
+| `data/games.json` | `GamesDatabaseService` | `GamesDatabaseDto` | three-state store | `.bak` → write → verify |
 | `data/libraries.json` | `LibrariesDatabaseService` | `LibrariesDto` | same | same |
 | `data/settings.json` | `JsonConfigService` | `ConfigDto` | same; first-run flag and last version | same |
 | `data/games_metadata.json` | `MetadataStore` | sidecar records | same | same |
@@ -82,9 +82,9 @@ UI / MainWindow
 | `data/startup.log` | `App`, `MainWindow` | — | — | append, best effort |
 
 All five JSON services share `JsonDocumentStore<T>`: `Ok` / `Missing` / `Corrupt` (damaged bytes kept as
-`.corrupt`, value recovered from the rolling `.bak`) / `Unreadable` (newer schema; file untouched). A write
-serializes first, copies the previous file to `.bak`, writes, re-reads and parses. No temp file, rename,
-hash, or signature. `JsonFileHelper` no longer exists.
+`.corrupt`, value recovered from the rolling `.bak`). A write serializes first, copies the previous file to
+`.bak`, writes, re-reads and parses. No temp file, rename, hash, or signature, and no cross-version schema
+guard — persisted state is disposable pre-release. `JsonFileHelper` no longer exists.
 
 `IConfigService.Load()` is called by several services; it re-reads and re-parses `settings.json` each time.
 Treat it as cheap but not free — do not call it per row.
@@ -407,7 +407,6 @@ currently unwired.
 | `EpicOrphanDiscovery` has no callers | orphan detection is done inside `EpicLibraryScanner` only | Epic scanner |
 | `CollectionsDatabaseService` has no caller | collections are persisted only in tests | collections feature |
 | non-Steam health is hardcoded `Installed` | GOG/EA/Ubisoft/Battle.net/Xbox/Rockstar cannot report Moved/Missing | health work |
-| `EpicLibraryScanner` claims folders by name as well as path | two libraries with the same folder name can collide | Epic identity |
 | `EpicStoreSearch` compiled, no callers | deferred identity lookup (title/namespace/id); two uses, gated | online metadata |
 
 A gap is recorded here; it is not fixed here. Do not add an abstraction to paper over one.

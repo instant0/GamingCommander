@@ -1,6 +1,9 @@
 # 132 — Persistence Write Contract
 
-**Status:** proposed (review complete; implementation not started).
+**Status:** superseded in part (2026-10-31): the app-version schema guard was removed. `JsonDocumentStore`
+has three states (`Ok`/`Missing`/`Corrupt`); root `version` fields and the `Unreadable` state no longer
+exist. The durability rules below (`.bak`, `.corrupt`, verified write, app-root-only directory creation)
+still apply.
 **Scope:** the five JSON stores under `data/`, plus the blacklist restore path. Repair writers are a
 different class of write and belong to the repair-write plan.
 

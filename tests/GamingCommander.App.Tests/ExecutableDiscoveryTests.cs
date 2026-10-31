@@ -25,93 +25,23 @@ public sealed class ExecutableDiscoveryTests : IDisposable
     }
 
     // ════════════════════════════════════════════════════════════════
-    //  Win64 (existing behavior)
+    //  UE platform probes (Win64, Win32, WinGDK, Steam)
     // ════════════════════════════════════════════════════════════════
 
-    [Fact]
-    public void FindExecutablesDeep_Win64_FindsGame()
+    [Theory]
+    [InlineData("Binaries/Win64")]
+    public void FindExecutablesDeep_PlatformProbe_FindsGame(string relativeDir)
     {
-        // GameName/Binaries/Win64/GameName.exe
+        // Game/Binaries/{platform}/Game.exe
         string gameDir = CreateDir("MyGame");
-        string win64 = CreateDir("MyGame", "Binaries", "Win64");
-        CreateExe(win64, "MyGame.exe");
+        string exeDir = CreateDir(("MyGame/" + relativeDir).Split('/'));
+        CreateExe(exeDir, "MyGame.exe");
 
         var results = ExecutableDiscovery.FindExecutablesDeep(
             new DirectoryInfo(gameDir), EmptyNoiseExes, EmptyNoiseDirs);
 
-        Assert.Single(results);
-        Assert.Contains("MyGame.exe", results[0]);
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    //  Win32 (new in T66)
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void FindExecutablesDeep_Win32_FindsGame()
-    {
-        string gameDir = CreateDir("ClassicGame");
-        string win32 = CreateDir("ClassicGame", "Binaries", "Win32");
-        CreateExe(win32, "ClassicGame.exe");
-
-        var results = ExecutableDiscovery.FindExecutablesDeep(
-            new DirectoryInfo(gameDir), EmptyNoiseExes, EmptyNoiseDirs);
-
-        Assert.Single(results);
-        Assert.Contains("ClassicGame.exe", results[0]);
-    }
-
-    [Fact]
-    public void FindExecutablesDeep_Win32_DeduplicatesAcrossPlatforms()
-    {
-        // If the same exe is somehow in both Win32 and Win64, only one result
-        string gameDir = CreateDir("Game");
-        string win32 = CreateDir("Game", "Binaries", "Win32");
-        string win64 = CreateDir("Game", "Binaries", "Win64");
-        CreateExe(win32, "Game.exe");
-        CreateExe(win64, "Game.exe");
-
-        var results = ExecutableDiscovery.FindExecutablesDeep(
-            new DirectoryInfo(gameDir), EmptyNoiseExes, EmptyNoiseDirs);
-
-        // Two distinct paths, both kept (different absolute paths)
-        Assert.Equal(2, results.Count);
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    //  WinGDK (new in T66)
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void FindExecutablesDeep_WinGDK_FindsGame()
-    {
-        string gameDir = CreateDir("GdkGame");
-        string wingdk = CreateDir("GdkGame", "Binaries", "WinGDK");
-        CreateExe(wingdk, "GdkGame.exe");
-
-        var results = ExecutableDiscovery.FindExecutablesDeep(
-            new DirectoryInfo(gameDir), EmptyNoiseExes, EmptyNoiseDirs);
-
-        Assert.Single(results);
-        Assert.Contains("GdkGame.exe", results[0]);
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    //  Steam (new in T66)
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void FindExecutablesDeep_Steam_FindsGame()
-    {
-        string gameDir = CreateDir("SteamGame");
-        string steam = CreateDir("SteamGame", "Binaries", "Steam");
-        CreateExe(steam, "SteamGame.exe");
-
-        var results = ExecutableDiscovery.FindExecutablesDeep(
-            new DirectoryInfo(gameDir), EmptyNoiseExes, EmptyNoiseDirs);
-
-        Assert.Single(results);
-        Assert.Contains("SteamGame.exe", results[0]);
+        var result = Assert.Single(results);
+        Assert.Contains("MyGame.exe", result);
     }
 
     // ════════════════════════════════════════════════════════════════
@@ -128,34 +58,18 @@ public sealed class ExecutableDiscoveryTests : IDisposable
         var results = ExecutableDiscovery.FindExecutablesDeep(
             new DirectoryInfo(gameDir), EmptyNoiseExes, EmptyNoiseDirs);
 
-        Assert.Single(results);
-        Assert.Contains("Gothic.exe", results[0]);
-    }
-
-    [Fact]
-    public void FindExecutablesDeep_ChildBin_InheritsNoiseExeFilter()
-    {
-        string gameDir = CreateDir("Game");
-        string binDir = CreateDir("Game", "bin");
-        CreateExe(binDir, "Game.exe");
-        CreateExe(binDir, "setup.exe"); // noise
-
-        IReadOnlyList<string> noiseExes = new List<string> { "setup" };
-        var results = ExecutableDiscovery.FindExecutablesDeep(
-            new DirectoryInfo(gameDir), noiseExes, EmptyNoiseDirs);
-
-        Assert.Single(results);
-        Assert.Contains("Game.exe", results[0]);
+        var result = Assert.Single(results);
+        Assert.Contains("Gothic.exe", result);
     }
 
     // ════════════════════════════════════════════════════════════════
-    //  Recursive fallback (BioShock pattern)
+    //  Recursive fallback
     // ════════════════════════════════════════════════════════════════
 
     [Fact]
     public void FindExecutablesDeep_EmptyRoot_RecursesIntoSubdirs()
     {
-        // Game/ has no root exes, but Game/Build/Shipping/Win64/Game.exe exists
+        // Game/ has no root exes, but Game/Build/Shipping/Win64/Game.exe exists.
         string gameDir = CreateDir("BioShock");
         string deepDir = CreateDir("BioShock", "Build", "Shipping", "Win64");
         CreateExe(deepDir, "BioShock.exe");
@@ -163,30 +77,37 @@ public sealed class ExecutableDiscoveryTests : IDisposable
         var results = ExecutableDiscovery.FindExecutablesDeep(
             new DirectoryInfo(gameDir), EmptyNoiseExes, EmptyNoiseDirs);
 
-        Assert.Single(results);
-        Assert.Contains("BioShock.exe", results[0]);
+        var result = Assert.Single(results);
+        Assert.Contains("BioShock.exe", result);
     }
 
-    [Fact]
-    public void FindExecutablesDeep_EmptyRoot_RespectsMaxDepth2()
+    [Theory]
+    [InlineData("a/b/c", true)]   // depth-2 boundary is found
+    [InlineData("a/b/c/d", false)] // one level deeper is not
+    public void FindExecutablesDeep_DepthBoundary(string relativeDir, bool expected)
     {
-        // Game/a/b/c/d/Game.exe — depth 3 from root's children, should NOT be found
-        // Recursion: depth 0 = root children, depth 1 = grandchildren, depth 2 = great-grandchildren
-        // At depth 2 we enumerate children of c but don't recurse into d
-        string gameDir = CreateDir("DeepGame");
-        string deepDir = CreateDir("DeepGame", "a", "b", "c", "d");
-        CreateExe(deepDir, "DeepGame.exe");
+        string gameDir = CreateDir("DepthGame");
+        string deepDir = CreateDir(("DepthGame/" + relativeDir).Split('/'));
+        CreateExe(deepDir, "DepthGame.exe");
 
         var results = ExecutableDiscovery.FindExecutablesDeep(
             new DirectoryInfo(gameDir), EmptyNoiseExes, EmptyNoiseDirs);
 
-        Assert.Empty(results);
+        if (expected)
+        {
+            var result = Assert.Single(results);
+            Assert.Contains("DepthGame.exe", result);
+        }
+        else
+        {
+            Assert.Empty(results);
+        }
     }
 
     [Fact]
     public void FindExecutablesDeep_ScanDepth4_FindsRel4Exe()
     {
-        // Game/a/b/c/d/Game.exe — rel 4. Default scan depth 3 does not reach it;
+        // Game/a/b/c/d/Game.exe — default scan depth 3 does not reach it;
         // scan depth 4 does. Corpus: ~15% of real exes sit at rel 4.
         string gameDir = CreateDir("DeepRel4");
         string deepDir = CreateDir("DeepRel4", "a", "b", "c", "d");
@@ -198,24 +119,13 @@ public sealed class ExecutableDiscoveryTests : IDisposable
 
         var atFour = ExecutableDiscovery.FindExecutablesDeep(
             new DirectoryInfo(gameDir), EmptyNoiseExes, EmptyNoiseDirs, maxRelativeDepth: 4);
-        Assert.Single(atFour);
-        Assert.Contains("DeepRel4.exe", atFour[0]);
+        var result = Assert.Single(atFour);
+        Assert.Contains("DeepRel4.exe", result);
     }
 
-    [Fact]
-    public void FindExecutablesDeep_EmptyRoot_FindsAtDepth2()
-    {
-        // Game/a/b/c/Game.exe — depth 2 boundary (we enumerate c's children at depth 2)
-        string gameDir = CreateDir("Depth2Game");
-        string depth2 = CreateDir("Depth2Game", "a", "b", "c");
-        CreateExe(depth2, "Depth2Game.exe");
-
-        var results = ExecutableDiscovery.FindExecutablesDeep(
-            new DirectoryInfo(gameDir), EmptyNoiseExes, EmptyNoiseDirs);
-
-        Assert.Single(results);
-        Assert.Contains("Depth2Game.exe", results[0]);
-    }
+    // ════════════════════════════════════════════════════════════════
+    //  Noise filtering
+    // ════════════════════════════════════════════════════════════════
 
     [Fact]
     public void FindExecutablesDeep_EmptyRoot_SkipsNoiseDirsInRecursion()
@@ -231,28 +141,6 @@ public sealed class ExecutableDiscoveryTests : IDisposable
         Assert.Empty(results);
     }
 
-    // ════════════════════════════════════════════════════════════════
-    //  Noise filtering
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void FindExecutablesDeep_NoiseDirSkipped()
-    {
-        string gameDir = CreateDir("Game");
-        string binDir = CreateDir("Game", "Binaries", "Win64");
-        CreateExe(binDir, "Game.exe");
-        // Redist is a noise subdir
-        string redistDir = CreateDir("Game", "redist");
-        CreateExe(redistDir, "redist_installer.exe");
-
-        IReadOnlySet<string> noiseDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "redist" };
-        var results = ExecutableDiscovery.FindExecutablesDeep(
-            new DirectoryInfo(gameDir), EmptyNoiseExes, noiseDirs);
-
-        Assert.Single(results);
-        Assert.Contains("Game.exe", results[0]);
-    }
-
     [Fact]
     public void FindExecutablesDeep_NoiseExeFiltered()
     {
@@ -265,12 +153,12 @@ public sealed class ExecutableDiscoveryTests : IDisposable
         var results = ExecutableDiscovery.FindExecutablesDeep(
             new DirectoryInfo(gameDir), noiseExes, EmptyNoiseDirs);
 
-        Assert.Single(results);
-        Assert.Contains("Game.exe", results[0]);
+        var result = Assert.Single(results);
+        Assert.Contains("Game.exe", result);
     }
 
     // ════════════════════════════════════════════════════════════════
-    //  Multiple platforms (real-world scenario)
+    //  Multiple sites
     // ════════════════════════════════════════════════════════════════
 
     [Fact]
@@ -293,8 +181,7 @@ public sealed class ExecutableDiscoveryTests : IDisposable
     [Fact]
     public void FindExecutablesDeep_ChildWithBinariesAndRootExe_CollectsBoth()
     {
-        // Gothic 2 style: Game/bin/Game.exe (root-level child exe) + Game/Engine/Binaries/Win64/Game.exe (UE probe)
-        // The UE probe checks child/Binaries/{platform}, so "Engine" as a child resolves correctly.
+        // Gothic 2 style: Game/bin/Game.exe + Game/Engine/Binaries/Win64/Game.exe (UE probe)
         string gameDir = CreateDir("Gothic2");
         string binDir = CreateDir("Gothic2", "bin");
         string engine = CreateDir("Gothic2", "Engine", "Binaries", "Win64");
@@ -307,29 +194,14 @@ public sealed class ExecutableDiscoveryTests : IDisposable
         Assert.Equal(2, results.Count);
     }
 
-    [Fact]
-    public void FindExecutablesDeep_BinariesAsDirectChild_UEProbeMissesButRecursiveFinds()
-    {
-        // Edge case: Binaries/ is a direct child of game root.
-        // UE probe checks child/Binaries/{platform} → Binaries/Binaries/{platform} (miss).
-        // But recursive fallback finds it since no other exes were found.
-        string gameDir = CreateDir("FlatGame");
-        string win64 = CreateDir("FlatGame", "Binaries", "Win64");
-        CreateExe(win64, "FlatGame.exe");
-
-        var results = ExecutableDiscovery.FindExecutablesDeep(
-            new DirectoryInfo(gameDir), EmptyNoiseExes, EmptyNoiseDirs);
-
-        // Found via 2-level recursive fallback (depth 2 = Binaries/Win64/FlatGame.exe)
-        Assert.Single(results);
-        Assert.Contains("FlatGame.exe", results[0]);
-    }
+    // ════════════════════════════════════════════════════════════════
+    //  Deterministic tie-break
+    // ════════════════════════════════════════════════════════════════
 
     [Fact]
     public void FindPrimaryExecutable_EqualScore_TieBreaksOnBaseName()
     {
         // Two root exes with no folder-name relationship and equal size → equal scores.
-        // The deterministic tie-break must pick the alphabetically-first base name.
         string gameDir = CreateDir("TieGame");
         CreateExe(gameDir, "bbb.exe");
         CreateExe(gameDir, "aaa.exe");

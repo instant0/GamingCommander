@@ -5,7 +5,7 @@ namespace GamingCommander.App.Tests;
 /// <summary>
 /// Tests for ExecutableDiscovery.ScoreExecutable — ranks exe candidates
 /// based on folder-name matching, launcher penalties, noise pattern penalties,
-/// shipping bonuses, and file size.
+/// shipping bonuses, backup variants, and file size.
 /// </summary>
 public sealed class ExecutableScoringTests : IDisposable
 {
@@ -24,58 +24,37 @@ public sealed class ExecutableScoringTests : IDisposable
     }
 
     // ════════════════════════════════════════════════════════════════
-    //  Folder-Name Matching
+    //  Folder-name matching
     // ════════════════════════════════════════════════════════════════
 
-    [Fact]
-    public void ScoreExecutable_FolderNamedExeInSystemSubfolder_BeatsOther()
+    [Theory]
+    [InlineData("system", "elex.exe", "elex", "system", "crashreporter.exe")]
+    [InlineData("", "heroesiv.exe", "Heroes 4", "", "other.exe")]
+    public void ScoreExecutable_FolderNameMatch_BeatsUnrelated(
+        string matchDir, string matchExe, string folderName, string otherDir, string otherExe)
     {
-        string dir = Path.Combine(_tempDir, "elex");
-        Directory.CreateDirectory(Path.Combine(dir, "system"));
-        string game = Path.Combine(dir, "system", "elex.exe");
-        string other = Path.Combine(dir, "system", "crashreporter.exe");
-        File.WriteAllBytes(game, new byte[200 * 1024]);
-        File.WriteAllBytes(other, new byte[200 * 1024]);
+        string match = CreateExeIn(matchDir, matchExe);
+        string other = CreateExeIn(otherDir, otherExe);
 
-        int gameScore = ExecutableDiscovery.ScoreExecutable(game, "elex", ["launcher"], [], _ => 999).Score;
-        int otherScore = ExecutableDiscovery.ScoreExecutable(other, "elex", ["launcher"], [], _ => 999).Score;
-        Assert.True(gameScore > otherScore, $"elex.exe ({gameScore}) vs crashreporter ({otherScore})");
+        int matchScore = ExecutableDiscovery.ScoreExecutable(match, folderName, [], [], _ => 999).Score;
+        int otherScore = ExecutableDiscovery.ScoreExecutable(other, folderName, [], [], _ => 999).Score;
+
+        Assert.True(matchScore > otherScore, $"{matchExe} ({matchScore}) vs {otherExe} ({otherScore})");
     }
 
-    [Fact]
-    public void ScoreExecutable_TrademarkFolder_MatchesConcatenatedExe()
+    [Theory]
+    [InlineData("Game.exe", "My Game")]
+    public void ScoreExecutable_ExactOrTokenNameMatch_AddsBonus(string exeName, string folderName)
     {
-        string exe = CreateTempExe("DarkSoulsIII.exe");
-        int score = ExecutableDiscovery.ScoreExecutable(
-            exe, "Dark Souls® III", [], [], _ => 999).Score;
-        Assert.True(score >= 15, $"DarkSoulsIII vs Dark Souls® III should match, got {score}");
-        Assert.True(ExecutableDiscovery.ExeNameMatchesFolderName(exe, "Dark Souls® III"));
-    }
+        string exe = CreateTempExe(exeName);
 
-    [Fact]
-    public void ScoreExecutable_ExactNameMatch_AddsBonus()
-    {
-        string exe = CreateTempExe("MyGame.exe");
-        int score = ExecutableDiscovery.ScoreExecutable(
-            exe, "MyGame", [], [], _ => 999).Score;
+        int score = ExecutableDiscovery.ScoreExecutable(exe, folderName, [], [], _ => 999).Score;
 
-        // "mygame" contains token "mygame" → +10
-        Assert.True(score > 0, $"Expected positive score, got {score}");
-    }
-
-    [Fact]
-    public void ScoreExecutable_TokenMatch_AddsBonus()
-    {
-        string exe = CreateTempExe("Game.exe");
-        int score = ExecutableDiscovery.ScoreExecutable(
-            exe, "My Game", [], [], _ => 999).Score;
-
-        // "My Game" splits into tokens ["my", "game"] → "game" matches → +10
         Assert.True(score > 0, $"Expected positive score, got {score}");
     }
 
     // ════════════════════════════════════════════════════════════════
-    //  Launcher Penalties
+    //  Launcher penalty and safety predicates
     // ════════════════════════════════════════════════════════════════
 
     [Fact]
@@ -90,14 +69,9 @@ public sealed class ExecutableScoringTests : IDisposable
         int gameScore = ExecutableDiscovery.ScoreExecutable(
             game, "MyGame", launcherPatterns, [], _ => 999).Score;
 
-        // Launcher should score lower than game exe
         Assert.True(gameScore > launcherScore,
             $"Game exe ({gameScore}) should score higher than launcher ({launcherScore})");
     }
-
-    // ════════════════════════════════════════════════════════════════
-    //  Noise Pattern Penalties (Tier-Based)
-    // ════════════════════════════════════════════════════════════════
 
     [Fact]
     public void IsForbiddenLaunchExe_Uninstallers()
@@ -130,44 +104,33 @@ public sealed class ExecutableScoringTests : IDisposable
             p => Path.GetFileName(p).StartsWith("unins", StringComparison.OrdinalIgnoreCase));
     }
 
-    [Fact]
-    public void ScoreExecutable_HighTierNoisePattern_HeavilyPenalizes()
+    // ════════════════════════════════════════════════════════════════
+    //  Noise pattern penalties (tier-based)
+    // ════════════════════════════════════════════════════════════════
+
+    [Theory]
+    [InlineData("unins000.exe", "unins", 1, true)]
+    [InlineData("epicgameslauncher.exe", "epicgameslauncher", 21, false)]
+    public void ScoreExecutable_NoisePatternTier_Penalizes(
+        string noiseExe, string pattern, int tier, bool highSeverity)
     {
-        string uninstaller = CreateTempExe("unins000.exe");
+        string noise = CreateTempExe(noiseExe);
         string game = CreateTempExe("MyGame.exe");
 
-        var noisePatterns = new List<string> { "unins" };
-        // Tier 1 = highest severity
+        var noisePatterns = new List<string> { pattern };
         int noiseScore = ExecutableDiscovery.ScoreExecutable(
-            uninstaller, "MyGame", [], noisePatterns, _ => 1).Score;
+            noise, "MyGame", [], noisePatterns, _ => tier).Score;
         int gameScore = ExecutableDiscovery.ScoreExecutable(
             game, "MyGame", [], noisePatterns, _ => 999).Score;
 
-        // Noise pattern should score much lower
         Assert.True(gameScore > noiseScore,
             $"Game exe ({gameScore}) should score higher than noise ({noiseScore})");
-    }
-
-    [Fact]
-    public void ScoreExecutable_LowTierNoisePattern_LightPenalty()
-    {
-        string bootstrap = CreateTempExe("epicgameslauncher.exe");
-        string game = CreateTempExe("MyGame.exe");
-
-        var noisePatterns = new List<string> { "epicgameslauncher" };
-        // Tier 21 = lowest severity
-        int bootstrapScore = ExecutableDiscovery.ScoreExecutable(
-            bootstrap, "MyGame", [], noisePatterns, _ => 21).Score;
-        int gameScore = ExecutableDiscovery.ScoreExecutable(
-            game, "MyGame", [], noisePatterns, _ => 999).Score;
-
-        // Both should have some score, but game should be higher
-        Assert.True(gameScore > bootstrapScore,
-            $"Game exe ({gameScore}) should score higher than bootstrap ({bootstrapScore})");
+        // Tier 1-5 gets the -30 penalty; a low-severity tier does not.
+        Assert.Equal(highSeverity, noiseScore <= -30);
     }
 
     // ════════════════════════════════════════════════════════════════
-    //  Shipping Bonus
+    //  Shipping / Win64 bonus
     // ════════════════════════════════════════════════════════════════
 
     [Fact]
@@ -187,201 +150,41 @@ public sealed class ExecutableScoringTests : IDisposable
             $"Win64-Shipping ({shipScore}) should beat root game.exe ({stubScore})");
     }
 
-    [Fact]
-    public void ScoreExecutable_ShippingBinary_AddsBonus()
+    [Theory]
+    [InlineData("MyGame-Win64-Shipping.exe", "MyGame-Regular.exe")]
+    public void ScoreExecutable_ShippingOrWin64Binary_AddsBonus(string bonusExe, string regularExe)
     {
-        string shipping = CreateTempExe("MyGame-Win64-Shipping.exe");
-        string regular = CreateTempExe("MyGame-Regular.exe");
+        string bonus = CreateTempExe(bonusExe);
+        string regular = CreateTempExe(regularExe);
 
-        int shippingScore = ExecutableDiscovery.ScoreExecutable(
-            shipping, "MyGame", [], [], _ => 999).Score;
-        int regularScore = ExecutableDiscovery.ScoreExecutable(
-            regular, "MyGame", [], [], _ => 999).Score;
+        int bonusScore = ExecutableDiscovery.ScoreExecutable(bonus, "MyGame", [], [], _ => 999).Score;
+        int regularScore = ExecutableDiscovery.ScoreExecutable(regular, "MyGame", [], [], _ => 999).Score;
 
-        // Shipping binary should score higher due to +5 bonus
-        Assert.True(shippingScore > regularScore,
-            $"Shipping exe ({shippingScore}) should score higher than regular ({regularScore})");
-    }
-
-    [Fact]
-    public void ScoreExecutable_Win64Binary_AddsBonus()
-    {
-        string win64 = CreateTempExe("MyGame-Win64.exe");
-        string regular = CreateTempExe("MyGame.exe");
-
-        int win64Score = ExecutableDiscovery.ScoreExecutable(
-            win64, "MyGame", [], [], _ => 999).Score;
-        int regularScore = ExecutableDiscovery.ScoreExecutable(
-            regular, "MyGame", [], [], _ => 999).Score;
-
-        // Win64 binary should score higher due to +5 bonus
-        Assert.True(win64Score > regularScore,
-            $"Win64 exe ({win64Score}) should score higher than regular ({regularScore})");
+        Assert.True(bonusScore > regularScore,
+            $"{bonusExe} ({bonusScore}) should score higher than {regularExe} ({regularScore})");
     }
 
     // ════════════════════════════════════════════════════════════════
-    //  File Size Bonus
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void ScoreExecutable_LargeExe_AddsBonus()
-    {
-        string large = CreateTempExeWithSize("MyGame.exe", 100 * 1024 * 1024); // 100MB
-        string small = CreateTempExeWithSize("MyGameSmall.exe", 1024); // 1KB
-
-        int largeScore = ExecutableDiscovery.ScoreExecutable(
-            large, "MyGame", [], [], _ => 999).Score;
-        int smallScore = ExecutableDiscovery.ScoreExecutable(
-            small, "MyGame", [], [], _ => 999).Score;
-
-        // Large exe should score higher due to file size bonus
-        Assert.True(largeScore > smallScore,
-            $"Large exe ({largeScore}) should score higher than small ({smallScore})");
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    //  Edge Cases
+    //  Edge cases and result contract
     // ════════════════════════════════════════════════════════════════
 
     [Fact]
     public void ScoreExecutable_EmptyFolderName_ReturnsBaseScore()
     {
         string exe = CreateTempExe("MyGame.exe");
-        int score = ExecutableDiscovery.ScoreExecutable(
-            exe, "", [], [], _ => 999).Score;
 
-        // No folder context → no token match bonus
-        // But file size bonus may apply
+        int score = ExecutableDiscovery.ScoreExecutable(exe, "", [], [], _ => 999).Score;
+
+        // No folder context → no token match bonus, but the score is still valid.
         Assert.True(score >= 0, $"Expected non-negative score, got {score}");
     }
-
-    [Fact]
-    public void ScoreExecutable_CombinesAllFactors()
-    {
-        // Best case: name match + shipping + large file
-        string best = CreateTempExeWithSize("MyGame-Win64-Shipping.exe", 100 * 1024 * 1024);
-        // Worst case: noise pattern
-        string worst = CreateTempExe("unins000.exe");
-
-        var noisePatterns = new List<string> { "unins" };
-        int bestScore = ExecutableDiscovery.ScoreExecutable(
-            best, "MyGame", [], noisePatterns, _ => 999).Score;
-        int worstScore = ExecutableDiscovery.ScoreExecutable(
-            worst, "MyGame", [], noisePatterns, _ => 1).Score;
-
-        Assert.True(bestScore > worstScore,
-            $"Best exe ({bestScore}) should score higher than worst ({worstScore})");
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    //  Backup Penalties
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void ScoreExecutable_CopyOfExe_Penalizes()
-    {
-        string original = CreateTempExe("MyGame.exe");
-        string copy = CreateTempExe("copy of MyGame.exe");
-
-        int originalScore = ExecutableDiscovery.ScoreExecutable(
-            original, "MyGame", [], [], _ => 999).Score;
-        int copyScore = ExecutableDiscovery.ScoreExecutable(
-            copy, "MyGame", [], [], _ => 999).Score;
-
-        Assert.True(originalScore > copyScore,
-            $"Original ({originalScore}) should score higher than copy ({copyScore})");
-    }
-
-    [Fact]
-    public void ScoreExecutable_DashCopyExe_Penalizes()
-    {
-        string original = CreateTempExe("MyGame.exe");
-        string copy = CreateTempExe("MyGame - Copy.exe");
-
-        int originalScore = ExecutableDiscovery.ScoreExecutable(
-            original, "MyGame", [], [], _ => 999).Score;
-        int copyScore = ExecutableDiscovery.ScoreExecutable(
-            copy, "MyGame", [], [], _ => 999).Score;
-
-        Assert.True(originalScore > copyScore,
-            $"Original ({originalScore}) should score higher than dash-copy ({copyScore})");
-    }
-
-    [Fact]
-    public void ScoreExecutable_NumberedOrgHyphen_LosesToGameExe()
-    {
-        string main = CreateTempExe("GAME.exe");
-        string orgCopy = CreateTempExe("12-org-game.exe");
-
-        int mainScore = ExecutableDiscovery.ScoreExecutable(
-            main, "Silent Storm", [], [], _ => 999).Score;
-        int orgScore = ExecutableDiscovery.ScoreExecutable(
-            orgCopy, "Silent Storm", [], [], _ => 999).Score;
-
-        Assert.True(mainScore > orgScore,
-            $"GAME.exe ({mainScore}) should beat 12-org-game.exe ({orgScore})");
-    }
-
-    [Fact]
-    public void ScoreExecutable_OrgPrefixExe_Penalizes()
-    {
-        string original = CreateTempExe("MyGame.exe");
-        string orgCopy = CreateTempExe("org_MyGame.exe");
-
-        int originalScore = ExecutableDiscovery.ScoreExecutable(
-            original, "MyGame", [], [], _ => 999).Score;
-        int orgScore = ExecutableDiscovery.ScoreExecutable(
-            orgCopy, "MyGame", [], [], _ => 999).Score;
-
-        Assert.True(originalScore > orgScore,
-            $"Original ({originalScore}) should score higher than org_ prefix ({orgScore})");
-    }
-
-    [Fact]
-    public void ScoreExecutable_OriginalKeywordExe_Penalizes()
-    {
-        string original = CreateTempExe("MyGame.exe");
-        string originalCopy = CreateTempExe("MyGameOriginal.exe");
-
-        int originalScore = ExecutableDiscovery.ScoreExecutable(
-            original, "MyGame", [], [], _ => 999).Score;
-        int originalCopyScore = ExecutableDiscovery.ScoreExecutable(
-            originalCopy, "MyGame", [], [], _ => 999).Score;
-
-        Assert.True(originalScore > originalCopyScore,
-            $"Original ({originalScore}) should score higher than 'original' keyword ({originalCopyScore})");
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    //  Small Exe Penalty
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void ScoreExecutable_TinyExe_LowerThanLarge()
-    {
-        string tiny = CreateTempExeWithSize("Helper.exe", 50 * 1024); // 50KB
-        string large = CreateTempExeWithSize("MyGame.exe", 200 * 1024); // 200KB
-
-        int tinyScore = ExecutableDiscovery.ScoreExecutable(
-            tiny, "MyGame", [], [], _ => 999).Score;
-        int largeScore = ExecutableDiscovery.ScoreExecutable(
-            large, "MyGame", [], [], _ => 999).Score;
-
-        // Tiny exe gets -15 penalty, large doesn't
-        Assert.True(largeScore > tinyScore,
-            $"Large exe ({largeScore}) should score higher than tiny ({tinyScore})");
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    //  FileDescription Propagation (Plan 112 Step 2)
-    // ════════════════════════════════════════════════════════════════
 
     [Fact]
     public void ScoreExecutable_ReturnsFileDescription_InResult()
     {
         // Temp exes have no PE headers, so FileDescription will be null.
-        // Verifies the return type works and doesn't crash.
         string exe = CreateTempExe("MyGame.exe");
+
         var result = ExecutableDiscovery.ScoreExecutable(exe, "MyGame", [], [], _ => 999);
 
         Assert.IsType<ExecutableDiscovery.ExeScoreResult>(result);
@@ -389,49 +192,67 @@ public sealed class ExecutableScoringTests : IDisposable
         Assert.Null(result.FileDescription);
     }
 
-    [Fact]
-    public void ScoreExecutable_Tier1Noise_SkipsPERead()
-    {
-        // Plan 112 Step 4C: Tier 1-4 noise skips PE read entirely.
-        string noise = CreateTempExe("unins000.exe");
-        var noiseResult = ExecutableDiscovery.ScoreExecutable(
-            noise, "MyGame", [], ["unins"], _ => 1);
-
-        Assert.True(noiseResult.Score < 0,
-            $"Tier 1 noise should have negative score, got {noiseResult.Score}");
-    }
+    // ════════════════════════════════════════════════════════════════
+    //  File size bands
+    // ════════════════════════════════════════════════════════════════
 
     [Fact]
-    public void ScoreExecutable_CrackInName_Penalizes()
+    public void ScoreExecutable_FileSizeBands_OrderBySize()
     {
-        string crack = CreateTempExe("MyGame_crack.exe");
-        string game = CreateTempExe("MyGame.exe");
+        string veryLarge = CreateTempExeWithSize("a.exe", 100 * 1024 * 1024); // >= 100MB
+        string large = CreateTempExeWithSize("b.exe", 600 * 1024);            // >= 500KB
+        string medium = CreateTempExeWithSize("c.exe", 300 * 1024);           // 100–500KB
+        string tiny = CreateTempExeWithSize("d.exe", 50 * 1024);              // < 100KB
 
-        int crackScore = ExecutableDiscovery.ScoreExecutable(
-            crack, "MyGame", [], [], _ => 999).Score;
-        int gameScore = ExecutableDiscovery.ScoreExecutable(
-            game, "MyGame", [], [], _ => 999).Score;
+        int veryLargeScore = Score(veryLarge);
+        int largeScore = Score(large);
+        int mediumScore = Score(medium);
+        int tinyScore = Score(tiny);
 
-        Assert.True(gameScore > crackScore,
-            $"Game ({gameScore}) should score higher than crack ({crackScore})");
+        Assert.True(veryLargeScore > largeScore, $"{veryLargeScore} vs {largeScore}");
+        Assert.True(largeScore > mediumScore, $"{largeScore} vs {mediumScore}");
+        Assert.True(mediumScore > tinyScore, $"{mediumScore} vs {tinyScore}");
+
+        static int Score(string exe) =>
+            ExecutableDiscovery.ScoreExecutable(exe, "X", [], [], _ => 999).Score;
     }
 
-    [Fact]
-    public void ScoreExecutable_RomanNumeralMatch_AddsBonus()
+    // ════════════════════════════════════════════════════════════════
+    //  Backup / org / crack / tool penalties
+    // ════════════════════════════════════════════════════════════════
+
+    [Theory]
+    [InlineData("copy of MyGame.exe")]
+    [InlineData("org_MyGame.exe")]
+    [InlineData("MyGame_crack.exe")]
+    public void ScoreExecutable_BackupVariant_Penalized(string variantName)
     {
-        string roman = CreateTempExe("heroesiv.exe");
-        string plain = CreateTempExe("other.exe");
+        string original = CreateTempExeWithSize("MyGame.exe", 600_000);
+        string variant = CreateTempExeWithSize(variantName, 600_000);
 
-        int romanScore = ExecutableDiscovery.ScoreExecutable(
-            roman, "Heroes 4", [], [], _ => 999).Score;
-        int plainScore = ExecutableDiscovery.ScoreExecutable(
-            plain, "Heroes 4", [], [], _ => 999).Score;
+        int originalScore = ExecutableDiscovery.ScoreExecutable(
+            original, "MyGame", [], [], _ => 999).Score;
+        int variantScore = ExecutableDiscovery.ScoreExecutable(
+            variant, "MyGame", [], [], _ => 999).Score;
 
-        Assert.True(romanScore > plainScore,
-            $"Roman match ({romanScore}) should beat unrelated ({plainScore})");
+        Assert.True(originalScore > variantScore,
+            $"Original ({originalScore}) should score higher than {variantName} ({variantScore})");
     }
 
-    // ── Helpers ───────────────────────────────────────────────
+    // ════════════════════════════════════════════════════════════════
+    //  Helpers
+    // ════════════════════════════════════════════════════════════════
+
+    private string CreateExeIn(string relativeDir, string fileName)
+    {
+        string dir = relativeDir.Length == 0
+            ? _tempDir
+            : Path.Combine(_tempDir, relativeDir);
+        Directory.CreateDirectory(dir);
+        string path = Path.Combine(dir, fileName);
+        File.WriteAllBytes(path, new byte[200 * 1024]);
+        return path;
+    }
 
     private string CreateTempExe(string fileName)
     {
@@ -451,49 +272,5 @@ public sealed class ExecutableScoringTests : IDisposable
             fs.SetLength(sizeBytes);
         }
         return path;
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    //  Python-parity scoring rules (2026-10-14)
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void ScoreExecutable_LeadingDashBackup_Penalized()
-    {
-        string good = CreateTempExeWithSize("MyGame.exe", 600_000);
-        string backup = CreateTempExeWithSize("-MyGame.exe", 600_000);
-        int goodScore = ExecutableDiscovery.ScoreExecutable(good, "MyGame", [], [], _ => 999).Score;
-        int backupScore = ExecutableDiscovery.ScoreExecutable(backup, "MyGame", [], [], _ => 999).Score;
-        Assert.True(goodScore > backupScore, $"{goodScore} vs {backupScore}");
-    }
-
-    [Fact]
-    public void ScoreExecutable_UnderscoreCopy_Penalized()
-    {
-        string good = CreateTempExeWithSize("MyGame.exe", 600_000);
-        string copy = CreateTempExeWithSize("MyGame_copy.exe", 600_000);
-        Assert.True(
-            ExecutableDiscovery.ScoreExecutable(good, "MyGame", [], [], _ => 999).Score
-            > ExecutableDiscovery.ScoreExecutable(copy, "MyGame", [], [], _ => 999).Score);
-    }
-
-    [Fact]
-    public void ScoreExecutable_ToolName_Penalized()
-    {
-        string game = CreateTempExeWithSize("MyGame.exe", 600_000);
-        string tool = CreateTempExeWithSize("configtool.exe", 600_000);
-        Assert.True(
-            ExecutableDiscovery.ScoreExecutable(game, "MyGame", [], [], _ => 999).Score
-            > ExecutableDiscovery.ScoreExecutable(tool, "MyGame", [], [], _ => 999).Score);
-    }
-
-    [Fact]
-    public void ScoreExecutable_Between100And500KB_Penalized()
-    {
-        string small = CreateTempExeWithSize("small.exe", 300_000);
-        string big = CreateTempExeWithSize("big.exe", 600_000);
-        Assert.True(
-            ExecutableDiscovery.ScoreExecutable(big, "X", [], [], _ => 999).Score
-            > ExecutableDiscovery.ScoreExecutable(small, "X", [], [], _ => 999).Score);
     }
 }

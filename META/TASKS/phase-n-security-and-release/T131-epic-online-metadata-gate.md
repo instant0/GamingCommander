@@ -4,7 +4,7 @@
 **Phase:** N — Security and Release Integrity
 **Risk:** Medium
 **Status:** deferred
-**Prerequisites:** Task T131 depends on Task T124D
+**Prerequisites:** Task T131 depends on Task T126 (the lookup disposition now lives in the contract pass)
 
 > Deferred. Do not start until the Epic store lookup is scheduled. This task exists so the client is
 > kept, and so it cannot be called by default.

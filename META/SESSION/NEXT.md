@@ -1,25 +1,23 @@
 ## Status
 
-**2026-10-25 — audit follow-ups, title canonicalization, and the Steam location rule are complete.** Detection remains the priority. Plan 123's review gate is **CLOSED** (agent; human sign-off pending). Plan 127 A/B is complete. Epic `.item` re-creation and SyncMove remain deferred; persisted schemas are disposable pre-ship. **2026-10-29 — security-review findings split into T124B/T124C/T124D and Phase N. T124 is done (shared path rule). T124B is done (`planning/132`). T124C is done (`planning/133`): both repair paths stay, with different jobs. T124D/T126/T133 and the store chain remain. 2026-10-31 — T130 (safe JSON writes), T129 (guarded repair writes), and T132 (I/O call audit) are done: 755 tests, build 0 errors/0 warnings, 23 redundant filesystem probes removed. T130 and T129 unblock the import/sync chain.**
+**2026-10-25 — audit follow-ups, title canonicalization, and the Steam location rule are complete.** Detection remains the priority. Plan 123's review gate is **CLOSED** (agent; human sign-off pending). Plan 127 A/B is complete. Epic `.item` re-creation and SyncMove remain deferred; persisted schemas are disposable pre-ship. **2026-10-29 — security-review findings split into T124B/T124C/T124D and Phase N. T124 is done (shared path rule). T124B is done (`planning/132`). T124C is done (`planning/133`): both repair paths stay, with different jobs. T124D/T126/T133 and the store chain remained. 2026-10-31 — T130 (safe JSON writes), T129 (guarded repair writes), and T132 (I/O call audit) are done. T124D was closed and merged into the contract pass (T126), which is done. T133 (install identity by path) is done. T135 (remove app-version back-compat) is done: 773 tests, build clean. Next T134 (test suite reduction).**
 
 ## Active queue (ordered)
 
 **This file is the canonical execution order.** Phase `STATUS.md` files hold status and per-phase order;
 if they disagree with this list about what runs next, this list wins.
 
-1. **T124D** — Epic store lookup client disposition: identity only (two uses: identify, pre-PCGW title), gate, docs, test definitions.
-2. **T126** — reconcile the data contract, Readme access inventory, and the stale capability-matrix wording (after T124D).
-3. **T133** — Epic claimed-folder identity: path-only claims, no folder-name matching (before T118B).
-4. **T117** — launcher discovery + first-run opt-in (subtasks T117A–B); T117B wires `StorePolicyProvider`.
-5. **T118** — read-only store inventory import (subtasks T118A–C; only Steam/Epic have usable inventories).
-6. **T119** — launcher-vs-disk health + suggestions (subtasks T119A–B; after T118, before T121).
-7. **T121** — incremental store sync on every launch (subtasks T121A–C; requires T118, T119).
-8. **T122** — Setup screen per-store controls (subtasks T122A–B; requires T117, T118).
-9. **T125** — release path cleanup (independent; may run at any point).
-10. **T127** — security contact + download verification docs (after T125).
-11. **T128** — supply-chain hygiene (Dependabot, lock files, warnings-as-errors; phase boundary).
-12. **Epic engine detection (P2)** — author its task doc after the store work.
-13. **Remaining detector/docs backlog** — O3 is covered by T124D; O4/O5/O8/O10 dedup, deep 4-level walk, `DetectionLogger`, doc splits.
+1. **T134** — test suite reduction: execute the seven batches in `planning/136-test-suite-reduction.md` (one test per behavior; target ~400 cases, ceiling 450).
+2. **T117** — launcher discovery + first-run opt-in (subtasks T117A–B); T117B wires `StorePolicyProvider`.
+3. **T118** — read-only store inventory import (subtasks T118A–C; only Steam/Epic have usable inventories).
+4. **T119** — launcher-vs-disk health + suggestions (subtasks T119A–B; after T118, before T121).
+5. **T121** — incremental store sync on every launch (subtasks T121A–C; requires T118, T119).
+6. **T122** — Setup screen per-store controls (subtasks T122A–B; requires T117, T118).
+7. **T125** — release path cleanup (independent; may run at any point).
+8. **T127** — security contact + download verification docs (after T125).
+9. **T128** — supply-chain hygiene (Dependabot, lock files, warnings-as-errors; phase boundary).
+10. **Epic engine detection (P2)** — author its task doc after the store work.
+11. **Remaining detector/docs backlog** — O4/O5/O8/O10 dedup, deep 4-level walk, `DetectionLogger`, doc splits.
 
 ## Parallel UI track (P2)
 

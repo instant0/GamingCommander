@@ -63,25 +63,19 @@ public sealed class MetadataStore : IMetadataStore
         if (_cache is not null)
             return _cache;
 
-        _cache = _store.Read(
-            () => new SidecarFile(),
-            file => SchemaVersioning.IsReadable(file.Version)).Value ?? new SidecarFile();
+        _cache = _store.Read(() => new SidecarFile()).Value ?? new SidecarFile();
         _cache.Entries ??= [];
         return _cache;
     }
 
     private void Save(SidecarFile file)
     {
-        file.Version = SchemaVersioning.Current;
         _store.Write(file);
         _cache = file;
     }
 
     private sealed class SidecarFile
     {
-        [JsonPropertyName("version")]
-        public int Version { get; set; } = SchemaVersioning.Current;
-
         [JsonPropertyName("entries")]
         public Dictionary<string, SidecarEntry> Entries { get; set; } = [];
     }

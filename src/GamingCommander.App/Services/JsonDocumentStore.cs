@@ -13,13 +13,10 @@ public enum StoreReadStatus
 
     /// <summary>The file was present but unparseable; it was preserved as <c>.corrupt</c>.</summary>
     Corrupt,
-
-    /// <summary>The file was written by a newer build; it was left untouched.</summary>
-    Unreadable,
 }
 
 /// <summary>Result of <see cref="JsonDocumentStore{T}.Read"/>.</summary>
-/// <param name="Status">Which of the four read outcomes applies.</param>
+/// <param name="Status">Which of the three read outcomes applies.</param>
 /// <param name="Value">The parsed or default value; never null in practice.</param>
 /// <param name="Message">One short sentence for the log and status line, when something went wrong.</param>
 /// <param name="PreservedPath">Where the damaged bytes were kept, when they were preserved.</param>
@@ -30,9 +27,9 @@ public readonly record struct StoreReadResult<T>(
     string? PreservedPath);
 
 /// <summary>
-/// The single JSON write path for local state. Reads distinguish missing, corrupt and
-/// newer-version files; writes keep one rolling <c>.bak</c> and verify the new bytes parse
-/// before accepting them. No temp file, no rename, no hash.
+/// The single JSON write path for local state. Reads distinguish missing and corrupt files;
+/// writes keep one rolling <c>.bak</c> and verify the new bytes parse before accepting them.
+/// No temp file, no rename, no hash.
 /// </summary>
 public sealed class JsonDocumentStore<T> where T : class
 {
@@ -71,12 +68,11 @@ public sealed class JsonDocumentStore<T> where T : class
     public string CorruptPath { get; }
 
     /// <summary>
-    /// Reads the document. Never writes on success, on a missing file, or on a newer-version file.
-    /// A parse failure preserves the damaged bytes and recovers from the <c>.bak</c> when it parses.
+    /// Reads the document. Never writes on success or on a missing file. A parse failure
+    /// preserves the damaged bytes and recovers from the <c>.bak</c> when it parses.
     /// </summary>
     /// <param name="defaults">Factory for the value to use when nothing readable exists.</param>
-    /// <param name="isReadable">Optional schema check; a parsed but unreadable value yields <see cref="StoreReadStatus.Unreadable"/>.</param>
-    public StoreReadResult<T> Read(Func<T> defaults, Func<T, bool>? isReadable = null)
+    public StoreReadResult<T> Read(Func<T> defaults)
     {
         ArgumentNullException.ThrowIfNull(defaults);
 
@@ -95,7 +91,7 @@ public sealed class JsonDocumentStore<T> where T : class
         }
 
         if (bytes.Length == 0)
-            return HandleDamaged(bytes, defaults, isReadable, "is empty");
+            return HandleDamaged(bytes, defaults, "is empty");
 
         T? value;
         try
@@ -108,15 +104,7 @@ public sealed class JsonDocumentStore<T> where T : class
         }
 
         if (value is null)
-            return HandleDamaged(bytes, defaults, isReadable, "could not be parsed");
-
-        if (isReadable is not null && !isReadable(value))
-        {
-            // A newer build's file is not ours to replace; leave the bytes exactly as they are.
-            string message =
-                $"{FileName} was written by a newer version; using defaults and leaving the file unchanged.";
-            return Warn(StoreReadStatus.Unreadable, defaults(), message, null);
-        }
+            return HandleDamaged(bytes, defaults, "could not be parsed");
 
         return new StoreReadResult<T>(StoreReadStatus.Ok, value, null, null);
     }
@@ -159,12 +147,11 @@ public sealed class JsonDocumentStore<T> where T : class
     private StoreReadResult<T> HandleDamaged(
         byte[] bytes,
         Func<T> defaults,
-        Func<T, bool>? isReadable,
         string reason)
     {
         string? preservedPath = PreserveDamagedBytes(bytes);
 
-        if (TryReadBackup(isReadable, out T? recovered))
+        if (TryReadBackup(out T? recovered))
         {
             bool restored = RestoreBackup();
             string message =
@@ -186,7 +173,7 @@ public sealed class JsonDocumentStore<T> where T : class
         return Warn(StoreReadStatus.Corrupt, defaults(), fallbackMessage, preservedPath);
     }
 
-    private bool TryReadBackup(Func<T, bool>? isReadable, out T? recovered)
+    private bool TryReadBackup(out T? recovered)
     {
         recovered = null;
         if (!File.Exists(BackupPath))
@@ -199,7 +186,7 @@ public sealed class JsonDocumentStore<T> where T : class
                 return false;
 
             T? value = JsonSerializer.Deserialize<T>(bytes, _options);
-            if (value is null || (isReadable is not null && !isReadable(value)))
+            if (value is null)
                 return false;
 
             recovered = value;

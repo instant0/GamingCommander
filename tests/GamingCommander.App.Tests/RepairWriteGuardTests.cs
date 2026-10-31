@@ -3,6 +3,7 @@ using GamingCommander.App.Services;
 
 namespace GamingCommander.App.Tests;
 
+[Collection("RepairJournal")]
 public sealed class RepairWriteGuardTests : IDisposable
 {
     private readonly string _dir = Path.Combine(Path.GetTempPath(), "rwg_" + Guid.NewGuid().ToString("N")[..8]);
@@ -199,8 +200,7 @@ public sealed class RepairWriteGuardTests : IDisposable
         RepairWriteGuard.Journal(
             RepairWriteGuard.SteamAction, marker, null, 10, 10, "refused", "missing marker");
 
-        string line = File.ReadAllLines(RepairWriteGuard.JournalPath)
-            .Last(l => l.Contains(marker, StringComparison.Ordinal));
+        string line = ReadJournalLine(marker);
         using JsonDocument doc = JsonDocument.Parse(line);
         JsonElement root = doc.RootElement;
         Assert.Equal("steam-acf", root.GetProperty("action").GetString());
@@ -209,5 +209,39 @@ public sealed class RepairWriteGuardTests : IDisposable
         Assert.Equal("missing marker", root.GetProperty("message").GetString());
         Assert.Equal(10, root.GetProperty("stagedLength").GetInt64());
         Assert.True(root.TryGetProperty("timestamp", out _));
+    }
+
+    /// <summary>
+    /// Reads the journal line for a marker without depending on every other writer
+    /// having finished: the journal is append-only and shared, so open it for
+    /// read/write sharing and retry a few times while appenders hold it.
+    /// </summary>
+    private static string ReadJournalLine(string marker)
+    {
+        for (int attempt = 0; ; attempt++)
+        {
+            try
+            {
+                using var stream = new FileStream(
+                    RepairWriteGuard.JournalPath,
+                    FileMode.Open,
+                    FileAccess.Read,
+                    FileShare.ReadWrite | FileShare.Delete);
+                using var reader = new StreamReader(stream);
+                string? match = null;
+                while (reader.ReadLine() is { } line)
+                {
+                    if (line.Contains(marker, StringComparison.Ordinal))
+                        match = line;
+                }
+
+                Assert.NotNull(match);
+                return match;
+            }
+            catch (IOException) when (attempt < 20)
+            {
+                Thread.Sleep(10);
+            }
+        }
     }
 }

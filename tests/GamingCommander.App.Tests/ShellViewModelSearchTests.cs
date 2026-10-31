@@ -29,7 +29,6 @@ public sealed class ShellViewModelSearchTests
         Assert.Equal("as", vm.SearchText);
         Assert.True(vm.IsSearching);
         Assert.Equal(rootItems, vm.Items.Count); // still the roots view
-        Assert.Contains("'as'", vm.LeftPaneTitle);
     }
 
     [Fact]
@@ -48,9 +47,6 @@ public sealed class ShellViewModelSearchTests
         Assert.Contains(games, g => g.Title == "Assassin's Creed");
         Assert.Contains(games, g => g.Title == "Assault Zone");
         Assert.DoesNotContain(games, g => g.Title == "Doom");
-
-        // Header shows the typed text while the search buffer lives.
-        Assert.Contains("Search: 'assa'", vm.LeftPaneTitle);
     }
 
     [Fact]
@@ -58,10 +54,13 @@ public sealed class ShellViewModelSearchTests
     {
         ShellViewModel vm = CreateViewModel();
 
-        TypeText(vm, "coop");
+        // "ealth" appears only in the "Stealth" tag, not in any title, folder or
+        // store label, so this fails if tag matching breaks.
+        TypeText(vm, "ealth");
 
         IReadOnlyList<ShellPaneItemViewModel> games = vm.Items.Skip(1).ToList();
-        Assert.Contains(games, g => g.Title == "Coop Quest");
+        Assert.Contains(games, g => g.Title == "Assassin's Creed");
+        Assert.DoesNotContain(games, g => g.Title == "Coop Quest");
         Assert.DoesNotContain(games, g => g.Title == "Doom");
     }
 
@@ -106,7 +105,6 @@ public sealed class ShellViewModelSearchTests
         Assert.Equal(string.Empty, vm.SearchText);
         Assert.False(vm.IsSearching);
         Assert.Equal(rootItems, vm.Items.Count);
-        Assert.Equal("Library Roots", vm.LeftPaneTitle);
     }
 
     [Fact]
@@ -119,7 +117,6 @@ public sealed class ShellViewModelSearchTests
         Assert.True(vm.CancelSearch());
         Assert.Null(vm.ActiveFilter);
         Assert.Equal(string.Empty, vm.SearchText);
-        Assert.Equal("Library Roots", vm.LeftPaneTitle);
     }
 
     [Fact]

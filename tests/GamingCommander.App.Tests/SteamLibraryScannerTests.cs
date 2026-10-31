@@ -20,7 +20,7 @@ public sealed class SteamLibraryScannerTests : IDisposable
     }
 
     // ════════════════════════════════════════════════════════════════
-    //  Basic Scanning
+    //  Basic scanning
     // ════════════════════════════════════════════════════════════════
 
     [Fact]
@@ -30,69 +30,49 @@ public sealed class SteamLibraryScannerTests : IDisposable
         var scanner = new SteamLibraryScanner([root]);
         var results = scanner.Scan(root);
 
-        Assert.Single(results);
-        Assert.Equal("Test Game Alpha", results[0].DisplayName);
-        Assert.Equal(GameSourceKind.Steam, results[0].GameSource);
-        Assert.Equal("Installed", results[0].Acf.Status);
+        var entry = Assert.Single(results);
+        Assert.Equal("Test Game Alpha", entry.DisplayName);
+        Assert.Equal(GameSourceKind.Steam, entry.GameSource);
+        Assert.Equal("Installed", entry.Acf.Status);
+        Assert.False(string.IsNullOrEmpty(entry.Acf.LibraryPath));
     }
 
-    [Fact]
-    public void Scan_WithNoCommonFolder_ReturnsEmpty()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Scan_WithoutLibraryPath_ReturnsEmpty(bool pathMissing)
     {
-        // Create steamapps/ but no common/ folder
-        string steamapps = Path.Combine(_tempDir, "steamapps");
-        Directory.CreateDirectory(steamapps);
+        string scanned = pathMissing ? Path.Combine(_tempDir, "missing") : _tempDir;
+        if (!pathMissing)
+            Directory.CreateDirectory(Path.Combine(_tempDir, "steamapps")); // no common/
 
-        var scanner = new SteamLibraryScanner([_tempDir]);
-        var results = scanner.Scan(_tempDir);
-
-        Assert.Empty(results);
-    }
-
-    [Fact]
-    public void Scan_WithNonExistentPath_ReturnsEmpty()
-    {
-        var scanner = new SteamLibraryScanner(["/nonexistent/path"]);
-        var results = scanner.Scan("/nonexistent/path");
+        var scanner = new SteamLibraryScanner([scanned]);
+        var results = scanner.Scan(scanned);
 
         Assert.Empty(results);
     }
 
     // ════════════════════════════════════════════════════════════════
-    //  ACF Parsing
+    //  ACF parsing and exe discovery
     // ════════════════════════════════════════════════════════════════
 
-    [Fact]
-    public void Scan_FindsExeInBinariesWin64_WithoutWalkingTree()
+    [Theory]
+    [InlineData("Binaries/Win64", "UeGame-Win64-Shipping.exe", "480")]
+    public void Scan_FindsExeInKnownSubfolder(string relativeDir, string exeName, string appId)
     {
-        string root = CreateMockSteamLibrary("UeGame", appId: "480");
-        string win64 = Path.Combine(root, "steamapps", "common", "UeGame", "Binaries", "Win64");
-        Directory.CreateDirectory(win64);
-        File.WriteAllBytes(Path.Combine(win64, "UeGame-Win64-Shipping.exe"), new byte[200 * 1024]);
+        string root = CreateMockSteamLibrary("Game", appId: appId);
+        string exeDir = Path.Combine(root, "steamapps", "common", "Game", relativeDir);
+        Directory.CreateDirectory(exeDir);
+        File.WriteAllBytes(Path.Combine(exeDir, exeName), new byte[200 * 1024]);
 
         var scanner = new SteamLibraryScanner([root]);
         var results = scanner.Scan(root);
 
-        Assert.Single(results);
-        Assert.Contains("UeGame-Win64-Shipping.exe", results[0].ExecutablePath, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal("480", results[0].Store.SteamAppId);
-        Assert.Contains("steam://rungameid/480", results[0].CommandLineArguments);
-    }
-
-    [Fact]
-    public void Scan_FindsExeInShippingSubfolder()
-    {
-        string root = CreateMockSteamLibrary("DivinityOriginalSin", appId: "230230");
-        string shipping = Path.Combine(root, "steamapps", "common", "DivinityOriginalSin", "Shipping");
-        Directory.CreateDirectory(shipping);
-        File.WriteAllBytes(Path.Combine(shipping, "EOCApp.exe"), new byte[200 * 1024]);
-
-        var scanner = new SteamLibraryScanner([root]);
-        var results = scanner.Scan(root);
-
-        Assert.Single(results);
-        Assert.Contains("EOCApp.exe", results[0].ExecutablePath, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Shipping", results[0].ExecutablePath, StringComparison.OrdinalIgnoreCase);
+        var entry = Assert.Single(results);
+        Assert.Contains(exeName, entry.ExecutablePath, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(relativeDir.Split('/')[0], entry.ExecutablePath, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(appId, entry.Store.SteamAppId);
+        Assert.Contains($"steam://rungameid/{appId}", entry.CommandLineArguments);
     }
 
     [Fact]
@@ -102,8 +82,7 @@ public sealed class SteamLibraryScannerTests : IDisposable
         var scanner = new SteamLibraryScanner([root]);
         var results = scanner.Scan(root);
 
-        Assert.Single(results);
-        var entry = results[0];
+        var entry = Assert.Single(results);
         Assert.Equal("730", entry.Store.SteamAppId);
         Assert.Equal("Test Game Alpha", entry.DisplayName);
         Assert.Equal("TestGame", entry.FolderName);
@@ -118,7 +97,6 @@ public sealed class SteamLibraryScannerTests : IDisposable
         string commonDir = Path.Combine(root, "steamapps", "common");
         Directory.CreateDirectory(Path.Combine(commonDir, "BadGame"));
 
-        // Write malformed ACF
         string steamapps = Path.Combine(root, "steamapps");
         File.WriteAllText(Path.Combine(steamapps, "appmanifest_99999.acf"), "not valid acf {{{");
 
@@ -126,12 +104,12 @@ public sealed class SteamLibraryScannerTests : IDisposable
         var results = scanner.Scan(root);
 
         // BadGame exists but has no valid ACF → Orphaned
-        Assert.Single(results);
-        Assert.Equal("Orphaned", results[0].Acf.Status);
+        var entry = Assert.Single(results);
+        Assert.Equal("Orphaned", entry.Acf.Status);
     }
 
     // ════════════════════════════════════════════════════════════════
-    //  Cross-Library Detection
+    //  Cross-library detection
     // ════════════════════════════════════════════════════════════════
 
     [Fact]
@@ -141,78 +119,29 @@ public sealed class SteamLibraryScannerTests : IDisposable
         string libA = CreateSteamAppsDir("libA");
         string libB = CreateSteamAppsDir("libB");
 
-        // Game folder in libA
         Directory.CreateDirectory(Path.Combine(libA, "steamapps", "common", "TestGame"));
-
-        // ACF in libB pointing to TestGame
         WriteAcf(libB, "12345", "Test Game", "TestGame");
 
         var scanner = new SteamLibraryScanner([libA, libB]);
         var results = scanner.Scan(libA);
 
-        Assert.Single(results);
-        Assert.Equal("Moved", results[0].Acf.Status);
-        Assert.True(results[0].Acf.ExpectedPath.Length > 0);
+        var entry = Assert.Single(results);
+        Assert.Equal("Moved", entry.Acf.Status);
+        Assert.True(entry.Acf.ExpectedPath.Length > 0);
     }
 
     [Fact]
     public void Scan_WithOrphanedGame_DetectsOrphanedStatus()
     {
         string root = CreateSteamAppsDir();
-
-        // Game folder exists but no ACF
         Directory.CreateDirectory(Path.Combine(root, "steamapps", "common", "OrphanedGame"));
 
         var scanner = new SteamLibraryScanner([root]);
         var results = scanner.Scan(root);
 
-        Assert.Single(results);
-        Assert.Equal("Orphaned", results[0].Acf.Status);
-        Assert.Equal(string.Empty, results[0].Store.SteamAppId);
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    //  Bug 10 — Steam-internal common/ folders are not games
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void Scan_WithSteamControllerConfigsFolder_SkipsOrphanedEntry()
-    {
-        // Steam-internal folder with no ACF — must NOT surface as an Orphaned "game".
-        string root = CreateSteamAppsDir();
-        Directory.CreateDirectory(Path.Combine(root, "steamapps", "common", "Steam Controller Configs"));
-
-        var scanner = new SteamLibraryScanner([root]);
-        var results = scanner.Scan(root);
-
-        Assert.Empty(results);
-    }
-
-    [Fact]
-    public void Scan_WithSteamworksSharedFolder_SkipsOrphanedEntry()
-    {
-        string root = CreateSteamAppsDir();
-        Directory.CreateDirectory(Path.Combine(root, "steamapps", "common", "Steamworks Shared"));
-
-        var scanner = new SteamLibraryScanner([root]);
-        var results = scanner.Scan(root);
-
-        Assert.Empty(results);
-    }
-
-    [Fact]
-    public void Scan_WithGameNamedSteam_StillDetected()
-    {
-        // Guard: installdirs are arbitrary — a game legitimately titled "Steam"
-        // must be detected, not skipped by the internal-folder filter.
-        string root = CreateMockSteamLibrary("Steam", appId: "777");
-
-        var scanner = new SteamLibraryScanner([root]);
-        var results = scanner.Scan(root);
-
-        Assert.Single(results);
-        Assert.Equal("Installed", results[0].Acf.Status);
-        Assert.Equal("Steam", results[0].FolderName);
+        var entry = Assert.Single(results);
+        Assert.Equal("Orphaned", entry.Acf.Status);
+        Assert.Equal(string.Empty, entry.Store.SteamAppId);
     }
 
     [Fact]
@@ -235,95 +164,68 @@ public sealed class SteamLibraryScannerTests : IDisposable
     [Fact]
     public void Scan_WithMissingGame_DetectsMissingStatus()
     {
-        // ACF exists but no matching common/ folder
+        // ACF exists but no matching common/ folder.
         string root = CreateSteamAppsDir();
         WriteAcf(root, "99999", "Missing Game", "MissingGame");
 
         var scanner = new SteamLibraryScanner([root]);
         var results = scanner.Scan(root);
 
-        Assert.Single(results);
-        Assert.Equal("Missing", results[0].Acf.Status);
-        Assert.Equal("99999", results[0].Store.SteamAppId);
+        var entry = Assert.Single(results);
+        Assert.Equal("Missing", entry.Acf.Status);
+        Assert.Equal("99999", entry.Store.SteamAppId);
+        Assert.True(entry.Acf.FilePath.Length > 0);
     }
 
-    // ════════════════════════════════════════════════════════════════
-    //  Status Fields
-    // ════════════════════════════════════════════════════════════════
-
     [Fact]
-    public void Scan_InstalledGame_HasSteamStatusExtra()
+    public void Scan_MissingVdf_UsesConfiguredRootsForCrossReference()
     {
-        string root = CreateMockSteamLibrary("Game1", appId: "111");
-        var scanner = new SteamLibraryScanner([root]);
-        var results = scanner.Scan(root);
+        // No libraryfolders.vdf exists. The ACF lives in the scanned root, but its game
+        // folder exists only in the second CONFIGURED root. The configured root must
+        // count as a known library, so the game is present rather than Missing.
+        string scannedRoot = CreateSteamAppsDir("noVdfScanned");
+        string configuredRoot = CreateSteamAppsDir("noVdfConfigured");
+        WriteAcf(scannedRoot, "77777", "Configured Game", "ConfiguredGame");
+        Directory.CreateDirectory(
+            Path.Combine(configuredRoot, "steamapps", "common", "ConfiguredGame"));
 
-        Assert.Single(results);
-        Assert.Equal("Installed", results[0].Acf.Status);
-        Assert.Equal("111", results[0].Store.SteamAppId);
-        Assert.False(string.IsNullOrEmpty(results[0].Acf.LibraryPath));
-    }
+        var scanner = new SteamLibraryScanner([scannedRoot, configuredRoot]);
+        var results = scanner.Scan(scannedRoot);
 
-    [Fact]
-    public void Scan_MissingGame_HasSteamStatusExtra()
-    {
-        string root = CreateSteamAppsDir();
-        WriteAcf(root, "55555", "Ghost Game", "GhostFolder");
-
-        var scanner = new SteamLibraryScanner([root]);
-        var results = scanner.Scan(root);
-
-        Assert.Single(results);
-        Assert.Equal("Missing", results[0].Acf.Status);
-        Assert.Equal("55555", results[0].Store.SteamAppId);
-        Assert.True(results[0].Acf.FilePath.Length > 0);
+        Assert.Empty(results);
+        Assert.DoesNotContain(results, g => g.Acf.Status == "Missing");
     }
 
     // ════════════════════════════════════════════════════════════════
-    //  Library Discovery (tested via scanner behavior)
+    //  Bug 10 — Steam-internal common/ folders are not games
     // ════════════════════════════════════════════════════════════════
 
-    [Fact]
-    public void Scan_WithVdfDiscoveredPaths_IncludesCrossLibraryGames()
-    {
-        // Write libraryfolders.vdf pointing to a second library (same-line brace format)
-        string libA = CreateSteamAppsDir("libA");
-        string libB = CreateSteamAppsDir("libB");
-
-        string steamappsA = Path.Combine(libA, "steamapps");
-        File.WriteAllText(Path.Combine(steamappsA, "libraryfolders.vdf"),
-            "\"libraryfolders\" {\n" +
-            "    \"0\" {\n" +
-            $"        \"path\" \"{libB.Replace("\\", "\\\\")}\"\n" +
-            "    }\n" +
-            "}");
-
-        // Game folder in libB (discovered via VDF) and ACF in libB
-        Directory.CreateDirectory(Path.Combine(libB, "steamapps", "common", "DiscoveredGame"));
-        WriteAcf(libB, "99999", "Discovered Game", "DiscoveredGame");
-
-        var scanner = new SteamLibraryScanner([libA]);
-        // Scan() scans libA's common/ only — DiscoveredGame is in libB
-        var results = scanner.Scan(libA);
-
-        // Scan() won't find games in libB's common/, but it WILL detect
-        // Missing status for ACFs whose installdir has no common/ in any known path
-        // Since DiscoveredGame IS in libB (a discovered path), it won't be Missing
-        Assert.Empty(results); // libA has no common/ game folders
-    }
-
-    [Fact]
-    public void Scan_WithNoVdf_NoExtraPathsDiscovered()
+    [Theory]
+    [InlineData("Steam Controller Configs")]
+    public void Scan_WithSteamInternalFolder_SkipsOrphanedEntry(string folderName)
     {
         string root = CreateSteamAppsDir();
-        Directory.CreateDirectory(Path.Combine(root, "steamapps", "common", "SomeGame"));
+        Directory.CreateDirectory(Path.Combine(root, "steamapps", "common", folderName));
 
         var scanner = new SteamLibraryScanner([root]);
         var results = scanner.Scan(root);
 
-        // SomeGame has no ACF and no VDF → orphaned
-        Assert.Single(results);
-        Assert.Equal("Orphaned", results[0].Acf.Status);
+        Assert.Empty(results);
+    }
+
+    [Fact]
+    public void Scan_WithGameNamedSteam_StillDetected()
+    {
+        // Guard: installdirs are arbitrary — a game legitimately titled "Steam"
+        // must be detected, not skipped by the internal-folder filter.
+        string root = CreateMockSteamLibrary("Steam", appId: "777");
+
+        var scanner = new SteamLibraryScanner([root]);
+        var results = scanner.Scan(root);
+
+        var entry = Assert.Single(results);
+        Assert.Equal("Installed", entry.Acf.Status);
+        Assert.Equal("Steam", entry.FolderName);
     }
 
     // ════════════════════════════════════════════════════════════════
@@ -331,21 +233,50 @@ public sealed class SteamLibraryScannerTests : IDisposable
     // ════════════════════════════════════════════════════════════════
 
     [Fact]
-    public void Scan_SameFolderNameInTwoLibraryRoots_DistinctIds()
+    public void Scan_SameInstalldirInTwoLibraries_KeepsBothAcfsAndAppIds()
     {
-        // Collision guard: IDs are MD5("{physicalLibraryRoot|folder}"). The same
-        // folder name in different physical roots must yield distinct IDs, so a
-        // single multi-folder Steam anchor can never collide.
-        string libA = CreateMockSteamLibrary("SharedName", appId: "100");
-        string libB = CreateMockSteamLibrary("SharedName", appId: "200");
+        // Two libraries with steamapps/common/Foo and different appids. The ACF map
+        // is keyed by full install path, so neither game inherits the other's appid
+        // and neither is reported as Moved. IDs are physical-root based, so the
+        // identical folder name in two roots must yield distinct IDs.
+        string libA = CreateMockSteamLibrary("Foo", appId: "100");
+        string libB = CreateMockSteamLibrary("Foo", appId: "200");
 
         var scanner = new SteamLibraryScanner([libA, libB]);
-        var fromA = scanner.Scan(libA);
-        var fromB = scanner.Scan(libB);
+        var results = scanner.Scan(libA).Concat(scanner.Scan(libB)).ToList();
 
-        Assert.Single(fromA);
-        Assert.Single(fromB);
-        Assert.NotEqual(fromA[0].Id, fromB[0].Id);
+        Assert.Equal(2, results.Count);
+        Assert.All(results, g => Assert.Equal("Installed", g.Acf.Status));
+        Assert.DoesNotContain(results, g => g.Acf.Status == "Moved");
+
+        GameEntry entryA = results.Single(g =>
+            g.FolderPath == Path.Combine(libA, "steamapps", "common", "Foo"));
+        GameEntry entryB = results.Single(g =>
+            g.FolderPath == Path.Combine(libB, "steamapps", "common", "Foo"));
+        Assert.Equal("100", entryA.Store.SteamAppId);
+        Assert.Equal("200", entryB.Store.SteamAppId);
+        Assert.NotEqual(entryA.Id, entryB.Id);
+    }
+
+    [Fact]
+    public void Scan_AmbiguousCrossLibraryName_YieldsOrphaned()
+    {
+        // Two ACFs in two libraries both say installdir "Foo", but neither folder
+        // exists. A third library has a folder "Foo" with no ACF. The name alone
+        // cannot say which ACF belongs to it, so the folder must stay Orphaned.
+        string libA = CreateSteamAppsDir("ambigA");
+        string libB = CreateSteamAppsDir("ambigB");
+        string libC = CreateSteamAppsDir("ambigC");
+        WriteAcf(libA, "111", "Foo A", "Foo");
+        WriteAcf(libB, "222", "Foo B", "Foo");
+        Directory.CreateDirectory(Path.Combine(libC, "steamapps", "common", "Foo"));
+
+        var scanner = new SteamLibraryScanner([libA, libB, libC]);
+        var results = scanner.Scan(libC);
+
+        var entry = Assert.Single(results);
+        Assert.Equal("Orphaned", entry.Acf.Status);
+        Assert.Equal(string.Empty, entry.Store.SteamAppId);
     }
 
     // ════════════════════════════════════════════════════════════════

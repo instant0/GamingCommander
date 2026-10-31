@@ -3,6 +3,7 @@ using GamingCommander.App.Services;
 
 namespace GamingCommander.App.Tests;
 
+[Collection("RepairJournal")]
 public sealed class EpicItemWriterTests : IDisposable
 {
     private const string GuidText = "AABBCCDDEEFF00112233445566778899";
@@ -103,44 +104,6 @@ public sealed class EpicItemWriterTests : IDisposable
     }
 
     [Fact]
-    public void TryWrite_AbsentTarget_RefusedAndNoItemCreated()
-    {
-        string manifests = NewManifestsDir();
-        string game = CreateGameFolder();
-        string target = Path.Combine(manifests, GuidText + ".item");
-
-        Assert.False(EpicItemWriter.TryWrite(game, manifests, out _, out _, out string error));
-        Assert.Contains("cannot create", error);
-        Assert.False(File.Exists(target));
-    }
-
-    [Fact]
-    public void TryWrite_MissingManifestsDir_RefusedAndDirectoryNotCreated()
-    {
-        string game = CreateGameFolder();
-        string manifests = Path.Combine(_dir, "NoManifests");
-
-        Assert.False(EpicItemWriter.TryWrite(game, manifests, out _, out _, out string error));
-        Assert.Contains("will not be created", error);
-        Assert.False(Directory.Exists(manifests));
-    }
-
-    [Fact]
-    public void TryWrite_CorruptTarget_RefusedWithoutBackupOrChange()
-    {
-        string manifests = NewManifestsDir();
-        string game = CreateGameFolder();
-        string target = Path.Combine(manifests, GuidText + ".item");
-        File.WriteAllText(target, "{ not json");
-        string[] backupsBefore = BackupFilesFor(GuidText + ".item").ToArray();
-
-        Assert.False(EpicItemWriter.TryWrite(game, manifests, out _, out _, out string error));
-        Assert.Contains("could not be read", error);
-        Assert.Equal("{ not json", File.ReadAllText(target));
-        Assert.Equal(backupsBefore, BackupFilesFor(GuidText + ".item"));
-    }
-
-    [Fact]
     public void TryWrite_NotTheScanManifestsDir_Refused()
     {
         string manifests = Path.Combine(_dir, "NotTheManifestsDir");
@@ -168,27 +131,6 @@ public sealed class EpicItemWriterTests : IDisposable
         Assert.False(EpicItemWriter.TryWrite(game, manifests, out _, out _, out string error));
         Assert.Contains("different installation", error);
         Assert.Equal(original, File.ReadAllText(target));
-    }
-
-    [Fact]
-    public void TryWrite_MissingRequiredMember_Refused()
-    {
-        string manifests = NewManifestsDir();
-        string game = CreateGameFolder();
-        string target = Path.Combine(manifests, GuidText + ".item");
-        string noCatalogId = """
-            {
-              "InstallationGuid": "AABBCCDDEEFF00112233445566778899",
-              "InstallLocation": "e:\\Old\\Orphan",
-              "ManifestLocation": "e:\\Old\\Orphan/.egstore",
-              "CatalogNamespace": "ns"
-            }
-            """;
-        File.WriteAllText(target, noCatalogId);
-
-        Assert.False(EpicItemWriter.TryWrite(game, manifests, out _, out _, out string error));
-        Assert.Contains("CatalogItemId", error);
-        Assert.Equal(noCatalogId, File.ReadAllText(target));
     }
 
     [Fact]

@@ -7,6 +7,8 @@
 **Prerequisites:** None
 
 > Review complete; the remedy is implemented separately and must not be added here.
+> **Later simplification (2026-10-31):** the version guard was removed; the store has three states, not
+> four. See `META/COMPLETED/backward-compatibility-removed.md`.
 
 ## Objective
 

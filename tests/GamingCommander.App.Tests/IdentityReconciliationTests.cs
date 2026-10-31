@@ -83,6 +83,67 @@ public sealed class IdentityReconciliationTests : IDisposable
         Assert.Single(games);
         Assert.Equal("old-id", games[0].Id);
         Assert.Equal(newPath, games[0].FolderPath);
+        Assert.Contains(oldPath, games[0].Location.PreviousLocations);
+    }
+
+    [Fact]
+    public void ExternalMove_TwoSameNamedCandidates_DoesNotRelink()
+    {
+        // The weak name key is only a hint when it is unique on both sides. Two
+        // scanned folders sharing the name mean no adoption: both are new entries.
+        var svc = CreateService();
+        string oldPath = Path.Combine(_tempDir, "GameOld"); // gone
+        svc.SetGamesForLibrary("Lib", [MakeGame("old-id", oldPath, "Game")]);
+
+        string newA = Path.Combine(_tempDir, "GameA");
+        string newB = Path.Combine(_tempDir, "GameB");
+        svc.SetGamesForLibrary("Lib",
+        [
+            MakeGame("new-a", newA, "Game"),
+            MakeGame("new-b", newB, "Game"),
+        ]);
+
+        var games = svc.GetGamesForLibrary("Lib");
+        Assert.Equal(2, games.Count);
+        Assert.DoesNotContain(games, g => g.Id == "old-id");
+        Assert.Contains(games, g => g.Id == "new-a");
+        Assert.Contains(games, g => g.Id == "new-b");
+    }
+
+    [Fact]
+    public void ExternalMove_TwoExistingSameNamedCandidates_DoesNotRelink()
+    {
+        var svc = CreateService();
+        svc.SetGamesForLibrary("Lib",
+        [
+            MakeGame("old-a", Path.Combine(_tempDir, "GoneA"), "Game"),
+            MakeGame("old-b", Path.Combine(_tempDir, "GoneB"), "Game"),
+        ]);
+
+        string newPath = Path.Combine(_tempDir, "GameNew");
+        svc.SetGamesForLibrary("Lib", [MakeGame("new-id", newPath, "Game")]);
+
+        var games = svc.GetGamesForLibrary("Lib");
+        GameEntry kept = Assert.Single(games);
+        Assert.Equal("new-id", kept.Id);
+        Assert.DoesNotContain("old-a", kept.Location.PreviousLocations);
+        Assert.DoesNotContain("old-b", kept.Location.PreviousLocations);
+    }
+
+    [Fact]
+    public void ExternalMove_SameNameInAnotherStore_DoesNotRelink()
+    {
+        var svc = CreateService();
+        string oldPath = Path.Combine(_tempDir, "GameOld"); // gone
+        svc.SetGamesForLibrary("Lib", [MakeGame("old-id", oldPath, "Game")]);
+
+        string newPath = Path.Combine(_tempDir, "GameNew");
+        svc.SetGamesForLibrary("Lib", [MakeGame("new-id", newPath, "Game", source: GameSourceKind.Epic)]);
+
+        var games = svc.GetGamesForLibrary("Lib");
+        GameEntry kept = Assert.Single(games);
+        Assert.Equal("new-id", kept.Id);
+        Assert.Empty(kept.Location.PreviousLocations);
     }
 
     [Fact]
@@ -114,14 +175,5 @@ public sealed class IdentityReconciliationTests : IDisposable
         Assert.Single(games);
         Assert.Equal("id1", games[0].Id);
         Assert.Empty(games[0].Location.PreviousLocations);
-    }
-
-    [Fact]
-    public void WithRebuiltKeys_BuildsFolderAndStoreKeys()
-    {
-        GameEntry keyed = GameIdentity.WithRebuiltKeys(MakeGame("id", @"D:\g", "Folder", steamAppId: "400"));
-
-        Assert.Contains(keyed.Identity.IdentityKeys, k => k.Kind == IdentityKeyKinds.FolderName && k.Value == "Folder");
-        Assert.Contains(keyed.Identity.IdentityKeys, k => k.Kind == IdentityKeyKinds.SteamAppId && k.Value == "400");
     }
 }

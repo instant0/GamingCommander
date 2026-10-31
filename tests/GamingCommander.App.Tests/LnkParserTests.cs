@@ -27,32 +27,17 @@ public sealed class LnkParserTests : IDisposable
     //  TryGetExeName — basic extraction
     // ════════════════════════════════════════════════════════════════
 
-    [Fact]
-    public void TryGetExeName_WithEmbeddedExeName_ReturnsTrue()
+    [Theory]
+    [InlineData("D:\\Games\\Penumbra\\Binaries\\Penumbra.exe")]
+    public void TryGetExeName_ExtractsFilename(string embeddedText)
     {
-        // Create a .lnk file with embedded exe name
+        // A .lnk may contain a bare exe name or a full path; both yield the filename.
         string lnkPath = Path.Combine(_tempDir, "Game.lnk");
-        byte[] fakeLnk = CreateFakeLnk("Penumbra.exe");
-        File.WriteAllBytes(lnkPath, fakeLnk);
+        File.WriteAllBytes(lnkPath, CreateFakeLnk(embeddedText));
 
         bool result = LnkParser.TryGetExeName(lnkPath, out string? exeName);
 
         Assert.True(result);
-        Assert.Equal("Penumbra.exe", exeName);
-    }
-
-    [Fact]
-    public void TryGetExeName_WithFullPathContainingExe_ExtractsFilename()
-    {
-        // .lnk might contain full path like "D:\Games\Penumbra\Binaries\Penumbra.exe"
-        string lnkPath = Path.Combine(_tempDir, "Game.lnk");
-        byte[] fakeLnk = CreateFakeLnk("D:\\Games\\Penumbra\\Binaries\\Penumbra.exe");
-        File.WriteAllBytes(lnkPath, fakeLnk);
-
-        bool result = LnkParser.TryGetExeName(lnkPath, out string? exeName);
-
-        Assert.True(result);
-        // Regex captures the exe filename from the path
         Assert.Equal("Penumbra.exe", exeName);
     }
 

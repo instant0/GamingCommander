@@ -4,7 +4,7 @@
 
 Default: **offline.** If F2 **Enable online metadata** is off, there is **no HTTP at all** (no probe, no PCGW, no Steam Store). If it is on, HTTP runs only while the chip is **Online**.
 
-We do **not** use SteamDB, PCGW Cargo, Epic GraphQL, or IGDB.
+We do **not** use SteamDB, PCGW Cargo, or IGDB. The Epic storefront client exists but is **not called in v1**; when it is wired it is an identity lookup only (§1.4).
 
 ---
 
@@ -47,9 +47,14 @@ Failed later PCGW/Steam HTTP (timeout, 5xx, connection error) also flips **Offli
 | **Why** | Fill holes PCGW does not have (score, cover URL). Does not change launch. |
 | **Rate** | ≥ 10s between Store calls. |
 
-### 1.4 What we never contact
+### 1.4 What we do not contact in v1
 
-SteamDB, PCGW Cargo, Epic store GraphQL, IGDB, telemetry, update servers, crash reporters.
+SteamDB, PCGW Cargo, IGDB, telemetry, update servers, crash reporters.
+
+Epic's storefront GraphQL (`store.epicgames.com/graphql`) is **implemented but not called in v1**. When it
+is wired it is an identity lookup only: resolve the canonical title, namespace, and catalog id for a game
+local files cannot identify, and resolve the title before the PCGW/Steam query. It is never called from
+scan, launch, sync, or health, and it is not a metadata source or an `.item` generator.
 
 ### 1.5 Cache (not a delete timer)
 
@@ -59,22 +64,47 @@ Results live in `data/games_metadata.json` with `LastUpdated`. If younger than *
 
 ## 2. Local files we WRITE
 
-Only under the app’s `data/` folder (next to the exe). Never in game installs.
+App-owned state lives under `data/` (next to the exe). Two **user-started repair actions** write outside
+it: a Steam ACF into the user's library, and an existing Epic `.item` in `%ProgramData%`. Nothing is
+written into game installs.
 
 | File | What | Why | When |
 |------|------|-----|------|
 | `settings.json` | Library roots, hidden folders, `EnableOnlineMetadata`, first-run / version | Remember setup | F2 close, first run |
+| `libraries.json` | Library anchors and their root folders | Remember roots | F2 / first run |
 | `games.json` | Offline VFS: name, source, exe, Steam URI or args, **ExtraLaunchArguments**, tags, user overrides | Launch and list | Scan / F4 save |
 | `games_metadata.json` | Sidecar extras only (developer, engine, wiki URL, paths, cmdline catalog, video, scores) | Pane + F4 catalog | After a successful lookup |
+| `collections.json` | Collections | Collections feature | Not written today (service unwired) |
 | `startup.log` | Startup diagnostics | Support | Launch (unless `GC_STARTUP_LOGGING=0`) |
 | `tag_colors.json` | Tag colours | UI | If the app updates colours |
+| `blacklist.json` | Noise filter | Detection | Restored only when missing |
+| `<name>.json.bak` | Previous copy of each JSON state file | Recovery | On every save |
+| `<name>.json.corrupt` | Damaged bytes kept for inspection | Recovery | When a read fails to parse |
+| `data/staging/` | Staged repair payload before copy | Verify bytes before touching a store | User-started repair |
+| `data/backups/<utc-stamp>/` | Original Epic `.item` before modification | Restore on failure | User-started Epic repair |
+| `data/repair-journal.jsonl` | One line per repair attempt, including refusals | Audit / support | User-started repair |
 
 Field-by-field schemas for `settings.json`, `games.json`, and
 `games_metadata.json` are defined in [DATA-FORMAT.md](DATA-FORMAT.md).
 
-**Never written:** game files, registry, Start Menu, `%APPDATA%` outside our folder.
+**Never written:** game files, registry, Start Menu, anything under `%APPDATA%` other than our own folder.
+`%ProgramData%` and the Steam library are touched only by the two user-started repair actions below.
 
-**User-started Steam ACF:** if a Steam folder is Orphaned and we have a numeric AppID (usually after F3), **Write Steam ACF** creates `{library}\steamapps\appmanifest_{id}.acf` with the identification fields only (`appid`, `name`, `installdir`, `StateFlags=4`, …). We do not invent an AppID. We do not write depot blocks.
+**JSON recovery:** each state file is written as `.bak` (previous copy) → write → read back and parse. On
+read, a damaged file is kept as `.corrupt` and the `.bak` is restored. The app does not silently reset to an
+empty catalogue. There is no cross-version schema guarantee: persisted state is disposable pre-release.
+
+**User-started Steam ACF:** if a Steam folder is Orphaned and we have a numeric AppID (usually after F3), **Write Steam ACF** creates `{library}\steamapps\appmanifest_{id}.acf` with the identification fields only (`appid`, `name`, `installdir`, `StateFlags=4`, …). It refuses when the file already exists, when `libraryfolders.vdf` is missing, and when the folder is not a Steam library. We do not invent an AppID. We do not write depot blocks.
+
+**User-started Epic `.item` repair:** updates `InstallLocation`, `ManifestLocation`, and an empty
+`LaunchExecutable` in an `.item` Epic already wrote, under
+`%ProgramData%\Epic\EpicGamesLauncher\Data\Manifests`. It never creates an `.item` and never replaces an
+unreadable one; it backs the original up under `data/backups/` and restores it if the copy fails.
+Registration — making Epic accept an app EOS does not report — is a separate, deferred subject.
+
+**Repair safety:** both actions stage the payload in `data/staging/`, copy it to the target, compare
+lengths, and append to `data/repair-journal.jsonl`. No directory outside `data/` is created; a missing
+target folder is a refusal, not a creation.
 
 `games.json` does **not** get wiki essays, covers, or scores. Those stay in the sidecar.
 

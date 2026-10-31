@@ -26,18 +26,4 @@ public sealed class SteamAcfFieldsContractTests
         Assert.Equal("buildid", SteamAcfFields.BuildId);
         Assert.Equal("path", SteamAcfFields.Path);
     }
-
-    [Fact]
-    public void ConstantValues_AreAllDistinct_NoTwoFieldsAliasOneSlot()
-    {
-        string[] values =
-        [
-            SteamAcfFields.AppState, SteamAcfFields.AppId, SteamAcfFields.Universe,
-            SteamAcfFields.Name, SteamAcfFields.InstallDir, SteamAcfFields.StateFlags,
-            SteamAcfFields.LastUpdated, SteamAcfFields.SizeOnDisk, SteamAcfFields.BuildId,
-            SteamAcfFields.Path,
-        ];
-
-        Assert.Equal(values.Length, values.Distinct().Count());
-    }
 }

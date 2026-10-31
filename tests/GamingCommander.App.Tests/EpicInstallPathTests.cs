@@ -5,21 +5,10 @@ namespace GamingCommander.App.Tests;
 public sealed class EpicInstallPathTests
 {
     [Fact]
-    public void Same_IgnoresSlashAndCase()
-    {
-        Assert.True(EpicInstallPath.Same(@"D:\games\cavestoryplus", @"d:/games/cavestoryplus/"));
-    }
-
-    [Fact]
     public void Same_DoesNotMatchOnFolderNameAlone()
     {
+        // Path comparison (slash/case/empty) is owned by PathTextTests; the Epic
+        // claim key must still tell two folders with the same leaf apart.
         Assert.False(EpicInstallPath.Same(@"D:\games\cavestoryplus", @"E:\elsewhere\cavestoryplus"));
-    }
-
-    [Fact]
-    public void Same_EmptyInputIsNotAMatch()
-    {
-        Assert.False(EpicInstallPath.Same(null, @"D:\games\cavestoryplus"));
-        Assert.False(EpicInstallPath.Same("  ", @"D:\games\cavestoryplus"));
     }
 }

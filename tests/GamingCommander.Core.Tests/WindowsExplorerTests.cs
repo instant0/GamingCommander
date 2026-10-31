@@ -12,17 +12,14 @@ public sealed class WindowsExplorerTests
         Assert.True(WindowsExplorer.TryBuildOpenFolder(@"C:\Games\Foo", @"C:\Games", out string exe, out string args));
         Assert.Equal("explorer.exe", exe);
         Assert.Equal("\"C:\\Games\\Foo\"", args);
-    }
 
-    [Fact]
-    public void Build_QuotesPathsWithSpaces()
-    {
+        // Paths with spaces are quoted, not split.
         Assert.True(WindowsExplorer.TryBuildOpenFolder(
             @"C:\Users\Name\Documents\Electronic Arts\Dead Space",
             @"C:\Users\Name\Documents\Electronic Arts\Dead Space",
             out _,
-            out string args));
-        Assert.Equal("\"C:\\Users\\Name\\Documents\\Electronic Arts\\Dead Space\"", args);
+            out string spacedArgs));
+        Assert.Equal("\"C:\\Users\\Name\\Documents\\Electronic Arts\\Dead Space\"", spacedArgs);
     }
 
     [Theory]

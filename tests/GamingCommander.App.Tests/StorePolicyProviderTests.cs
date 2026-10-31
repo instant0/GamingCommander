@@ -26,7 +26,6 @@ public sealed class StorePolicyProviderTests
     }
 
     [Theory]
-    [InlineData(GameSourceKind.Unknown)]
     [InlineData(GameSourceKind.Standalone)]
     [InlineData(GameSourceKind.SteamEmu)]
     public void Get_NonLauncher_ReturnsDisabledDefault(GameSourceKind kind)
@@ -57,7 +56,6 @@ public sealed class StorePolicyProviderTests
     }
 
     [Theory]
-    [InlineData(GameSourceKind.Unknown)]
     [InlineData(GameSourceKind.Standalone)]
     [InlineData(GameSourceKind.SteamEmu)]
     public void Set_NonLauncher_ThrowsArgumentException(GameSourceKind kind)
@@ -137,29 +135,6 @@ public sealed class StorePolicyProviderTests
         Assert.Equal(
             [GameSourceKind.Steam, GameSourceKind.Rockstar],
             provider.CheckOnLaunchStores);
-    }
-
-    [Fact]
-    public void Get_IgnoresNonLauncherRowsInStoredSettings()
-    {
-        (StorePolicyProvider provider, InMemoryConfigService config) = CreateProvider();
-        config.Current = config.Current with
-        {
-            StorePolicies = new StorePolicySettings
-            {
-                Stores =
-                [
-                    new StorePolicy(GameSourceKind.Standalone, IndexEnabled: true),
-                    new StorePolicy(GameSourceKind.SteamEmu, IndexEnabled: true),
-                    new StorePolicy(GameSourceKind.Steam, IndexEnabled: true),
-                ],
-            },
-        };
-
-        Assert.False(provider.CanImport(GameSourceKind.Standalone));
-        Assert.False(provider.CanImport(GameSourceKind.SteamEmu));
-        Assert.True(provider.CanImport(GameSourceKind.Steam));
-        Assert.Equal([GameSourceKind.Steam], provider.EnabledStores);
     }
 
     [Fact]

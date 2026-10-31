@@ -30,7 +30,7 @@ Per-phase order and status live in each phase's `STATUS.md`. If a phase tracker 
 
 ## Conventions
 
-- **IDs** are global and monotonic. Next free ID: **T134**.
+- **IDs** are global and monotonic. Next free ID: **T136**.
 - A task document is one unit of work with an objective, scope, requirements, verification, and completion
   notes. It may name a plan; plans do not name task IDs.
 - **Statuses:** `pending` → `ready` (spec complete) → `completed`, or `deferred` / `cancelled`.

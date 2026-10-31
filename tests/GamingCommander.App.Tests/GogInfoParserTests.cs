@@ -68,32 +68,29 @@ public sealed class GogInfoParserTests : IDisposable
         Assert.Equal("--skip-menu", info.LaunchArgs);
     }
 
-    [Fact]
-    public void TryParse_RelativePath_ResolvedToAbsolute()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void TryParse_PathIsResolved(bool absolute)
     {
-        WriteInfoFile(_tempDir, "12345", "12345", "Game",
-            exePath: "bin/x64/game.exe");
-
-        GogInfoParser.TryParse(
-            new DirectoryInfo(_tempDir), EmptyNoiseDirs, out var info);
-
-        Assert.NotNull(info);
-        Assert.True(Path.IsPathRooted(info.ExePath), $"Expected absolute path, got: {info.ExePath}");
-        Assert.EndsWith(Path.Combine("bin", "x64", "game.exe"), info.ExePath);
-    }
-
-    [Fact]
-    public void TryParse_AbsolutePath_PreservedAsIs()
-    {
+        string relativeLeaf = Path.Combine("bin", "x64", "game.exe");
         string absolutePath = Path.Combine(_tempDir, "game.exe");
         WriteInfoFile(_tempDir, "12345", "12345", "Game",
-            exePath: absolutePath);
+            exePath: absolute ? absolutePath : "bin/x64/game.exe");
 
         GogInfoParser.TryParse(
             new DirectoryInfo(_tempDir), EmptyNoiseDirs, out var info);
 
         Assert.NotNull(info);
-        Assert.Equal(absolutePath, info.ExePath);
+        if (absolute)
+        {
+            Assert.Equal(absolutePath, info.ExePath);
+        }
+        else
+        {
+            Assert.True(Path.IsPathRooted(info.ExePath), $"Expected absolute path, got: {info.ExePath}");
+            Assert.EndsWith(relativeLeaf, info.ExePath);
+        }
     }
 
     // ════════════════════════════════════════════════════════════════
@@ -139,53 +136,46 @@ public sealed class GogInfoParserTests : IDisposable
     // ════════════════════════════════════════════════════════════════
 
     [Fact]
-    public void TryParse_NoInfoFiles_ReturnsFalse()
+    public void TryParse_NoUsableInfo_ReturnsFalse()
     {
         bool found = GogInfoParser.TryParse(
             new DirectoryInfo(_tempDir), EmptyNoiseDirs, out var info);
 
         Assert.False(found);
         Assert.Null(info);
-    }
 
-    [Fact]
-    public void TryParse_MalformedJson_SkipsFile()
-    {
         File.WriteAllText(Path.Combine(_tempDir, "goggame-12345.info"), "{ broken json");
 
-        bool found = GogInfoParser.TryParse(
-            new DirectoryInfo(_tempDir), EmptyNoiseDirs, out var info);
+        found = GogInfoParser.TryParse(
+            new DirectoryInfo(_tempDir), EmptyNoiseDirs, out var malformed);
 
         Assert.False(found);
-        Assert.Null(info);
+        Assert.Null(malformed);
     }
 
     [Fact]
-    public void TryParse_NoPlayTasks_ReturnsMetadataWithoutExe()
+    public void TryParse_ExeFallback_NoTasksThenNoPrimary()
     {
-        string json = """
+        // Metadata only: no playTasks at all.
+        File.WriteAllText(Path.Combine(_tempDir, "goggame-12345.info"), """
         {
             "gameId": "12345",
             "rootGameId": "12345",
             "name": "Game Without Exe"
         }
-        """;
-        File.WriteAllText(Path.Combine(_tempDir, "goggame-12345.info"), json);
+        """);
 
         bool found = GogInfoParser.TryParse(
-            new DirectoryInfo(_tempDir), EmptyNoiseDirs, out var info);
+            new DirectoryInfo(_tempDir), EmptyNoiseDirs, out var noExe);
 
         Assert.True(found);
-        Assert.NotNull(info);
-        Assert.Equal("Game Without Exe", info.Title);
-        Assert.Equal("12345", info.GameId);
-        Assert.Empty(info.ExePath);
-    }
+        Assert.NotNull(noExe);
+        Assert.Equal("Game Without Exe", noExe.Title);
+        Assert.Equal("12345", noExe.GameId);
+        Assert.Empty(noExe.ExePath);
 
-    [Fact]
-    public void TryParse_NoPrimaryTask_UsesFirstWithPath()
-    {
-        string json = """
+        // No primary task: first task with a path wins.
+        File.WriteAllText(Path.Combine(_tempDir, "goggame-12345.info"), """
         {
             "gameId": "12345",
             "rootGameId": "12345",
@@ -194,15 +184,14 @@ public sealed class GogInfoParserTests : IDisposable
                 { "isPrimary": false, "path": "game.exe", "arguments": "--windowed" }
             ]
         }
-        """;
-        File.WriteAllText(Path.Combine(_tempDir, "goggame-12345.info"), json);
+        """);
 
         GogInfoParser.TryParse(
-            new DirectoryInfo(_tempDir), EmptyNoiseDirs, out var info);
+            new DirectoryInfo(_tempDir), EmptyNoiseDirs, out var firstWithPath);
 
-        Assert.NotNull(info);
-        Assert.Contains("game.exe", info.ExePath);
-        Assert.Equal("--windowed", info.LaunchArgs);
+        Assert.NotNull(firstWithPath);
+        Assert.Contains("game.exe", firstWithPath.ExePath);
+        Assert.Equal("--windowed", firstWithPath.LaunchArgs);
     }
 
     [Fact]

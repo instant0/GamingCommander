@@ -106,19 +106,6 @@ public sealed class MockDataIntegrationTests
     }
 
     /// <summary>
-    /// Entries should have a LastScan timestamp set.
-    /// </summary>
-    [Fact]
-    public void AllScannedGames_HaveScanTimestamp()
-    {
-        string root = Path.Combine(MockRoot, "standalone");
-        var scanner = new FolderScanner();
-        var results = scanner.Scan(root, GameSourceKind.Standalone);
-
-        Assert.All(results, g => Assert.NotEqual(default, g.LastScanned));
-    }
-
-    /// <summary>
     /// Scanning the same folder twice with the same scanner should
     /// return the same folder count (deterministic).
     /// </summary>

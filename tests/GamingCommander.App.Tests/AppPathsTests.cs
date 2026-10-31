@@ -7,11 +7,15 @@ namespace GamingCommander.App.Tests;
 public sealed class AppPathsTests
 {
     [Fact]
-    public void AppDataRoot_IsDataUnderBaseDirectory()
+    public void AppDataRootAndPaths_AreUnderBaseDirectoryData()
     {
         Assert.Equal(
             Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data"),
             AppPaths.AppDataRoot);
+        Assert.Equal(Path.Combine(AppPaths.AppDataRoot, "settings.json"), AppDataPaths.GetConfigPath());
+        Assert.Equal(Path.Combine(AppPaths.AppDataRoot, "games.json"), AppDataPaths.GetGamesDbPath());
+        Assert.Equal(Path.Combine(AppPaths.AppDataRoot, "libraries.json"), AppDataPaths.GetLibrariesPath());
+        Assert.Equal(Path.Combine(AppPaths.AppDataRoot, "games_metadata.json"), AppDataPaths.GetMetadataDbPath());
     }
 
     [Fact]
@@ -54,14 +58,5 @@ public sealed class AppPathsTests
             if (Directory.Exists(nested))
                 Directory.Delete(nested, true);
         }
-    }
-
-    [Fact]
-    public void AppDataPaths_ReturnPathsUnderAppDataRoot()
-    {
-        Assert.Equal(Path.Combine(AppPaths.AppDataRoot, "settings.json"), AppDataPaths.GetConfigPath());
-        Assert.Equal(Path.Combine(AppPaths.AppDataRoot, "games.json"), AppDataPaths.GetGamesDbPath());
-        Assert.Equal(Path.Combine(AppPaths.AppDataRoot, "libraries.json"), AppDataPaths.GetLibrariesPath());
-        Assert.Equal(Path.Combine(AppPaths.AppDataRoot, "games_metadata.json"), AppDataPaths.GetMetadataDbPath());
     }
 }

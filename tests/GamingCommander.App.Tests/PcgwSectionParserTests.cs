@@ -19,6 +19,13 @@ public sealed class PcgwSectionParserTests
             && p.Template == @"{{p|userprofile}}\Saved Games\CD Projekt Red\Cyberpunk 2077");
         Assert.Contains(paths, p => p.Kind == "config" && p.Os == "OS X");
         Assert.Contains(paths, p => p.Kind == "saves" && p.Os == "OS X");
+
+        // The userprofile\Documents token form is the other external path shape.
+        IReadOnlyList<PcgwGameDataPath> documents = PcgwSectionParser.ParseGameDataPaths(
+            "{{Game data/saves|Windows|{{p|userprofile\\Documents}}\\Electronic Arts\\Dead Space\\}}");
+        Assert.Contains(documents, p =>
+            p.Kind == "saves" && p.Os == "Windows"
+            && p.Template.Contains("userprofile\\Documents", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -42,6 +49,25 @@ public sealed class PcgwSectionParserTests
 
         Assert.Null(PcgwPathTokens.ExpandForExplorer(@"{{p|userprofile\Documents}}\x"));
         Assert.Null(PcgwPathTokens.ExpandForExplorer(@"%GAME%\bin"));
+
+        string uplay = PcgwPathTokens.ResolveWindows(
+            @"{{p|uplay}}\savegames\{{p|uid}}\54\");
+        Assert.Equal(
+            @"%PROGRAMFILES(X86)%\Ubisoft\Ubisoft Game Launcher\savegames\<user-id>\54\",
+            uplay);
+        Assert.Null(PcgwPathTokens.ExpandForExplorer(uplay));
+        string? previous = Environment.GetEnvironmentVariable("PROGRAMFILES(X86)");
+        try
+        {
+            Environment.SetEnvironmentVariable("PROGRAMFILES(X86)", @"C:\Program Files (x86)");
+            Assert.Equal(
+                @"C:\Program Files (x86)\Ubisoft\Ubisoft Game Launcher\savegames",
+                PcgwPathTokens.ForExplorer(uplay));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("PROGRAMFILES(X86)", previous);
+        }
     }
 
     [Fact]
@@ -52,29 +78,6 @@ public sealed class PcgwSectionParserTests
         Assert.Equal(@"HKCU\Software\Nival Red\Prime World: Defenders\", resolved);
         Assert.True(PcgwPathTokens.IsRegistry(resolved));
         Assert.False(WindowsExplorer.IsClickableFolder(resolved, gameDirectory: null));
-    }
-
-    [Fact]
-    public void ResolveWindows_UplayUidSavePath()
-    {
-        string resolved = PcgwPathTokens.ResolveWindows(
-            @"{{p|uplay}}\savegames\{{p|uid}}\54\");
-        Assert.Equal(
-            @"%PROGRAMFILES(X86)%\Ubisoft\Ubisoft Game Launcher\savegames\<user-id>\54\",
-            resolved);
-        Assert.Null(PcgwPathTokens.ExpandForExplorer(resolved));
-        string? previous = Environment.GetEnvironmentVariable("PROGRAMFILES(X86)");
-        try
-        {
-            Environment.SetEnvironmentVariable("PROGRAMFILES(X86)", @"C:\Program Files (x86)");
-            Assert.Equal(
-                @"C:\Program Files (x86)\Ubisoft\Ubisoft Game Launcher\savegames",
-                PcgwPathTokens.ForExplorer(resolved));
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable("PROGRAMFILES(X86)", previous);
-        }
     }
 
     [Fact]
@@ -99,20 +102,6 @@ public sealed class PcgwSectionParserTests
     }
 
     [Fact]
-    public void ParseFixboxes_DirectExeAndBypassArgs()
-    {
-        string wt = Read("cyberpunk_essential.wikitext");
-        IReadOnlyList<PcgwFix> fixes = PcgwSectionParser.ParseFixboxes(wt);
-
-        PcgwFix exe = Assert.Single(fixes, f => f.SuggestedExecutable is not null);
-        Assert.Equal(@"{{P|game}}\bin\x64\Cyberpunk2077.exe", exe.SuggestedExecutable);
-
-        PcgwFix bypass = Assert.Single(fixes, f => f.SuggestedArgs is not null);
-        Assert.Equal("--launcher-skip -skipStartScreen -modded", bypass.SuggestedArgs);
-        Assert.Contains("Bypass launcher", bypass.Title, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
     public void MergeCommandLine_AddsFixboxFlagsMissingFromTable()
     {
         string sections = Read("cyberpunk_sections.wikitext");
@@ -127,16 +116,6 @@ public sealed class PcgwSectionParserTests
 
         PcgwCommandLineEntry skipStart = Assert.Single(facts.CommandLine, r => r.Argument == "-skipStartScreen");
         Assert.Equal("table", skipStart.Source);
-    }
-
-    [Fact]
-    public void ParseGameDataPaths_UserProfileDocuments()
-    {
-        string wt = "{{Game data/saves|Windows|{{p|userprofile\\Documents}}\\Electronic Arts\\Dead Space\\}}";
-        IReadOnlyList<PcgwGameDataPath> paths = PcgwSectionParser.ParseGameDataPaths(wt);
-        Assert.Contains(paths, p =>
-            p.Kind == "saves" && p.Os == "Windows"
-            && p.Template.Contains("userprofile\\Documents", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -205,6 +184,13 @@ public sealed class PcgwSectionParserTests
         Assert.True(facts.Video.Count >= 8);
         Assert.Equal(3, facts.CloudSync.Count);
         Assert.Equal("1091500", facts.StoreIds["Steam"]);
+
+        PcgwFix exe = Assert.Single(facts.Fixes, f => f.SuggestedExecutable is not null);
+        Assert.Equal(@"{{P|game}}\bin\x64\Cyberpunk2077.exe", exe.SuggestedExecutable);
+
+        PcgwFix bypass = Assert.Single(facts.Fixes, f => f.SuggestedArgs is not null);
+        Assert.Equal("--launcher-skip -skipStartScreen -modded", bypass.SuggestedArgs);
+        Assert.Contains("Bypass launcher", bypass.Title, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string Read(string name) =>

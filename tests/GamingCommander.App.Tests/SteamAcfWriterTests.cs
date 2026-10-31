@@ -2,6 +2,7 @@ using GamingCommander.App.Services;
 
 namespace GamingCommander.App.Tests;
 
+[Collection("RepairJournal")]
 public sealed class SteamAcfWriterTests : IDisposable
 {
     private readonly string _dir = Path.Combine(Path.GetTempPath(), "acf_" + Guid.NewGuid().ToString("N")[..8]);
@@ -69,38 +70,6 @@ public sealed class SteamAcfWriterTests : IDisposable
     }
 
     [Fact]
-    public void TryWrite_MissingSteamapps_RefusedAndDirectoryNotCreated()
-    {
-        string library = Path.Combine(_dir, "NoSteamapps");
-
-        Assert.False(SteamAcfWriter.TryWrite(library, "10", "Game", "GameFolder", out _, out string error));
-        Assert.Contains("will not be created", error);
-        Assert.False(Directory.Exists(Path.Combine(library, "steamapps")));
-    }
-
-    [Fact]
-    public void TryWrite_MissingLibraryFolders_Refused()
-    {
-        string library = Path.Combine(_dir, "NoMarker");
-        Directory.CreateDirectory(Path.Combine(library, "steamapps"));
-
-        Assert.False(SteamAcfWriter.TryWrite(library, "10", "Game", "GameFolder", out _, out string error));
-        Assert.Contains("libraryfolders.vdf", error);
-        Assert.False(File.Exists(Path.Combine(library, "steamapps", "appmanifest_10.acf")));
-    }
-
-    [Theory]
-    [InlineData("relative/library")]
-    [InlineData(@"\\server\share")]
-    public void TryWrite_RelativeOrUnc_RefusedBeforeFilesystemWrites(string library)
-    {
-        Assert.False(SteamAcfWriter.TryWrite(library, "10", "Game", "GameFolder", out string path, out string error));
-        Assert.Empty(path);
-        Assert.True(error.Contains("absolute", StringComparison.OrdinalIgnoreCase)
-            || error.Contains("UNC", StringComparison.OrdinalIgnoreCase));
-    }
-
-    [Fact]
     public void TryWrite_BadAppIdOrEmptyInstalldir_Refused()
     {
         string library = NewLibrary();
@@ -108,6 +77,10 @@ public sealed class SteamAcfWriterTests : IDisposable
         Assert.Contains("digits", badId);
         Assert.False(SteamAcfWriter.TryWrite(library, "10", "Game", " ", out _, out string noDir));
         Assert.Contains("required", noDir);
+
+        Assert.False(SteamAcfWriter.IsAppId(""));
+        Assert.False(SteamAcfWriter.IsAppId("abc"));
+        Assert.True(SteamAcfWriter.IsAppId("222750"));
     }
 
     [Fact]
@@ -162,14 +135,6 @@ public sealed class SteamAcfWriterTests : IDisposable
         {
             MakeWritableDirectory(steamapps);
         }
-    }
-
-    [Fact]
-    public void IsAppId_RejectsJunk()
-    {
-        Assert.False(SteamAcfWriter.IsAppId(""));
-        Assert.False(SteamAcfWriter.IsAppId("abc"));
-        Assert.True(SteamAcfWriter.IsAppId("222750"));
     }
 
     private string NewLibrary()

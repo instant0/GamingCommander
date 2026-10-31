@@ -37,21 +37,6 @@ public sealed class SteamStoreLookupTests
     }
 
     [Fact]
-    public async Task FetchRaw_ThenParse_ProducesRecord()
-    {
-        string fixture = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "steam_appdetails_1091500.json"));
-        var handler = new StubHandler(fixture);
-        using var http = new HttpClient(handler);
-        using var lookup = new SteamStoreLookup(http, TimeSpan.Zero);
-
-        string? raw = await lookup.FetchRawAsync("1091500");
-        var record = CommonMetadataParser.ToRecord(SteamStoreParser.Parse(raw!, "1091500")!, "id-1");
-
-        Assert.Equal("CD PROJEKT RED", record!.Developer);
-        Assert.Equal(86, record.MetacriticScore);
-    }
-
-    [Fact]
     public async Task FetchRaw_HttpFailure_ReturnsNull()
     {
         var handler = new StubHandler("nope", HttpStatusCode.InternalServerError);

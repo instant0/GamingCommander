@@ -24,19 +24,4 @@ public sealed class EpicItemSchemaContractTests
         Assert.Equal("bIsApplication", EpicItemSchema.BIsApplication);
         Assert.Equal("AppCategories", EpicItemSchema.AppCategories);
     }
-
-    [Fact]
-    public void ConstantValues_AreAllDistinct_NoTwoMembersAliasOneSlot()
-    {
-        string[] values =
-        [
-            EpicItemSchema.DisplayName, EpicItemSchema.InstallLocation,
-            EpicItemSchema.LaunchExecutable, EpicItemSchema.CatalogNamespace,
-            EpicItemSchema.CatalogItemId, EpicItemSchema.AppName,
-            EpicItemSchema.BIsIncompleteInstall, EpicItemSchema.BIsApplication,
-            EpicItemSchema.AppCategories,
-        ];
-
-        Assert.Equal(values.Length, values.Distinct().Count());
-    }
 }

@@ -60,11 +60,11 @@ public sealed class SteamLibraryScanner
             if (IsNonGameCommonFolder(folderName))
                 continue;
 
-            if (acfMap.TryGetValue(folderName, out var acfInfo))
+            AcfInfo? acfInfo = FindAcfForFolder(acfMap, gameDir, folderName);
+            if (acfInfo is not null)
             {
                 // ACF found — determine status
-                string acfLibrary = acfInfo.LibraryPath;
-                string status = PathText.Equals(acfLibrary, root)
+                string status = PathText.Equals(acfInfo.LibraryPath, root)
                     ? "Installed"
                     : "Moved";
 
@@ -78,12 +78,12 @@ public sealed class SteamLibraryScanner
         }
 
         // Step 4: Detect Missing games — ACFs whose installdir has no matching common/ folder
-        foreach (var (installdir, acfInfo) in acfMap)
+        foreach (AcfInfo acfInfo in acfMap.Values)
         {
             bool found = false;
             foreach (string steamPath in allSteamPaths)
             {
-                string candidate = Path.Combine(steamPath, "steamapps", "common", installdir);
+                string candidate = Path.Combine(steamPath, "steamapps", "common", acfInfo.Installdir);
                 if (Directory.Exists(candidate))
                 {
                     found = true;
@@ -131,7 +131,9 @@ public sealed class SteamLibraryScanner
     // ════════════════════════════════════════════════════════════════
 
     /// <summary>
-    /// Builds a map of AppId to ACF metadata from all known Steam library paths.
+    /// Builds a map of full install path to ACF metadata from all known Steam library paths.
+    /// The key is the physical folder, never the leaf <c>installdir</c>: two libraries can
+    /// hold different games in a folder with the same name.
     /// </summary>
     private Dictionary<string, AcfInfo> CollectAcfMap(IEnumerable<string> steamPaths)
     {
@@ -149,9 +151,11 @@ public sealed class SteamLibraryScanner
                     var info = SteamAcfParser.ParseAcfFile(acfFile, path);
                     if (info != null && !string.IsNullOrWhiteSpace(info.Installdir))
                     {
-                        // First match wins (avoids duplicate keys)
-                        if (!map.ContainsKey(info.Installdir))
-                            map[info.Installdir] = info;
+                        // First match wins for the same physical path (duplicate library entries).
+                        map.TryAdd(
+                            InstallIdentity.PathKey(
+                                Path.Combine(info.LibraryPath, "steamapps", "common", info.Installdir)),
+                            info);
                     }
                 }
             }
@@ -159,6 +163,37 @@ public sealed class SteamLibraryScanner
         }
 
         return map;
+    }
+
+    /// <summary>
+    /// Resolves the ACF for a scanned folder by full install path. When the exact path is
+    /// absent, a single ACF in another library whose folder is gone names the moved game;
+    /// two candidates are ambiguous and yield no ACF instead of a guess. The name is only
+    /// this last-resort hint — never the identity of the entry.
+    /// </summary>
+    private static AcfInfo? FindAcfForFolder(
+        Dictionary<string, AcfInfo> acfMap, DirectoryInfo gameDir, string folderName)
+    {
+        if (acfMap.TryGetValue(InstallIdentity.PathKey(gameDir.FullName), out AcfInfo? exact))
+            return exact;
+
+        AcfInfo? candidate = null;
+        foreach (AcfInfo acf in acfMap.Values)
+        {
+            if (!string.Equals(acf.Installdir, folderName, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            string acfFolder = Path.Combine(acf.LibraryPath, "steamapps", "common", acf.Installdir);
+            if (Directory.Exists(acfFolder))
+                continue; // the ACF's own folder still exists — this is a different install
+
+            if (candidate is not null)
+                return null; // two libraries claim the name — do not adopt either
+
+            candidate = acf;
+        }
+
+        return candidate;
     }
 
     // ════════════════════════════════════════════════════════════════

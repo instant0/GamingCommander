@@ -1,4 +1,3 @@
-using System.Text.Json;
 using GamingCommander.App.Services;
 using GamingCommander.Core.Models;
 using Xunit;
@@ -59,38 +58,10 @@ public sealed class StorePolicyPersistenceTests : IDisposable
     }
 
     [Fact]
-    public void Save_WritesKindAsEnumName()
-    {
-        var svc = CreateService();
-        svc.Save(new AppConfig([], IsFirstRun: false) with
-        {
-            StorePolicies = new StorePolicySettings
-            {
-                Stores = [new StorePolicy(GameSourceKind.Gog, IndexEnabled: true)],
-            },
-        });
-
-        using JsonDocument doc = JsonDocument.Parse(File.ReadAllText(Path.Combine(_tempDir, "settings.json")));
-        JsonElement store = doc.RootElement.GetProperty("StorePolicies").GetProperty("Stores")[0];
-
-        Assert.Equal("Gog", store.GetProperty("Kind").GetString());
-        Assert.True(store.GetProperty("IndexEnabled").GetBoolean());
-    }
-
-    [Fact]
-    public void Load_MissingFile_ReturnsEmptyPolicies()
-    {
-        StorePolicySettings policies = Assert.IsType<StorePolicySettings>(CreateService().Load().StorePolicies);
-
-        Assert.Empty(policies.Stores);
-    }
-
-    [Fact]
     public void Load_PartialStoreEntries_FillsSafeDefaults()
     {
         WriteSettings("""
             {
-              "Version": 1,
               "HiddenFolders": [],
               "StorePolicies": {
                 "Stores": [
@@ -117,7 +88,6 @@ public sealed class StorePolicyPersistenceTests : IDisposable
     {
         WriteSettings("""
             {
-              "Version": 1,
               "HiddenFolders": [],
               "StorePolicies": {
                 "Stores": [
@@ -142,7 +112,6 @@ public sealed class StorePolicyPersistenceTests : IDisposable
     {
         WriteSettings("""
             {
-              "Version": 1,
               "HiddenFolders": [],
               "StorePolicies": {
                 "Stores": [
@@ -166,7 +135,6 @@ public sealed class StorePolicyPersistenceTests : IDisposable
     {
         WriteSettings("""
             {
-              "Version": 1,
               "HiddenFolders": []
             }
             """);

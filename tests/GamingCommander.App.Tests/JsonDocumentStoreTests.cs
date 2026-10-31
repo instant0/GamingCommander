@@ -112,23 +112,7 @@ public sealed class JsonDocumentStoreTests : IDisposable
     }
 
     [Fact]
-    public void Read_TruncatedFileWithBackup_RecoversPreviousCopy()
-    {
-        JsonDocumentStore<Doc> store = CreateStore();
-        store.Write(new Doc { Name = "first" });
-        store.Write(new Doc { Name = "second" });
-
-        File.WriteAllText(_path, """{"Version":1,"Name":"sec""");
-
-        StoreReadResult<Doc> result = CreateStore().Read(Defaults);
-
-        Assert.Equal(StoreReadStatus.Corrupt, result.Status);
-        Assert.Equal("first", result.Value!.Name);
-        Assert.Equal("first", ReadDoc(_path).Name);
-    }
-
-    [Fact]
-    public void Read_CorruptWithUnreadableBackup_ReturnsDefaults()
+    public void Read_CorruptWithCorruptBackup_ReturnsDefaults()
     {
         JsonDocumentStore<Doc> store = CreateStore();
         store.Write(new Doc { Name = "first" });
@@ -142,28 +126,6 @@ public sealed class JsonDocumentStoreTests : IDisposable
         Assert.Equal(StoreReadStatus.Corrupt, result.Status);
         Assert.Equal("default", result.Value!.Name);
         Assert.True(File.Exists(_path + ".corrupt"));
-    }
-
-    [Fact]
-    public void Read_NewerVersion_IsUnreadableAndLeavesFileUntouched()
-    {
-        byte[] future = JsonSerializer.SerializeToUtf8Bytes(new Doc
-        {
-            Version = SchemaVersioning.Current + 1,
-            Name = "future",
-        });
-        File.WriteAllBytes(_path, future);
-
-        var warnings = new List<string>();
-        StoreReadResult<Doc> result = CreateStore(warnings.Add)
-            .Read(Defaults, dto => SchemaVersioning.IsReadable(dto.Version));
-
-        Assert.Equal(StoreReadStatus.Unreadable, result.Status);
-        Assert.Equal("default", result.Value!.Name);
-        Assert.Equal(future, File.ReadAllBytes(_path));
-        Assert.Null(result.PreservedPath);
-        Assert.Single(warnings);
-        Assert.Equal(result.Message, warnings[0]);
     }
 
     // ════════════════════════════════════════════════════════════════
@@ -204,16 +166,6 @@ public sealed class JsonDocumentStoreTests : IDisposable
         Assert.Equal("first", ReadDoc(_path + ".bak").Name);
     }
 
-    [Fact]
-    public void Write_ToExistingParentOutsideAppRoot_Succeeds()
-    {
-        // Test-owned temp directories already exist: the guard only fires when a parent is missing.
-        var store = new JsonDocumentStore<Doc>(_path);
-        store.Write(new Doc { Name = "temp" });
-
-        Assert.Equal("temp", ReadDoc(_path).Name);
-    }
-
     // ── Helpers ────────────────────────────────────────────────────
 
     private JsonDocumentStore<Doc> CreateStore(
@@ -228,7 +180,6 @@ public sealed class JsonDocumentStoreTests : IDisposable
 
     private sealed class Doc
     {
-        public int Version { get; set; } = SchemaVersioning.Current;
         public string? Name { get; set; }
         public List<string>? Items { get; set; }
     }
@@ -242,7 +193,6 @@ public sealed class JsonDocumentStoreTests : IDisposable
         public override void Write(Utf8JsonWriter writer, Doc value, JsonSerializerOptions options)
         {
             writer.WriteStartObject();
-            writer.WriteNumber("Version", value.Version);
             writer.WriteString("Name", value.Name);
             writer.WriteEndObject();
         }

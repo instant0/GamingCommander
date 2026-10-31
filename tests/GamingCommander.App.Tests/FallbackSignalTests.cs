@@ -4,8 +4,8 @@ using GamingCommander.Core.Models;
 namespace GamingCommander.App.Tests;
 
 /// <summary>
-/// Tests for FallbackSignalDetector — the 5 fallback signals checked when no store signal is found.
-/// Priority: Steam Emu deep → Ubisoft legacy → UE layout → root exe → root .lnk.
+/// Tests for FallbackSignalDetector — the fallback signals checked when no store signal
+/// is found. Priority: Steam Emu deep → Ubisoft legacy → UE layout → root exe → root .lnk.
 /// </summary>
 public sealed class FallbackSignalTests : IDisposable
 {
@@ -24,214 +24,116 @@ public sealed class FallbackSignalTests : IDisposable
             Directory.Delete(_tempDir, true);
     }
 
-    // ════════════════════════════════════════════════════════════════
-    //  Signal 1: Steam Emulator Deep
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void DetectType_SteamEmuIniAtRoot_ReturnsSteamEmu()
+    [Theory]
+    [InlineData("")]
+    public void DetectFallback_SteamEmuIni_ReturnsSteamEmu(string relativeDir)
     {
-        CreateFile("steam_emu.ini");
+        string dir = relativeDir.Length == 0
+            ? _tempDir
+            : CreateDir(relativeDir.Split('/'));
+        CreateFile(dir, "steam_emu.ini");
 
-        var result = FallbackSignalDetector.DetectFallbackType(AsDir(_tempDir), DefaultNoise);
-
-        Assert.Equal(GameSourceKind.SteamEmu, result);
+        Assert.Equal(GameSourceKind.SteamEmu, Detect());
     }
 
-    [Fact]
-    public void DetectType_SteamEmuIniInChild_ReturnsSteamEmu()
+    [Theory]
+    [InlineData("")]
+    public void DetectFallback_UbiStatsDll_ReturnsUbisoftConnect(string relativeDir)
     {
-        CreateDir("GameData");
-        CreateFile("GameData", "steam_emu.ini");
+        string dir = relativeDir.Length == 0
+            ? _tempDir
+            : CreateDir(relativeDir);
+        CreateFile(dir, "UbiStats.dll");
 
-        var result = FallbackSignalDetector.DetectFallbackType(AsDir(_tempDir), DefaultNoise);
-
-        Assert.Equal(GameSourceKind.SteamEmu, result);
+        Assert.Equal(GameSourceKind.UbisoftConnect, Detect());
     }
 
-    [Fact]
-    public void DetectType_SteamEmuIniInUeSteamworksPath_ReturnsSteamEmu()
+    [Theory]
+    [InlineData("Win64")]
+    public void DetectFallback_UeLayout_ReturnsStandalone(string platform)
     {
-        CreateDir("Engine", "Binaries", "ThirdParty", "Steamworks", "Steamv142", "Win64");
-        CreateFile("Engine", "Binaries", "ThirdParty", "Steamworks", "Steamv142", "Win64", "steam_emu.ini");
-
-        var result = FallbackSignalDetector.DetectFallbackType(AsDir(_tempDir), DefaultNoise);
-
-        Assert.Equal(GameSourceKind.SteamEmu, result);
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    //  Signal 2: Ubisoft Legacy
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void DetectType_UbiStatsDllAtRoot_ReturnsUbisoftConnect()
-    {
-        CreateFile("UbiStats.dll");
-
-        var result = FallbackSignalDetector.DetectFallbackType(AsDir(_tempDir), DefaultNoise);
-
-        Assert.Equal(GameSourceKind.UbisoftConnect, result);
-    }
-
-    [Fact]
-    public void DetectType_UbiStatsDllInChild_ReturnsUbisoftConnect()
-    {
-        CreateDir("Support");
-        CreateFile("Support", "UbiStats.dll");
-
-        var result = FallbackSignalDetector.DetectFallbackType(AsDir(_tempDir), DefaultNoise);
-
-        Assert.Equal(GameSourceKind.UbisoftConnect, result);
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    //  Signal 3: Unreal Engine Layout
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void DetectType_Ue4Layout_ReturnsStandalone()
-    {
-        // Engine/ + GameName/Binaries/Win64/GameName.exe
+        // Engine/ + GameName/Binaries/{platform}/GameName.exe
         CreateDir("Engine");
-        CreateDir("GameName", "Binaries", "Win64");
-        CreateFile("GameName", "Binaries", "Win64", "GameName.exe");
+        string binaries = CreateDir("GameName", "Binaries", platform);
+        CreateFile(binaries, "GameName.exe");
 
-        var result = FallbackSignalDetector.DetectFallbackType(AsDir(_tempDir), DefaultNoise);
-
-        Assert.Equal(GameSourceKind.Standalone, result);
+        Assert.Equal(GameSourceKind.Standalone, Detect());
     }
 
     [Fact]
-    public void DetectType_Ue3BinariesAtRoot_ReturnsStandalone()
+    public void DetectFallback_Ue3BinariesAtRoot_ReturnsStandalone()
     {
         // Binaries/Win32/GameName.exe (no Engine/)
-        CreateDir("Binaries", "Win32");
-        CreateFile("Binaries", "Win32", "GameName.exe");
+        string win32 = CreateDir("Binaries", "Win32");
+        CreateFile(win32, "GameName.exe");
 
-        var result = FallbackSignalDetector.DetectFallbackType(AsDir(_tempDir), DefaultNoise);
-
-        Assert.Equal(GameSourceKind.Standalone, result);
+        Assert.Equal(GameSourceKind.Standalone, Detect());
     }
 
     [Fact]
-    public void DetectType_UeLayoutWinGdk_ReturnsStandalone()
+    public void DetectFallback_UeLayoutAllNoiseExes_ReturnsUnknown()
     {
         CreateDir("Engine");
-        CreateDir("GameName", "Binaries", "WinGDK");
-        CreateFile("GameName", "Binaries", "WinGDK", "GameName.exe");
+        string win64 = CreateDir("GameName", "Binaries", "Win64");
+        CreateFile(win64, "unins000.exe");
 
-        var result = FallbackSignalDetector.DetectFallbackType(AsDir(_tempDir), DefaultNoise);
-
-        Assert.Equal(GameSourceKind.Standalone, result);
+        Assert.Equal(GameSourceKind.Unknown, Detect());
     }
 
     [Fact]
-    public void DetectType_UeLayoutAllNoiseExes_ReturnsUnknown()
+    public void DetectFallback_RootExe_ReturnsStandalone()
     {
-        // UE layout but all exes are noise
-        CreateDir("Engine");
-        CreateDir("GameName", "Binaries", "Win64");
-        CreateFile("GameName", "Binaries", "Win64", "unins000.exe");
+        CreateFile(_tempDir, "GameName.exe");
 
-        var result = FallbackSignalDetector.DetectFallbackType(AsDir(_tempDir), DefaultNoise);
-
-        Assert.Equal(GameSourceKind.Unknown, result);
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    //  Signal 4: Root Executable
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void DetectType_RootExe_ReturnsStandalone()
-    {
-        CreateFile("GameName.exe");
-
-        var result = FallbackSignalDetector.DetectFallbackType(AsDir(_tempDir), DefaultNoise);
-
-        Assert.Equal(GameSourceKind.Standalone, result);
+        Assert.Equal(GameSourceKind.Standalone, Detect());
     }
 
     [Fact]
-    public void DetectType_RootExeAllNoise_ReturnsUnknown()
+    public void DetectFallback_RootExeAllNoise_ReturnsUnknown()
     {
-        CreateFile("unins000.exe");
-        CreateFile("setup.exe");
+        CreateFile(_tempDir, "unins000.exe");
+        CreateFile(_tempDir, "setup.exe");
 
-        var result = FallbackSignalDetector.DetectFallbackType(AsDir(_tempDir), DefaultNoise);
-
-        Assert.Equal(GameSourceKind.Unknown, result);
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    //  Signal 5: Root .lnk Shortcut
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void DetectType_RootLnk_ReturnsStandalone()
-    {
-        CreateFile("Game.lnk");
-
-        var result = FallbackSignalDetector.DetectFallbackType(AsDir(_tempDir), DefaultNoise);
-
-        Assert.Equal(GameSourceKind.Standalone, result);
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    //  No Signal
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void DetectType_EmptyDir_ReturnsUnknown()
-    {
-        var result = FallbackSignalDetector.DetectFallbackType(AsDir(_tempDir), DefaultNoise);
-
-        Assert.Equal(GameSourceKind.Unknown, result);
+        Assert.Equal(GameSourceKind.Unknown, Detect());
     }
 
     [Fact]
-    public void DetectType_OnlyNonExeFiles_ReturnsUnknown()
+    public void DetectFallback_RootLnk_ReturnsStandalone()
     {
-        CreateFile("readme.txt");
-        CreateFile("data.bin");
+        CreateFile(_tempDir, "Game.lnk");
 
-        var result = FallbackSignalDetector.DetectFallbackType(AsDir(_tempDir), DefaultNoise);
-
-        Assert.Equal(GameSourceKind.Unknown, result);
+        Assert.Equal(GameSourceKind.Standalone, Detect());
     }
 
-    // ════════════════════════════════════════════════════════════════
-    //  Priority Ordering
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void DetectType_SteamEmuAndRootExe_ReturnsSteamEmu()
+    [Theory]
+    [InlineData(false)]
+    public void DetectFallback_NoSignal_ReturnsUnknown(bool addNonExeFiles)
     {
-        // Steam Emu (priority 1) should win over root exe (priority 4)
-        CreateFile("steam_emu.ini");
-        CreateFile("GameName.exe");
+        if (addNonExeFiles)
+        {
+            CreateFile(_tempDir, "readme.txt");
+            CreateFile(_tempDir, "data.bin");
+        }
 
-        var result = FallbackSignalDetector.DetectFallbackType(AsDir(_tempDir), DefaultNoise);
-
-        Assert.Equal(GameSourceKind.SteamEmu, result);
+        Assert.Equal(GameSourceKind.Unknown, Detect());
     }
 
-    [Fact]
-    public void DetectType_UbiStatsAndRootExe_ReturnsUbisoftConnect()
+    [Theory]
+    [InlineData("steam_emu.ini", GameSourceKind.SteamEmu)]
+    public void DetectFallback_DeepSignalWinsOverRootExe(string signalFile, GameSourceKind expected)
     {
-        // Ubisoft legacy (priority 2) should win over root exe (priority 4)
-        CreateFile("UbiStats.dll");
-        CreateFile("GameName.exe");
+        CreateFile(_tempDir, signalFile);
+        CreateFile(_tempDir, "GameName.exe");
 
-        var result = FallbackSignalDetector.DetectFallbackType(AsDir(_tempDir), DefaultNoise);
-
-        Assert.Equal(GameSourceKind.UbisoftConnect, result);
+        Assert.Equal(expected, Detect());
     }
 
     // ════════════════════════════════════════════════════════════════
     //  Helpers
     // ════════════════════════════════════════════════════════════════
+
+    private GameSourceKind Detect() =>
+        FallbackSignalDetector.DetectFallbackType(new DirectoryInfo(_tempDir), DefaultNoise);
 
     private string CreateDir(params string[] parts)
     {
@@ -240,11 +142,8 @@ public sealed class FallbackSignalTests : IDisposable
         return path;
     }
 
-    private void CreateFile(params string[] parts)
+    private static void CreateFile(string dir, string fileName)
     {
-        string path = Path.Combine(new[] { _tempDir }.Concat(parts).ToArray());
-        File.WriteAllBytes(path, new byte[1024]);
+        File.WriteAllBytes(Path.Combine(dir, fileName), new byte[1024]);
     }
-
-    private DirectoryInfo AsDir(string path) => new(path);
 }

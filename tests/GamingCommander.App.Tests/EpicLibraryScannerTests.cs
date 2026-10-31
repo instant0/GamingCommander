@@ -84,4 +84,61 @@ public sealed class EpicLibraryScannerTests : IDisposable
         Assert.Equal(@"D:\games\cavestoryplus\CaveStory+.exe", orphan.ExecutablePath);
         Assert.Equal("Cave Story+", orphan.DisplayName);
     }
+
+    [Fact]
+    public void Scan_ItemAndKnownEntryWithSameLeafInDifferentFolders_BothSurvive()
+    {
+        // The install path is the claim key. A catalog item at D:\Games\Foo must not
+        // suppress a known Epic entry at E:\Games\Foo just because both end in Foo.
+        File.WriteAllText(Path.Combine(_dir, "foo.item"), """
+            {"DisplayName":"Foo","InstallLocation":"D:\\Games\\Foo",
+             "LaunchExecutable":"Foo.exe","CatalogNamespace":"ns","CatalogItemId":"cat-foo",
+             "AppName":"app-foo","bIsApplication":true,"AppCategories":["games","applications"]}
+            """);
+        GameEntry known = MakeKnown("known-id", @"E:\Games\Foo", "Foo");
+
+        var list = new EpicLibraryScanner().Scan(_dir, [known]);
+
+        Assert.Equal(2, list.Count);
+        Assert.Equal(2, list.Select(g => g.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        Assert.Contains(list, g => g.Id == "known-id" && g.Epic.Status == "Orphaned");
+        Assert.Contains(list, g => g.Store.EpicCatalogItemId == "cat-foo");
+    }
+
+    [Fact]
+    public void Scan_NoCatalogItemId_SameLeafInTwoFolders_DistinctIds()
+    {
+        File.WriteAllText(Path.Combine(_dir, "foo-a.item"), """
+            {"DisplayName":"Foo One","InstallLocation":"D:\\Games\\Foo",
+             "LaunchExecutable":"Foo.exe","CatalogNamespace":"ns",
+             "AppName":"app-foo-one","bIsApplication":true,"AppCategories":["games","applications"]}
+            """);
+        File.WriteAllText(Path.Combine(_dir, "foo-b.item"), """
+            {"DisplayName":"Foo Two","InstallLocation":"E:\\Games\\Foo",
+             "LaunchExecutable":"Foo.exe","CatalogNamespace":"ns",
+             "AppName":"app-foo-two","bIsApplication":true,"AppCategories":["games","applications"]}
+            """);
+
+        var list = new EpicLibraryScanner().Scan(_dir);
+
+        Assert.Equal(2, list.Count);
+        Assert.Equal(2, list.Select(g => g.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+    }
+
+    private static GameEntry MakeKnown(string id, string folderPath, string folderName) =>
+        new(
+            Identity: new IdentityInfo
+            {
+                Id = id,
+                Library = "Epic",
+                DisplayName = folderName,
+                GameSource = GameSourceKind.Epic,
+                IsSourceOverridden = false,
+            },
+            Location: new LocationInfo { FolderPath = folderPath, FolderName = folderName },
+            Launch: new LaunchInfo { ExecutablePath = "" },
+            Tags: [],
+            UserOverrides: [],
+            LastScanned: DateTimeOffset.UtcNow,
+            LastModified: DateTimeOffset.UtcNow);
 }

@@ -20,9 +20,15 @@ public sealed class EngineDetectorTests : IDisposable
     }
 
     [Fact]
-    public void Detect_MissingFolder_ReturnsUnknown()
+    public void Detect_NoEvidence_ReturnsUnknown()
     {
-        Assert.Equal(GameEngineKind.Unknown, EngineDetector.Detect(Path.Combine(_tempDir, "nope")));
+        string missing = Path.Combine(_tempDir, "nope");
+        string empty = Path.Combine(_tempDir, "empty");
+        Directory.CreateDirectory(empty);
+
+        Assert.Equal(GameEngineKind.Unknown, EngineDetector.Detect(missing));
+        Assert.Equal(GameEngineKind.Unknown, EngineDetector.Detect(empty));
+        Assert.Equal(string.Empty, EngineDetector.ToTag(GameEngineKind.Unknown));
     }
 
     [Fact]
@@ -75,12 +81,5 @@ public sealed class EngineDetectorTests : IDisposable
         File.WriteAllText(Path.Combine(_tempDir, "Engine.BuildInfo_Win64_retail.dll"), "");
 
         Assert.Equal(GameEngineKind.Frostbite, EngineDetector.Detect(_tempDir));
-    }
-
-    [Fact]
-    public void Detect_EmptyFolder_ReturnsUnknown()
-    {
-        Assert.Equal(GameEngineKind.Unknown, EngineDetector.Detect(_tempDir));
-        Assert.Equal(string.Empty, EngineDetector.ToTag(GameEngineKind.Unknown));
     }
 }

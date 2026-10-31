@@ -21,7 +21,7 @@
 | # | Task | Tier | Priority | Status |
 |---|------|------|----------|--------|
 | T125 | [Release path cleanup](T125-release-integrity-gate.md) | 3 | P1 | Pending |
-| T126 | [Reconcile the data contract](T126-contract-accuracy.md) | 1 | P1 | Pending |
+| T126 | [Reconcile the data contract](T126-contract-accuracy.md) | 1 | P1 | Done |
 | T129 | [Guarded repair writes](T129-guarded-repair-writes.md) | 3 | P1 | Done |
 | T130 | [Safe local-state writes](T130-safe-local-state-writes.md) | 3 | P1 | Done |
 | T127 | [Security contact and download verification](T127-security-contact-and-verification.md) | 1 | P2 | Pending |
@@ -35,7 +35,7 @@
 ```
 T125 independent (release path)
 
-T126 after T124D (contract wording depends on the Epic client disposition)
+T126 independent (carries the Epic identity disposition; no separate planning doc)
 T129 after T124C (done)
 T130 after T124B (done)
 

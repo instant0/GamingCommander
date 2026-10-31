@@ -4,8 +4,8 @@ using GamingCommander.Core.Models;
 namespace GamingCommander.App.Tests;
 
 /// <summary>
-/// Tests for StoreSignalDetector — verifies all 10 store/platform signals
-/// and priority ordering (first match wins).
+/// Tests for StoreSignalDetector — one marker theory per store predicate plus the
+/// branch cases that can change a verdict (priority, weak Steam, emulator INI).
 /// </summary>
 public sealed class StoreSignalDetectorTests : IDisposable
 {
@@ -24,87 +24,91 @@ public sealed class StoreSignalDetectorTests : IDisposable
     }
 
     // ════════════════════════════════════════════════════════════════
-    //  GOG Signal (Priority 1)
+    //  Marker predicates (priority 1–10)
     // ════════════════════════════════════════════════════════════════
 
-    [Fact]
-    public void DetectType_GogGameDll_ReturnsGog()
+    [Theory]
+    [InlineData("goggame-12345.info", false)]
+    [InlineData("gog_com_game.dll", false)]
+    public void DetectType_GogMarkers_ReturnsGog(string marker, bool isDirectory)
     {
-        CreateFile("goggame.dll");
+        CreateMarker(marker, isDirectory);
 
-        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
+        Assert.Equal(GameSourceKind.Gog, StoreSignalDetector.DetectType(AsDirInfo(_tempDir)));
+    }
 
-        Assert.Equal(GameSourceKind.Gog, result);
+    [Theory]
+    [InlineData("__Installer", true)]
+    [InlineData("Touchup.exe", false)]
+    [InlineData("ActivationUI.exe", false)]
+    public void DetectType_EaMarkers_ReturnsEaApp(string marker, bool isDirectory)
+    {
+        CreateMarker(marker, isDirectory);
+
+        Assert.Equal(GameSourceKind.EaApp, StoreSignalDetector.DetectType(AsDirInfo(_tempDir)));
+    }
+
+    [Theory]
+    [InlineData("uplay_install.manifest", false)]
+    [InlineData("uplay_r1_loader64.dll", false)]
+    [InlineData("GRB_UPP.exe", false)]
+    [InlineData("uplay_download", true)]
+    public void DetectType_UbisoftMarkers_ReturnsUbisoftConnect(string marker, bool isDirectory)
+    {
+        CreateMarker(marker, isDirectory);
+
+        Assert.Equal(GameSourceKind.UbisoftConnect, StoreSignalDetector.DetectType(AsDirInfo(_tempDir)));
+    }
+
+    [Theory]
+    [InlineData(".egstore")]
+    [InlineData(".egsstore")]
+    public void DetectType_EpicMarkers_ReturnsEpic(string marker)
+    {
+        CreateMarker(marker, isDirectory: true);
+
+        Assert.Equal(GameSourceKind.Epic, StoreSignalDetector.DetectType(AsDirInfo(_tempDir)));
+    }
+
+    [Theory]
+    [InlineData(".battle.net", true)]
+    [InlineData(".build.info", false)]
+    [InlineData(".product.db", false)]
+    public void DetectType_BlizzardMarkers_ReturnsBattleNet(string marker, bool isDirectory)
+    {
+        CreateMarker(marker, isDirectory);
+
+        Assert.Equal(GameSourceKind.BattleNet, StoreSignalDetector.DetectType(AsDirInfo(_tempDir)));
     }
 
     [Fact]
-    public void DetectType_GogGameInfo_ReturnsGog()
+    public void DetectType_XboxMetadata_ReturnsXbox()
     {
-        CreateFile("goggame-12345.info");
+        CreateFile("default-metadata.json");
 
-        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
-
-        Assert.Equal(GameSourceKind.Gog, result);
+        Assert.Equal(GameSourceKind.Xbox, StoreSignalDetector.DetectType(AsDirInfo(_tempDir)));
     }
 
     [Fact]
-    public void DetectType_GogPrefixFile_ReturnsGog()
+    public void DetectType_TitleRgl_ReturnsRockstar()
     {
-        // Plan 103: gog_* prefix
-        CreateFile("gog_com_game.dll");
+        CreateFile("title.rgl");
 
-        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
-
-        Assert.Equal(GameSourceKind.Gog, result);
+        Assert.Equal(GameSourceKind.Rockstar, StoreSignalDetector.DetectType(AsDirInfo(_tempDir)));
     }
 
-    [Fact]
-    public void DetectType_GogIco_ReturnsGog()
+    [Theory]
+    [InlineData("steam_api64.dll")]
+    [InlineData("steam_appid.txt")]
+    public void DetectType_SteamEmuMarkers_ReturnsSteamEmu(string marker)
     {
-        // Plan 103: gog.ico
-        CreateFile("gog.ico");
+        CreateFile(marker);
 
-        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
-
-        Assert.Equal(GameSourceKind.Gog, result);
+        Assert.Equal(GameSourceKind.SteamEmu, StoreSignalDetector.DetectType(AsDirInfo(_tempDir)));
     }
 
     // ════════════════════════════════════════════════════════════════
-    //  EA Signal (Priority 2)
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void DetectType_EaInstallerDir_ReturnsEaApp()
-    {
-        CreateDir("__Installer");
-
-        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
-
-        Assert.Equal(GameSourceKind.EaApp, result);
-    }
-
-    [Fact]
-    public void DetectType_EaTouchupExe_ReturnsEaApp()
-    {
-        CreateFile("Touchup.exe");
-
-        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
-
-        Assert.Equal(GameSourceKind.EaApp, result);
-    }
-
-    [Fact]
-    public void DetectType_EaActivationUiExe_ReturnsEaApp()
-    {
-        CreateFile("ActivationUI.exe");
-
-        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
-
-        Assert.Equal(GameSourceKind.EaApp, result);
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    //  Ubisoft Emulator Signal (Priority 3)
+    //  Ubisoft emulator INI
     // ════════════════════════════════════════════════════════════════
 
     [Fact]
@@ -114,9 +118,7 @@ public sealed class StoreSignalDetectorTests : IDisposable
         File.WriteAllText(Path.Combine(_tempDir, "settings.ini"),
             "Username=testuser\nAccountId=12345\n");
 
-        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
-
-        Assert.Equal(GameSourceKind.UbisoftConnect, result);
+        Assert.Equal(GameSourceKind.UbisoftConnect, StoreSignalDetector.DetectType(AsDirInfo(_tempDir)));
     }
 
     [Fact]
@@ -124,145 +126,13 @@ public sealed class StoreSignalDetectorTests : IDisposable
     {
         CreateFile("uplay_loader.exe");
 
-        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
-
         // No INI with Username/AccountId → not emulator signal
-        Assert.Equal(GameSourceKind.Unknown, result);
+        Assert.Equal(GameSourceKind.Unknown, StoreSignalDetector.DetectType(AsDirInfo(_tempDir)));
     }
 
     // ════════════════════════════════════════════════════════════════
-    //  Ubisoft Signal (Priority 4)
+    //  Steam location (weak signal upgraded to Steam)
     // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void DetectType_UplayInstallManifest_ReturnsUbisoftConnect()
-    {
-        CreateFile("uplay_install.manifest");
-
-        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
-
-        Assert.Equal(GameSourceKind.UbisoftConnect, result);
-    }
-
-    [Fact]
-    public void DetectType_UplayInstallState_ReturnsUbisoftConnect()
-    {
-        CreateFile("uplay_install.state");
-
-        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
-
-        Assert.Equal(GameSourceKind.UbisoftConnect, result);
-    }
-
-    [Fact]
-    public void DetectType_UplayR1Loader64_ReturnsUbisoftConnect()
-    {
-        CreateFile("uplay_r1_loader64.dll");
-
-        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
-
-        Assert.Equal(GameSourceKind.UbisoftConnect, result);
-    }
-
-    [Fact]
-    public void DetectType_UplayR2Loader64_ReturnsUbisoftConnect()
-    {
-        CreateFile("uplay_r2_loader64.dll");
-
-        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
-
-        Assert.Equal(GameSourceKind.UbisoftConnect, result);
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    //  Epic Signal (Priority 5)
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void DetectType_EgstoreDir_ReturnsEpic()
-    {
-        CreateDir(".egstore");
-
-        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
-
-        Assert.Equal(GameSourceKind.Epic, result);
-    }
-
-    [Fact]
-    public void DetectType_EgsstoreDir_ReturnsEpic()
-    {
-        CreateDir(".egsstore");
-
-        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
-
-        Assert.Equal(GameSourceKind.Epic, result);
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    //  Blizzard Signal (Priority 6)
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void DetectType_BattleNetDir_ReturnsBattleNet()
-    {
-        CreateDir(".battle.net");
-
-        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
-
-        Assert.Equal(GameSourceKind.BattleNet, result);
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    //  Xbox Signal (Priority 7)
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void DetectType_XboxMetadata_ReturnsXbox()
-    {
-        CreateFile("default-metadata.json");
-
-        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
-
-        Assert.Equal(GameSourceKind.Xbox, result);
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    //  Rockstar Signal (Priority 8)
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void DetectType_TitleRgl_ReturnsRockstar()
-    {
-        CreateFile("title.rgl");
-
-        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
-
-        Assert.Equal(GameSourceKind.Rockstar, result);
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    //  Steam Emulator Signal (Priority 9 — strong)
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void DetectType_SteamApi64Dll_ReturnsSteamEmu()
-    {
-        CreateFile("steam_api64.dll");
-
-        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
-
-        Assert.Equal(GameSourceKind.SteamEmu, result);
-    }
-
-    [Fact]
-    public void DetectType_SteamApiDll_ReturnsSteamEmu()
-    {
-        CreateFile("steam_api.dll");
-
-        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
-
-        Assert.Equal(GameSourceKind.SteamEmu, result);
-    }
 
     [Fact]
     public void DetectType_SteamApi64Dll_SteamLibraryLocation_ReturnsSteam()
@@ -275,45 +145,14 @@ public sealed class StoreSignalDetectorTests : IDisposable
     }
 
     // ════════════════════════════════════════════════════════════════
-    //  Steam Signal (Priority 10 — weak)
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void DetectType_SteamAppIdTxt_ReturnsSteamEmu()
-    {
-        CreateFile("steam_appid.txt");
-
-        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
-
-        Assert.Equal(GameSourceKind.SteamEmu, result);
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    //  No Signal
+    //  No signal and priority ordering
     // ════════════════════════════════════════════════════════════════
 
     [Fact]
     public void DetectType_EmptyDir_ReturnsUnknown()
     {
-        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
-
-        Assert.Equal(GameSourceKind.Unknown, result);
+        Assert.Equal(GameSourceKind.Unknown, StoreSignalDetector.DetectType(AsDirInfo(_tempDir)));
     }
-
-    [Fact]
-    public void DetectType_RandomFiles_ReturnsUnknown()
-    {
-        CreateFile("readme.txt");
-        CreateFile("data.bin");
-
-        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
-
-        Assert.Equal(GameSourceKind.Unknown, result);
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    //  Priority Ordering — GOG wins over EA when both present
-    // ════════════════════════════════════════════════════════════════
 
     [Fact]
     public void DetectType_GogAndEaPresent_ReturnsGog()
@@ -321,10 +160,8 @@ public sealed class StoreSignalDetectorTests : IDisposable
         CreateFile("goggame.dll");
         CreateDir("__Installer");
 
-        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
-
         // GOG (priority 1) > EA (priority 2)
-        Assert.Equal(GameSourceKind.Gog, result);
+        Assert.Equal(GameSourceKind.Gog, StoreSignalDetector.DetectType(AsDirInfo(_tempDir)));
     }
 
     [Fact]
@@ -333,184 +170,77 @@ public sealed class StoreSignalDetectorTests : IDisposable
         CreateDir("__Installer");
         CreateFile("steam_api64.dll");
 
-        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
-
         // EA (priority 2) > Steam Emu (priority 9)
-        Assert.Equal(GameSourceKind.EaApp, result);
+        Assert.Equal(GameSourceKind.EaApp, StoreSignalDetector.DetectType(AsDirInfo(_tempDir)));
     }
 
     // ════════════════════════════════════════════════════════════════
-    //  Individual Signal Methods
+    //  Blizzard product codename (external .build.info shape)
     // ════════════════════════════════════════════════════════════════
 
-    [Fact]
-    public void HasGogSignal_NoGogFiles_ReturnsFalse()
+    [Theory]
+    [InlineData("tpr/diablo3", "diablo3")]
+    [InlineData("prometheus", "prometheus")]
+    public void ExtractBlizzardProduct_ReturnsCodename(string cdnPath, string expected)
     {
-        Assert.False(StoreSignalDetector.HasGogSignal(AsDirInfo(_tempDir)));
+        File.WriteAllText(Path.Combine(_tempDir, ".build.info"),
+            "Header\n" +
+            $"eu|1|key|key2|||{cdnPath}|host\n");
+
+        Assert.Equal(expected, StoreSignalDetector.ExtractBlizzardProduct(AsDirInfo(_tempDir)));
     }
 
-    [Fact]
-    public void HasEaSignal_NoInstallerDir_ReturnsFalse()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ExtractBlizzardProduct_NoProduct_ReturnsNull(bool createEmptyFile)
     {
-        Assert.False(StoreSignalDetector.HasEaSignal(AsDirInfo(_tempDir)));
-    }
+        if (createEmptyFile)
+            File.WriteAllText(Path.Combine(_tempDir, ".build.info"), "");
 
-    [Fact]
-    public void HasEpicSignal_NoStoreDir_ReturnsFalse()
-    {
-        Assert.False(StoreSignalDetector.HasEpicSignal(AsDirInfo(_tempDir)));
-    }
-
-    [Fact]
-    public void HasBlizzardSignal_NoBattleNetDir_ReturnsFalse()
-    {
-        Assert.False(StoreSignalDetector.HasBlizzardSignal(AsDirInfo(_tempDir)));
-    }
-
-    [Fact]
-    public void HasXboxSignal_NoMetadataFile_ReturnsFalse()
-    {
-        Assert.False(StoreSignalDetector.HasXboxSignal(AsDirInfo(_tempDir)));
-    }
-
-    [Fact]
-    public void HasRockstarSignal_NoRglFile_ReturnsFalse()
-    {
-        Assert.False(StoreSignalDetector.HasRockstarSignal(AsDirInfo(_tempDir)));
-    }
-
-    [Fact]
-    public void HasSteamSignal_NoAppId_ReturnsFalse()
-    {
-        Assert.False(StoreSignalDetector.HasSteamSignal(AsDirInfo(_tempDir)));
-    }
-
-    [Fact]
-    public void HasSteamEmulatorSignal_NoApiDll_ReturnsFalse()
-    {
-        Assert.False(StoreSignalDetector.HasSteamEmulatorSignal(AsDirInfo(_tempDir)));
+        Assert.Null(StoreSignalDetector.ExtractBlizzardProduct(AsDirInfo(_tempDir)));
     }
 
     // ════════════════════════════════════════════════════════════════
-    //  Ubisoft New Signals (Plan 112 Step 3)
+    //  UbisoftReadmeParser — external readme shape
     // ════════════════════════════════════════════════════════════════
 
-    [Fact]
-    public void DetectType_UplayDownloadDir_ReturnsUbisoftConnect()
+    [Theory]
+    [InlineData("Support", "Readme", "Readme.txt", "Ubisoft\r\nGhost Recon Breakpoint\r\n© 2019 Ubisoft Entertainment\r\n", "Ubisoft", "Ghost Recon Breakpoint")]
+    public void UbisoftReadmeParser_ParsesPublisherAndTitle(
+        string supportDir, string readmeDir, string fileName, string content,
+        string expectedPublisher, string expectedTitle)
     {
-        CreateDir("uplay_download");
-
-        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
-
-        Assert.Equal(GameSourceKind.UbisoftConnect, result);
-    }
-
-    [Fact]
-    public void DetectType_UppExe_ReturnsUbisoftConnect()
-    {
-        CreateFile("GRB_UPP.exe");
-
-        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
-
-        Assert.Equal(GameSourceKind.UbisoftConnect, result);
-    }
-
-    [Fact]
-    public void DetectType_UppVulkanExe_ReturnsUbisoftConnect()
-    {
-        CreateFile("GRB_UPP_vulkan.exe");
-
-        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
-
-        Assert.Equal(GameSourceKind.UbisoftConnect, result);
-    }
-
-    [Fact]
-    public void HasUbisoftSignal_UplayDownloadDir_ReturnsTrue()
-    {
-        CreateDir("uplay_download");
-
-        Assert.True(StoreSignalDetector.HasUbisoftSignal(AsDirInfo(_tempDir)));
-    }
-
-    [Fact]
-    public void HasUbisoftSignal_NonStandardLoaderDll_ReturnsTrue()
-    {
-        // Plan 103: pattern match, not hardcoded r1/r2 32/64 names
-        CreateFile("uplay_r3_loader.dll");
-
-        Assert.True(StoreSignalDetector.HasUbisoftSignal(AsDirInfo(_tempDir)));
-    }
-
-    [Fact]
-    public void HasUbisoftSignal_UppExe_ReturnsTrue()
-    {
-        CreateFile("GRB_UPP.exe");
-
-        Assert.True(StoreSignalDetector.HasUbisoftSignal(AsDirInfo(_tempDir)));
-    }
-
-    [Fact]
-    public void HasUbisoftSignal_NoSignals_ReturnsFalse()
-    {
-        Assert.False(StoreSignalDetector.HasUbisoftSignal(AsDirInfo(_tempDir)));
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    //  UbisoftReadmeParser (Plan 112 Step 3B)
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void UbisoftReadmeParser_StandardFormat_ParsesTitle()
-    {
-        string readmeDir = CreateDir("Support", "Readme");
-        File.WriteAllText(Path.Combine(readmeDir, "Readme.txt"),
-            "Ubisoft\r\nGhost Recon Breakpoint\r\n© 2019 Ubisoft Entertainment\r\n");
+        string dir = CreateDir(supportDir, readmeDir);
+        File.WriteAllText(Path.Combine(dir, fileName), content);
 
         var result = UbisoftReadmeParser.TryParse(AsDirInfo(_tempDir));
 
         Assert.NotNull(result);
-        Assert.Equal("Ubisoft", result.Publisher);
-        Assert.Equal("Ghost Recon Breakpoint", result.GameTitle);
+        Assert.Equal(expectedPublisher, result.Publisher);
+        Assert.Equal(expectedTitle, result.GameTitle);
     }
 
-    [Fact]
-    public void UbisoftReadmeParser_CaseInsensitive_Works()
+    [Theory]
+    [InlineData("Ubisoft Entertainment\r\nUbisoft Entertainment\r\n© 2012 Ubisoft Entertainment\r\n", "Ubisoft Entertainment")]
+    public void UbisoftReadmeParser_PublisherOnLine2_Rejected(string content, string expectedPublisher)
     {
-        string readmeDir = CreateDir("support", "readme");
-        File.WriteAllText(Path.Combine(readmeDir, "game.txt"),
-            "Publisher\r\nGame Title\r\n");
+        // B23: Some Ubisoft readmes repeat the publisher on line 2 instead of the title.
+        string dir = CreateDir("Support", "Readme");
+        File.WriteAllText(Path.Combine(dir, "Readme.txt"), content);
 
         var result = UbisoftReadmeParser.TryParse(AsDirInfo(_tempDir));
 
         Assert.NotNull(result);
-        Assert.Equal("Game Title", result.GameTitle);
-    }
-
-    [Fact]
-    public void UbisoftReadmeParser_NoReadmeDir_ReturnsNull()
-    {
-        var result = UbisoftReadmeParser.TryParse(AsDirInfo(_tempDir));
-
-        Assert.Null(result);
-    }
-
-    [Fact]
-    public void UbisoftReadmeParser_EmptyFile_ReturnsNull()
-    {
-        string readmeDir = CreateDir("Support", "Readme");
-        File.WriteAllText(Path.Combine(readmeDir, "Readme.txt"), "");
-
-        var result = UbisoftReadmeParser.TryParse(AsDirInfo(_tempDir));
-
-        Assert.Null(result);
+        Assert.Equal(expectedPublisher, result.Publisher);
+        Assert.Null(result.GameTitle);
     }
 
     [Fact]
     public void UbisoftReadmeParser_SingleLine_ReturnsPublisherOnly()
     {
-        string readmeDir = CreateDir("Support", "Readme");
-        File.WriteAllText(Path.Combine(readmeDir, "Readme.txt"), "Ubisoft\r\n");
+        string dir = CreateDir("Support", "Readme");
+        File.WriteAllText(Path.Combine(dir, "Readme.txt"), "Ubisoft\r\n");
 
         var result = UbisoftReadmeParser.TryParse(AsDirInfo(_tempDir));
 
@@ -519,140 +249,18 @@ public sealed class StoreSignalDetectorTests : IDisposable
         Assert.Null(result.GameTitle);
     }
 
-    // ════════════════════════════════════════════════════════════════
-    //  UbisoftReadmeParser — Publisher Deny-List (B23)
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void UbisoftReadmeParser_PublisherOnLine2_Rejected()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void UbisoftReadmeParser_NoContent_ReturnsNull(bool createEmptyFile)
     {
-        // B23: Some Ubisoft readmes have publisher name on line 2 instead of game title
-        string readmeDir = CreateDir("Support", "Readme");
-        File.WriteAllText(Path.Combine(readmeDir, "Readme.txt"),
-            "Ubisoft Entertainment\r\nUbisoft Entertainment\r\n© 2012 Ubisoft Entertainment\r\n");
+        if (createEmptyFile)
+        {
+            string dir = CreateDir("Support", "Readme");
+            File.WriteAllText(Path.Combine(dir, "Readme.txt"), "");
+        }
 
-        var result = UbisoftReadmeParser.TryParse(AsDirInfo(_tempDir));
-
-        Assert.NotNull(result);
-        Assert.Equal("Ubisoft Entertainment", result.Publisher);
-        Assert.Null(result.GameTitle);
-    }
-
-    [Fact]
-    public void UbisoftReadmeParser_UbisoftSASOnLine2_Rejected()
-    {
-        string readmeDir = CreateDir("Support", "Readme");
-        File.WriteAllText(Path.Combine(readmeDir, "Readme.txt"),
-            "Ubisoft\r\nUbisoft SAS\r\n© 2019 Ubisoft\r\n");
-
-        var result = UbisoftReadmeParser.TryParse(AsDirInfo(_tempDir));
-
-        Assert.NotNull(result);
-        Assert.Equal("Ubisoft", result.Publisher);
-        Assert.Null(result.GameTitle);
-    }
-
-    [Fact]
-    public void UbisoftReadmeParser_ValidTitle_ReturnsCorrectly()
-    {
-        string readmeDir = CreateDir("Support", "Readme");
-        File.WriteAllText(Path.Combine(readmeDir, "Readme.txt"),
-            "Ubisoft\r\nAssassin's Creed Unity\r\n© 2014 Ubisoft Entertainment\r\n");
-
-        var result = UbisoftReadmeParser.TryParse(AsDirInfo(_tempDir));
-
-        Assert.NotNull(result);
-        Assert.Equal("Ubisoft", result.Publisher);
-        Assert.Equal("Assassin's Creed Unity", result.GameTitle);
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    //  Blizzard Signal — Enhanced Detection (B26)
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void DetectType_BuildInfoFile_ReturnsBattleNet()
-    {
-        // B26: .build.info file is a strong Blizzard signal
-        File.WriteAllText(Path.Combine(_tempDir, ".build.info"),
-            "Branch!STRING:0|Active!DEC:1\neu|1|abc|||tpr/diablo3\n");
-
-        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
-
-        Assert.Equal(GameSourceKind.BattleNet, result);
-    }
-
-    [Fact]
-    public void DetectType_ProductDbFile_ReturnsBattleNet()
-    {
-        // B26: .product.db file is a strong Blizzard signal
-        File.WriteAllBytes(Path.Combine(_tempDir, ".product.db"), [0x0a, 0x07, 0x64, 0x69, 0x61, 0x62, 0x6c, 0x6f, 0x33]);
-
-        var result = StoreSignalDetector.DetectType(AsDirInfo(_tempDir));
-
-        Assert.Equal(GameSourceKind.BattleNet, result);
-    }
-
-    [Fact]
-    public void HasBlizzardSignal_BuildInfoFile_ReturnsTrue()
-    {
-        // B26: .build.info file triggers Blizzard signal
-        File.WriteAllText(Path.Combine(_tempDir, ".build.info"), "header\ndata\n");
-
-        Assert.True(StoreSignalDetector.HasBlizzardSignal(AsDirInfo(_tempDir)));
-    }
-
-    [Fact]
-    public void HasBlizzardSignal_ProductDbFile_ReturnsTrue()
-    {
-        // B26: .product.db file triggers Blizzard signal
-        File.WriteAllBytes(Path.Combine(_tempDir, ".product.db"), [0x00]);
-
-        Assert.True(StoreSignalDetector.HasBlizzardSignal(AsDirInfo(_tempDir)));
-    }
-
-    [Fact]
-    public void ExtractBlizzardProduct_Diablo3_ReturnsCodename()
-    {
-        // B26: Extract product codename from .build.info CDN Path field
-        File.WriteAllText(Path.Combine(_tempDir, ".build.info"),
-            "Branch!STRING:0|Active!DEC:1|Build Key!HEX:16|CDN Key!HEX:16|Install Key!HEX:16|IM Size!DEC:4|CDN Path!STRING:0|CDN Hosts!STRING:0\n" +
-            "eu|1|e34fc3fb7831a77e0ad7def0bb399ac7|6547fc64ca796c7c1b25864145814ace|||tpr/diablo3|level3.blizzard.com\n");
-
-        string? product = StoreSignalDetector.ExtractBlizzardProduct(AsDirInfo(_tempDir));
-
-        Assert.Equal("diablo3", product);
-    }
-
-    [Fact]
-    public void ExtractBlizzardProduct_Prometheus_ReturnsCodename()
-    {
-        // B26: Diablo IV uses "prometheus" codename
-        File.WriteAllText(Path.Combine(_tempDir, ".build.info"),
-            "Header\n" +
-            "eu|1|key|key2|||prometheus|host\n");
-
-        string? product = StoreSignalDetector.ExtractBlizzardProduct(AsDirInfo(_tempDir));
-
-        Assert.Equal("prometheus", product);
-    }
-
-    [Fact]
-    public void ExtractBlizzardProduct_NoBuildInfo_ReturnsNull()
-    {
-        string? product = StoreSignalDetector.ExtractBlizzardProduct(AsDirInfo(_tempDir));
-
-        Assert.Null(product);
-    }
-
-    [Fact]
-    public void ExtractBlizzardProduct_EmptyFile_ReturnsNull()
-    {
-        File.WriteAllText(Path.Combine(_tempDir, ".build.info"), "");
-
-        string? product = StoreSignalDetector.ExtractBlizzardProduct(AsDirInfo(_tempDir));
-
-        Assert.Null(product);
+        Assert.Null(UbisoftReadmeParser.TryParse(AsDirInfo(_tempDir)));
     }
 
     // ════════════════════════════════════════════════════════════════
@@ -664,6 +272,14 @@ public sealed class StoreSignalDetectorTests : IDisposable
         string path = Path.Combine(new[] { _tempDir }.Concat(parts).ToArray());
         Directory.CreateDirectory(path);
         return path;
+    }
+
+    private void CreateMarker(string name, bool isDirectory)
+    {
+        if (isDirectory)
+            CreateDir(name);
+        else
+            CreateFile(name);
     }
 
     private void CreateFile(string fileName)

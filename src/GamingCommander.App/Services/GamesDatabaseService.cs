@@ -29,8 +29,7 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
             return _cachedDb;
 
         GamesDatabaseDto dto = _store.Read(
-            () => new GamesDatabaseDto { Games = [] },
-            d => SchemaVersioning.IsReadable(d.Version)).Value
+            () => new GamesDatabaseDto { Games = [] }).Value
             ?? new GamesDatabaseDto { Games = [] };
 
         _cachedDb = new GamesDatabase(
@@ -43,7 +42,6 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
     {
         var dto = new GamesDatabaseDto
         {
-            Version = SchemaVersioning.Current,
             Games = db.Games.Select(ToDto).ToList(),
         };
         _store.Write(dto);
@@ -67,7 +65,6 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
     public void SetGamesForLibrary(string libraryName, IEnumerable<GameEntry> games)
     {
         GamesDatabase db = Load();
-        var scanned = games.ToList();
 
         var existingForLib = db.Games
             .Where(g => g.Library.Equals(libraryName, StringComparison.OrdinalIgnoreCase))
@@ -75,14 +72,20 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
         var existingById = existingForLib.ToDictionary(g => g.Id, StringComparer.OrdinalIgnoreCase);
         var consumed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        var merged = new List<GameEntry>();
-        foreach (GameEntry g in scanned)
-        {
-            // Every stored entry belongs to this library anchor, regardless of what
-            // the scan-context stamped. Anchor name is authoritative here.
-            GameEntry anchored = GameIdentity.WithRebuiltKeys(
-                g with { Identity = g.Identity with { Library = libraryName } });
+        // Anchor every scanned entry first. Every stored entry belongs to this library
+        // anchor regardless of the scan-context stamp; the anchor name is metadata.
+        var scannedForLib = games
+            .Select(g => GameIdentity.WithRebuiltKeys(
+                g with { Identity = g.Identity with { Library = libraryName } }))
+            .ToList();
 
+        // Weak-name counts for the whole pass, computed once (not per entry).
+        Dictionary<string, int> existingWeakCounts = CountWeakFolders(existingForLib);
+        Dictionary<string, int> scannedWeakCounts = CountWeakFolders(scannedForLib);
+
+        var merged = new List<GameEntry>();
+        foreach (GameEntry anchored in scannedForLib)
+        {
             if (existingById.TryGetValue(anchored.Id, out GameEntry? existing))
             {
                 consumed.Add(existing.Id);
@@ -92,7 +95,8 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
 
             // External move/rename: adopt the existing identity so the sidecar + user
             // state survive (Plan 127 A5).
-            GameEntry? relocated = FindRelocated(existingForLib, consumed, anchored);
+            GameEntry? relocated = FindRelocated(
+                existingForLib, consumed, anchored, existingWeakCounts, scannedWeakCounts);
             if (relocated is not null)
             {
                 consumed.Add(relocated.Id);
@@ -122,10 +126,15 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
     /// <summary>
     /// Finds an existing (not-yet-consumed) entry that is the same game at a different path —
     /// i.e. it was moved/renamed externally. Strong keys (store ids) match regardless of disk
-    /// state; the weak <c>FolderName</c> key matches only when the old folder is gone (Plan 127 A5).
+    /// state. The weak <c>FolderName</c> key matches only when the store is the same, the old
+    /// folder is gone, and the name is unique on both sides (Plan 127 A5).
     /// </summary>
     private static GameEntry? FindRelocated(
-        IReadOnlyList<GameEntry> existing, HashSet<string> consumed, GameEntry scanned)
+        IReadOnlyList<GameEntry> existing,
+        HashSet<string> consumed,
+        GameEntry scanned,
+        IReadOnlyDictionary<string, int> existingWeakCounts,
+        IReadOnlyDictionary<string, int> scannedWeakCounts)
     {
         var scannedKeys = new HashSet<string>(
             scanned.Identity.IdentityKeys.Select(k => k.Kind + "\u0000" + k.Value),
@@ -135,7 +144,7 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
         {
             if (consumed.Contains(e.Id))
                 continue;
-            if (PathsEqual(e.FolderPath, scanned.FolderPath))
+            if (PathText.Equals(e.FolderPath, scanned.FolderPath))
                 continue;
 
             foreach (IdentityKey key in e.Identity.IdentityKeys)
@@ -145,13 +154,43 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
 
                 if (!string.Equals(key.Kind, IdentityKeyKinds.FolderName, StringComparison.OrdinalIgnoreCase))
                     return e; // strong key
-                if (!Directory.Exists(e.FolderPath))
-                    return e; // weak key: only when the old folder is gone
+
+                // Weak hint: same store, old folder gone, and exactly one existing and one
+                // scanned entry carry the name. Ambiguity means no adoption.
+                if (e.GameSource != scanned.GameSource)
+                    continue;
+                if (Directory.Exists(e.FolderPath))
+                    continue;
+                if (WeakCountFor(existingWeakCounts, e) != 1
+                    || WeakCountFor(scannedWeakCounts, scanned) != 1)
+                {
+                    continue;
+                }
+
+                return e;
             }
         }
 
         return null;
     }
+
+    /// <summary>Count of entries per store-scoped folder name. Computed once per scan pass.</summary>
+    private static Dictionary<string, int> CountWeakFolders(IEnumerable<GameEntry> games)
+    {
+        var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (GameEntry g in games)
+        {
+            string key = InstallIdentity.WeakFolderKey(g.GameSource, g.FolderName);
+            if (key.Length == 0)
+                continue;
+            counts[key] = counts.GetValueOrDefault(key) + 1;
+        }
+
+        return counts;
+    }
+
+    private static int WeakCountFor(IReadOnlyDictionary<string, int> counts, GameEntry game) =>
+        counts.GetValueOrDefault(InstallIdentity.WeakFolderKey(game.GameSource, game.FolderName));
 
     private static List<string> AppendPreviousLocation(GameEntry relocated)
     {
@@ -164,9 +203,6 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
 
         return previous;
     }
-
-    private static bool PathsEqual(string a, string b) =>
-        string.Equals(a.TrimEnd('\\', '/'), b.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Removes all game entries linked to the specified library name.</summary>
     public void RemoveGamesForLibrary(string libraryName)
@@ -323,7 +359,6 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
 
     private sealed class GamesDatabaseDto
     {
-        public int Version { get; set; } = SchemaVersioning.Current;
         public List<GameEntryDto>? Games { get; set; }
     }
 

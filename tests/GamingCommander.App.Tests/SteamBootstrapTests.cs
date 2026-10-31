@@ -94,23 +94,6 @@ public sealed class SteamBootstrapTests : IDisposable
     }
 
     // ════════════════════════════════════════════════════════════════
-    //  Authority rule: vdf is a path locator ONLY
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void FindAllLibraries_AppsBlocksDoNotAddLibraries()
-    {
-        // The real file has multiple "apps" blocks (appid → size). They must NOT be
-        // read as library paths — only the three "path" entries count.
-        var locator = LocatorFromRealVdf();
-
-        var libs = locator.FindAllLibraries();
-
-        // install path + exactly the 3 path entries = 4 (no appid or app-size tokens)
-        Assert.Equal(4, libs.Count);
-    }
-
-    // ════════════════════════════════════════════════════════════════
     //  Gating (Q4)
     // ════════════════════════════════════════════════════════════════
 

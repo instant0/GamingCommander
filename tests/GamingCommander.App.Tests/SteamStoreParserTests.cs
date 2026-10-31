@@ -32,6 +32,9 @@ public sealed class SteamStoreParserTests
         Assert.NotNull(facts);
         Assert.False(facts.Success);
         Assert.Null(facts.Name);
+
+        // Failed facts never produce a metadata record.
+        Assert.Null(CommonMetadataParser.ToRecord(facts));
     }
 
     [Fact]
@@ -63,13 +66,6 @@ public sealed class SteamStoreParserTests
         Assert.Equal("Steam", record.LastMetadataSource);
         Assert.Null(record.FetchedEngine);
         Assert.True(record.HasDisplayableExtras);
-    }
-
-    [Fact]
-    public void CommonParser_UnsuccessfulFacts_ReturnsNull()
-    {
-        var facts = new SteamStoreFacts(false, "X", [], [], null, [], null, null, "1", null, null);
-        Assert.Null(CommonMetadataParser.ToRecord(facts));
     }
 
     [Fact]

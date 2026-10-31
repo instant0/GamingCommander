@@ -18,7 +18,7 @@
 
 Class-calibrated review of a local single-user launcher: no elevation, no services, no telemetry, no writes into game installs, no hidden network. Out of scope by decision: Authenticode, provenance/SLSA, reproducible builds, PSIRT/CVE, bounty, fuzzing, sandboxing, encryption at rest.
 
-- **Split, not one review:** T124 (detection/store/identity duplicates), T124A (connection map), T124B (persistence write integrity), T124C (repair-write safety), T124D (Epic online client disposition). Each has its own plan slot: 130, 132, 133, 134.
+- **Split, not one review:** T124 (detection/store/identity duplicates), T124A (connection map), T124B (persistence write integrity), T124C (repair-write safety), T124D (Epic online client disposition — closed, merged into the contract pass). Plan slots: 130, 132, 133.
 - **Repair writers:** no `Directory.CreateDirectory` outside the application data root. Generate in `data/staging/`, read it back to prove it parses, copy to the target, length-check, delete the staging file. Nothing else is written to the store directory — no temp files, no renames.
 - **Safe local-state writes, not tamper detection.** One sequence: copy to `data/games.json.bak` → write → read back and parse → accept, or restore the `.bak` and report. On read, a parse failure keeps the damaged bytes as `.corrupt`, restores the `.bak`, and says so; it never returns an empty catalogue. No hash, signature, or hash chain. Required before per-launch sync; a one-shot import may land first.
 - **`EpicStoreSearch` stays, as an identity lookup only.** Local `.item`/`.mancpn` manifests supply the Epic metadata; PCGW and the Steam lookup fill the rest. The client resolves the canonical title, namespace, and catalog id for a game local files cannot identify (orphan/renamed/incomplete), and resolves the title before the PCGW/Steam query. It returns title/namespace/id only, is gated, and is never called from scan, launch, or sync. `.item` regeneration and registration are separate, deferred subjects. The earlier removal proposal is withdrawn.
@@ -35,7 +35,7 @@ Corrected beliefs across the pending task set:
 - **Wiring gaps are task work, not assumptions:** the policy provider is wired in the launcher-discovery first-run step; `GameStoreIndex` is built by import/sync; no name-only identity matching (same store + unique only).
 
 ## Active queue
-See `META/SESSION/NEXT.md` for the canonical execution order. Task index: `META/TASKS/README.md`. Pending tasks are T124D, T126, T133, T117 (A/B), T118 (A/B/C), T119 (A/B), T121 (A/B/C), T122 (A/B), T125, T127, T128, plus the P2 UI track (T72→T73). Done on 2026-10-31: T130, T129, T132. The connection map is at `META/CONNECTION_MAP.md`; the I/O audit result is `planning/135-io-call-audit.md`.
+See `META/SESSION/NEXT.md` for the canonical execution order. Task index: `META/TASKS/README.md`. Pending tasks are T134, T117 (A/B), T118 (A/B/C), T119 (A/B), T121 (A/B/C), T122 (A/B), T125, T127, T128, plus the P2 UI track (T72→T73). Done on 2026-10-31: T130, T129, T132, T126, T133, T135; T124D closed and merged into T126. The connection map is at `META/CONNECTION_MAP.md`; the I/O audit result is `planning/135-io-call-audit.md`.
 
 ## Blockers / deferred
 - Steam-vs-SteamEmu is implemented; the `Extensions{}` / emulator model still needs a user decision.
@@ -44,5 +44,5 @@ See `META/SESSION/NEXT.md` for the canonical execution order. Task index: `META/
 
 ## Verification baseline
 - Build: 0 errors / 0 warnings.
-- Tests: 755 passing (Core 219, Migration 1, App 535).
+- Tests: 773 passing (Core 232, Migration 1, App 540).
 - Detection matrix: 22/22.

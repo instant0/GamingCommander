@@ -3,8 +3,11 @@
 **Tier:** 1 — Documentation / Architecture
 **Phase:** M — Store Capabilities
 **Risk:** Low (analysis only)
-**Status:** pending
+**Status:** closed — merged into Task T126 (2026-10-31)
 **Prerequisites:** None
+
+> Closed. The decision below is carried by the contract-accuracy task and the live documents; no separate
+> `planning/134` is produced. The decision itself stands: keep the client as a deferred identity lookup.
 
 > Documentation-only. Do not run build/test. Do not remove code in this task.
 
@@ -14,8 +17,8 @@ Correct the classification of `EpicStoreSearch`. It is a **deferred Epic identit
 code, and its only job is to resolve the canonical title, `namespace`, and catalog id for a game that
 local files cannot fully identify. Reading local `.item`/`.mancpn` manifests already supplies the
 metadata; PCGW and the Steam lookup supply the rest. Regenerating `.item` files is a different subject and
-is deferred. Produce `planning/134-epic-store-identity-disposition.md` with the purpose, the gate, the doc
-corrections, and the test definitions.
+is deferred. The decision is recorded in the contract-accuracy task and the live documents; no separate
+planning document is produced.
 
 ### What this is not
 
@@ -93,8 +96,8 @@ corrections, and the test definitions.
 - [ ] The test seam is a fake transport; no network access in tests.
 
 ### 5. Deliverable
-- [ ] `planning/134-epic-store-identity-disposition.md` with the evidence, the purpose, the gate, and the
-      consumer area (no task IDs in the plan).
+- [x] No separate document. The decision is recorded in `docs/ONLINE-AND-DATA.md`,
+      `docs/detection/10-store-capabilities.md`, the blueprint, `CODE_MAP`, and the contract-accuracy task.
 
 ## Context
 
@@ -121,11 +124,9 @@ corrections, and the test definitions.
 
 ## Verification
 
-- [ ] `test -f planning/134-epic-store-identity-disposition.md`.
-- [ ] The plan cites the four source documents above.
-- [ ] The plan lists the single purpose and the two uses, and no others.
+- [ ] The live docs describe the client consistently: deferred identity lookup, two uses, never removed.
 - [ ] `grep -rn "EpicStoreSearch" src tests` still shows no caller (unchanged).
-- [ ] The plan contains a no-network test definition for each use, including the guard.
+- [ ] The live docs contain the no-network test definition for each use, including the guard.
 
 ## Completion Notes
 

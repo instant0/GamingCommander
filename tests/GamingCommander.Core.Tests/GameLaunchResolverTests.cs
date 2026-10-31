@@ -31,6 +31,16 @@ public sealed class GameLaunchResolverTests
         Assert.Equal("-windowed --launcher-skip", args);
     }
 
+    [Fact]
+    public void EmptyTarget_NoExeAndNoUri_ReturnsEmptyTargetAndArguments()
+    {
+        var game = Make(exe: "", cmd: "", extras: "");
+
+        (string target, string args) = GameLaunchResolver.Resolve(game);
+        Assert.Equal("", target);
+        Assert.Equal("", args);
+    }
+
     private static GameEntry Make(string exe, string cmd, string extras) =>
         new(
             Identity: new IdentityInfo

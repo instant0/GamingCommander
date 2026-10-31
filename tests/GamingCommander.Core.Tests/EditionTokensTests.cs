@@ -10,7 +10,8 @@ namespace GamingCommander.Core.Tests;
 public sealed class EditionTokensTests
 {
     [Fact]
-    public void DisplayTokens_AreTheDeliberateDisplaySet() =>
+    public void TokenSets_AreTheDeliberateDisplayAndTailSets()
+    {
         Assert.Equal(
             [
                 "Remastered",
@@ -23,8 +24,6 @@ public sealed class EditionTokensTests
             ],
             EditionTokens.DisplayTokens);
 
-    [Fact]
-    public void TailTokens_AreTheDeliberateTailSet() =>
         Assert.Equal(
             [
                 "Reloaded",
@@ -39,4 +38,5 @@ public sealed class EditionTokensTests
                 "GOTY",
             ],
             EditionTokens.TailTokens);
+    }
 }

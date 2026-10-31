@@ -200,10 +200,10 @@ The security items are not one review. They are separate decisions with separate
 | Review | Question | Deliverable |
 |---|---|---|
 | Core consolidation | Detection, store-pipeline, and identity duplicates | `planning/130-duplicate-feature-consolidation.md` |
-| Connection map | How the pieces connect, read/write/network boundaries | `docs/architecture/CONNECTION_MAP.md` or a `CODE_MAP.md` section |
-| Persistence write durability | One JSON store, verified write with a rolling `.bak`, `OK`/`Missing`/`Corrupt`, app-folder-only `CreateDirectory` | `planning/132-persistence-write-integrity.md` |
+| Connection map | How the pieces connect, read/write/network boundaries | `META/CONNECTION_MAP.md` |
+| Persistence write durability | One JSON store, verified write with a rolling `.bak`, `OK`/`Missing`/`Corrupt`/`Unreadable`, app-folder-only `CreateDirectory` | `planning/132-persistence-write-integrity.md` |
 | Repair-write safety | Guard or remove; preflight, generate-validate-copy, journal, dry run | `planning/133-repair-write-safety.md` |
-| Epic online client | Keep as a deferred **identity lookup** (not metadata, not `.item` regeneration); define the gate | `planning/134-epic-store-identity-disposition.md` |
+| Epic online client | Keep as a deferred **identity lookup** (not metadata, not `.item` regeneration); define the gate | Recorded in `docs/ONLINE-AND-DATA.md`, `docs/detection/10-store-capabilities.md`, the blueprint, and `CODE_MAP` |
 
 The core review links to the other three instead of restating them.
 

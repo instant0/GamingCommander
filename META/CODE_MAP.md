@@ -103,10 +103,10 @@ GamingCommander.sln
 | `VdfParser` | `VdfParser.cs` | Minimal VDF/ACF key-value parser for Steam manifest files |
 | `GameEntryId` | `GameEntryId.cs` | Deterministic MD5-based ID generation for GameEntry records |
 | `GameIdentity` | Core `Services/GameIdentity.cs` | Plan 127 A5: rebuilds `IdentityKeys` from folder name + store ids |
-| `SchemaVersioning` | Core `Services/SchemaVersioning.cs` | Plan 127 A4: current schema version + readable-guard for the four JSON files |
 | `InstallStateMap` | Core `Services/InstallStateMap.cs` | Plan 127 B8: store status string → `InstallState` |
 | `GameStoreIndex` | `Core/Services/GameStoreIndex.cs` | Plan 129 §3.3: read-only in-memory index (`ByStoreKey`, normalized `ByPath`, `ByStore`, duplicate keys, missing manifest keys); no I/O |
 | `PathText` | `Core/Services/PathText.cs` | Plan 130: the single path rule — `TrimTrailingSeparators` (real paths), `NormalizeForCompare`, `Equals`, `IsUnder`, `Leaf`. Opaque Windows strings, no I/O, no case rewriting of stored values |
+| `InstallIdentity` | `Core/Services/InstallIdentity.cs` | Identity seams: `PathKey` (full path is the only folder identity) and `WeakFolderKey` (store-scoped folder name for the unique relocation hint only) |
 | `IStorePolicyProvider` | Core `Services/IStorePolicyProvider.cs` | Per-store policy reads/writes, `EnabledStores`, `CheckOnLaunchStores`, `CanImport`, `CanSync` |
 | `PeProductYear` | `PeProductYear.cs` | Year hint from PE FileVersion / LastWriteTime |
 
@@ -179,9 +179,10 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 | `ExecutableDiscovery` | `ExecutableDiscovery.cs` (+ `ExecutableDiscovery.Scoring.cs` partial) | Deep exe search, primary exe selection, launcher detection, Epic manifest discovery. Scoring half (`ScoreExecutable`, `RomanNumeralBonus`, `AbbreviationBonus`, `ExeScoreResult`) in the `.Scoring.cs` partial (Plan 125 Ph 2a) |
 | `SteamLibraryScanner` | `SteamLibraryScanner.cs` | Dedicated Steam scanner: ACF cross-ref, library path discovery, Installed/Moved/Orphaned/Missing; skips Steam-internal `common/` folders (Bug 10); cheap exe picking via `CheapExeFinder` |
 | `CheapExeFinder` | `CheapExeFinder.cs` | Plan 125 Ph 2c: root-exe-first + relative-folder cheap finder shared by Steam scanner and Epic `.item` writer (per-caller forbidden-exe skips) |
-| `EpicLibraryScanner` | `EpicLibraryScanner.cs` | ProgramData `*.item` → VFS (base games only) |
+| `EpicLibraryScanner` | `EpicLibraryScanner.cs` | ProgramData `*.item` → VFS (base games only); claims and matches by full install path |
 | `EpicItemCatalog` / `EpicItemClassifier` | same folder | Catalog and DLC skip; read-only |
 | `SteamAcfWriter` / `EpicItemWriter` / `RepairWriteGuard` | same folder | Repair writes: Steam creates an absent ACF, Epic modifies an existing `.item` (never creates/replaces); shared preflight, staging, copy, length check, backup/restore, journal |
+| `EpicStoreSearch` | `EpicStoreSearch.cs` | Deferred **identity lookup** (title/namespace/catalog id), no callers in v1. Two uses: identify a game with missing/incomplete local records; resolve the title before PCGW/Steam. Not a metadata source and not an `.item` generator. |
 | `SteamAcfParser` | `SteamAcfParser.cs` | Parses Steam ACF files and libraryfolders.vdf; AcfInfo record |
 | `GamesDatabaseService` | `GamesDatabaseService.cs` | JSON-file CRUD for the flat game list (`games.json`) via private DTOs, in-memory cache, anchor-keyed access (Plan 124) |
 | `LibrariesDatabaseService` | `LibrariesDatabaseService.cs` | Reads/writes `libraries.json` (named `Library` anchors) implementing `ILibrariesService` (Plan 124) |
@@ -210,8 +211,9 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 ### SteamLibraryScanner Key Logic
 
 - `Scan(rootPath)` / `ScanAll()` → scans steamapps/common/, cross-references ACFs from all libraries
+- ACF map is keyed by full install path (`InstallIdentity.PathKey`), never by the leaf `installdir`; two libraries can hold different games in same-named folders
 - `DiscoverLibraryPaths()` — parses libraryfolders.vdf for additional Steam library paths
-- Detects Installed/Moved/Orphaned/Missing status via ACF cross-referencing
+- Detects Installed/Moved/Orphaned/Missing status via ACF cross-referencing; a single ACF in another library whose folder is gone yields Moved (two candidates are ambiguous → Orphaned)
 - "Missing" detection: iterates all ACFs, checks if each installdir exists in any library's common/
 - "Moved" games set `Acf.ExpectedPath` and `Location.ActualLibraryRoot` for cross-library context
 - Stores status/ACF facts in `Acf` (`SteamAcfInfo`) and install state in `Install` (`InstallInfo`); no `Extra` dict exists

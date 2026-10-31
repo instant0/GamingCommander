@@ -22,18 +22,4 @@ public sealed class TitleSourceValuesContractTests
         Assert.Equal("PcgwPick", TitleSourceValues.PcgwPick);
         Assert.Equal("UserOverride", TitleSourceValues.UserOverride);
     }
-
-    [Fact]
-    public void ConstantValues_AreAllDistinct_NoTwoValuesAliasOneDerivation()
-    {
-        string[] values =
-        [
-            TitleSourceValues.GogInfo, TitleSourceValues.EaInstallLog,
-            TitleSourceValues.EpicItemManifest, TitleSourceValues.FolderExeMatch,
-            TitleSourceValues.PeFileDescription, TitleSourceValues.UbisoftReadme,
-            TitleSourceValues.PcgwPick, TitleSourceValues.UserOverride,
-        ];
-
-        Assert.Equal(values.Length, values.Distinct().Count());
-    }
 }

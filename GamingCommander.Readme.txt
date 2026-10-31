@@ -29,7 +29,8 @@ GamingCommander supports games from multiple platforms:
 
 The application does NOT modify, move, or delete any game files. It reads
 game directories to discover what is installed, and writes only to its own
-data folder to remember what it found.
+data folder to remember what it found — plus two repair files you explicitly
+ask it to write (a Steam ACF, or an update to an existing Epic .item).
 
 
 What does GamingCommander do?
@@ -256,16 +257,45 @@ ACCESS 9: Read game configuration files
 ACCESS 10: Write to application data folder
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   What:     Write files to GamingCommander's own data/ directory.
-  Why:      To save your settings, game database, extras cache, and logs.
-            This is the ONLY folder GamingCommander writes to.
+  Why:      To save your settings, game database, extras cache, logs, and
+            repair records.
+            This is the main folder GamingCommander writes to. The two
+            user-started repair actions in ACCESS 10b write outside it.
   Scope:    Only the data/ folder inside GamingCommander's installation
-            directory. No other folders are written to.
+            directory, plus the two repair targets in ACCESS 10b.
   Files:    settings.json         — Preferences and library roots
+            libraries.json        — Library roots/anchors
             games.json            — Discovered games (launch data)
             games_metadata.json   — Online extras cache (if lookup on)
+            collections.json      — Collections
             startup.log           — Diagnostic log (can be disabled)
             blacklist.json        — Noise filter (shipped; may restore)
             tag_colors.json       — Tag colours
+            *.json.bak            — Previous copy of each state file
+            *.json.corrupt        — Damaged JSON kept for inspection
+            repair-journal.jsonl  — One line per repair attempt
+            staging/              — Staged repair payload (deleted after)
+            backups/              — Original Epic .item before repair
+
+
+ACCESS 10b: User-started repair writes (outside data/)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  What:     Two actions you trigger, never automatic:
+            1. Write Steam ACF — creates
+               {library}\steamapps\appmanifest_{id}.acf in a Steam
+               library you already added. Refused if the file exists or
+               the folder is not a Steam library.
+            2. Repair Epic registration — updates an .item Epic already
+               wrote, in %ProgramData%\Epic\EpicGamesLauncher\Data\
+               Manifests. It never creates an .item and never replaces
+               one it cannot read.
+  Why:      To make a moved/renamed game visible to its launcher again.
+  Scope:    Only those two targets. No directory is created outside the
+            installation's data/ folder; a missing folder is a refusal.
+  Safety:   The payload is staged in data/staging, copied, and length-
+            checked. The Epic original is backed up under data/backups/
+            and restored if the copy fails. Every attempt is appended to
+            data/repair-journal.jsonl. No registry writes.
 
 
 ACCESS 11: Launch games
@@ -314,8 +344,10 @@ ACCESS 12: Internet access for metadata (opt-in)
               www.pcgamingwiki.com
               store.steampowered.com
 
-            Nothing else is contacted (not steamdb.info, not
-            store.epicgames.com, not api.igdb.com).
+            Nothing else is contacted in v1 (not steamdb.info, not
+            store.epicgames.com, not api.igdb.com). The Epic storefront
+            client is compiled but not called; a future opt-in identity
+            lookup would add store.epicgames.com to this list.
 
             1. Once at startup — only if the F2 box is already on:
                HEAD www.pcgamingwiki.com/favicon.ico
@@ -370,6 +402,13 @@ What files does GamingCommander generate?
     types, executable paths, tags, and platform metadata. Updated when
     you scan your libraries or edit games via F4.
 
+  data/libraries.json
+    Your library roots/anchors. Created/updated when you add or remove
+    a library.
+
+  data/collections.json
+    Collections you create.
+
   data/games_metadata.json
     Online extras only (developer, engine, wiki URL, paths, argument
     catalog, video caps, scores). Created when online lookup succeeds.
@@ -378,16 +417,32 @@ What files does GamingCommander generate?
   data/blacklist.json
     Reference file shipped with the application. Contains patterns for
     filtering out non-game executables (installers, redists, tools).
-    Read-only — not modified by the application.
+    Restored only when missing; your edits are not overwritten.
 
   data/startup.log
     Diagnostic log written during application startup. Contains timing
     information and error messages for troubleshooting. Can be disabled
     by setting the GC_STARTUP_LOGGING environment variable to "0".
 
-  No other files are created. GamingCommander does NOT create files in
-  your game directories, Start Menu shortcuts, or any other system
-  locations.
+  data/*.json.bak
+    The previous copy of each JSON state file, rewritten on every save.
+
+  data/*.json.corrupt
+    If a JSON file cannot be read, its bytes are kept here so they are
+    not lost. The previous .bak copy is restored automatically.
+
+  data/repair-journal.jsonl
+    One line per user-started repair attempt, including refusals.
+
+  data/staging/ and data/backups/
+    Temporary staged repair payload (deleted after) and the original
+    Epic .item kept before a repair.
+
+  The only files created outside data/ are the two user-started repair
+  targets in ACCESS 10b: a Steam ACF in your Steam library, or an
+  existing Epic .item under %ProgramData%. GamingCommander does NOT
+  create files in game directories, Start Menu shortcuts, or other
+  system locations.
 
 
 What does GamingCommander NOT do?
@@ -398,7 +453,9 @@ What does GamingCommander NOT do?
   — It does NOT scan your entire hard drive — only folders you add.
   — It does NOT send data to the internet unless you enable online
     metadata (then only AppID / game name to PCGW and Steam Store).
-  — It does NOT contact SteamDB, Epic GraphQL, or IGDB.
+  — It does NOT contact SteamDB, IGDB, or Epic's storefront in v1.
+    The Epic client is compiled but unused; if it is enabled later it
+    only resolves a game's identity (title, namespace, catalog id).
   — It does NOT install any background services or drivers.
   — It does NOT require administrator privileges to run.
   — It does NOT modify the Windows registry (read-only access only).
@@ -461,7 +518,8 @@ If online metadata is enabled, extras may be fetched from:
   — PCGamingWiki (https://www.pcgamingwiki.com) — wiki terms / CC BY-NC-SA
   — Steam Store appdetails (https://store.steampowered.com) — Valve terms
 
-See docs/ONLINE-AND-DATA.md. Epic GraphQL is not used.
+See docs/ONLINE-AND-DATA.md. Epic's storefront GraphQL is compiled but not called in v1; if enabled
+later it is an identity lookup only (title, namespace, catalog id).
 
 
 Contact

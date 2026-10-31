@@ -96,13 +96,4 @@ public sealed class GameStoreIndexTests
         Assert.Empty(index.Duplicates);
         Assert.Same(unkeyed, Assert.Single(index.GetForStore(GameSourceKind.Standalone)));
     }
-
-    [Fact]
-    public void NormalizePath_UnifiesSeparatorsAndTrailingSeparators()
-    {
-        Assert.Equal(@"C:\Games\Test", GameStoreIndex.NormalizePath(@"C:\Games\Test\"));
-        Assert.Equal(@"C:\Games\Test", GameStoreIndex.NormalizePath("C:/Games/Test/"));
-        Assert.Equal(string.Empty, GameStoreIndex.NormalizePath("  "));
-        Assert.Equal(string.Empty, GameStoreIndex.NormalizePath(null));
-    }
 }

@@ -79,19 +79,17 @@ public sealed class CollectionsDatabaseService : ICollectionsService
 
     private CollectionsDto ReadDto()
     {
-        return _store.Read(() => new CollectionsDto(), dto => SchemaVersioning.IsReadable(dto.Version)).Value
+        return _store.Read(() => new CollectionsDto()).Value
             ?? new CollectionsDto();
     }
 
     private void Write(CollectionsDto dto)
     {
-        dto.Version = SchemaVersioning.Current;
         _store.Write(dto);
     }
 
     private sealed class CollectionsDto
     {
-        public int Version { get; set; } = SchemaVersioning.Current;
         public Dictionary<string, CollectionDto>? Collections { get; set; }
     }
 

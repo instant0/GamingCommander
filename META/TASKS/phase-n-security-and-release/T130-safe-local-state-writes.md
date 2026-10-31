@@ -3,8 +3,11 @@
 **Tier:** 3 — Logic/Behavior
 **Phase:** N — Security and Release Integrity
 **Risk:** Medium
-**Status:** ready
+**Status:** completed
 **Prerequisites:** Task T130 depends on Task T124B (done)
+
+> **Superseded in part (2026-10-31):** the app-version guard and `Unreadable` state were removed. The
+> store now has `Ok`/`Missing`/`Corrupt`; see `META/COMPLETED/backward-compatibility-removed.md`.
 
 ## Shape (decided here; `planning/132` has the rationale)
 

@@ -3,86 +3,17 @@ using GamingCommander.Core.Models;
 
 namespace GamingCommander.App.Tests;
 
+/// <summary>
+/// Scanner-level noise filtering: hidden folders, JSON-blacklisted exe names,
+/// noise directories, Steam library location, primary-exe preference, and the
+/// nested-Steam exclusion (Bug 13b). Non-game/no-marker skips are owned by
+/// FolderScannerContainerTests.
+/// </summary>
 public sealed class ScannerFilterTests
 {
     private static readonly string MockRoot = Path.Combine(
         AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "..", "testdata", "mock");
 
-    /// <summary>
-    /// Folder with no .exe and no game marker files should be excluded.
-    /// </summary>
-    [Fact]
-    public void NonGameFolder_WithoutExeOrMarkers_IsExcluded()
-    {
-        string root = Path.Combine(MockRoot, "standalone");
-        var scanner = new FolderScanner();
-        var results = scanner.Scan(root, GameSourceKind.Standalone);
-
-        // "documentation" has no exe and no markers — should not appear
-        Assert.DoesNotContain(results, g =>
-            g.FolderName.Equals("documentation", StringComparison.OrdinalIgnoreCase));
-    }
-
-    /// <summary>
-    /// Folder with only non-game executables (installer, setup) is correctly
-    /// excluded from scan results — a folder with only noise executables
-    /// (setup.exe, vcredist_x64.exe) is not a game.
-    /// </summary>
-    [Fact]
-    public void NonGameFolder_WithOnlyNoiseExe_IsExcluded()
-    {
-        string root = Path.Combine(MockRoot, "standalone");
-        var scanner = new FolderScanner();
-        var results = scanner.Scan(root, GameSourceKind.Standalone);
-
-        // "_installer" has only noise exes (setup.exe, vcredist_x64.exe)
-        Assert.DoesNotContain(results, g =>
-            g.FolderName.Equals("_installer", StringComparison.OrdinalIgnoreCase));
-
-        // "redist" has only noise exes (dxwebsetup.exe, oalinst.exe)
-        Assert.DoesNotContain(results, g =>
-            g.FolderName.Equals("redist", StringComparison.OrdinalIgnoreCase));
-    }
-
-    /// <summary>
-    /// A folder under steamapps/common is Steam by location, even when its only
-    /// signal is steam_appid.txt. Outside a Steam library, steam_appid.txt alone
-    /// is not a definitive Steam signal (many standalone games include it).
-    /// </summary>
-    [Fact]
-    public void SteamGame_UnderLibrary_IsDetectedAsSteam()
-    {
-        string root = Path.Combine(MockRoot, "steam", "steamapps", "common");
-        var scanner = new FolderScanner();
-        var results = scanner.Scan(root, GameSourceKind.Steam);
-
-        Assert.Contains(results, g =>
-            g.FolderName.Equals("MockGameAlpha", StringComparison.OrdinalIgnoreCase)
-            && g.GameSource == GameSourceKind.Steam);
-    }
-
-    /// <summary>
-    /// Folder with steam_api64.dll at root (outside Steam library path)
-    /// should be detected as SteamEmu.
-    /// </summary>
-    [Fact]
-    public void SteamEmuGame_WithApiDll_IsDetectedAsSteamEmu()
-    {
-        string root = Path.Combine(MockRoot, "standalone");
-        var scanner = new FolderScanner();
-        var results = scanner.Scan(root, GameSourceKind.Standalone);
-
-        // SteamEmuEpsilon has steam_api64.dll + GameEpsilon.exe
-        // steam_api64.dll at root outside Steam library = Steam Emulator
-        Assert.Contains(results, g =>
-            g.FolderName.Equals("SteamEmuEpsilon", StringComparison.OrdinalIgnoreCase)
-            && g.GameSource == GameSourceKind.SteamEmu);
-    }
-
-    /// <summary>
-    /// When a folder contains both a game exe and a larger anti-cheat installer,
-    /// the primary executable should be the game exe (folder-name match wins).
-    /// </summary>
     [Fact]
     public void PrimaryExe_WithAntiCheatInstaller_PrefersNameMatch()
     {
@@ -90,12 +21,8 @@ public sealed class ScannerFilterTests
         var scanner = new FolderScanner();
         var results = scanner.Scan(root, GameSourceKind.Standalone);
 
-        // AntiCheatZeta contains:
-        //   - GameZeta.exe (50MB, name matches "AntiCheatZeta" via token)
-        //   - easyanticheat_setup.exe (100MB, filtered as non-game)
-        //   - steam_api64.dll (not an exe)
-        // The primary exe should be GameZeta.exe
-
+        // AntiCheatZeta contains GameZeta.exe (name match) and a larger
+        // easyanticheat_setup.exe (filtered as non-game noise).
         var entry = results.FirstOrDefault(g =>
             g.FolderName.Equals("AntiCheatZeta", StringComparison.OrdinalIgnoreCase));
 
@@ -104,9 +31,6 @@ public sealed class ScannerFilterTests
         Assert.DoesNotContain("easyanticheat", entry.ExecutablePath, StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>
-    /// The HiddenFolders ignore list should skip matching folder names.
-    /// </summary>
     [Fact]
     public void HiddenFolders_AreSkipped()
     {
@@ -118,252 +42,100 @@ public sealed class ScannerFilterTests
             g.FolderName.Equals("SteamEmuEpsilon", StringComparison.OrdinalIgnoreCase));
     }
 
-    // ════════════════════════════════════════════════════════════════
-    //  Bug 5 Regression Tests — Instance noise check sees JSON patterns
-    // ════════════════════════════════════════════════════════════════
+    [Fact]
+    public void SteamGame_UnderLibrary_IsDetectedAsSteam()
+    {
+        // A folder under steamapps/common is Steam by location even when its only
+        // signal is steam_appid.txt.
+        string root = Path.Combine(MockRoot, "steam", "steamapps", "common");
+        var scanner = new FolderScanner();
+        var results = scanner.Scan(root, GameSourceKind.Steam);
+
+        Assert.Contains(results, g =>
+            g.FolderName.Equals("MockGameAlpha", StringComparison.OrdinalIgnoreCase)
+            && g.GameSource == GameSourceKind.Steam);
+    }
 
     /// <summary>
-    /// Regression test for Bug 5: The instance noise-check method must see
-    /// JSON-blacklisted patterns (blender, python, scummvm, server, editor)
-    /// that the old static method missed.
-    /// Folders containing ONLY these noise exes should be excluded.
+    /// Bug 5: the instance noise check must see JSON-blacklisted exe patterns.
+    /// One noise-exe test owns that branch (positive and negative in the same tree).
     /// </summary>
     [Fact]
     public void Scan_FolderWithJsonBlacklistedNoise_IsExcluded()
     {
-        string tempRoot = Path.Combine(Path.GetTempPath(), "NoiseTest_" + Guid.NewGuid().ToString("N")[..8]);
-        try
-        {
-            Directory.CreateDirectory(tempRoot);
+        using var temp = new TempDirectory();
+        temp.CreateFile("BlenderProject/blender.exe", new byte[1]);
+        temp.CreateFile("ValidGame/ValidGame.exe", new byte[1]);
 
-            // Create a folder with only "blender.exe" — a JSON-blacklisted pattern
-            string gameDir = Path.Combine(tempRoot, "BlenderProject");
-            Directory.CreateDirectory(gameDir);
-            File.WriteAllText(Path.Combine(gameDir, "blender.exe"), "");
+        var blacklist = new BlacklistData(
+            ExeNamePatterns: ["blender", "python", "scummvm", "server", "editor"],
+            TieredExePatterns: [],
+            DirectoryPatterns: [],
+            PeMetadataPatterns: [],
+            PcgwTitleNoise: []);
+        var scanner = new FolderScanner([], blacklist);
 
-            // Create a valid game folder so scanner has something to return if it works
-            string validDir = Path.Combine(tempRoot, "ValidGame");
-            Directory.CreateDirectory(validDir);
-            File.WriteAllText(Path.Combine(validDir, "ValidGame.exe"), "");
+        var results = scanner.Scan(temp.Root, GameSourceKind.Standalone);
 
-            // Use custom noise patterns that include "blender" (was previously only
-            // visible to the old static method)
-            var blacklist = new BlacklistData(
-                ExeNamePatterns: ["blender", "python", "scummvm", "server", "editor"],
-                TieredExePatterns: [],
-                DirectoryPatterns: [],
-                PeMetadataPatterns: [],
-                PcgwTitleNoise: []);
-            var scanner = new FolderScanner([], blacklist);
+        Assert.DoesNotContain(results, g =>
+            g.FolderName.Equals("BlenderProject", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(results, g =>
+            g.FolderName.Equals("ValidGame", StringComparison.OrdinalIgnoreCase));
+    }
 
-            var results = scanner.Scan(tempRoot, GameSourceKind.Standalone);
+    [Fact]
+    public void Scan_NoiseDirectory_IsExcluded()
+    {
+        // B24: the ARC store/launcher directory is noise, not a game.
+        using var temp = new TempDirectory();
+        temp.CreateFile("arc/arc.exe", new byte[1]);
+        temp.CreateFile("ValidGame/ValidGame.exe", new byte[1]);
 
-            // "BlenderProject" should be excluded because its only exe matches a noise pattern
-            Assert.DoesNotContain(results, g =>
-                g.FolderName.Equals("BlenderProject", StringComparison.OrdinalIgnoreCase));
+        var scanner = new FolderScanner();
+        var results = scanner.Scan(temp.Root, GameSourceKind.Standalone);
 
-            // "ValidGame" should still be included
-            Assert.Contains(results, g =>
-                g.FolderName.Equals("ValidGame", StringComparison.OrdinalIgnoreCase));
-        }
-        finally
-        {
-            if (Directory.Exists(tempRoot))
-                Directory.Delete(tempRoot, true);
-        }
+        Assert.DoesNotContain(results, g =>
+            g.FolderName.Equals("arc", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(results, g =>
+            g.FolderName.Equals("ValidGame", StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>
-    /// Regression test for Bug 5: Folders with multiple JSON-blacklisted exes
-    /// should all be excluded.
+    /// Bug 13b: a child that IS a Steam library must not be emitted as a Standalone
+    /// game even without a "steam" folder name. Steam games are found by adding the
+    /// path as a Steam library root instead.
     /// </summary>
-    [Fact]
-    public void Scan_FolderWithMultipleJsonNoiseExes_IsExcluded()
-    {
-        string tempRoot = Path.Combine(Path.GetTempPath(), "NoiseTest_" + Guid.NewGuid().ToString("N")[..8]);
-        try
-        {
-            Directory.CreateDirectory(tempRoot);
-
-            string gameDir = Path.Combine(tempRoot, "PythonScripts");
-            Directory.CreateDirectory(gameDir);
-            File.WriteAllText(Path.Combine(gameDir, "python3.exe"), "");
-            File.WriteAllText(Path.Combine(gameDir, "server.exe"), "");
-
-            var blacklist = new BlacklistData(
-                ExeNamePatterns: ["python", "server"],
-                TieredExePatterns: [],
-                DirectoryPatterns: [],
-                PeMetadataPatterns: [],
-                PcgwTitleNoise: []);
-            var scanner = new FolderScanner([], blacklist);
-
-            var results = scanner.Scan(tempRoot, GameSourceKind.Standalone);
-
-            Assert.DoesNotContain(results, g =>
-                g.FolderName.Equals("PythonScripts", StringComparison.OrdinalIgnoreCase));
-        }
-        finally
-        {
-            if (Directory.Exists(tempRoot))
-                Directory.Delete(tempRoot, true);
-        }
-    }
-
-    /// <summary>
-    /// Negative case: A folder with a non-noise exe should NOT be excluded.
-    /// </summary>
-    [Fact]
-    public void Scan_FolderWithNonNoiseExe_IsIncluded()
-    {
-        string tempRoot = Path.Combine(Path.GetTempPath(), "NoiseTest_" + Guid.NewGuid().ToString("N")[..8]);
-        try
-        {
-            Directory.CreateDirectory(tempRoot);
-
-            string gameDir = Path.Combine(tempRoot, "MyGame");
-            Directory.CreateDirectory(gameDir);
-            File.WriteAllText(Path.Combine(gameDir, "MyGame.exe"), "");
-
-            var blacklist = new BlacklistData(
-                ExeNamePatterns: ["setup", "installer"],
-                TieredExePatterns: [],
-                DirectoryPatterns: [],
-                PeMetadataPatterns: [],
-                PcgwTitleNoise: []);
-            var scanner = new FolderScanner([], blacklist);
-
-            var results = scanner.Scan(tempRoot, GameSourceKind.Standalone);
-
-            Assert.Contains(results, g =>
-                g.FolderName.Equals("MyGame", StringComparison.OrdinalIgnoreCase));
-        }
-        finally
-        {
-            if (Directory.Exists(tempRoot))
-                Directory.Delete(tempRoot, true);
-        }
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    //  Phase 1 — Plan 114 NoiseSubDirNames (B24, B25, B30)
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void NoiseSubDirNames_ContainsArc()
-    {
-        // B24: ARC game store/launcher directory should be skipped
-        Assert.Contains("arc", FileSystemHelper.NoiseSubDirNames);
-    }
-
-    [Fact]
-    public void NoiseSubDirNames_ContainsBattleDotNet()
-    {
-        // B25: Battle.net launcher directory should be skipped
-        Assert.Contains("battle.net", FileSystemHelper.NoiseSubDirNames);
-    }
-
-    [Fact]
-    public void NoiseSubDirNames_ContainsBackupDirectories()
-    {
-        // B30: Backup directory copies should be skipped
-        Assert.Contains("x64 - copy", FileSystemHelper.NoiseSubDirNames);
-        Assert.Contains("x86 - copy", FileSystemHelper.NoiseSubDirNames);
-    }
-
-    [Fact]
-    public void NoiseSubDirNames_ContainsBug13aRedistNames()
-    {
-        // Bug 13a: generic redistributable folder names must be skipped
-        Assert.Contains("redistributable", FileSystemHelper.NoiseSubDirNames);
-        Assert.Contains("commonredist", FileSystemHelper.NoiseSubDirNames);
-        Assert.Contains("jdk", FileSystemHelper.NoiseSubDirNames);
-        Assert.Contains("redist", FileSystemHelper.NoiseSubDirNames);
-    }
-
-    [Fact]
-    public void Scan_ArcDirectory_IsExcluded()
-    {
-        // B24: Full integration test — ARC folder with arc.exe is not a game
-        string tempRoot = Path.Combine(Path.GetTempPath(), "ArcTest_" + Guid.NewGuid().ToString("N")[..8]);
-        try
-        {
-            Directory.CreateDirectory(tempRoot);
-
-            string arcDir = Path.Combine(tempRoot, "arc");
-            Directory.CreateDirectory(arcDir);
-            File.WriteAllText(Path.Combine(arcDir, "arc.exe"), "");
-
-            string validDir = Path.Combine(tempRoot, "ValidGame");
-            Directory.CreateDirectory(validDir);
-            File.WriteAllText(Path.Combine(validDir, "ValidGame.exe"), "");
-
-            var scanner = new FolderScanner();
-            var results = scanner.Scan(tempRoot, GameSourceKind.Standalone);
-
-            Assert.DoesNotContain(results, g =>
-                g.FolderName.Equals("arc", StringComparison.OrdinalIgnoreCase));
-            Assert.Contains(results, g =>
-                g.FolderName.Equals("ValidGame", StringComparison.OrdinalIgnoreCase));
-        }
-        finally
-        {
-            if (Directory.Exists(tempRoot))
-                Directory.Delete(tempRoot, true);
-        }
-    }
-
-    [Fact]
-    public void Scan_NestedSteamLibrary_IsExcludedFromStandalone()
-    {
-        // Bug 13b: a child folder that IS a Steam library (steamapps/common inside)
-        // must not be emitted as a single Standalone "game" — Steam games are found
-        // by adding the path as a Steam library root instead.
-        string tempRoot = Path.Combine(Path.GetTempPath(), "SteamTreeTest_" + Guid.NewGuid().ToString("N")[..8]);
-        try
-        {
-            Directory.CreateDirectory(Path.Combine(tempRoot, "Steam", "steamapps", "common", "SomeSteamGame"));
-            File.WriteAllText(Path.Combine(tempRoot, "Steam", "steam.exe"), "");
-
-            string validDir = Path.Combine(tempRoot, "ValidGame");
-            Directory.CreateDirectory(validDir);
-            File.WriteAllText(Path.Combine(validDir, "ValidGame.exe"), "");
-
-            var scanner = new FolderScanner();
-            var results = scanner.Scan(tempRoot, GameSourceKind.Standalone);
-
-            Assert.DoesNotContain(results, g =>
-                g.FolderName.Equals("Steam", StringComparison.OrdinalIgnoreCase));
-            Assert.Contains(results, g =>
-                g.FolderName.Equals("ValidGame", StringComparison.OrdinalIgnoreCase));
-        }
-        finally
-        {
-            if (Directory.Exists(tempRoot))
-                Directory.Delete(tempRoot, true);
-        }
-    }
-
     [Fact]
     public void Scan_LibraryRootChildFolder_IsExcludedFromStandalone()
     {
-        // Bug 13b: structurally a library root even without a "steam" folder name.
-        string tempRoot = Path.Combine(Path.GetTempPath(), "LibRootTest_" + Guid.NewGuid().ToString("N")[..8]);
-        try
-        {
-            Directory.CreateDirectory(Path.Combine(tempRoot, "Games", "steamapps", "common", "SomeSteamGame"));
-            File.WriteAllText(Path.Combine(tempRoot, "Games", "SomeGame.exe"), "");
+        using var temp = new TempDirectory();
+        temp.CreateDirectory("Games", "steamapps", "common", "SomeSteamGame");
+        temp.CreateFile("Games/SomeGame.exe", new byte[1]);
 
-            var scanner = new FolderScanner();
-            var results = scanner.Scan(tempRoot, GameSourceKind.Standalone);
+        var scanner = new FolderScanner();
+        var results = scanner.Scan(temp.Root, GameSourceKind.Standalone);
 
-            Assert.DoesNotContain(results, g =>
-                g.FolderName.Equals("Games", StringComparison.OrdinalIgnoreCase));
-        }
-        finally
-        {
-            if (Directory.Exists(tempRoot))
-                Directory.Delete(tempRoot, true);
-        }
+        Assert.DoesNotContain(results, g =>
+            g.FolderName.Equals("Games", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Bug 13b: the Steam application folder itself (name "steam") is also excluded.
+    /// </summary>
+    [Fact]
+    public void Scan_SteamApplicationFolder_IsExcludedFromStandalone()
+    {
+        using var temp = new TempDirectory();
+        temp.CreateDirectory("Steam", "steamapps", "common", "SomeSteamGame");
+        temp.CreateFile("Steam/steam.exe", new byte[1]);
+        temp.CreateFile("ValidGame/ValidGame.exe", new byte[1]);
+
+        var scanner = new FolderScanner();
+        var results = scanner.Scan(temp.Root, GameSourceKind.Standalone);
+
+        Assert.DoesNotContain(results, g =>
+            g.FolderName.Equals("Steam", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(results, g =>
+            g.FolderName.Equals("ValidGame", StringComparison.OrdinalIgnoreCase));
     }
 }

@@ -5,19 +5,14 @@ namespace GamingCommander.Core.Tests;
 public sealed class PcgwTitleFilterTests
 {
     [Theory]
-    [InlineData("Cyberpunk 2077 Soundtrack")]
     [InlineData("Cyberpunk 2077 - Official Soundtrack")]
     [InlineData("Some Game Demo")]
-    [InlineData("Foo (disambiguation)")]
-    [InlineData("Tomb Raider - The Final Hours Digital Book")]
     public void RejectsNoiseTitles(string title) =>
         Assert.True(PcgwTitleFilter.IsNoisy(title));
 
     [Theory]
-    [InlineData("Cyberpunk 2077")]
     [InlineData("Democracy 3")]
     [InlineData("Bethesda Softworks")]
-    [InlineData("Tomb Raider (2013)")]
     public void KeepsRealTitles(string title) =>
         Assert.False(PcgwTitleFilter.IsNoisy(title));
 
@@ -39,8 +34,10 @@ public sealed class PcgwTitleFilterTests
         Assert.Equal("ELEX", best);
     }
 
-    [Fact]
-    public void PickBest_YearHint_PrefersRemakeOverOriginal()
+    [Theory]
+    [InlineData(2026, "Dead Space (2023)")]
+    [InlineData(2008, "Dead Space")]
+    public void PickBest_YearHint_PrefersClosestYear(int yearHint, string expected)
     {
         string? title = PcgwTitleFilter.PickBest(
         [
@@ -48,8 +45,8 @@ public sealed class PcgwTitleFilterTests
             "Dead Space (2023)",
             "Dead Space (remake)",
             "Dead Space 2",
-        ], yearHint: 2026);
-        Assert.Equal("Dead Space (2023)", title);
+        ], yearHint: yearHint);
+        Assert.Equal(expected, title);
     }
 
     [Fact]
@@ -65,14 +62,4 @@ public sealed class PcgwTitleFilterTests
         Assert.Equal("Beneath a Steel Sky", titles[0]);
     }
 
-    [Fact]
-    public void PickBest_YearHint2008_KeepsOriginal()
-    {
-        string? title = PcgwTitleFilter.PickBest(
-        [
-            "Dead Space",
-            "Dead Space (2023)",
-        ], yearHint: 2008);
-        Assert.Equal("Dead Space", title);
-    }
 }

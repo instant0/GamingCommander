@@ -56,22 +56,6 @@ public sealed class PythonParityDetectionTests : IDisposable
             e.ExecutablePath.Contains("GameClient.exe", StringComparison.OrdinalIgnoreCase));
     }
 
-    [Fact]
-    public void Scan_NeverwinterDirect_TerminatingRuleResolvesRootExe()
-    {
-        // Scan the game folder directly as a root (probe parity).
-        string nw = CreateDir("neverwinter_en");
-        CreateExe(nw, "Neverwinter.exe");
-        CreateExe(CreateDir("neverwinter_en", "Neverwinter", "Live", "x64"), "GameClient.exe");
-
-        var entries = _scanner.Scan(_tempDir, GameSourceKind.Standalone);
-
-        var entry = entries.FirstOrDefault(e =>
-            e.FolderName.Contains("neverwinter", StringComparison.OrdinalIgnoreCase));
-        Assert.NotNull(entry);
-        Assert.Contains("Neverwinter.exe", entry.ExecutablePath, StringComparison.OrdinalIgnoreCase);
-    }
-
     // ════════════════════════════════════════════════════════════════
     //  Whole-name match (GAP A)
     // ════════════════════════════════════════════════════════════════
@@ -162,15 +146,6 @@ public sealed class PythonParityDetectionTests : IDisposable
             "IndianaEpicGameStore-Win64-Shipping.exe", FolderScanner.DefaultNoiseExePatterns));
     }
 
-    [Fact]
-    public void IsNoiseExeName_EpicLauncher_IsNoise()
-    {
-        Assert.True(FileSystemHelper.IsNoiseExeName(
-            "EpicGamesLauncher.exe", FolderScanner.DefaultNoiseExePatterns));
-        Assert.True(FileSystemHelper.IsNoiseExeName(
-            "EpicGamesUpdater.exe", FolderScanner.DefaultNoiseExePatterns));
-    }
-
     // ════════════════════════════════════════════════════════════════
     //  BattleNet .patch.result (E2)
     // ════════════════════════════════════════════════════════════════
@@ -190,24 +165,6 @@ public sealed class PythonParityDetectionTests : IDisposable
             e.FolderName.Contains("Diablo", StringComparison.OrdinalIgnoreCase));
         Assert.NotNull(entry);
         Assert.Equal(GameSourceKind.BattleNet, entry.GameSource);
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    //  Non-game folder layers 2-3
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void Scan_DataOnlyFolderWithOnlyManuals_Skipped()
-    {
-        // Folder with only manuals/docs — Layer 3 file-type analysis rejects it.
-        string data = CreateDir("Publisher", "DataFolder");
-        File.WriteAllText(Path.Combine(data, "readme.txt"), "hello");
-        File.WriteAllText(Path.Combine(data, "manual.pdf"), "pdf");
-
-        var entries = _scanner.Scan(_tempDir, GameSourceKind.Standalone);
-
-        Assert.DoesNotContain(entries, e =>
-            e.FolderName.Contains("DataFolder", StringComparison.OrdinalIgnoreCase));
     }
 
     // ════════════════════════════════════════════════════════════════

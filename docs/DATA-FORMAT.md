@@ -51,7 +51,6 @@ Top-level shape:
 
 | Property | Type | Meaning |
 |----------|------|---------|
-| `version` | int | Schema version (currently `1`) |
 | `libraries` | object (name → **anchor object**) | All configured anchors, keyed by unique name |
 
 ### Anchor object (`libraries.<name>`)
@@ -100,7 +99,6 @@ Top-level shape:
 
 | Property | Type | Meaning |
 |----------|------|---------|
-| `Version` | int | Schema version (`SchemaVersioning.Current`) |
 | `HiddenFolders` | string[] | Folder names excluded from scanning |
 | `IsFirstRun` | bool | First-run wizard still pending |
 | `LastSeenVersion` | string/null | Last launched app version |
@@ -140,7 +138,6 @@ Top-level shape:
 
 | Property | Type | Meaning |
 |----------|------|---------|
-| `version` | int | Schema version (currently `1`) |
 | `games` | array of **game-entry objects** | All discovered games |
 
 ### Game-entry object (`games[]`)
@@ -243,7 +240,6 @@ Top-level shape:
 
 | Property | Type | Meaning |
 |----------|------|---------|
-| `version` | int | Sidecar file version (currently `1`) |
 | `entries` | object (gameId → **sidecar-entry object**) | One entry per game id |
 
 Sidecar-entry object (`SidecarEntry`):
@@ -296,7 +292,6 @@ Written by `CollectionsDatabaseService` (`ICollectionsService`). Shape:
 
 | Property | Type | Meaning |
 |----------|------|---------|
-| `version` | int | Schema version (`SchemaVersioning.Current`) |
 | `collections` | object (name → **collection object**) | One entry per collection |
 
 Collection object:
@@ -318,10 +313,6 @@ Collection object:
   read. JSON property names match the record/DTO property names shown in this document
   (`Identity`, `Location`, `Launch`, `Detection`, `Store`, `Acf`, `Epic`).
 - **Idempotent reads:** a missing/corrupt file returns defaults (empty), never throws.
-- **Schema versioning (Plan 127 A4):** every file carries a `version` field written as
-  `SchemaVersioning.Current` (Core). On read, a file from a **newer** build is rejected (returned as
-  defaults) rather than silently misread. No migrations exist yet (nothing shipped); a future
-  breaking change bumps `Current` and adds an upgrade step in that file's load path.
 - **Merge rule on rescan:** user overrides survive; scanned values fill the rest;
   `TitleSource` pinned to `PcgwPick`/`UserOverride` is preserved.
 - **Steam aggregation:** one `Steam` anchor owns many physical folders; games are

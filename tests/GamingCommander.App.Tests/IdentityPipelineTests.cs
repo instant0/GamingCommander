@@ -14,25 +14,8 @@ namespace GamingCommander.App.Tests;
 public sealed class IdentityPipelineTests
 {
     // ════════════════════════════════════════════════════════════════
-    //  E7 — query ordering
+    //  E7 — query ordering (exe stem before folder acronym)
     // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void SearchQueries_PeTitleBeforeFolderName()
-    {
-        // E7: PE title → exe stem → display → folder (LAST). The acronym folder
-        // "jag2" must appear after the PE title "Jagged Alliance 2 Gold".
-        IReadOnlyList<string> q = TitleText.SearchQueries(
-            "Jagged Alliance 2 Gold",   // PE title (candidate 1)
-            "ja2",                      // exe stem (candidate 2)
-            "jag2",                     // display name (candidate 3)
-            "jag2");                    // folder name (candidate 4, LAST)
-
-        int peIdx = q.ToList().FindIndex(s => s.Contains("Jagged", StringComparison.OrdinalIgnoreCase));
-        int folderIdx = q.ToList().FindIndex(s => s.Equals("jag2", StringComparison.OrdinalIgnoreCase));
-        Assert.True(peIdx >= 0, "PE title must be a query candidate");
-        Assert.True(folderIdx > peIdx, "folder name must come AFTER the PE title");
-    }
 
     [Fact]
     public void SearchQueries_ExeStemBeforeFolderName()

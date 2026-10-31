@@ -24,22 +24,17 @@ public sealed class CollectionsDatabaseServiceTests : IDisposable
     {
         var svc = Create();
         svc.Upsert(new Collection { Name = "Favourites", GameIds = ["a", "b"] });
+        svc.Upsert(new Collection { Name = "RPGs", SmartQuery = "tag:RPG" });
 
         Collection? c = Create().Get("Favourites");
         Assert.NotNull(c);
         Assert.Equal(["a", "b"], c!.GameIds);
         Assert.False(c.IsSmart);
-    }
 
-    [Fact]
-    public void SmartCollection_IsSmart()
-    {
-        var svc = Create();
-        svc.Upsert(new Collection { Name = "RPGs", SmartQuery = "tag:RPG" });
-
-        Collection? c = Create().Get("RPGs");
-        Assert.True(c!.IsSmart);
-        Assert.Equal("tag:RPG", c.SmartQuery);
+        Collection? smart = Create().Get("RPGs");
+        Assert.NotNull(smart);
+        Assert.True(smart!.IsSmart);
+        Assert.Equal("tag:RPG", smart.SmartQuery);
     }
 
     [Fact]
@@ -49,15 +44,5 @@ public sealed class CollectionsDatabaseServiceTests : IDisposable
         svc.Upsert(new Collection { Name = "Temp" });
         Assert.True(svc.Remove("Temp"));
         Assert.Null(Create().Get("Temp"));
-    }
-
-    [Fact]
-    public void FutureSchemaVersion_ReturnsEmpty()
-    {
-        string path = Path.Combine(_dir, "collections.json");
-        File.WriteAllText(path, $$"""{ "Version": {{SchemaVersioning.Current + 1}}, "Collections": {} }""");
-        var svc = new CollectionsDatabaseService(path);
-
-        Assert.Empty(svc.Collections);
     }
 }

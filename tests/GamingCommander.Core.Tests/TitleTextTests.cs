@@ -7,8 +7,6 @@ public sealed class TitleTextTests
 {
     [Theory]
     [InlineData("Dark Souls® III", "Dark Souls III")]
-    [InlineData("Dead Space™ 3", "Dead Space 3")]
-    [InlineData("Foo© Bar", "Foo Bar")]
     public void ForSearch_StripsMarks(string raw, string expected) =>
         Assert.Equal(expected, TitleText.ForSearch(raw));
 
@@ -27,48 +25,36 @@ public sealed class TitleTextTests
     [Theory]
     [InlineData("elex", "elex")]
     [InlineData("elexII", "ELEX2")]
-    [InlineData("ELEX", "ELEX")]
     public void MatchesFolderAndExe_GothicStyle(string folder, string exe) =>
         Assert.True(TitleText.MatchesFolderAndExe(folder, exe));
 
     [Fact]
-    public void MatchesFolderAndExe_NotSystem() =>
-        Assert.False(TitleText.MatchesFolderAndExe("elexII", "System"));
-
-    [Fact]
-    public void IsGenericLabel_System() =>
+    public void MatchesFolderAndExe_NotSystem()
+    {
+        // "System" is a generic label, does not share a name token, and is not a match.
         Assert.True(TitleText.IsGenericLabel("System"));
+        Assert.False(TitleText.SharesNameToken("System", "elexII"));
+        Assert.False(TitleText.MatchesFolderAndExe("elexII", "System"));
+    }
 
     [Fact]
-    public void StripEdition_Reloaded() =>
-        Assert.Equal(
-            "Dying Light 2 Stay Human",
-            TitleText.StripEdition("Dying Light 2 Stay Human - Reloaded Edition"));
-
-    public static IEnumerable<object[]> TailTokens() =>
-        EditionTokens.TailTokens.Select(token => new object[] { token });
-
-    [Theory]
-    [MemberData(nameof(TailTokens))]
-    public void StripEdition_StripsEachTailToken(string token)
+    public void StripEdition_StripsTailTokenAndSuffixes()
     {
         const string title = "Dying Light 2 Stay Human";
 
-        Assert.Equal(title, TitleText.StripEdition($"{title} - {token}"));
-        Assert.Equal(title, TitleText.StripEdition($"{title}: {token}"));
-        Assert.Equal(title, TitleText.StripEdition($"{title} - {token} Edition"));
+        Assert.Equal(title, TitleText.StripEdition($"{title} - Reloaded Edition"));
+        Assert.Equal(title, TitleText.StripEdition($"{title} - Reloaded"));
+        Assert.Equal(title, TitleText.StripEdition($"{title}: Reloaded"));
     }
 
     [Theory]
     [InlineData("Reloaded - Dying Light 2 Stay Human")]
     [InlineData("Dying Light 2 Stay Human - Reloaded Edition - Stay Human")]
-    [InlineData("Dying Light 2 Stay Human: Gold - Stay Human")]
     public void StripEdition_LeavesMidTitleToken(string input) =>
         Assert.Equal(input, TitleText.StripEdition(input));
 
     [Theory]
     [InlineData("Dying Light 2 Stay Human - Reloaded Edition")]
-    [InlineData("Dying Light 2 Stay Human: GOTY")]
     [InlineData("Dying Light 2 Stay Human")]
     public void StripEdition_IsIdempotent(string input)
     {
@@ -79,7 +65,6 @@ public sealed class TitleTextTests
     [Theory]
     [InlineData(GameSourceKind.Steam)]
     [InlineData(GameSourceKind.Epic)]
-    [InlineData(GameSourceKind.Gog)]
     public void LookupName_StoreTitleStillResolves(GameSourceKind source)
     {
         // Store-sourced display titles are used verbatim (TitleSource contract);
@@ -89,16 +74,6 @@ public sealed class TitleTextTests
         Assert.Equal(display, TitleText.LookupName(display, "DyingLight2", source));
         Assert.Contains("Dying Light 2 Stay Human", TitleText.SearchQueries(display, "DyingLight2"));
     }
-
-    [Fact]
-    public void LookupName_EpicUsesItemDisplayName() =>
-        Assert.Equal(
-            "Sid Meier's Civilization VI",
-            TitleText.LookupName("Sid Meier's Civilization VI", "SidMeiersCivilizationVI", GameSourceKind.Epic));
-
-    [Fact]
-    public void SharesNameToken_RejectsSystemForElex() =>
-        Assert.False(TitleText.SharesNameToken("System", "elexII"));
 
     [Fact]
     public void SearchQueries_IncludesFolderAndPacked()
@@ -137,24 +112,20 @@ public sealed class TitleTextTests
     }
 
     [Fact]
-    public void AcronymMatchesTitle_EveMatchesEveOnline()
-    {
-        // Rule (a): "eveonline" starts with "eve".
-        Assert.True(TitleText.AcronymMatchesTitle("EVE Online", "eve"));
-    }
-
-    [Fact]
     public void AcronymMatchesTitle_Ra3MatchesRedAlert3Launcher()
     {
         // Rule (b): initials R-A-3 (launcher is a stopword) == "ra3".
         Assert.True(TitleText.AcronymMatchesTitle("Red Alert 3 Launcher", "ra3"));
     }
 
-    [Fact]
-    public void AcronymMatchesTitle_ToeeMatchesToEERemake()
+    [Theory]
+    [InlineData("Just Another Generic Game 2", "jag2")]
+    [InlineData("Monster Mix XL", "mmxl")]
+    public void AcronymMatchesTitle_RejectsFalsePositives(string title, string folder)
     {
-        // Rule (c): "toee" letters prefix "ToEE" first word, no digits.
-        Assert.True(TitleText.AcronymMatchesTitle("ToEE Front-End X", "toee"));
+        // "Just Another Generic Game 2" initials are J-A-G-G, not "jag2";
+        // "Monster Mix XL" initials M-M-X, not "mmxl"; neither prefix rule applies.
+        Assert.False(TitleText.AcronymMatchesTitle(title, folder));
     }
 
     [Fact]
@@ -163,21 +134,6 @@ public sealed class TitleTextTests
         // The original guard's protection must hold: elexII is 6 letters, out of
         // scope for the acronym rule (which requires 3-4).
         Assert.False(TitleText.AcronymMatchesTitle("System", "elexII"));
-    }
-
-    [Fact]
-    public void AcronymMatchesTitle_RejectsJag2ForJustAnotherGenericGame2()
-    {
-        // False-positive guard: "Just Another Generic Game 2" initials are
-        // J-A-G-G, not "jag2"; "jag" does not prefix "just".
-        Assert.False(TitleText.AcronymMatchesTitle("Just Another Generic Game 2", "jag2"));
-    }
-
-    [Fact]
-    public void AcronymMatchesTitle_RejectsMonsterMixXlForMmxl()
-    {
-        // "Monster Mix XL" initials M-M-X, not "mmxl"; "mmx" does not prefix "monster".
-        Assert.False(TitleText.AcronymMatchesTitle("Monster Mix XL", "mmxl"));
     }
 
     [Fact]

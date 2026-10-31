@@ -1,3 +1,5 @@
+using GamingCommander.Core.Services;
+
 namespace GamingCommander.App.Services;
 
 /// <summary>All .item files in one Manifests directory. No folder walk.</summary>
@@ -44,7 +46,7 @@ internal sealed class EpicItemCatalog
         foreach (EpicManifestParser.EpicItemData item in playable)
         {
             string key = string.IsNullOrWhiteSpace(item.CatalogItemId)
-                ? EpicInstallPath.Normalize(item.InstallLocation) + "|" + item.DisplayName
+                ? InstallIdentity.PathKey(item.InstallLocation) + "|" + item.DisplayName
                 : item.CatalogItemId;
             if (!byId.TryGetValue(key, out EpicManifestParser.EpicItemData? existing)
                 || Prefer(item, existing))

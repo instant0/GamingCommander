@@ -38,6 +38,7 @@ public sealed class EaInstallLogParserTests : IDisposable
     [Fact]
     public void TryParse_StandardLog_ExtractsAllFields()
     {
+        // The logged Install Location is deliberately not this folder: it is not trusted.
         string log = """
             ****************************************
             Install Date: 10/19/2020
@@ -99,61 +100,48 @@ public sealed class EaInstallLogParserTests : IDisposable
     // ════════════════════════════════════════════════════════════════
 
     [Fact]
-    public void TryParse_NoInstallLog_ReturnsFalse()
+    public void TryParse_NoLogOrNoConfigLines_ReturnsFalse()
     {
-        bool found = EaInstallLogParser.TryParse(new DirectoryInfo(_tempDir), out var info);
-
+        bool found = EaInstallLogParser.TryParse(new DirectoryInfo(_tempDir), out var missing);
         Assert.False(found);
-        Assert.Null(info);
-    }
+        Assert.Null(missing);
 
-    [Fact]
-    public void TryParse_NoConfigLines_ReturnsFalse()
-    {
-        string log = """
+        WriteInstallLog(_tempDir, """
             Install Location: E:\Games\Some Game\
             CommandLine: install -locale en_US
-            """;
-        WriteInstallLog(_tempDir, log);
+            """);
 
-        bool found = EaInstallLogParser.TryParse(new DirectoryInfo(_tempDir), out var info);
-
+        found = EaInstallLogParser.TryParse(new DirectoryInfo(_tempDir), out var noConfig);
         Assert.False(found);
-        Assert.Null(info);
+        Assert.Null(noConfig);
     }
 
     [Fact]
-    public void TryParse_GameNameOnly_NoDisplayName()
+    public void TryParse_NameOnlyVariants_FallBackToTheOther()
     {
-        string log = """
+        // Game Name only: DisplayName falls back to GameName.
+        WriteInstallLog(_tempDir, """
             (Config)Studio: BioWare
             (Config)Game Name: Dragon Age Inquisition
-            """;
-        WriteInstallLog(_tempDir, log);
+            """);
 
-        bool found = EaInstallLogParser.TryParse(new DirectoryInfo(_tempDir), out var info);
-
+        bool found = EaInstallLogParser.TryParse(new DirectoryInfo(_tempDir), out var gameNameOnly);
         Assert.True(found);
-        Assert.NotNull(info);
-        Assert.Equal("Dragon Age Inquisition", info.GameName);
-        // DisplayName falls back to GameName when not present
-        Assert.Equal("Dragon Age Inquisition", info.DisplayName);
-    }
+        Assert.NotNull(gameNameOnly);
+        Assert.Equal("Dragon Age Inquisition", gameNameOnly.GameName);
+        Assert.Equal("Dragon Age Inquisition", gameNameOnly.DisplayName);
+        Assert.Equal("BioWare", gameNameOnly.Studio);
 
-    [Fact]
-    public void TryParse_DisplayNameOnly_NoGameName()
-    {
-        string log = """
+        // Display Game Name only: GameName stays empty.
+        WriteInstallLog(_tempDir, """
             (Config)Display Game Name: Dragon Age™: Inquisition
-            """;
-        WriteInstallLog(_tempDir, log);
+            """);
 
-        bool found = EaInstallLogParser.TryParse(new DirectoryInfo(_tempDir), out var info);
-
+        found = EaInstallLogParser.TryParse(new DirectoryInfo(_tempDir), out var displayNameOnly);
         Assert.True(found);
-        Assert.NotNull(info);
-        Assert.Equal("Dragon Age™: Inquisition", info.DisplayName);
-        Assert.Empty(info.GameName);
+        Assert.NotNull(displayNameOnly);
+        Assert.Equal("Dragon Age™: Inquisition", displayNameOnly.DisplayName);
+        Assert.Empty(displayNameOnly.GameName);
     }
 
     [Fact]
@@ -169,30 +157,5 @@ public sealed class EaInstallLogParserTests : IDisposable
         Assert.True(found);
         Assert.NotNull(info);
         Assert.Empty(info.Studio);
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    //  Install location NOT trusted
-    // ════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void TryParse_WrongInstallLocation_StillExtractsMetadata()
-    {
-        // User moved the game but log still references old path
-        string log = """
-            18:24:24  Install Location: Q:\OLD_LOCATION\Dragon Age Inquisition\
-            18:24:28  (Config)Studio: BioWare
-            18:24:28  (Config)Game Name: Dragon Age Inquisition
-            18:24:28  (Config)Display Game Name: Dragon Age™: Inquisition
-            """;
-        WriteInstallLog(_tempDir, log);
-
-        bool found = EaInstallLogParser.TryParse(new DirectoryInfo(_tempDir), out var info);
-
-        Assert.True(found);
-        Assert.NotNull(info);
-        Assert.Equal("Dragon Age Inquisition", info.GameName);
-        Assert.Equal("Dragon Age™: Inquisition", info.DisplayName);
-        Assert.Equal("BioWare", info.Studio);
     }
 }

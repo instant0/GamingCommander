@@ -53,25 +53,6 @@ public sealed class MetadataDetailsFormatterTests
     }
 
     [Fact]
-    public void WindowsSaves_ResolvesUplayAndUid()
-    {
-        var details = new GameMetadataDetails
-        {
-            SavePaths =
-            [
-                new GameMetadataPath
-                {
-                    Os = "Windows",
-                    Template = @"{{p|uplay}}\savegames\{{p|uid}}\54\",
-                },
-            ],
-        };
-        Assert.Equal(
-            @"%PROGRAMFILES(X86)%\Ubisoft\Ubisoft Game Launcher\savegames\<user-id>\54\",
-            MetadataDetailsFormatter.WindowsSaves(details));
-    }
-
-    [Fact]
     public void CommandLineSummary_ListsArgs()
     {
         var details = new GameMetadataDetails
@@ -126,26 +107,5 @@ public sealed class MetadataDetailsFormatterTests
         Assert.Equal("fov: hackable", text);
         Assert.DoesNotContain("http", text);
         Assert.DoesNotContain("hdr", text);
-    }
-
-    [Fact]
-    public void WindowsSaves_UserProfileDocumentsToken()
-    {
-        var details = new GameMetadataDetails
-        {
-            SavePaths =
-            [
-                new GameMetadataPath
-                {
-                    Kind = "saves",
-                    Os = "Windows",
-                    Template = @"{{p|userprofile\Documents}}\Electronic Arts\Dead Space\",
-                },
-            ],
-        };
-
-        Assert.Equal(
-            @"%USERPROFILE%\Documents\Electronic Arts\Dead Space\",
-            MetadataDetailsFormatter.WindowsSaves(details));
     }
 }

@@ -88,17 +88,17 @@ Because all state lives in `data/` next to the exe, moving the **whole GamingCom
 
 ## Data migration / upgrades
 
-Upgrading: unzip the new version into the existing folder (keep `data/`). On first start after a version increase the setup dialog re-opens (showing your existing roots — just close it) and the new version is recorded in `settings.json`. Game and setting files are plain JSON read tolerantly; unknown fields are ignored. A **corrupt or unreadable JSON file silently resets to defaults** (empty catalogue/config) rather than crashing — keep backups (below).
+Upgrading: unzip the new version into the existing folder (keep `data/`). On first start after a version increase the setup dialog re-opens (showing your existing roots — just close it) and the new version is recorded in `settings.json`. Game and setting files are plain JSON read tolerantly; unknown fields are ignored. A **corrupt or unreadable JSON file is not silently reset**: the damaged bytes are kept as `<name>.json.corrupt`, the previous `<name>.json.bak` is restored, and the app tells you. Persisted state is disposable pre-release and carries no cross-version guarantee.
 
 ## Backup / recovery
 
-Yes — copying `data/` is a complete backup of your configuration, catalogue, tags, overrides, and metadata cache. Restore by closing the app and copying the folder back. Nothing outside `data/` needs backing up (the shipped defaults `blacklist.json`/`tag_colors.json` are restored from embedded copies if missing/corrupt).
+Yes — copying `data/` is a complete backup of your configuration, catalogue, tags, overrides, metadata cache, and repair records. Restore by closing the app and copying the folder back. The app also keeps one rolling `.bak` per JSON file: if a save is damaged, it is detected on the next read and the `.bak` is restored automatically. A damaged file is preserved as `.corrupt` so it can be inspected. Nothing outside `data/` needs backing up (the shipped defaults `blacklist.json`/`tag_colors.json` are restored from embedded copies if missing).
 
 ## Error handling
 
 - **Malformed/incomplete launcher manifests** (ACF, `.item`, GOG `.info`, EA logs): the parser returns "nothing usable" and detection falls back to the next source — folder name, exe discovery, registry keys. A broken manifest degrades gracefully; it doesn't crash the scan.
 - **Locked files:** reads that fail are treated as "not there"; scanning continues.
-- **GamingCommander's own files:** unreadable/corrupt JSON → defaults (see *Data migration*).
+- **GamingCommander's own files:** a damaged JSON file keeps its bytes as `.corrupt`, restores `.bak`, and is reported; it does not become an empty catalogue (see *Backup / recovery*).
 
 ## Permissions failures
 
@@ -131,11 +131,11 @@ Online extras live in `data/games_metadata.json`, one row per game with a `LastU
 
 ## Deletion / reset
 
-To reset GamingCommander to a clean state: exit the app and delete the JSON files in `data/` (or the whole `data/` folder — it is recreated on next start). Deleting `games.json` clears the catalogue; `settings.json` clears roots/preferences and re-runs first-run; `games_metadata.json` clears the extras cache. Deleting the entire installation folder is the nuclear option and removes everything.
+To reset GamingCommander to a clean state: exit the app and delete the JSON files in `data/` (or the whole `data/` folder — it is recreated on next start). Deleting `games.json` clears the catalogue; `settings.json` clears roots/preferences and re-runs first-run; `games_metadata.json` clears the extras cache. This also removes `.bak`, `.corrupt`, `repair-journal.jsonl`, `staging/`, and `backups/`. Deleting the entire installation folder is the nuclear option and removes everything.
 
 ## Uninstall
 
-Uninstall = delete the GamingCommander folder. That removes the program, settings, catalogue, cache, and logs in one step — the app created nothing outside its folder (no registry writes, no services, no Start Menu entries). One exception to remember: if you used **Write Steam ACF** (user-started `appmanifest_{id}.acf` in your Steam library), those files live in *your* Steam library and are not removed by uninstalling GamingCommander.
+Uninstall = delete the GamingCommander folder. That removes the program, settings, catalogue, cache, logs, journal, and backups in one step — the app created nothing else in its own location (no registry writes, no services, no Start Menu entries). Two exceptions to remember, both user-started: a **Steam ACF** you wrote lives in *your* Steam library, and an **Epic `.item` repair** touches Epic's manifests under `%ProgramData%`. Neither is removed by uninstalling GamingCommander; the repair journal records what was touched.
 
 ## Keyboard / UI reference
 
@@ -170,7 +170,7 @@ Startup diagnostics go to `data/startup.log` (disable with environment variable 
 | Details pane empty, chip yellow | Online metadata disabled — enable in F2 |
 | Chip red Offline | No route to pcgamingwiki.com at startup, or a later request failed; fix connectivity, restart or rely on cache; F3 retries per game when green |
 | Filter seems stuck | Backspace, Esc, Clear button, or `..` |
-| Games vanished from list | Did `data/games.json` get deleted/corrupt (resets silently)? Restore from backup |
+| Games vanished from list | Check `data/games.json.corrupt` / `.bak` first — a damaged read is recovered and reported, not silently reset. If the file was deleted, restore from backup |
 | Old games still listed after uninstalling them | Expected — remove via F4 or rescan won't drop them (see *Uninstall/removal*) |
 
 ## Known limitations
@@ -181,7 +181,7 @@ Things the scanner **intentionally** does not do:
 - No cross-root deduplication; same game under two roots lists twice.
 - Nested Steam libraries are skipped by the general scanner and must be added as their own Steam root.
 - Store **clients** are not integrated: no downloads, updates, cloud, or friend lists — detection and launching only. Full GOG/Epic/EA/Ubisoft client APIs are out of scope.
-- No migration/manifest-repair yet (Phase 2.1 SyncMove is planned, not shipped); "Moved" Steam games are reported, not fixed.
+- Two **user-started** repairs exist: create a missing Steam ACF and update an existing Epic `.item` after a move. Automatic/cross-library SyncMove repair (Phase 2.1) is planned, not shipped; "Moved" Steam games are otherwise reported, not fixed.
 - Xbox titles have the thinnest metadata (signal-file detection only).
 - Games that consist solely of blacklisted-pattern exes (or no exe at all) are not detected; heavily renamed/modded setups may need F4 correction.
 - x64 Windows only; no installer, no auto-update.

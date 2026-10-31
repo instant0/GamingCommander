@@ -260,42 +260,22 @@ public sealed class EpicManifestParserTests : IDisposable
         Assert.Null(result);
     }
 
-    [Fact]
-    public void CrossReferenceGlobalManifests_CaseInsensitive_Matches()
+    [Theory]
+    [InlineData(false)]
+    public void CrossReferenceGlobalManifests_PathFormatting_Matches(bool trailingSeparator)
     {
-        // Create global manifests dir
         string globalDir = Path.Combine(_tempDir, "global_manifests");
         Directory.CreateDirectory(globalDir);
 
-        // Game path with different casing
         string gamePath = Path.Combine(_tempDir, "MyGame");
         Directory.CreateDirectory(gamePath);
 
-        // .item has lowercase InstallLocation
+        // .item path differs in case or carries a trailing separator.
+        string installLocation = trailingSeparator
+            ? gamePath + Path.DirectorySeparatorChar
+            : gamePath.ToLowerInvariant();
         File.WriteAllText(Path.Combine(globalDir, "test.item"), MakeItemJson(
-            installLocation: gamePath.ToLowerInvariant()));
-
-        var result = EpicManifestParser.CrossReferenceGlobalManifests(
-            new DirectoryInfo(gamePath), globalDir);
-
-        Assert.NotNull(result);
-    }
-
-    [Fact]
-    public void CrossReferenceGlobalManifests_TrailingSeparator_Matches()
-    {
-        // Create global manifests dir
-        string globalDir = Path.Combine(_tempDir, "global_manifests");
-        Directory.CreateDirectory(globalDir);
-
-        // Game path
-        string gamePath = Path.Combine(_tempDir, "MyGame");
-        Directory.CreateDirectory(gamePath);
-
-        // .item has trailing forward slash (Linux) or backslash (Windows)
-        string trailingSep = Path.DirectorySeparatorChar.ToString();
-        File.WriteAllText(Path.Combine(globalDir, "test.item"), MakeItemJson(
-            installLocation: gamePath + trailingSep));
+            installLocation: installLocation));
 
         var result = EpicManifestParser.CrossReferenceGlobalManifests(
             new DirectoryInfo(gamePath), globalDir);

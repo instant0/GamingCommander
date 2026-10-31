@@ -1,6 +1,6 @@
 # Store Capabilities — Launcher, Inventory, and Health Matrix
 
-**Status:** Living reference (2026-10-25).
+**Status:** Living reference (2026-10-31). Class names are authoritative; `file:line` citations are historical and may drift.
 **Audience:** Anyone adding launcher discovery, inventory import, health probes, or startup sync.
 
 This document records what the shipped app actually does for each store, what the launcher
@@ -29,7 +29,7 @@ hint, not truth: disk existence is the final `Installed` signal.
 | Store | Launcher located | Inventory source (launcher trusts) | Inventory read by app | Per-game metadata read | Exe discovery | Health states | Startup incremental sync | Read-only safety | Evidence |
 |---|---|---|---|---|---|---|---|---|---|
 | **Steam** | `verified` — HKLM `Valve\Steam\InstallPath` only (`SteamInstallPathLocator.cs:25,35`) | `verified` — `libraryfolders.vdf` (path locator) + `appmanifest_*.acf` + `steamapps/common/` (`SteamAcfParser.cs:62`; `SteamLibraryScanner.cs:134`) | `verified` — ACF/VDF + `common/` (`SteamLibraryScanner.cs:39-97`) | `verified` — appid/name/installdir/state/size/build; `LastUpdated` is not persisted and `StateFlags` is stored raw, never interpreted (`SteamAcfParser.cs:35-44`; `SteamLibraryScanner.cs:178-186`) | `verified` — cheap root/known-folder heuristic; launch via `steam://` (`SteamLibraryScanner.cs:212-214,331-336`; `GameLaunchResolver.cs:14`) | `verified` — Installed/Moved/Orphaned/Missing (`SteamLibraryScanner.cs:64-66,72,298`) | `unsupported` | `verified` — reads registry/VDF/ACF only | [03-store-signals.md](03-store-signals.md), [steam_acf_schema.md](../research/steam_acf_schema.md), [steam_vdf_schema.md](../research/steam_vdf_schema.md) |
-| **Epic** | `unsupported` — no locator; fixed ProgramData manifests path only (`EpicManifestParser.cs:270-276`) | `needs verification` — ProgramData `*.item`; `LauncherInstalled.dat` documented but unread | `verified` — ProgramData `*.item` only (`EpicItemCatalog.cs:14-28`) | `verified` — display/install/exe/catalog ids (`EpicManifestParser.cs:24-88`); `InstallSize`/`AppVersionString`/`InstallationGuid`/`CompleteManifestPath` unread | `verified` — `.item` `LaunchExecutable` else scored heuristic (`EpicLaunchResolver.cs:21-56`) | `verified` — Installed/Missing/Orphaned, fuzzy path match (`EpicLibraryScanner.cs:57,151-155`; `EpicInstallPath.cs:16-27`) | `unsupported` | `verified` — catalog scan is read-only; a separate user-started repair writes an identification `.item` (`EpicItemWriter.cs:145`) but does not register | [epic_item_format.md](../research/epic_item_format.md), [epic_manifest_schema.md](../research/epic_manifest_schema.md) |
+| **Epic** | `unsupported` — no locator; fixed ProgramData manifests path only (`EpicManifestParser.cs:270-276`) | `needs verification` — ProgramData `*.item`; `LauncherInstalled.dat` documented but unread | `verified` — ProgramData `*.item` only (`EpicItemCatalog.cs:14-28`) | `verified` — display/install/exe/catalog ids (`EpicManifestParser.cs:24-88`); `InstallSize`/`AppVersionString`/`InstallationGuid`/`CompleteManifestPath` unread | `verified` — `.item` `LaunchExecutable` else scored heuristic (`EpicLaunchResolver.cs:21-56`) | `verified` — Installed/Missing/Orphaned; path-exact matching (`EpicLibraryScanner.cs`; `PathText`). The scanner still also claims by folder name — known gap | `unsupported` | `verified` — catalog scan is read-only; the user-started repair **modifies an existing** `.item` (`EpicItemWriter.cs`) and never creates one; registration is separate and deferred | [epic_item_format.md](../research/epic_item_format.md), [epic_manifest_schema.md](../research/epic_manifest_schema.md) |
 | **GOG** | `unsupported` | `needs verification` — per-game registry + `goggame-*.info`; Galaxy SQLite schema unverified | `unsupported` — registry classifies only (`RegistryFallbackDetector.cs:183-197`) | `verified` — `.info` name/gameId/exe/args, partial (`GogInfoParser.cs:82-118`) | `verified` — heuristic first, `.info` fallback (`StoreMetadataEnricher.cs:84-88`) | `unsupported` — `FolderScanner` hardcodes `Installed` (`FolderScanner.cs:383`) | `unsupported` | `needs verification` — registry/`.info` safe; Galaxy DB unverified | [gog_format.md](../research/gog_format.md), [09-blueprint.md](09-blueprint.md) |
 | **EA** | `unsupported` | `needs verification` — encrypted EA App `IS`; legacy Origin `.mfst`; registry | `unsupported` | `verified` — `InstallLog.txt` name/display/studio (`EaInstallLogParser.cs:51-65`) | `verified` — heuristic (`FolderScanner.cs:285-305`) | `unsupported` | `unsupported` | `needs verification` — encrypted `IS`; legacy `.mfst` safe but unparsed | [ea_format.md](../research/ea_format.md), [GAME-DETECTION-LOGIC.md](../GAME-DETECTION-LOGIC.md) |
 | **Ubisoft** | `unsupported` | `needs verification` — `Installs\{gameId}\InstallDir` + `uplay_install.state`; manifest encrypted | `unsupported` — registry classifies only, game ID discarded (`RegistryFallbackDetector.cs:163-177`) | `verified` — readme title only (`UbisoftReadmeParser.cs:87-88`; `TitleEnricher.cs:76-87`) | `verified` — heuristic (`FolderScanner.cs:285-305`) | `unsupported` | `unsupported` | `needs verification` — registry safe; manifest encrypted | [ubisoft_format.md](../research/ubisoft_format.md) |
@@ -112,9 +112,14 @@ missing or is a store launcher, a scored heuristic picks a real game exe
 (`EpicLaunchResolver.cs:21-56`).
 
 **Health.** `Installed` when the recorded folder exists, `Missing` when it does not, and
-`Orphaned` for a known Epic folder with no matching ProgramData `.item`
-(`EpicLibraryScanner.cs:57,128-159`). Matching is path- or folder-name-based, so it is fuzzy
-(`EpicInstallPath.cs:16-27`).
+`Orphaned` for a known Epic folder with no matching ProgramData `.item` (`EpicLibraryScanner.cs`). The path
+comparison is exact (`PathText`); the scanner still also claims folders by name, which can collide across
+libraries — recorded as a known gap.
+
+**Lookup and metadata.** Local `.item`/`.mancpn` manifests are the Epic metadata source; PCGW and the Steam
+lookup fill the remaining fields. `EpicStoreSearch` is present but **not called in v1**; when wired it is an
+identity lookup only (canonical title, namespace, catalog id), never a metadata source and never an `.item`
+generator. Registration is a separate, deferred subject.
 
 **Verification status.** Catalog reading, metadata, exe resolution, and health are shipped.
 `EpicOrphanDiscovery` exists but has no callers; `LauncherInstalled.dat` is unread.

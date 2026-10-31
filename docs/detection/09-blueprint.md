@@ -22,8 +22,8 @@ plus the overlap/sync backlog.
 - **Container signal parity**: `ContainerScanner.Summarize` now also evaluates the deep fallback
   signals (SteamEmu deep, Ubisoft legacy, root `.lnk`) and promotes accordingly; a deep
   SteamEmu/Ubisoft marker is authoritative over the data-only layer.
-- **Dead code removed**: `EpicManifestParser.NormalizePath` (private, unused). `EpicOrphanDiscovery` /
-  `EpicStoreSearch` are unused but retained pending the deferred Epic work (see §11).
+- **Dead code removed**: `EpicManifestParser.NormalizePath` (private, unused). `EpicOrphanDiscovery` has
+  no callers (wired later); `EpicStoreSearch` is retained as a deferred **identity lookup** — see §11.
 - **Tests:** +6 (tie-break, leading-dash, `_copy`, tool name, 100–500KB, container deep-SteamEmu).
 
 **Python sync (reference):** C#-only scoring strengths back-ported — whole-name exact +40, classic
@@ -147,12 +147,13 @@ These are real duplications of the *same rule* across components. They risk dive
 | O5 | Rockstar `title.rgl` | `StoreSignalDetector.HasRockstarSignal`, `EngineDetector.HasRage` | Reuse |
 | O6 | Blizzard product extraction called twice | `StoreSignalDetector.ExtractBlizzardProduct`, `StoreMetadataEnricher` | Pass value through |
 | O7 | UE layout detection duplicated + platform list duplicated | `FallbackSignalDetector.HasUnrealLayoutSignal`/`s_uePlatformNames`, `EngineDetector.HasUnrealEngine`, `ExecutableDiscovery.s_uePlatformNames` | Single UE helper |
-| O8 | Path normalization duplicated | `SteamAcfParser.NormalizePath`, `RegistryFallbackDetector.NormalizePath`, `EpicInstallPath.Normalize`, `EpicManifestParser.NormalizePath` (dead) | Single normalizer |
+| O8 | Path normalization duplicated | **Closed** — `PathText` is the single rule (`NormalizeForCompare`/`Equals`/`IsUnder`); the old `NormalizePath` copies are gone | — |
 | O9 | Title canonicalization differs | `FileSystemHelper.NormalizeDisplayName` vs `TitleText.StripEdition` | Align edition lists |
 | O10 | Cheap exe finder split | `SteamLibraryScanner.FindPrimaryExe`, `EpicItemWriter.FindLaunchExe`, `EpicLaunchResolver.Resolve` | One `CheapExeFinder` |
 
 ### Inconsistent rules (must be corrected)
-- **Store priority differs:** `StoreSignalDetector` (GOG→EA→Ubi…) vs `RegistryFallbackDetector` (EA→Ubi→GOG…). Align.
+- **Store priority aligned:** `RegistryFallbackDetector` now follows the same GOG → EA → Ubisoft →
+  Rockstar order as `StoreSignalDetector`. **Corrected.**
 - **Container children classified with fewer signals** than top-level: `ContainerScanner.Summarize` omits
   SteamEmu-deep / Ubisoft-legacy / root `.lnk` that Pass 2 uses → a child whose only evidence is those
   is silently dropped. **Corrected in this pass.**
@@ -162,7 +163,9 @@ These are real duplications of the *same rule* across components. They risk dive
 - **GOG signal root-only** but GOG metadata root+1 subdir.
 
 ### Dead code
-`EpicOrphanDiscovery`, `EpicStoreSearch`, `EpicManifestParser.NormalizePath` — no callers. Removed.
+`EpicOrphanDiscovery` — no callers yet (wired with the Epic reader). `EpicManifestParser.NormalizePath` —
+removed. `EpicStoreSearch` — **retained**, not dead: a deferred identity lookup (title/namespace/catalog id)
+with two uses, gated and never called by default.
 
 ---
 

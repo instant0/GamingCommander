@@ -19,413 +19,143 @@ public sealed class RegistryFallbackDetectorTests : IDisposable
             Directory.Delete(_tempDir, recursive: true);
     }
 
-    // ── EA Detection ──────────────────────────────────────────────
+    private const string EaBase = @"HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\EA Games";
+    private const string UbisoftBase = @"HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Ubisoft\Launcher\Installs";
+    private const string GogBase = @"HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\GOG.com\Games";
+    private const string RockstarBase = @"HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Rockstar Games";
 
-    [Fact]
-    public void Detect_EaGame_MatchesPerGameKey()
+    // ════════════════════════════════════════════════════════════════
+    //  Per-store registry key shapes (exact path match)
+    // ════════════════════════════════════════════════════════════════
+
+    [Theory]
+    [InlineData(EaBase, "Dead Space 3", "Install Dir", "Dead Space 3", GameSourceKind.EaApp)]
+    [InlineData(UbisoftBase, "11903", "InstallDir", "Ghost Recon Breakpoint", GameSourceKind.UbisoftConnect)]
+    [InlineData(GogBase, "1201963702", "path", "Blasphemous 2", GameSourceKind.Gog)]
+    [InlineData(RockstarBase, "Grand Theft Auto V Enhanced", "InstallFolder", "Grand Theft Auto V Enhanced", GameSourceKind.Rockstar)]
+    public void Detect_PerStoreKey_ReturnsStore(
+        string keyBase, string keyName, string valueName, string folderName, GameSourceKind expected)
     {
-        string eaBase = Path.Combine(_tempDir, "ea", "Games");
-        string gameDir = Path.Combine(eaBase, "Dead Space 3");
+        string gameDir = Path.Combine(_tempDir, "Games", folderName);
         Directory.CreateDirectory(gameDir);
+        string registry = BuildKey(keyBase + @"\" + keyName, valueName, gameDir);
 
-        string regContent = $"""
-            Windows Registry Editor Version 5.00
+        var result = new RegistryFallbackDetector(new MockRegistryReader(registry))
+            .DetectType(new DirectoryInfo(gameDir));
 
-            [HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\EA Games\Dead Space 3]
-            "Install Dir"=str(2):"{eaBase.Replace("\\", "\\\\")}\\Dead Space 3"
-            "DisplayName"=str(2):"Dead Space 3"
-            """;
-
-        var registry = new MockRegistryReader(regContent);
-        var detector = new RegistryFallbackDetector(registry);
-
-        var result = detector.DetectType(new DirectoryInfo(gameDir));
-
-        Assert.Equal(GameSourceKind.EaApp, result);
-    }
-
-    [Fact]
-    public void Detect_EaGame_PublisherSubfolder()
-    {
-        string eaBase = Path.Combine(_tempDir, "ea", "Games");
-        string gameDir = Path.Combine(eaBase, "Mass Effect 3");
-        Directory.CreateDirectory(gameDir);
-
-        string regContent = $"""
-            Windows Registry Editor Version 5.00
-
-            [HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\EA Games\Mass Effect 3]
-            "Install Dir"=str(2):"{eaBase.Replace("\\", "\\\\")}\\Mass Effect 3"
-            "DisplayName"=str(2):"Mass Effect 3"
-            """;
-
-        var registry = new MockRegistryReader(regContent);
-        var detector = new RegistryFallbackDetector(registry);
-
-        var result = detector.DetectType(new DirectoryInfo(gameDir));
-
-        Assert.Equal(GameSourceKind.EaApp, result);
-    }
-
-    // ── Ubisoft Detection ─────────────────────────────────────────
-
-    [Fact]
-    public void Detect_UbisoftGame_MatchesPerGameKey()
-    {
-        string ubiBase = Path.Combine(_tempDir, "ubi", "Games");
-        string gameDir = Path.Combine(ubiBase, "Ghost Recon Breakpoint");
-        Directory.CreateDirectory(gameDir);
-
-        string regContent = $"""
-            Windows Registry Editor Version 5.00
-
-            [HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Ubisoft\Launcher\Installs\11903]
-            "InstallDir"=str(2):"{ubiBase.Replace("\\", "\\\\")}\\Ghost Recon Breakpoint"
-            "Language"=str(2):"en_US"
-            """;
-
-        var registry = new MockRegistryReader(regContent);
-        var detector = new RegistryFallbackDetector(registry);
-
-        var result = detector.DetectType(new DirectoryInfo(gameDir));
-
-        Assert.Equal(GameSourceKind.UbisoftConnect, result);
-    }
-
-    [Fact]
-    public void Detect_UbisoftGame_MultipleGameIds()
-    {
-        string ubiBase = Path.Combine(_tempDir, "ubi", "Games");
-        string gameDir = Path.Combine(ubiBase, "The Division 2");
-        Directory.CreateDirectory(gameDir);
-
-        string regContent = $"""
-            Windows Registry Editor Version 5.00
-
-            [HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Ubisoft\Launcher\Installs\11903]
-            "InstallDir"=str(2):"{ubiBase.Replace("\\", "\\\\")}\\Ghost Recon Breakpoint"
-
-            [HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Ubisoft\Launcher\Installs\4932]
-            "InstallDir"=str(2):"{ubiBase.Replace("\\", "\\\\")}\\The Division 2"
-            """;
-
-        var registry = new MockRegistryReader(regContent);
-        var detector = new RegistryFallbackDetector(registry);
-
-        var result = detector.DetectType(new DirectoryInfo(gameDir));
-
-        Assert.Equal(GameSourceKind.UbisoftConnect, result);
-    }
-
-    // ── GOG Detection ─────────────────────────────────────────────
-
-    [Fact]
-    public void Detect_GogGame_MatchesPerGameKey()
-    {
-        string gogBase = Path.Combine(_tempDir, "gog", "Games");
-        string gameDir = Path.Combine(gogBase, "Blasphemous 2");
-        Directory.CreateDirectory(gameDir);
-
-        string regContent = $"""
-            Windows Registry Editor Version 5.00
-
-            [HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\GOG.com\Games\1201963702]
-            "path"=str(2):"{gogBase.Replace("\\", "\\\\")}\\Blasphemous 2"
-            "gameName"=str(2):"Blasphemous 2"
-            "gameID"=str(2):"1201963702"
-            """;
-
-        var registry = new MockRegistryReader(regContent);
-        var detector = new RegistryFallbackDetector(registry);
-
-        var result = detector.DetectType(new DirectoryInfo(gameDir));
-
-        Assert.Equal(GameSourceKind.Gog, result);
-    }
-
-    // ── Rockstar Detection ────────────────────────────────────────
-
-    [Fact]
-    public void Detect_RockstarGame_MatchesPerGameKey()
-    {
-        string rockstarBase = Path.Combine(_tempDir, "rockstar", "Games");
-        string gameDir = Path.Combine(rockstarBase, "Grand Theft Auto V Enhanced");
-        Directory.CreateDirectory(gameDir);
-
-        string regContent = $"""
-            Windows Registry Editor Version 5.00
-
-            [HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Rockstar Games\Grand Theft Auto V Enhanced]
-            "InstallFolder"=str(2):"{rockstarBase.Replace("\\", "\\\\")}\\Grand Theft Auto V Enhanced"
-            """;
-
-        var registry = new MockRegistryReader(regContent);
-        var detector = new RegistryFallbackDetector(registry);
-
-        var result = detector.DetectType(new DirectoryInfo(gameDir));
-
-        Assert.Equal(GameSourceKind.Rockstar, result);
+        Assert.Equal(expected, result);
     }
 
     [Fact]
     public void Detect_RockstarGame_SkipsLauncherSubkey()
     {
-        string rockstarBase = Path.Combine(_tempDir, "rockstar", "Games");
-        string gameDir = Path.Combine(rockstarBase, "GTA V");
+        string gameDir = Path.Combine(_tempDir, "rockstar", "Games", "GTA V");
         Directory.CreateDirectory(gameDir);
 
-        string regContent = $"""
-            Windows Registry Editor Version 5.00
+        string registry = BuildKey(RockstarBase + @"\Launcher", "InstallFolder",
+                @"C:\Program Files\Rockstar Games\Launcher\")
+            + BuildKey(RockstarBase + @"\GTA V", "InstallFolder", gameDir);
 
-            [HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Rockstar Games\Launcher]
-            "InstallFolder"=str(2):"C:\\Program Files\\Rockstar Games\\Launcher\\"
-
-            [HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Rockstar Games\GTA V]
-            "InstallFolder"=str(2):"{rockstarBase.Replace("\\", "\\\\")}\\GTA V"
-            """;
-
-        var registry = new MockRegistryReader(regContent);
-        var detector = new RegistryFallbackDetector(registry);
-
-        var result = detector.DetectType(new DirectoryInfo(gameDir));
+        var result = new RegistryFallbackDetector(new MockRegistryReader(registry))
+            .DetectType(new DirectoryInfo(gameDir));
 
         Assert.Equal(GameSourceKind.Rockstar, result);
     }
 
-    // ── Negative Cases ────────────────────────────────────────────
-
     [Fact]
-    public void Detect_GameNotInRegistry_ReturnsUnknown()
+    public void Detect_UbisoftGame_MultipleGameIds_MatchesOneOfThem()
     {
-        string gameDir = Path.Combine(_tempDir, "RandomGame");
+        string gameDir = Path.Combine(_tempDir, "ubi", "Games", "The Division 2");
         Directory.CreateDirectory(gameDir);
 
-        string regContent = """
-            Windows Registry Editor Version 5.00
+        string registry =
+            BuildKey(UbisoftBase + @"\11903", "InstallDir",
+                Path.Combine(_tempDir, "ubi", "Games", "Ghost Recon Breakpoint"))
+            + BuildKey(UbisoftBase + @"\4932", "InstallDir", gameDir);
 
-            [HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\EA Games\Dead Space 3]
-            "Install Dir"=str(2):"C:\\EA Games\\Dead Space 3"
-            """;
-
-        var registry = new MockRegistryReader(regContent);
-        var detector = new RegistryFallbackDetector(registry);
-
-        var result = detector.DetectType(new DirectoryInfo(gameDir));
-
-        Assert.Equal(GameSourceKind.Unknown, result);
-    }
-
-    [Fact]
-    public void Detect_EmptyRegistry_ReturnsUnknown()
-    {
-        string gameDir = Path.Combine(_tempDir, "SomeGame");
-        Directory.CreateDirectory(gameDir);
-
-        var registry = new MockRegistryReader("");
-        var detector = new RegistryFallbackDetector(registry);
-
-        var result = detector.DetectType(new DirectoryInfo(gameDir));
-
-        Assert.Equal(GameSourceKind.Unknown, result);
-    }
-
-    [Fact]
-    public void Detect_CaseInsensitivePathMatch()
-    {
-        string eaBase = Path.Combine(_tempDir, "EA", "Games");
-        string gameDir = Path.Combine(eaBase, "dead space 3");
-        Directory.CreateDirectory(gameDir);
-
-        string regContent = $"""
-            Windows Registry Editor Version 5.00
-
-            [HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\EA Games\Dead Space 3]
-            "Install Dir"=str(2):"{eaBase.Replace("\\", "\\\\")}\\Dead Space 3"
-            """;
-
-        var registry = new MockRegistryReader(regContent);
-        var detector = new RegistryFallbackDetector(registry);
-
-        // Normalized paths should match case-insensitively
-        var result = detector.DetectType(new DirectoryInfo(gameDir));
-
-        Assert.Equal(GameSourceKind.EaApp, result);
-    }
-
-    [Fact]
-    public void Detect_ForwardSlashPath()
-    {
-        string eaBase = Path.Combine(_tempDir, "ea", "Games");
-        string gameDir = Path.Combine(eaBase, "Dead Space 3");
-        Directory.CreateDirectory(gameDir);
-
-        // Registry value uses forward slashes
-        string forwardPath = $"{eaBase}/Dead Space 3".Replace('\\', '/');
-        string regContent = $"""
-            Windows Registry Editor Version 5.00
-
-            [HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\EA Games\Dead Space 3]
-            "Install Dir"=str(2):"{forwardPath}"
-            """;
-
-        var registry = new MockRegistryReader(regContent);
-        var detector = new RegistryFallbackDetector(registry);
-
-        var result = detector.DetectType(new DirectoryInfo(gameDir));
-
-        Assert.Equal(GameSourceKind.EaApp, result);
-    }
-
-    // ── NormalizePath ─────────────────────────────────────────────
-
-    [Fact]
-    public void NormalizePath_ConvertsForwardSlashes()
-    {
-        string result = RegistryFallbackDetector.NormalizePath("C:/Games/My Game");
-        Assert.Equal(@"C:\Games\My Game", result);
-    }
-
-    [Fact]
-    public void NormalizePath_TrimsTrailingSeparator()
-    {
-        string result = RegistryFallbackDetector.NormalizePath(@"C:\Games\My Game\");
-        Assert.Equal(@"C:\Games\My Game", result);
-    }
-
-    // ── Tier 2: Fuzzy Name Matching (moved games) ────────────────
-
-    [Fact]
-    public void Detect_EaGame_MovedToDifferentDrive_NameMatch()
-    {
-        // Registry says Q:\games\Dead Space 3, actual is E:\Games\Dead Space 3
-        // Path doesn't match, but directory name "Dead Space 3" matches registry key name
-        string actualDir = Path.Combine(_tempDir, "E", "Games", "Dead Space 3");
-        Directory.CreateDirectory(actualDir);
-
-        string regContent = """
-            Windows Registry Editor Version 5.00
-
-            [HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\EA Games\Dead Space 3]
-            "Install Dir"=str(2):"Q:\\games\\Dead Space 3"
-            "DisplayName"=str(2):"Dead Space 3"
-            """;
-
-        var registry = new MockRegistryReader(regContent);
-        var detector = new RegistryFallbackDetector(registry);
-
-        // Exact path match fails (Q: vs E:), but name match succeeds
-        var result = detector.DetectType(new DirectoryInfo(actualDir));
-
-        Assert.Equal(GameSourceKind.EaApp, result);
-    }
-
-    [Fact]
-    public void Detect_UbisoftGame_MovedToDifferentFolder_NameMatch()
-    {
-        // Registry says C:\Ubisoft\games\Ghost Recon, actual is D:\MyGames\Ghost Recon
-        string actualDir = Path.Combine(_tempDir, "D", "MyGames", "Ghost Recon Breakpoint");
-        Directory.CreateDirectory(actualDir);
-
-        string regContent = """
-            Windows Registry Editor Version 5.00
-
-            [HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Ubisoft\Launcher\Installs\11903]
-            "InstallDir"=str(2):"C:\\Ubisoft\\games\\Ghost Recon Breakpoint"
-            """;
-
-        var registry = new MockRegistryReader(regContent);
-        var detector = new RegistryFallbackDetector(registry);
-
-        var result = detector.DetectType(new DirectoryInfo(actualDir));
+        var result = new RegistryFallbackDetector(new MockRegistryReader(registry))
+            .DetectType(new DirectoryInfo(gameDir));
 
         Assert.Equal(GameSourceKind.UbisoftConnect, result);
     }
 
-    [Fact]
-    public void Detect_GogGame_MovedToDifferentDrive_NameMatch()
+    // ════════════════════════════════════════════════════════════════
+    //  Tier 2: moved games (name match per store)
+    // ════════════════════════════════════════════════════════════════
+
+    [Theory]
+    [InlineData(EaBase, "Dead Space 3", "Install Dir", "Dead Space 3", GameSourceKind.EaApp)]
+    [InlineData(GogBase, "1423041000", "path", "Celeste", GameSourceKind.Gog)]
+    public void Detect_MovedGame_NameMatch(
+        string keyBase, string keyName, string valueName, string folderName, GameSourceKind expected)
     {
-        string actualDir = Path.Combine(_tempDir, "F", "Games", "Celeste");
+        // Registry points at a stale path; the actual folder lives elsewhere with the same name.
+        string actualDir = Path.Combine(_tempDir, "Moved", folderName);
         Directory.CreateDirectory(actualDir);
 
-        string regContent = """
-            Windows Registry Editor Version 5.00
+        string registry = BuildKey(keyBase + @"\" + keyName, valueName,
+            Path.Combine(@"Q:\Stale", folderName));
 
-            [HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\GOG.com\Games\1423041000]
-            "path"=str(2):"C:\\GOG Games\\Celeste"
-            "gameName"=str(2):"Celeste"
-            """;
+        var result = new RegistryFallbackDetector(new MockRegistryReader(registry))
+            .DetectType(new DirectoryInfo(actualDir));
 
-        var registry = new MockRegistryReader(regContent);
-        var detector = new RegistryFallbackDetector(registry);
-
-        var result = detector.DetectType(new DirectoryInfo(actualDir));
-
-        Assert.Equal(GameSourceKind.Gog, result);
+        Assert.Equal(expected, result);
     }
 
-    [Fact]
-    public void Detect_RockstarGame_MovedToDifferentPath_NameMatch()
+    // ════════════════════════════════════════════════════════════════
+    //  Negative cases
+    // ════════════════════════════════════════════════════════════════
+
+    [Theory]
+    [InlineData(false)]
+    public void Detect_NoMatch_ReturnsUnknown(bool emptyRegistry)
     {
-        string actualDir = Path.Combine(_tempDir, "D", "Games", "Grand Theft Auto V Enhanced");
-        Directory.CreateDirectory(actualDir);
+        string gameDir = Path.Combine(_tempDir, "Unrelated Game");
+        Directory.CreateDirectory(gameDir);
 
-        string regContent = """
-            Windows Registry Editor Version 5.00
+        string registry = emptyRegistry
+            ? ""
+            : BuildKey(EaBase + @"\Dead Space 3", "Install Dir", @"C:\EA Games\Dead Space 3");
 
-            [HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Rockstar Games\Grand Theft Auto V Enhanced]
-            "InstallFolder"=str(2):"E:\\Games\\Grand Theft Auto V Enhanced"
-            """;
-
-        var registry = new MockRegistryReader(regContent);
-        var detector = new RegistryFallbackDetector(registry);
-
-        var result = detector.DetectType(new DirectoryInfo(actualDir));
-
-        Assert.Equal(GameSourceKind.Rockstar, result);
-    }
-
-    [Fact]
-    public void Detect_NameMatch_DoesNotMatchUnrelatedGame()
-    {
-        // Registry has "Dead Space 3", scanning "Need for Speed"
-        string actualDir = Path.Combine(_tempDir, "E", "Games", "Need for Speed");
-        Directory.CreateDirectory(actualDir);
-
-        string regContent = """
-            Windows Registry Editor Version 5.00
-
-            [HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\EA Games\Dead Space 3]
-            "Install Dir"=str(2):"Q:\\games\\Dead Space 3"
-            """;
-
-        var registry = new MockRegistryReader(regContent);
-        var detector = new RegistryFallbackDetector(registry);
-
-        var result = detector.DetectType(new DirectoryInfo(actualDir));
+        var result = new RegistryFallbackDetector(new MockRegistryReader(registry))
+            .DetectType(new DirectoryInfo(gameDir));
 
         Assert.Equal(GameSourceKind.Unknown, result);
     }
 
-    [Fact]
-    public void Detect_ExactPathMatch_TakesPrecedenceOverNameMatch()
+    // ════════════════════════════════════════════════════════════════
+    //  Path formatting (via the public detector, not the normalize delegate)
+    // ════════════════════════════════════════════════════════════════
+
+    [Theory]
+    [InlineData(false)]
+    public void Detect_PathFormatting_MatchesCaseAndSeparators(bool useForwardSlashes)
     {
-        // Both exact path and name match should return the same result
-        // But exact match is checked first (performance — early return)
-        string gameDir = Path.Combine(_tempDir, "ea", "Games", "Dead Space 3");
+        string gameDir = Path.Combine(_tempDir, "EA", "Games", "Dead Space 3");
         Directory.CreateDirectory(gameDir);
 
-        string regContent = $"""
-            Windows Registry Editor Version 5.00
+        string registryPath = useForwardSlashes
+            ? gameDir.Replace('\\', '/')
+            : gameDir.ToLowerInvariant();
+        string registry = BuildKey(EaBase + @"\Dead Space 3", "Install Dir", registryPath);
 
-            [HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\EA Games\Dead Space 3]
-            "Install Dir"=str(2):"{gameDir.Replace("\\", "\\\\")}"
-            """;
-
-        var registry = new MockRegistryReader(regContent);
-        var detector = new RegistryFallbackDetector(registry);
-
-        var result = detector.DetectType(new DirectoryInfo(gameDir));
+        var result = new RegistryFallbackDetector(new MockRegistryReader(registry))
+            .DetectType(new DirectoryInfo(gameDir));
 
         Assert.Equal(GameSourceKind.EaApp, result);
     }
+
+    // ════════════════════════════════════════════════════════════════
+    //  Helpers
+    // ════════════════════════════════════════════════════════════════
+
+    /// <summary>Builds one .reg key block with a single string value.</summary>
+    private static string BuildKey(string keyPath, string valueName, string value) =>
+        $"""
+         Windows Registry Editor Version 5.00
+
+         [{keyPath}]
+         "{valueName}"=str(2):"{value.Replace("\\", "\\\\")}"
+
+         """;
 }

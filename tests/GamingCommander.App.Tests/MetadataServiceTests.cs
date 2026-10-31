@@ -158,32 +158,30 @@ public sealed class MetadataServiceTests : IDisposable
     }
 
     [Fact]
-    public void Merge_PcgwFillsEngineAndPrefersReleaseDate()
+    public void Merge_PcgwFillsEnginePrefersReleaseDateAndKeepsDetails()
     {
         var steam = new GameMetadataRecord { Developer = "SteamDev", ReleaseDate = "9 Dec, 2020" };
-        var pcgw = new GameMetadataRecord { Developer = "WikiDev", ReleaseDate = "December 10, 2020", FetchedEngine = "REDengine 4" };
+        var pcgw = new GameMetadataRecord
+        {
+            Developer = "WikiDev",
+            ReleaseDate = "December 10, 2020",
+            FetchedEngine = "REDengine 4",
+            Details = new GameMetadataDetails
+            {
+                CommandLine = [new GameMetadataCommandLine { Argument = "--launcher-skip", Notes = "skip" }],
+            },
+        };
 
         var merged = MetadataService.Merge(steam, pcgw, MetadataSource.Pcgw);
 
         Assert.Equal("SteamDev", merged!.Developer);
         Assert.Equal("December 10, 2020", merged.ReleaseDate);
         Assert.Equal("REDengine 4", merged.FetchedEngine);
-    }
+        Assert.Contains(merged.Details!.CommandLine, c => c.Argument == "--launcher-skip");
 
-    [Fact]
-    public void Merge_KeepsDetailsWhenSteamHasNone()
-    {
-        var withDetails = new GameMetadataRecord
-        {
-            Developer = "Wiki",
-            Details = new GameMetadataDetails
-            {
-                CommandLine = [new GameMetadataCommandLine { Argument = "--launcher-skip", Notes = "skip" }],
-            },
-        };
-        var steam = new GameMetadataRecord { Developer = "SteamDev", MetacriticScore = 86 };
-
-        var afterSteam = MetadataService.Merge(withDetails, steam, MetadataSource.Steam);
+        // A later merge from a source without details must not drop them.
+        var steamWithoutDetails = new GameMetadataRecord { Developer = "SteamDev", MetacriticScore = 86 };
+        var afterSteam = MetadataService.Merge(merged, steamWithoutDetails, MetadataSource.Steam);
         Assert.Contains(afterSteam!.Details!.CommandLine, c => c.Argument == "--launcher-skip");
 
         var emptyPcgw = new GameMetadataRecord { FetchedEngine = "REDengine 4" };

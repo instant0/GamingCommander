@@ -70,20 +70,18 @@ public sealed class LibrariesDatabaseService : ILibrariesService
 
     private LibrariesDto ReadDto()
     {
-        // Unreadable or corrupt-without-backup falls back to an empty DTO; never an exception.
-        return _store.Read(() => new LibrariesDto(), dto => SchemaVersioning.IsReadable(dto.Version)).Value
+        // Corrupt-without-backup falls back to an empty DTO; never an exception.
+        return _store.Read(() => new LibrariesDto()).Value
             ?? new LibrariesDto();
     }
 
     private void Write(LibrariesDto dto)
     {
-        dto.Version = SchemaVersioning.Current;
         _store.Write(dto);
     }
 
     private sealed class LibrariesDto
     {
-        public int Version { get; set; } = SchemaVersioning.Current;
         public Dictionary<string, LibraryDto>? Libraries { get; set; }
     }
 

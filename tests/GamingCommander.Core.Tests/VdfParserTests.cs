@@ -14,18 +14,12 @@ public sealed class VdfParserTests
     // ════════════════════════════════════════════════════════════════
 
     [Fact]
-    public void Parse_SingleKeyValue_ParsesCorrectly()
+    public void Parse_KeyValues_ParsesAll()
     {
-        string vdf = "\"key\" \"value\"";
-        var result = VdfParser.Parse(vdf);
+        var single = VdfParser.Parse("\"key\" \"value\"");
+        Assert.Single(single);
+        Assert.Equal("value", single["key"]);
 
-        Assert.Single(result);
-        Assert.Equal("value", result["key"]);
-    }
-
-    [Fact]
-    public void Parse_MultipleKeyValues_ParsesAll()
-    {
         string vdf = "\"key1\" \"value1\"\n\"key2\" \"value2\"\n\"key3\" \"value3\"";
         var result = VdfParser.Parse(vdf);
 
@@ -33,6 +27,12 @@ public sealed class VdfParserTests
         Assert.Equal("value1", result["key1"]);
         Assert.Equal("value2", result["key2"]);
         Assert.Equal("value3", result["key3"]);
+
+        // Tabs and runs of spaces are equivalent separators (token stream model).
+        var mixed = VdfParser.Parse("\"key1\"\t\"value1\"\n\"key2\"  \"value2\"");
+        Assert.Equal(2, mixed.Count);
+        Assert.Equal("value1", mixed["key1"]);
+        Assert.Equal("value2", mixed["key2"]);
     }
 
     [Fact]
@@ -46,17 +46,12 @@ public sealed class VdfParserTests
         Assert.IsType<Dictionary<string, object>>(result["root"]);
         var nested = (Dictionary<string, object>)result["root"];
         Assert.Equal("value", nested["child"]);
-    }
 
-    [Fact]
-    public void Parse_MultipleNestedBlocks_ParsesAll()
-    {
-        string vdf = "\"block1\" {\n    \"key1\" \"val1\"\n}\n\"block2\" {\n    \"key2\" \"val2\"\n}";
-        var result = VdfParser.Parse(vdf);
-
-        Assert.Equal(2, result.Count);
-        var b1 = (Dictionary<string, object>)result["block1"];
-        var b2 = (Dictionary<string, object>)result["block2"];
+        string multiple = "\"block1\" {\n    \"key1\" \"val1\"\n}\n\"block2\" {\n    \"key2\" \"val2\"\n}";
+        var multi = VdfParser.Parse(multiple);
+        Assert.Equal(2, multi.Count);
+        var b1 = (Dictionary<string, object>)multi["block1"];
+        var b2 = (Dictionary<string, object>)multi["block2"];
         Assert.Equal("val1", b1["key1"]);
         Assert.Equal("val2", b2["key2"]);
     }
@@ -68,44 +63,21 @@ public sealed class VdfParserTests
     [Fact]
     public void Parse_EmptyInput_ReturnsEmptyDict()
     {
-        var result = VdfParser.Parse("");
-        Assert.Empty(result);
+        Assert.Empty(VdfParser.Parse(""));
+        Assert.Empty(VdfParser.Parse("   \n  \t  \n  "));
     }
 
     [Fact]
-    public void Parse_WhitespaceOnly_ReturnsEmptyDict()
+    public void Parse_EscapedAndQuotedValues_PreservesContent()
     {
-        var result = VdfParser.Parse("   \n  \t  \n  ");
-        Assert.Empty(result);
-    }
+        var spaces = VdfParser.Parse("\"key\" \"value with spaces\"");
+        Assert.Equal("value with spaces", spaces["key"]);
 
-    [Fact]
-    public void Parse_QuotedValuesWithSpaces_PreservesSpaces()
-    {
-        string vdf = "\"key\" \"value with spaces\"";
-        var result = VdfParser.Parse(vdf);
+        var escaped = VdfParser.Parse("\"key\" \"value with \\\"quotes\\\"\"");
+        Assert.Equal("value with \"quotes\"", escaped["key"]);
 
-        Assert.Equal("value with spaces", result["key"]);
-    }
-
-    [Fact]
-    public void Parse_EscapedQuotes_ParsesCorrectly()
-    {
-        string vdf = "\"key\" \"value with \\\"quotes\\\"\"";
-        var result = VdfParser.Parse(vdf);
-
-        Assert.Equal("value with \"quotes\"", result["key"]);
-    }
-
-    [Fact]
-    public void Parse_TabsAndSpacesBoth_Work()
-    {
-        string vdf = "\"key1\"\t\"value1\"\n\"key2\"  \"value2\"";
-        var result = VdfParser.Parse(vdf);
-
-        Assert.Equal(2, result.Count);
-        Assert.Equal("value1", result["key1"]);
-        Assert.Equal("value2", result["key2"]);
+        var midQuote = VdfParser.Parse("\"key\" \"val\\\"ue\"");
+        Assert.Equal("val\"ue", midQuote["key"]);
     }
 
     // ════════════════════════════════════════════════════════════════
@@ -122,6 +94,11 @@ public sealed class VdfParserTests
         Assert.Equal(2, result.Count);
         Assert.Equal("value1", result["key1"]);
         Assert.Equal("value2", result["key2"]);
+
+        // ExtractFields over an unparsable payload is empty, not a throw.
+        var extracted = VdfParser.ExtractFields("not valid vdf at all {{{", ["key"]);
+        Assert.NotNull(extracted);
+        Assert.Empty(extracted!);
     }
 
     [Fact]
@@ -134,15 +111,6 @@ public sealed class VdfParserTests
         Assert.Single(result);
         var nested = (Dictionary<string, object>)result["root"];
         Assert.Equal("value", nested["child"]);
-    }
-
-    [Fact]
-    public void Parse_QuoteInMiddleOfValue_ParsesValue()
-    {
-        string vdf = "\"key\" \"val\\\"ue\"";
-        var result = VdfParser.Parse(vdf);
-
-        Assert.Equal("val\"ue", result["key"]);
     }
 
     [Fact]
@@ -247,7 +215,7 @@ public sealed class VdfParserTests
     // ════════════════════════════════════════════════════════════════
 
     [Fact]
-    public void ExtractFields_RequiredKeys_ReturnsMatchingDict()
+    public void ExtractFields_RequiredKeys_ReturnsOnlyPresentKeys()
     {
         string vdf =
             "\"AppState\" {\n" +
@@ -263,34 +231,17 @@ public sealed class VdfParserTests
         Assert.Equal("730", result["appid"]);
         Assert.Equal("Counter-Strike 2", result["name"]);
         Assert.Equal("CS2", result["installdir"]);
-    }
 
-    [Fact]
-    public void ExtractFields_MissingKey_SkipsIt()
-    {
-        string vdf =
+        // A required key that is absent is skipped, not fabricated.
+        string withoutDir =
             "\"AppState\" {\n" +
             "    \"appid\" \"730\"\n" +
             "    \"name\" \"CS2\"\n" +
             "}";
-        string[] required = ["appid", "name", "missing_key"];
-        var result = VdfParser.ExtractFields(vdf, required);
-
-        Assert.NotNull(result);
-        Assert.Equal(2, result!.Count);
-        Assert.False(result.ContainsKey("missing_key"));
-    }
-
-    [Fact]
-    public void ExtractFields_MalformedInput_ReturnsEmptyOrNull()
-    {
-        string vdf = "not valid vdf at all {{{";
-        var result = VdfParser.ExtractFields(vdf, ["key"]);
-
-        // Parser catches exceptions internally and returns an empty dict,
-        // so ExtractFields returns an empty dict (keys not found)
-        Assert.NotNull(result);
-        Assert.Empty(result!);
+        var partial = VdfParser.ExtractFields(withoutDir, ["appid", "name", "missing_key"]);
+        Assert.NotNull(partial);
+        Assert.Equal(2, partial!.Count);
+        Assert.False(partial.ContainsKey("missing_key"));
     }
 
     [Fact]

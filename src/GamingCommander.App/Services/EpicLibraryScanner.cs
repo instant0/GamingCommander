@@ -45,19 +45,11 @@ internal sealed class EpicLibraryScanner
             }
             string id = match is { } m2
                 ? m2.Id
-                : GameEntryId.ComputeId(catalog.ManifestsDir,
-                    string.IsNullOrEmpty(item.CatalogItemId) ? folderName : item.CatalogItemId);
+                : ResolveEpicId(catalog.ManifestsDir, item, installLocation, folderName);
 
-            if (!string.IsNullOrWhiteSpace(installLocation))
-            {
-                claimedFolders.Add(EpicInstallPath.Normalize(installLocation));
-                claimedFolders.Add(EpicInstallPath.FolderName(installLocation));
-            }
+            Claim(claimedFolders, installLocation);
             if (match is { } m3)
-            {
-                claimedFolders.Add(EpicInstallPath.Normalize(m3.FolderPath));
-                claimedFolders.Add(EpicInstallPath.FolderName(m3.FolderPath));
-            }
+                Claim(claimedFolders, m3.FolderPath);
 
             string epicStatus = folderOk ? "Installed" : "Missing";
             List<string> exeCandidates = candidates.Count > 1
@@ -115,8 +107,7 @@ internal sealed class EpicLibraryScanner
                 continue;
             string folder = game.FolderPath;
             if (string.IsNullOrWhiteSpace(folder)
-                || claimedFolders.Contains(EpicInstallPath.Normalize(folder))
-                || claimedFolders.Contains(EpicInstallPath.FolderName(folder))
+                || claimedFolders.Contains(InstallIdentity.PathKey(folder))
                 || catalog.MatchesInstall(folder))
             {
                 continue;
@@ -151,6 +142,40 @@ internal sealed class EpicLibraryScanner
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Claims one physical folder for suppression. Empty paths are skipped so they can
+    /// never suppress an unrelated entry.
+    /// </summary>
+    private static void Claim(HashSet<string> claimed, string? path)
+    {
+        string key = InstallIdentity.PathKey(path);
+        if (key.Length > 0)
+            claimed.Add(key);
+    }
+
+    /// <summary>
+    /// Catalog id is the strong key. Without it, the physical install path identifies the
+    /// item; when the install is absent, the manifest file path does. The folder name is
+    /// the last resort for a malformed item and is not unique by itself.
+    /// </summary>
+    private static string ResolveEpicId(
+        string manifestsDir,
+        EpicManifestParser.EpicItemData item,
+        string installLocation,
+        string folderName)
+    {
+        if (!string.IsNullOrEmpty(item.CatalogItemId))
+            return GameEntryId.ComputeId(manifestsDir, item.CatalogItemId);
+
+        if (!string.IsNullOrWhiteSpace(installLocation))
+            return GameEntryId.ComputeId(manifestsDir, installLocation);
+
+        if (!string.IsNullOrWhiteSpace(item.ItemFilePath))
+            return GameEntryId.ComputeId(item.ItemFilePath, folderName);
+
+        return GameEntryId.ComputeId(manifestsDir, folderName);
     }
 
     private static string FolderName(string installLocation)

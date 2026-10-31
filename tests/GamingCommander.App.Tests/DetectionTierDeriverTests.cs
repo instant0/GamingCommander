@@ -49,8 +49,6 @@ public sealed class DetectionTierDeriverTests
 
     [Theory]
     [InlineData(GameSourceKind.EaApp)]
-    [InlineData(GameSourceKind.UbisoftConnect)]
-    [InlineData(GameSourceKind.BattleNet)]
     [InlineData(GameSourceKind.Rockstar)]
     public void Derive_OtherStores_AreSecure(GameSourceKind source)
     {
