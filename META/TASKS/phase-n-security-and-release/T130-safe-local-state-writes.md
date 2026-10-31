@@ -180,5 +180,6 @@ accept — or put the backup back. A damaged save must never read back as an emp
   - `BlacklistLoader` can no longer restore into a missing external directory (by design, the guard
     refuses it); `Load_WithMissingFile_ReturnsEmbeddedDefaultsAndRestoresFile` now creates the test-owned
     `data/` directory first, and the missing-directory test asserts no directory is created.
-  - The two remaining `Directory.CreateDirectory` calls in `src/` are the repair writers
-    (`SteamAcfWriter`, `EpicItemWriter`), which T129 owns and this task must not touch.
+  - At the time of this task the two repair writers still called `Directory.CreateDirectory`
+    (`SteamAcfWriter`, `EpicItemWriter`). T129 removed those calls; the guard in `AppPaths` is now the only
+    directory creator in `src/`.

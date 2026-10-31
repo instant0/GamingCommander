@@ -72,7 +72,7 @@ UI / MainWindow
 
 | File | Service | DTO | Read behaviour today | Write behaviour today |
 |---|---|---|---|---|
-| `data/games.json` | `GamesDatabaseService` | `GamesDatabaseDto` | missing/corrupt → empty catalogue | `JsonFileHelper.WriteToFile` in place |
+| `data/games.json` | `GamesDatabaseService` | `GamesDatabaseDto` | four-state store | `.bak` → write → verify |
 | `data/libraries.json` | `LibrariesDatabaseService` | `LibrariesDto` | same | same |
 | `data/settings.json` | `JsonConfigService` | `ConfigDto` | same; first-run flag and last version | same |
 | `data/games_metadata.json` | `MetadataStore` | sidecar records | same | same |
@@ -81,11 +81,10 @@ UI / MainWindow
 | `data/tag_colors.json` | `TagColorService` | `TagColorConfig` | direct read, defaults on failure | never written |
 | `data/startup.log` | `App`, `MainWindow` | — | — | append, best effort |
 
-`JsonFileHelper` is the current single writer: `File.WriteAllText` (truncates first) and
-`ReadFromFile` (returns defaults on any failure). `SchemaVersioning.IsReadable` guards a newer version but
-still yields an empty value. The agreed replacement is one store with a four-state read
-(`Ok`/`Missing`/`Corrupt`/`Unreadable`), a rolling `.bak`, and `.corrupt` preservation; it is **planned**,
-not shipped.
+All five JSON services share `JsonDocumentStore<T>`: `Ok` / `Missing` / `Corrupt` (damaged bytes kept as
+`.corrupt`, value recovered from the rolling `.bak`) / `Unreadable` (newer schema; file untouched). A write
+serializes first, copies the previous file to `.bak`, writes, re-reads and parses. No temp file, rename,
+hash, or signature. `JsonFileHelper` no longer exists.
 
 `IConfigService.Load()` is called by several services; it re-reads and re-parses `settings.json` each time.
 Treat it as cheap but not free — do not call it per row.
@@ -230,20 +229,19 @@ scan, launch, sync, or health.
 | Read | app data | `data/*.json`, `data/blacklist.json`, `data/tag_colors.json` |
 | Write | app data | `data/` only: JSON through `AppDataPaths`, logs to the same folder |
 | Write | Steam ACF | `<library>\steamapps\appmanifest_<appid>.acf`, user-started, create-only |
-| Write | Epic `.item` | existing item only, user-started, modify-only (contract; current code can still replace) |
+| Write | Epic `.item` | existing item only, user-started, modify-only |
 | Write | `startup.log` | `data/`, best effort |
 | Egress | Steam store + PCGamingWiki | only when online metadata is enabled |
 | Never | registry writes, services, drivers, game-file modification | — |
 
 **Directory rule:** external directories are checked with `Directory.Exists` and refused when missing; they
-are never created. Only `data/` subdirectories are created, and only through the application-data guard
-(planned; today `JsonFileHelper.EnsureDirectoryExists` creates arbitrary parents, which is the defect being
-replaced).
+are never created. Only `data/` subdirectories are created, through `AppPaths.EnsureAppDataPath`, which
+throws for any path outside the app data root.
 
 **Write rules:** Steam creates a missing ACF and refuses an existing one; Epic modifies an existing,
 parseable `.item` and refuses a missing or unreadable one; both stage in `data/staging/`, copy, length-check,
 journal to `data/repair-journal.jsonl`, and never write a temp file into the store folder. No hash,
-signature, or digest is involved. (Current code predates this contract; see `planning/133`.)
+signature, or digest is involved. See `planning/133`.
 
 ---
 
@@ -272,7 +270,7 @@ currently unwired.
 | inventory | configured type Epic | `EpicItemCatalog.All` (ProgramData `*.item`) | no catalog ids; duplicate `CatalogItemId`; unreadable folder | `EpicItemCatalog`-covered via `EpicLibraryScannerTests` |
 | import | policy (planned) | same as scan | — | gap |
 | launch | `EpicLaunchResolver` → `GameLaunchResolver` | `.item` `LaunchExecutable`, else scored exe | store launcher recorded; exe missing | `EpicLibraryScannerTests` |
-| repair | user action (Repair) | `EpicItemWriter.TryWrite` (modify-only per contract) | item absent; unparseable; different install id; manifests dir missing | `EpicItemWriterTests` |
+| repair | user action (Repair) | `EpicItemWriter.TryWrite` (modify-only) | item absent; unparseable; different install id; manifests dir missing | `EpicItemWriterTests` |
 | health | `EpicLibraryScanner` | Installed / Missing / Orphaned; `EpicInstallPath.Equals` | folder-name claiming across libraries is still possible (gap) | `EpicLibraryScannerTests`, `EpicInstallPathTests` |
 
 ### GOG
@@ -406,14 +404,11 @@ currently unwired.
 |---|---|---|
 | `StorePolicyProvider` unwired | store enable/disable is persisted but not enforced | launcher discovery / import |
 | `GameStoreIndex` built only in tests | no live O(1) key/path index for import or sync | inventory import |
-| `JsonFileHelper` truncates then writes; read returns defaults | a damaged save can become an empty catalogue | persistence contract |
-| `EpicItemWriter` can still create and replace a corrupt item | contradicts the modify-only contract | repair contract |
-| `SteamAcfWriter` creates `steamapps` | writes a launcher-owned directory | repair contract |
 | `EpicOrphanDiscovery` has no callers | orphan detection is done inside `EpicLibraryScanner` only | Epic scanner |
 | `CollectionsDatabaseService` has no caller | collections are persisted only in tests | collections feature |
 | non-Steam health is hardcoded `Installed` | GOG/EA/Ubisoft/Battle.net/Xbox/Rockstar cannot report Moved/Missing | health work |
 | `EpicLibraryScanner` claims folders by name as well as path | two libraries with the same folder name can collide | Epic identity |
-| `EpicStoreSearch` compiled, no callers | deferred opt-in metadata leg | online metadata |
+| `EpicStoreSearch` compiled, no callers | deferred identity lookup (title/namespace/id); two uses, gated | online metadata |
 
 A gap is recorded here; it is not fixed here. Do not add an abstraction to paper over one.
 
