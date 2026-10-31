@@ -25,6 +25,8 @@ no more and no less — before the launcher-discovery and inventory work adds ne
 - [ ] Reconcile the "never written" and "never contacted" lists with the code.
 - [ ] State that neither repair path creates a store or ProgramData directory; a missing target is a
       refusal, not a creation.
+- [ ] Keep one online section: local Epic manifests are the Epic metadata source; the Epic store lookup is
+      **not called in v1** and, when wired, is identity-only. Do not list it as a metadata provider.
 
 ### 2. `GamingCommander.Readme.txt`
 - [ ] Bring ACCESS 1–12 into line with the writes the app can perform, including the Steam library and
@@ -38,9 +40,14 @@ no more and no less — before the launcher-discovery and inventory work adds ne
       JSON write path exists.
 
 ### 4. `docs/detection/10-store-capabilities.md`
-- [ ] Confirm the `.item` write description matches §1 of this task.
-- [ ] State that the store GraphQL endpoint is **not called in v1** and is reserved for opt-in Epic
-      metadata. Do not describe it as removed.
+- [ ] Confirm the `.item` modification description matches §1 of this task.
+- [ ] State that Epic store lookup is **identity only** (resolve title/namespace/catalog id for a game local
+      files cannot identify; resolve the title before PCGW). Do not call it metadata enrichment and do not
+      describe it as `.item` generation.
+- [ ] State that local `.item`/`.mancpn` manifests are the Epic metadata source, with PCGW and the Steam
+      lookup filling the remaining fields.
+- [ ] State that the store GraphQL endpoint is **not called in v1** and is reserved for that identity
+      lookup. Do not describe it as removed or as "never contacted".
 
 ## Context
 

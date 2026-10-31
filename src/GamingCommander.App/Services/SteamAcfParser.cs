@@ -62,10 +62,17 @@ internal static class SteamAcfParser
     internal static List<string> DiscoverLibraryPaths(string libraryRoot)
     {
         string vdfPath = Path.Combine(libraryRoot, "steamapps", "libraryfolders.vdf");
-        if (!File.Exists(vdfPath))
-            return [];
 
-        return GetLibraryPaths(vdfPath).ToList();
+        // The read is the existence test: a missing or malformed vdf yields no
+        // libraries instead of an exception through the scan.
+        try
+        {
+            return GetLibraryPaths(vdfPath).ToList();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return [];
+        }
     }
 
     /// <summary>

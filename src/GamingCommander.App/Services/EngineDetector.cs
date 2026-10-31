@@ -11,7 +11,7 @@ public static class EngineDetector
     /// <summary>Returns the first matching engine, or <see cref="GameEngineKind.Unknown"/>.</summary>
     public static GameEngineKind Detect(string folderPath)
     {
-        if (string.IsNullOrWhiteSpace(folderPath) || !Directory.Exists(folderPath))
+        if (string.IsNullOrWhiteSpace(folderPath))
             return GameEngineKind.Unknown;
 
         var dir = new DirectoryInfo(folderPath);

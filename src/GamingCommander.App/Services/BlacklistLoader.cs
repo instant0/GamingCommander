@@ -90,11 +90,9 @@ public sealed class BlacklistLoader
     /// </summary>
     private static string? ReadBlacklistJson(string jsonPath)
     {
-        if (!File.Exists(jsonPath))
-            return null;
-
         try
         {
+            // The read itself reports absence: FileNotFoundException lands in the catch.
             string json = File.ReadAllText(jsonPath);
             return string.IsNullOrWhiteSpace(json) ? null : json;
         }
@@ -124,12 +122,17 @@ public sealed class BlacklistLoader
                 return "{}";
 
             // Restore the file only when it is missing (never overwrite user edits or
-            // a corrupt-but-recoverable file).
+            // a corrupt-but-recoverable file). The parent directory is created only
+            // under the app data root, and only when it is actually missing: an existing
+            // directory is allowed as-is (tests supply one), so the app-root guard runs
+            // only on the create path.
             if (!File.Exists(jsonPath))
             {
                 try
                 {
-                    JsonFileHelper.EnsureDirectoryExists(jsonPath);
+                    string? directory = Path.GetDirectoryName(jsonPath);
+                    if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+                        AppPaths.EnsureAppDataPath(jsonPath);
                     File.WriteAllText(jsonPath, json);
                 }
                 catch

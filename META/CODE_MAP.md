@@ -1,5 +1,8 @@
 # META/CODE_MAP.md — Codebase Reference
 
+> **How it connects →** [`CONNECTION_MAP.md`](CONNECTION_MAP.md) — composition root, pipelines, per-store
+> decision trees, write and egress boundaries.
+
 **Nature:** Reference. Updated by Builder after structural changes.
 **Audience:** Builder, Reviewer. Read before modifying code.
 
@@ -177,7 +180,8 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 | `SteamLibraryScanner` | `SteamLibraryScanner.cs` | Dedicated Steam scanner: ACF cross-ref, library path discovery, Installed/Moved/Orphaned/Missing; skips Steam-internal `common/` folders (Bug 10); cheap exe picking via `CheapExeFinder` |
 | `CheapExeFinder` | `CheapExeFinder.cs` | Plan 125 Ph 2c: root-exe-first + relative-folder cheap finder shared by Steam scanner and Epic `.item` writer (per-caller forbidden-exe skips) |
 | `EpicLibraryScanner` | `EpicLibraryScanner.cs` | ProgramData `*.item` → VFS (base games only) |
-| `EpicItemCatalog` / `EpicItemClassifier` / `EpicItemWriter` | same folder | Catalog, DLC skip, orphan `.item` write |
+| `EpicItemCatalog` / `EpicItemClassifier` | same folder | Catalog and DLC skip; read-only |
+| `SteamAcfWriter` / `EpicItemWriter` / `RepairWriteGuard` | same folder | Repair writes: Steam creates an absent ACF, Epic modifies an existing `.item` (never creates/replaces); shared preflight, staging, copy, length check, backup/restore, journal |
 | `SteamAcfParser` | `SteamAcfParser.cs` | Parses Steam ACF files and libraryfolders.vdf; AcfInfo record |
 | `GamesDatabaseService` | `GamesDatabaseService.cs` | JSON-file CRUD for the flat game list (`games.json`) via private DTOs, in-memory cache, anchor-keyed access (Plan 124) |
 | `LibrariesDatabaseService` | `LibrariesDatabaseService.cs` | Reads/writes `libraries.json` (named `Library` anchors) implementing `ILibrariesService` (Plan 124) |
@@ -187,7 +191,7 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 | `BlacklistLoader` | `BlacklistLoader.cs` | Loads noise patterns from `data/blacklist.json`; missing/corrupt file falls back to embedded resource and restores disk copy (Bug 16) |
 | `DetectionNoise` | `DetectionNoise.cs` | Small detection noise sets (`NonGameExe`, `LnkSkip`, `SteamCommonNoise`) shared by `FolderScanner`, `ContainerScanner`, `ExecutableDiscovery`, `LnkParser`, and `SteamLibraryScanner`; separate from the tiered `data/blacklist.json`, which drives exe scoring |
 | `FileSystemHelper` | `FileSystemHelper.cs` | Shared filesystem utilities: GetDirectoriesSafe, GetFilesSafe, GetLastWriteTimeSafe, NormalizeDisplayName, NoiseSubDirNames |
-| `JsonFileHelper` | `JsonFileHelper.cs` | Shared JSON read/write: ReadFromFile\<T\>, WriteToFile\<T\>, DefaultOptions |
+| `JsonDocumentStore` / `AppPaths` | `Services/JsonDocumentStore.cs`, `AppPaths.cs` | Shared JSON store: four-state read, rolling `.bak`, `.corrupt` preservation, verified single write; app-data root + parent-directory guard |
 | `HelpDialogBuilder` | `HelpDialogBuilder.cs` | Builds and shows the help dialog with keyboard shortcuts |
 | `PickPcgwPageWindow` | `PickPcgwPageWindow.cs` | F3: choose among several PCGW titles |
 | `FilterWindow` | `FilterWindow.cs` | F8 / S: tag, store, wildcard |

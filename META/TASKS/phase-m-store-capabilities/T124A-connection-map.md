@@ -3,7 +3,7 @@
 **Tier:** 1 — Documentation / Architecture
 **Phase:** M — Store Capabilities
 **Risk:** Minimal
-**Status:** ready (Proposal B adopted 2026-10-30)
+**Status:** completed (2026-10-30)
 **Prerequisites:** Task T124A depends on Task T124
 
 > Documentation-only. Do not run build/test. Do not implement features.
@@ -115,22 +115,22 @@ is already mandatory reading, and by the `docs/README.md` live table.
 ### 1. Decide the shape
 - [x] Evaluation written above (2026-10-30): Proposal A (extend `CODE_MAP.md`) vs Proposal B (companion).
       **Adopted: B, `META/CONNECTION_MAP.md`.**
-- [ ] Create `META/CONNECTION_MAP.md`; put the link in the first three lines of `META/CODE_MAP.md`; add it
+- [x] Create `META/CONNECTION_MAP.md`; put the link in the first three lines of `META/CODE_MAP.md`; add it
       to the `docs/README.md` live table.
-- [ ] Do not duplicate the type/file tables; link to `CODE_MAP.md` instead.
+- [x] Do not duplicate the type/file tables; link to `CODE_MAP.md` instead.
 
 ### 2. Required content
-- [ ] **Composition root:** `App.axaml.cs` service construction/lifetimes; windows and view-models.
-- [ ] **Persistence + data flow:** `settings.json`/`libraries.json`/`games.json`/`collections.json`/metadata sidecar → services → in-memory caches/index (`GameStoreIndex`, `IConfigService`).
-- [ ] **Scan pipeline:** `LibraryManager` → `SteamLibraryScanner`/`EpicLibraryScanner`/`FolderScanner` → store signals/containers/exe discovery → `GameEntry` → `IGamesDatabaseService` → UI.
-- [ ] **Store inventory pipeline (current + planned):** policy (`IStorePolicyProvider`) → launcher locator → inventory reader → import/sync → health → UI. Mark planned parts.
-- [ ] **Launch pipeline:** UI → `GameLaunchResolver` → `steam://` or exe.
-- [ ] **Metadata/online pipeline:** `MetadataService`/queue/gate → sidecar.
-- [ ] **Trust boundaries and write paths:** what is read, what is written, what leaves the machine. Mark
+- [x] **Composition root:** `App.axaml.cs` service construction/lifetimes; windows and view-models.
+- [x] **Persistence + data flow:** `settings.json`/`libraries.json`/`games.json`/`collections.json`/metadata sidecar → services → in-memory caches/index (`GameStoreIndex`, `IConfigService`).
+- [x] **Scan pipeline:** `LibraryManager` → `SteamLibraryScanner`/`EpicLibraryScanner`/`FolderScanner` → store signals/containers/exe discovery → `GameEntry` → `IGamesDatabaseService` → UI.
+- [x] **Store inventory pipeline (current + planned):** policy (`IStorePolicyProvider`) → launcher locator → inventory reader → import/sync → health → UI. Mark planned parts.
+- [x] **Launch pipeline:** UI → `GameLaunchResolver` → `steam://` or exe.
+- [x] **Metadata/online pipeline:** `MetadataService`/queue/gate → sidecar.
+- [x] **Trust boundaries and write paths:** what is read, what is written, what leaves the machine. Mark
       the two user-started repair writes, the app-owned `data/` writes, and the opt-in HTTP egress.
       External targets are checked for existence, never created; only `data/` subdirectories are created.
-- [ ] **Extension recipes:** add a store, add a store signal, add a metadata provider, add a persisted field, add a UI action, add a detection gate.
-- [ ] Each flow names the real class/file; planned arrows are labelled "planned".
+- [x] **Extension recipes:** add a store, add a store signal, add a metadata provider, add a persisted field, add a UI action, add a detection gate.
+- [x] Each flow names the real class/file; planned arrows are labelled "planned".
 
 ### 3. Per-store decision tree (the part that answers "which path runs, and how do we know it is right")
 
@@ -143,27 +143,27 @@ Row shape — this is what the document must contain, for every store and intent
 | Epic | inventory | `CanImport` | `EpicManifestPaths` → `EpicItemCatalog` | manifests dir missing, `.item` unparseable, no catalog ids | `EpicManifestParserTests`, `EpicLibraryScannerTests` |
 | Epic | repair | user action (Repair) | `EpicItemWriter.TryWrite` (modify) | item absent, unparseable, different install id, dir missing | `EpicItemWriterTests` |
 
-- [ ] One table per store (Steam, Epic, GOG, EA, Ubisoft, Battle.net, Xbox, Rockstar, Standalone) with the
+- [x] One table per store (Steam, Epic, GOG, EA, Ubisoft, Battle.net, Xbox, Rockstar, Standalone) with the
       same rows, so the differences are visible side by side:
       `intent → gate → locator → reader → writer → failure points → test`.
-- [ ] Intents to cover: **scan** (folder walk), **inventory** (manifest read), **import**, **launch**,
+- [x] Intents to cover: **scan** (folder walk), **inventory** (manifest read), **import**, **launch**,
       **repair** (create/modify), **health/status**.
-- [ ] For each cell, the real class/file, or `—` when the store has no such path.
-- [ ] Mark the gate for each row: `GameSourceKind`, `IStorePolicyProvider.CanImport`/`CanSync`, the user
+- [x] For each cell, the real class/file, or `—` when the store has no such path.
+- [x] Mark the gate for each row: `GameSourceKind`, `IStorePolicyProvider.CanImport`/`CanSync`, the user
       action, or the marker check. There must be one gate per decision, not two competing tests.
-- [ ] **Failure points:** for each store, the conditions that make the row refuse or degrade (missing
+- [x] **Failure points:** for each store, the conditions that make the row refuse or degrade (missing
       marker, absent manifest, corrupt manifest, unreadable directory, unknown format, no store id).
       These are the cases that must be tested.
-- [ ] **Test column:** name the existing test that covers the row; where none exists, list it as a gap.
+- [x] **Test column:** name the existing test that covers the row; where none exists, list it as a gap.
       This is the accuracy check for the map, not a request to write tests here.
-- [ ] Record the two write rules as rows: Steam create-only (target absent), Epic modify-only (target must
+- [x] Record the two write rules as rows: Steam create-only (target absent), Epic modify-only (target must
       exist and parse; unknown members preserved). A store with neither is `—`.
 
 ### 4. Accuracy and style
-- [ ] Verify every arrow/class against `src/` (cite class names, not line numbers that rot).
-- [ ] Keep it a map, not prose; prefer short diagrams/tables.
-- [ ] No task IDs in the document.
-- [ ] No behavior changes.
+- [x] Verify every arrow/class against `src/` (cite class names, not line numbers that rot).
+- [x] Keep it a map, not prose; prefer short diagrams/tables.
+- [x] No task IDs in the document.
+- [x] No behavior changes.
 
 ## Context
 
@@ -174,28 +174,41 @@ Row shape — this is what the document must contain, for every store and intent
 
 ## Requirements
 
-- [ ] A single entry point ("start here") for feature work.
-- [ ] Composition root + the six pipelines above are covered.
-- [ ] Every store has a decision-tree row per intent, with gate, failure points, and a test reference or a
+- [x] A single entry point ("start here") for feature work.
+- [x] Composition root + the six pipelines above are covered.
+- [x] Every store has a decision-tree row per intent, with gate, failure points, and a test reference or a
       recorded gap.
-- [ ] Read, write, and network boundaries are visible on the map.
-- [ ] Extension recipes are actionable and point to the real files/classes.
-- [ ] Planned vs shipped is explicit.
-- [ ] `CODE_MAP.md` links to it (or contains it); no duplicate catalog.
+- [x] Read, write, and network boundaries are visible on the map.
+- [x] Extension recipes are actionable and point to the real files/classes.
+- [x] Planned vs shipped is explicit.
+- [x] `CODE_MAP.md` links to it (or contains it); no duplicate catalog.
 
 ## Verification
 
-- [ ] `META/CONNECTION_MAP.md` exists and is linked from the first three lines of `META/CODE_MAP.md` and
+- [x] `META/CONNECTION_MAP.md` exists and is linked from the first three lines of `META/CODE_MAP.md` and
       the `docs/README.md` live table.
-- [ ] Every pipeline names existing classes (or marks planned).
-- [ ] Every store appears in the decision tree; every write rule names its precondition.
-- [ ] Each failure point maps to a test name or a recorded gap.
-- [ ] No task IDs in the document.
-- [ ] No build/test (docs-only).
+- [x] Every pipeline names existing classes (or marks planned).
+- [x] Every store appears in the decision tree; every write rule names its precondition.
+- [x] Each failure point maps to a test name or a recorded gap.
+- [x] No task IDs in the document.
+- [x] No build/test (docs-only).
 
 ## Completion Notes
 
-- **Completed:**
-- **What was done:**
-- **Verification:**
-- **Issues encountered:**
+- **Completed:** 2026-10-30
+- **What was done:** Wrote `META/CONNECTION_MAP.md` (Proposal B). Sections: composition root (manual
+  wiring in `App`), persistence flow per file, the scan pipeline including both dedicated scanners and the
+  six `FolderScanner` passes, the current-vs-planned inventory/import/sync stages, launch, metadata/egress,
+  trust boundaries and write rules, nine per-store decision trees (scan/inventory/import/launch/repair/
+  health with gate, failure points, test), extension recipes, and a verified gap list.
+  Linked from the first block of `META/CODE_MAP.md` and from the `docs/README.md` live table.
+- **Verification:** `META/CONNECTION_MAP.md` exists; link present in `CODE_MAP.md` head and
+  `docs/README.md`. No task IDs in the map (`grep -c "T[0-9]"` → 0). Every store has a scan row; every
+  write names its precondition. Docs-only: no build/test.
+- **Issues encountered:** the map exposed four unwired/contradictory facts, recorded in §10 rather than
+  fixed: `StorePolicyProvider` is never constructed; `GameStoreIndex` is tests-only; `EpicLibraryScanner`
+  still claims folders by name across libraries (the same class of collision removed from
+  `EpicInstallPath.Same`); the repair writers still predate their documented contracts. Also corrected two
+  stale claims from `docs/detection/10` while writing: the registry fallback order now matches
+  `StoreSignalDetector`, and `EpicInstallPath.Same` no longer does folder-name matching (the scanner does).
+

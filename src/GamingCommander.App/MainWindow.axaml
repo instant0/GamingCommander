@@ -150,7 +150,7 @@
                        Margin="12,4,0,0" Cursor="Hand" TextWrapping="Wrap"
                        PointerPressed="WriteSteamAcf_PointerPressed"
                        IsVisible="{Binding IsSteamOrphaned}" />
-            <TextBlock Text="Write Epic .item (one per Epic launch — then Update)"
+            <TextBlock Text="Repair Epic registration (updates the existing .item — one per Epic launch, then Update)"
                        Foreground="{DynamicResource TextAccent}" FontSize="{DynamicResource FontSizeLabel}"
                        Margin="12,4,0,0" Cursor="Hand" TextWrapping="Wrap"
                        PointerPressed="WriteEpicItem_PointerPressed"

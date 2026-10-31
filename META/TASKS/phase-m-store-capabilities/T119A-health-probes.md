@@ -9,7 +9,8 @@
 ## Objective
 
 Define the launcher-vs-disk mismatch model and implement the per-store probes that populate
-`InstallState` for every store, not just Steam/Epic.
+`InstallState` where evidence exists, not just Steam/Epic. Stores without an inventory keep their
+disk-derived state.
 
 ## What Needs to Change
 
@@ -21,8 +22,9 @@ Define the launcher-vs-disk mismatch model and implement the per-store probes th
 ### 2. Probes
 - [ ] `StoreHealthProbe` compares an imported `StoreInventoryEntry` to the disk (folder + exe).
 - [ ] Steam: keep the current Moved/Orphaned/Missing logic; extend with ACF-missing-but-common-present = Orphaned.
-- [ ] GOG/EA/Ubisoft/Battle.net/Rockstar: registry/inventory path vs disk.
-- [ ] Epic/Xbox: package/catalog path vs disk.
+- [ ] GOG/EA/Ubisoft/Battle.net/Rockstar: best-effort registry/marker path vs disk. Absence of a registry
+      entry is not a removal signal.
+- [ ] Epic: `.item` catalog path vs disk. Xbox: no probe — marker detection only, no inventory.
 - [ ] No writes.
 
 ### 3. Wiring
@@ -36,7 +38,8 @@ Define the launcher-vs-disk mismatch model and implement the per-store probes th
 
 ## Requirements
 
-- [ ] Every store can produce the four states from evidence.
+- [ ] Every store produces the states its evidence supports; stores without inventory are not forced into
+      `Moved`/`Missing`.
 - [ ] A missing folder produces `Missing`, not `Installed`.
 - [ ] No writes.
 

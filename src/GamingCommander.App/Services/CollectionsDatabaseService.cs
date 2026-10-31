@@ -10,11 +10,11 @@ namespace GamingCommander.App.Services;
 /// </summary>
 public sealed class CollectionsDatabaseService : ICollectionsService
 {
-    private readonly string _path;
+    private readonly JsonDocumentStore<CollectionsDto> _store;
 
-    public CollectionsDatabaseService(string path)
+    public CollectionsDatabaseService(string path, Action<string>? warningSink = null)
     {
-        _path = path;
+        _store = new JsonDocumentStore<CollectionsDto>(path, warningSink);
     }
 
     /// <inheritdoc />
@@ -22,8 +22,8 @@ public sealed class CollectionsDatabaseService : ICollectionsService
     {
         get
         {
-            CollectionsDto? dto = JsonFileHelper.ReadFromFile<CollectionsDto>(_path, () => new CollectionsDto());
-            if (dto?.Collections is null || !SchemaVersioning.IsReadable(dto.Version))
+            CollectionsDto dto = ReadDto();
+            if (dto.Collections is null)
                 return [];
 
             return dto.Collections
@@ -64,8 +64,8 @@ public sealed class CollectionsDatabaseService : ICollectionsService
     /// <inheritdoc />
     public Collection? Get(string name)
     {
-        CollectionsDto? dto = JsonFileHelper.ReadFromFile<CollectionsDto>(_path, () => new CollectionsDto());
-        if (dto?.Collections is null || !SchemaVersioning.IsReadable(dto.Version)
+        CollectionsDto dto = ReadDto();
+        if (dto.Collections is null
             || !dto.Collections.TryGetValue(name, out CollectionDto? c) || c is null)
             return null;
 
@@ -79,15 +79,14 @@ public sealed class CollectionsDatabaseService : ICollectionsService
 
     private CollectionsDto ReadDto()
     {
-        CollectionsDto dto = JsonFileHelper.ReadFromFile<CollectionsDto>(_path, () => new CollectionsDto())
+        return _store.Read(() => new CollectionsDto(), dto => SchemaVersioning.IsReadable(dto.Version)).Value
             ?? new CollectionsDto();
-        return SchemaVersioning.IsReadable(dto.Version) ? dto : new CollectionsDto();
     }
 
     private void Write(CollectionsDto dto)
     {
         dto.Version = SchemaVersioning.Current;
-        JsonFileHelper.WriteToFile(_path, dto);
+        _store.Write(dto);
     }
 
     private sealed class CollectionsDto

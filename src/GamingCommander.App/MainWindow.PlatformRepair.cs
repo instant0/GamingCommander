@@ -7,7 +7,7 @@ using GamingCommander.Core.Services;
 namespace GamingCommander.App;
 
 /// <summary>
-/// Platform repair (Epic .item / Steam ACF writes) + folder-open handlers
+/// Platform repair (Epic .item update / Steam ACF creation) + folder-open handlers
 /// member-part of <see cref="MainWindow"/> (Plan 125 Phase 1c split).
 /// </summary>
 public partial class MainWindow
@@ -21,12 +21,6 @@ public partial class MainWindow
         if (game is null)
         {
             SetStatusWithAutoClear("Select a game first.");
-            return;
-        }
-
-        if (!await EpicRepairDialog.ConfirmAsync(this, game.DisplayName).ConfigureAwait(true))
-        {
-            SetStatusWithAutoClear("Epic .item write cancelled.");
             return;
         }
 
@@ -44,10 +38,25 @@ public partial class MainWindow
         }
 
         string manifests = EpicManifestPaths.DefaultManifestsDir;
-        if (!EpicItemWriter.TryWrite(
-                gameFolder, manifests, out string path, out string error, game.DisplayName))
+        RepairPlan preview = EpicItemWriter.Preview(gameFolder, manifests);
+        if (!preview.IsValid)
         {
-            SetStatusWithAutoClear(error);
+            // Preflight failed: do not offer a repair that cannot run.
+            SetStatusWithAutoClear(preview.Message);
+            return;
+        }
+
+        if (!await EpicRepairDialog.ConfirmAsync(this, game.DisplayName, preview).ConfigureAwait(true))
+        {
+            SetStatusWithAutoClear("Epic registration repair cancelled.");
+            return;
+        }
+
+        if (!EpicItemWriter.TryWrite(
+                gameFolder, manifests, out string path, out string backup, out string error, game.DisplayName))
+        {
+            SetStatusWithAutoClear(
+                $"{error} Journal: {RepairWriteGuard.JournalPath}");
             return;
         }
 
@@ -70,7 +79,8 @@ public partial class MainWindow
 
         _viewModel?.Reload();
         SetStatusWithAutoClear(
-            $"Wrote {Path.GetFileName(path)}. Epic Update can officialize ONE of these per launcher run. Quit Epic before writing another.");
+            $"Repaired {Path.GetFileName(path)}; backup {backup}. Journal: {RepairWriteGuard.JournalPath}. "
+            + "Epic Update can officialize ONE of these per launcher run; quit Epic before repairing another.");
     }
 
     private void WriteSteamAcf_PointerPressed(object? sender, PointerPressedEventArgs e)
@@ -95,10 +105,20 @@ public partial class MainWindow
         string lib = game.Location.LibraryRoot is { Length: > 0 } stored
             ? stored
             : LibraryManager.NormalizeLibraryRoot(game.FolderPath);
+
+        RepairPlan preview = SteamAcfWriter.Preview(lib, appId, game.DisplayName, game.FolderName);
+        if (!preview.IsValid)
+        {
+            SetStatusWithAutoClear(preview.Message);
+            return;
+        }
+
+        SetStatusWithAutoClear(
+            $"ACF target {preview.TargetPath} ({preview.StagedLength} bytes; marker {preview.Marker}).");
         if (!SteamAcfWriter.TryWrite(
                 lib, appId, game.DisplayName, game.FolderName, out string path, out string error))
         {
-            SetStatusWithAutoClear(error);
+            SetStatusWithAutoClear($"{error} Journal: {RepairWriteGuard.JournalPath}");
             return;
         }
 
@@ -114,7 +134,8 @@ public partial class MainWindow
         };
         _dbService.UpdateGameEntry(updated);
         _viewModel.Reload();
-        SetStatusWithAutoClear($"Wrote {Path.GetFileName(path)}");
+        SetStatusWithAutoClear(
+            $"Created {path} ({preview.StagedLength} bytes). Journal: {RepairWriteGuard.JournalPath}");
     }
 
     private void OpenConfigPath_PointerPressed(object? sender, PointerPressedEventArgs e) =>

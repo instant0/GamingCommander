@@ -21,12 +21,21 @@ Class-calibrated review of a local single-user launcher: no elevation, no servic
 - **Split, not one review:** T124 (detection/store/identity duplicates), T124A (connection map), T124B (persistence write integrity), T124C (repair-write safety), T124D (Epic online client disposition). Each has its own plan slot: 130, 132, 133, 134.
 - **Repair writers:** no `Directory.CreateDirectory` outside the application data root. Generate in `data/staging/`, read it back to prove it parses, copy to the target, length-check, delete the staging file. Nothing else is written to the store directory — no temp files, no renames.
 - **Safe local-state writes, not tamper detection.** One sequence: copy to `data/games.json.bak` → write → read back and parse → accept, or restore the `.bak` and report. On read, a parse failure keeps the damaged bytes as `.corrupt`, restores the `.bak`, and says so; it never returns an empty catalogue. No hash, signature, or hash chain. Required before per-launch sync; a one-shot import may land first.
-- **`EpicStoreSearch` stays.** It is the deferred Epic leg of the planned online-metadata feature (plans 109/111/119), not dead code; it is gated and never called by default. The earlier removal proposal is withdrawn.
+- **`EpicStoreSearch` stays, as an identity lookup only.** Local `.item`/`.mancpn` manifests supply the Epic metadata; PCGW and the Steam lookup fill the rest. The client resolves the canonical title, namespace, and catalog id for a game local files cannot identify (orphan/renamed/incomplete), and resolves the title before the PCGW/Steam query. It returns title/namespace/id only, is gated, and is never called from scan, launch, or sync. `.item` regeneration and registration are separate, deferred subjects. The earlier removal proposal is withdrawn.
 - **`games.json` integrity checks dropped.** Same-user write access is not a boundary worth controlling.
 - **Not carried:** CC BY-NC licence terms, version stamping/publish path, absolute paths in `startup.log`.
 
+## Task review (2026-10-31)
+
+Corrected beliefs across the pending task set:
+
+- **Disk is truth for installation.** A launcher record identifies a game; `Installed` needs the folder. Only Steam and Epic have a usable inventory today; GOG/EA/Ubisoft/Battle.net/Rockstar are best-effort registry/marker detection, and absence of a record is not removal.
+- **No package API and no SQLite.** Xbox stays marker-only and reports `Unsupported`; Battle.net Agent `product.db` is unread. Steam's VDF is a path locator (its `apps` blocks are not the installed set); Epic's `.item` is the primary inventory and `LauncherInstalled.dat` is at most a cross-check.
+- **Epic lookup is identity only** (title/namespace/catalog id, plus resolving the title before PCGW). Local manifests are the Epic metadata source; `.item` regeneration and registration are separate, deferred subjects.
+- **Wiring gaps are task work, not assumptions:** the policy provider is wired in the launcher-discovery first-run step; `GameStoreIndex` is built by import/sync; no name-only identity matching (same store + unique only).
+
 ## Active queue
-See `META/SESSION/NEXT.md` for the ordered work queue. Pending tasks are T124A (connection map + decision tree), T124D (Epic client disposition → `planning/134`), T125 (release cleanup), T126 (contract accuracy), T127 (verification docs), T128 (supply chain), T129 (guarded repair writes), T130 (safe local-state writes), T132 (registry/filesystem call audit), and the T117/T118/T121/T122/T119 chains.
+See `META/SESSION/NEXT.md` for the canonical execution order. Task index: `META/TASKS/README.md`. Pending tasks are T124D, T126, T133, T117 (A/B), T118 (A/B/C), T119 (A/B), T121 (A/B/C), T122 (A/B), T125, T127, T128, plus the P2 UI track (T72→T73). Done on 2026-10-31: T130, T129, T132. The connection map is at `META/CONNECTION_MAP.md`; the I/O audit result is `planning/135-io-call-audit.md`.
 
 ## Blockers / deferred
 - Steam-vs-SteamEmu is implemented; the `Extensions{}` / emulator model still needs a user decision.
@@ -35,5 +44,5 @@ See `META/SESSION/NEXT.md` for the ordered work queue. Pending tasks are T124A (
 
 ## Verification baseline
 - Build: 0 errors / 0 warnings.
-- Tests: 708 passing (Core 219, Migration 1, App 488).
+- Tests: 755 passing (Core 219, Migration 1, App 535).
 - Detection matrix: 22/22.

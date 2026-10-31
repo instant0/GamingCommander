@@ -15,7 +15,7 @@ internal static class EpicOrphanDiscovery
         var list = new List<OrphanFolder>();
         foreach (string root in otherRoots)
         {
-            if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+            if (string.IsNullOrWhiteSpace(root))
                 continue;
             if (root.Equals(catalog.ManifestsDir, StringComparison.OrdinalIgnoreCase))
                 continue;

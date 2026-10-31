@@ -86,4 +86,38 @@ public sealed class JsonConfigServiceTests : IDisposable
 
         Assert.Equal(4, svc.Load().ScanDepth);
     }
+
+    // ════════════════════════════════════════════════════════════════
+    //  Recovery (shared JSON store)
+    // ════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void Load_WithCorruptFileAndBackup_RecoversPreviousSettings_AndReports()
+    {
+        var svc = CreateService();
+        svc.Save(new AppConfig(["Wine"], IsFirstRun: false));
+        svc.Save(new AppConfig(["Temp"], IsFirstRun: false)); // .bak holds the first save
+
+        string path = Path.Combine(_tempDir, "settings.json");
+        File.WriteAllText(path, "not valid json {{{");
+
+        var warnings = new List<string>();
+        var recovered = new JsonConfigService(path, warnings.Add).Load();
+
+        Assert.Equal(["Wine"], recovered.HiddenFolders);
+        Assert.False(recovered.IsFirstRun);
+        Assert.True(File.Exists(path + ".corrupt"));
+        Assert.Single(warnings);
+    }
+
+    [Fact]
+    public void Load_WithCorruptFileAndNoBackup_ReturnsDefaultsNotFirstRun()
+    {
+        File.WriteAllText(Path.Combine(_tempDir, "settings.json"), "not valid json {{{");
+
+        AppConfig config = CreateService().Load();
+
+        Assert.False(config.IsFirstRun);
+        Assert.Empty(config.HiddenFolders);
+    }
 }

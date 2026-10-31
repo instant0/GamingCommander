@@ -263,6 +263,26 @@ public sealed class GamesDatabaseServiceTests : IDisposable
     }
 
     [Fact]
+    public void Load_WithCorruptFileAndBackup_RecoversPreviousCatalogue()
+    {
+        string dbPath = Path.Combine(_tempDir, "games.json");
+        var svc = CreateService();
+        svc.SetGamesForLibrary("Steam", [MakeGame("g1", "Steam")]);
+        svc.SetGamesForLibrary("Steam", [MakeGame("g1", "Steam"), MakeGame("g2", "Steam")]);
+        // .bak now holds the one-game catalogue.
+
+        File.WriteAllText(dbPath, "not valid json {{{");
+
+        var warnings = new List<string>();
+        var db = new GamesDatabaseService(dbPath, warnings.Add).Load();
+
+        GameEntry recovered = Assert.Single(db.Games);
+        Assert.Equal("g1", recovered.Id);
+        Assert.True(File.Exists(dbPath + ".corrupt"));
+        Assert.Single(warnings);
+    }
+
+    [Fact]
     public void Save_ThenLoad_PreservesAllFields()
     {
         var svc = CreateService();

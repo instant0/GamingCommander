@@ -50,32 +50,30 @@ public sealed class SteamLibraryScanner
         string commonDir = Path.Combine(root, "steamapps", "common");
         var entries = new List<GameEntry>();
 
-        if (Directory.Exists(commonDir))
+        // GetDirectoriesSafe returns an empty array when the folder is missing or unreadable.
+        foreach (DirectoryInfo gameDir in FileSystemHelper.GetDirectoriesSafe(commonDir))
         {
-            foreach (DirectoryInfo gameDir in FileSystemHelper.GetDirectoriesSafe(commonDir))
+            string folderName = gameDir.Name;
+
+            // Bug 10: skip Steam-internal folders (Controller Configs, etc.) before
+            // status resolution so they never surface as Orphaned "games".
+            if (IsNonGameCommonFolder(folderName))
+                continue;
+
+            if (acfMap.TryGetValue(folderName, out var acfInfo))
             {
-                string folderName = gameDir.Name;
+                // ACF found — determine status
+                string acfLibrary = acfInfo.LibraryPath;
+                string status = PathText.Equals(acfLibrary, root)
+                    ? "Installed"
+                    : "Moved";
 
-                // Bug 10: skip Steam-internal folders (Controller Configs, etc.) before
-                // status resolution so they never surface as Orphaned "games".
-                if (IsNonGameCommonFolder(folderName))
-                    continue;
-
-                if (acfMap.TryGetValue(folderName, out var acfInfo))
-                {
-                    // ACF found — determine status
-                    string acfLibrary = acfInfo.LibraryPath;
-                    string status = PathText.Equals(acfLibrary, root)
-                        ? "Installed"
-                        : "Moved";
-
-                    entries.Add(CreateEntry(root, gameDir, folderName, acfInfo, status));
-                }
-                else
-                {
-                    // No ACF found anywhere — orphaned
-                    entries.Add(CreateOrphanedEntry(root, gameDir, folderName));
-                }
+                entries.Add(CreateEntry(root, gameDir, folderName, acfInfo, status));
+            }
+            else
+            {
+                // No ACF found anywhere — orphaned
+                entries.Add(CreateOrphanedEntry(root, gameDir, folderName));
             }
         }
 
@@ -142,10 +140,10 @@ public sealed class SteamLibraryScanner
         foreach (string path in steamPaths)
         {
             string steamappsDir = Path.Combine(path, "steamapps");
-            if (!Directory.Exists(steamappsDir)) continue;
 
             try
             {
+                // A missing steamapps folder throws into the catch below.
                 foreach (string acfFile in Directory.EnumerateFiles(steamappsDir, "appmanifest_*.acf", SearchOption.TopDirectoryOnly))
                 {
                     var info = SteamAcfParser.ParseAcfFile(acfFile, path);

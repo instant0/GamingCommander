@@ -56,6 +56,10 @@ public sealed class BlacklistLoaderTests : IDisposable
     [Fact]
     public void Load_WithMissingFile_ReturnsEmbeddedDefaultsAndRestoresFile()
     {
+        // The loader only creates the parent when it is missing and inside the app data root.
+        // A test-owned directory already exists, so restoring into it is allowed.
+        Directory.CreateDirectory(Path.Combine(_tempDir, "data"));
+
         var loader = new BlacklistLoader(_tempDir);
         var data = loader.Load();
 
@@ -256,6 +260,8 @@ public sealed class BlacklistLoaderTests : IDisposable
 
         // Bug 16: should not throw; embedded default keeps filtering active.
         Assert.NotEmpty(data.ExeNamePatterns);
+        // The guard refuses to create a directory outside the app data root.
+        Assert.False(Directory.Exists(Path.Combine(nonexistent, "data")));
     }
 
     // ════════════════════════════════════════════════════════════════

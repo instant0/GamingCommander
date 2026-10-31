@@ -12,6 +12,9 @@
 - GOG Galaxy detection and integration
 - ❌ **Dead end — Epic Games Store manifest patching.** Rewriting/patching store manifests externally was abandoned; Epic identity recovery ships through `EpicItemWriter`, which writes an identification `.item` only from `.mancpn`/`.ovt` evidence and never invents catalog IDs.
 - EA App and Ubisoft Connect support
+- Xbox package-based inventory (WinRT/AppX `Get-AppxPackage`) — **not planned for v1**: it adds a Windows
+  SDK/package API dependency and WindowsApps ACL handling. Detection stays marker-based
+  (`default-metadata.json`) plus the normal folder scan; inventory is `Unsupported`.
 - GamingResourcesManifest as registry of all metadata sources
 - PCGamingWiki Cargo API integration for rich metadata
 - IGDB integration (requires API key)

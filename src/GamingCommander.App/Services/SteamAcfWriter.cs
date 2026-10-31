@@ -1,12 +1,14 @@
 using System.Globalization;
 using System.Text;
 using GamingCommander.Core.Models;
+using GamingCommander.Core.Services;
 
 namespace GamingCommander.App.Services;
 
 /// <summary>
 /// Writes the identification ACF subset from <c>docs/research/steam_acf_schema.md</c>.
-/// Needs a real Steam AppID. Does not invent depot blocks.
+/// Needs a real Steam AppID. Does not invent depot blocks. Creates only: an existing
+/// ACF is never overwritten.
 /// </summary>
 internal static class SteamAcfWriter
 {
@@ -35,7 +37,21 @@ internal static class SteamAcfWriter
         return sb.ToString();
     }
 
-    /// <summary>Writes <c>steamapps/appmanifest_{appId}.acf</c>. False if AppID bad or file exists.</summary>
+    /// <summary>
+    /// Returns where the ACF would go and whether the folder would accept it. Writes and
+    /// creates nothing; this is what the shell shows before asking.
+    /// </summary>
+    public static RepairPlan Preview(
+        string libraryRoot,
+        string appId,
+        string name,
+        string installdir) =>
+        Prepare(libraryRoot, appId, name, installdir, out _);
+
+    /// <summary>
+    /// Creates <c>steamapps/appmanifest_{appId}.acf</c> through the shared guard. False and
+    /// no target when the folder is not a Steam library, the ACF exists, or the copy fails.
+    /// </summary>
     public static bool TryWrite(
         string libraryRoot,
         string appId,
@@ -46,50 +62,135 @@ internal static class SteamAcfWriter
     {
         path = string.Empty;
         error = string.Empty;
-        if (!IsAppId(appId))
+
+        RepairPlan plan = Prepare(libraryRoot, appId, name, installdir, out string content);
+        path = plan.IsValid ? plan.TargetPath : string.Empty;
+        if (!plan.IsValid)
         {
-            error = "Steam AppID must be digits.";
+            error = plan.Message;
+            Journal(plan, 0, "refused", error);
             return false;
         }
 
-        if (string.IsNullOrWhiteSpace(libraryRoot) || string.IsNullOrWhiteSpace(installdir))
-        {
-            error = "Library root and install folder are required.";
-            return false;
-        }
-
-        string steamapps = Path.Combine(libraryRoot, "steamapps");
+        string? stagedPath = null;
         try
         {
-            Directory.CreateDirectory(steamapps);
-        }
-        catch (Exception ex)
-        {
-            error = ex.Message;
-            return false;
-        }
+            if (!RepairWriteGuard.TryStage(
+                    $"appmanifest_{appId.Trim()}_{Guid.NewGuid():N}.acf",
+                    content,
+                    staged => ParsesAcfFile(staged, libraryRoot, appId, installdir),
+                    out string staged,
+                    out error))
+            {
+                Journal(plan, RepairWriteGuard.LengthOf(plan.TargetPath), "failed", error);
+                return false;
+            }
 
-        path = Path.Combine(steamapps, "appmanifest_" + appId.Trim() + ".acf");
-        if (File.Exists(path))
-        {
-            error = "ACF already exists.";
-            return false;
-        }
+            stagedPath = staged;
+            if (!RepairWriteGuard.TryCopyAndVerify(
+                    stagedPath,
+                    plan.TargetPath,
+                    backupPath: null,
+                    parses: staged => ParsesAcfFile(staged, libraryRoot, appId, installdir),
+                    out error))
+            {
+                Journal(plan, RepairWriteGuard.LengthOf(plan.TargetPath), "failed", error);
+                return false;
+            }
 
-        try
-        {
-            File.WriteAllText(path, Build(appId, name, installdir));
+            Journal(plan, RepairWriteGuard.LengthOf(plan.TargetPath), "ok", "ACF created.");
             return true;
         }
-        catch (Exception ex)
+        finally
         {
-            error = ex.Message;
-            return false;
+            if (stagedPath is not null)
+                RepairWriteGuard.DeleteStaged(stagedPath);
         }
     }
 
     public static bool IsAppId(string? appId) =>
         !string.IsNullOrWhiteSpace(appId) && appId.Trim().All(char.IsDigit);
+
+    private static RepairPlan Prepare(
+        string libraryRoot,
+        string appId,
+        string name,
+        string installdir,
+        out string content)
+    {
+        content = string.Empty;
+
+        if (!IsAppId(appId))
+            return Invalid(string.Empty, "Steam AppID must be digits.");
+
+        if (string.IsNullOrWhiteSpace(libraryRoot) || string.IsNullOrWhiteSpace(installdir))
+            return Invalid(string.Empty, "Library root and install folder are required.");
+
+        string steamapps = Path.Combine(libraryRoot, "steamapps");
+        string target = Path.Combine(steamapps, "appmanifest_" + appId.Trim() + ".acf");
+
+        if (!RepairWriteGuard.TryPreflight(
+                steamapps, target, RepairWriteKind.SteamAcfCreate, out RepairPlan plan, out string error))
+        {
+            return plan with { IsValid = false, Message = error };
+        }
+
+        content = Build(appId, name, installdir);
+        if (!ParsesAcfText(content, appId, installdir))
+            return plan with { IsValid = false, Message = "The built ACF did not parse; nothing was written." };
+
+        return plan with
+        {
+            StagedLength = Encoding.UTF8.GetByteCount(content),
+            Message = $"Create {Path.GetFileName(target)} ({Encoding.UTF8.GetByteCount(content)} bytes).",
+        };
+    }
+
+    /// <summary>Parses a staged or copied ACF through the scanner's own parser.</summary>
+    private static bool ParsesAcfFile(
+        string path,
+        string libraryRoot,
+        string appId,
+        string installdir)
+    {
+        AcfInfo? info = SteamAcfParser.ParseAcfFile(path, libraryRoot);
+        return info is not null
+            && string.Equals(info.AppId, appId.Trim(), StringComparison.Ordinal)
+            && string.Equals(info.Installdir, installdir.Trim(), StringComparison.Ordinal)
+            && !string.IsNullOrWhiteSpace(info.Name);
+    }
+
+    /// <summary>In-memory check before a byte reaches staging.</summary>
+    private static bool ParsesAcfText(string text, string appId, string installdir)
+    {
+        var fields = VdfParser.ExtractFields(
+            text,
+            new[]
+            {
+                SteamAcfFields.AppId, SteamAcfFields.Name, SteamAcfFields.InstallDir,
+                SteamAcfFields.StateFlags, SteamAcfFields.LastUpdated,
+                SteamAcfFields.SizeOnDisk, SteamAcfFields.BuildId,
+            });
+        if (fields is null)
+            return false;
+
+        return string.Equals(fields.GetValueOrDefault(SteamAcfFields.AppId), appId.Trim(), StringComparison.Ordinal)
+            && string.Equals(fields.GetValueOrDefault(SteamAcfFields.InstallDir), installdir.Trim(), StringComparison.Ordinal)
+            && !string.IsNullOrWhiteSpace(fields.GetValueOrDefault(SteamAcfFields.Name));
+    }
+
+    private static RepairPlan Invalid(string target, string message) =>
+        new(target, null, 0, string.Empty, false, message);
+
+    private static void Journal(RepairPlan plan, long finalLength, string outcome, string message) =>
+        RepairWriteGuard.Journal(
+            RepairWriteGuard.SteamAction,
+            plan.TargetPath,
+            plan.BackupPath,
+            plan.StagedLength,
+            finalLength,
+            outcome,
+            message);
 
     private static void Append(StringBuilder sb, string key, string value)
     {

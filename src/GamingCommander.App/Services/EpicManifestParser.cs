@@ -157,8 +157,6 @@ internal static class EpicManifestParser
         foreach (string storeDirName in new[] { ".egstore", ".egsstore" })
         {
             string storeDirPath = Path.Combine(gameDir.FullName, storeDirName);
-            if (!Directory.Exists(storeDirPath))
-                continue;
 
             // Search in manifests/ subdirectory and store root
             string[] searchDirs =
@@ -170,11 +168,10 @@ internal static class EpicManifestParser
             // Prefer .item files (richer schema)
             foreach (string searchDir in searchDirs)
             {
-                if (!Directory.Exists(searchDir))
-                    continue;
-
                 try
                 {
+                    // A missing directory throws into the catch below, which moves on to
+                    // the next candidate.
                     foreach (string itemFile in Directory.GetFiles(searchDir, "*.item"))
                     {
                         var itemData = ParseItemFile(itemFile);
@@ -251,11 +248,9 @@ internal static class EpicManifestParser
             ?? Environment.GetEnvironmentVariable("EPIC_MANIFESTS_DIR")
             ?? EpicManifestPaths.DefaultManifestsDir;
 
-        if (!Directory.Exists(manifestsPath))
-            return null;
-
         try
         {
+            // A missing manifests directory throws into the catch below and yields null.
             foreach (string itemFile in Directory.GetFiles(manifestsPath, "*.item"))
             {
                 var itemData = ParseItemFile(itemFile);
@@ -267,9 +262,9 @@ internal static class EpicManifestParser
                     return itemData;
             }
         }
-        catch (IOException)
+        catch (Exception ex) when (ex is IOException or ArgumentException)
         {
-            // Permission error or similar — return null
+            // Missing, unreadable or malformed folder — return null
         }
 
         return null;

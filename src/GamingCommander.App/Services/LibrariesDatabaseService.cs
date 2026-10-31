@@ -10,11 +10,11 @@ namespace GamingCommander.App.Services;
 /// </summary>
 public sealed class LibrariesDatabaseService : ILibrariesService
 {
-    private readonly string _librariesPath;
+    private readonly JsonDocumentStore<LibrariesDto> _store;
 
-    public LibrariesDatabaseService(string librariesPath)
+    public LibrariesDatabaseService(string librariesPath, Action<string>? warningSink = null)
     {
-        _librariesPath = librariesPath;
+        _store = new JsonDocumentStore<LibrariesDto>(librariesPath, warningSink);
     }
 
     /// <summary>All configured libraries, read live from disk.</summary>
@@ -22,10 +22,8 @@ public sealed class LibrariesDatabaseService : ILibrariesService
     {
         get
         {
-            LibrariesDto? dto = JsonFileHelper.ReadFromFile<LibrariesDto>(
-                _librariesPath,
-                () => new LibrariesDto());
-            if (dto?.Libraries is null || !SchemaVersioning.IsReadable(dto.Version))
+            LibrariesDto dto = ReadDto();
+            if (dto.Libraries is null)
                 return [];
 
             return dto.Libraries
@@ -64,28 +62,23 @@ public sealed class LibrariesDatabaseService : ILibrariesService
     /// <summary>Gets a library by name, or null.</summary>
     public Library? Get(string name)
     {
-        LibrariesDto? dto = JsonFileHelper.ReadFromFile<LibrariesDto>(
-            _librariesPath,
-            () => new LibrariesDto());
-        if (dto?.Libraries is null || !SchemaVersioning.IsReadable(dto.Version)
-            || !dto.Libraries.TryGetValue(name, out LibraryDto? lib) || lib is null)
+        LibrariesDto dto = ReadDto();
+        if (dto.Libraries is null || !dto.Libraries.TryGetValue(name, out LibraryDto? lib) || lib is null)
             return null;
         return new Library(name, lib.Type, lib.Folders ?? []);
     }
 
     private LibrariesDto ReadDto()
     {
-        LibrariesDto dto = JsonFileHelper.ReadFromFile<LibrariesDto>(
-            _librariesPath,
-            () => new LibrariesDto()) ?? new LibrariesDto();
-        // A file from a newer build is discarded rather than rewritten as current.
-        return SchemaVersioning.IsReadable(dto.Version) ? dto : new LibrariesDto();
+        // Unreadable or corrupt-without-backup falls back to an empty DTO; never an exception.
+        return _store.Read(() => new LibrariesDto(), dto => SchemaVersioning.IsReadable(dto.Version)).Value
+            ?? new LibrariesDto();
     }
 
     private void Write(LibrariesDto dto)
     {
         dto.Version = SchemaVersioning.Current;
-        JsonFileHelper.WriteToFile(_librariesPath, dto);
+        _store.Write(dto);
     }
 
     private sealed class LibrariesDto

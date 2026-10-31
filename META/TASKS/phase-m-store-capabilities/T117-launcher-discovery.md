@@ -15,7 +15,7 @@ foundation for the first-run "Detect launchers?" offer.
 ## What Needs to Change
 
 ### 1. Models
-- [ ] Reuse `GameSourceKind`; add `LauncherKinds.All` (the eight store values). Do not add a duplicate enum.
+- [ ] Reuse `GameSourceKind`; `LauncherKinds.All` already exists (Core/Models) — do not add a duplicate enum or list.
 - [ ] `LauncherDiscoveryResult`: `GameSourceKind Kind`, `Found`, `InstallPath?`, `InventorySource?`, `ReadOnlySafety` (`Safe` / `NeedsVerification` / `Unsupported`), `Reason`.
 - [ ] `ILauncherLocator`: `GameSourceKind Kind`, `LauncherDiscoveryResult Probe()`.
 
@@ -23,6 +23,10 @@ foundation for the first-run "Detect launchers?" offer.
 - [ ] `LauncherDiscoveryService` runs every registered locator, isolates failures, and never throws.
 - [ ] Reuse the existing registry abstraction; no direct `Registry` calls in the service.
 - [ ] No filesystem writes; probes only.
+
+**Position in the product:** launcher discovery is a convenience on top of folder/registry detection, not
+a prerequisite. A store that cannot be located must not stop a folder scan from finding its games, and no
+discovery result may be treated as proof that a game is installed.
 
 ### 3. Composition
 - [ ] Register locators in the App composition root.

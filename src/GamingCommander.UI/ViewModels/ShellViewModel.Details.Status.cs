@@ -15,7 +15,8 @@ public sealed partial class ShellViewModel
         if (game.GameSource == GameSourceKind.Epic)
         {
             return "Orphaned — Epic folder (.egstore) has no ProgramData .item. " +
-                    "Write Epic .item from .egstore scraps. Then Update in Epic — only ONE official repair per launcher run.";
+                    "Repair registration updates the existing .item; it cannot create one. " +
+                    "Then Update in Epic — only ONE official repair per launcher run.";
         }
 
         string folder = game.Location.FolderName is { Length: > 0 } fn ? fn : game.FolderName;

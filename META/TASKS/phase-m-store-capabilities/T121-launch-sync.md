@@ -21,13 +21,19 @@ Enrich newly added games only if the user opted in.
 - [ ] Preserve `DetectionOrigin` and user data (tags, launch profiles, relations) through the merge.
 
 ### 2. Orchestrator
-- [ ] `StoreSyncService.RunOnStartupAsync(CancellationToken)`: only stores with `CheckOnLaunch`.
-- [ ] Skip a store when its manifest fingerprint (path + mtime + size) is unchanged and `SkipUnchangedManifests` is on.
+- [ ] `StoreSyncService.RunOnStartupAsync(CancellationToken)`: only stores with `CheckOnLaunch`, i.e.
+      `IStorePolicyProvider.CanSync(kind)` is true. Do not read the policy twice or cache a stale answer.
+- [ ] Only run a store that has a reader. A store with no inventory (Xbox; EA/Battle.net until verified) is
+      skipped, not "checked and found empty".
+- [ ] Skip a store when its manifest fingerprint is non-null, unchanged, and `SkipUnchangedManifests` is on.
+      No fingerprint (no manifest) means no skip — never treat "no fingerprint" as "unchanged".
 - [ ] Persist fingerprint + last-run summary in a small disposable `data/store-sync.json` cache (not `settings.json`, not `games.json`) through the shared JSON store; no direct file write.
 - [ ] Read the inventory once and use what the enumeration/read returned; check existence only where the
       state itself is the answer (`planning/135` read rule). **No folder walk, no probe-before-read.**
 - [ ] The sync cache is written through the shared JSON store (`planning/132`). This task must not land
       before that store exists, and must not add a second write path.
+- [ ] Build/refresh the `GameStoreIndex` from the loaded entries once per run; do not scan `games.json`
+      per store.
 - [ ] Per-store budget (e.g. 2 s) and overall budget (e.g. 5 s); cancel cleanly; emit `StoreSyncReport`.
 - [ ] Added → import via T118; updated → path/version refresh; missing → `InstallState.Missing` (never delete); exe missing → `ExeMissing`.
 - [ ] `EnrichNewGames` → run the normal folder scan only on newly added paths.
@@ -45,11 +51,13 @@ Enrich newly added games only if the user opted in.
 ## Requirements
 
 - [ ] New store game appears on the next launch without a manual rescan.
-- [ ] Removed store game becomes `Missing`, not deleted.
+- [ ] Removed store game becomes `Missing`, not deleted — **only for inventory-backed stores**.
+- [ ] A store with no reader is skipped, not treated as an empty inventory.
 - [ ] No duplicate entries on repeated launches.
 - [ ] No recursive enumeration in the sync path.
 - [ ] The diff uses `GameStoreIndex` (O(manifest)), not a scan of `games.json`.
-- [ ] An unchanged manifest fingerprint skips parsing and produces no writes.
+- [ ] An unchanged manifest fingerprint skips parsing and produces no writes; a missing fingerprint never
+      skips.
 - [ ] A no-change launch stays within the time budget.
 - [ ] No writes to store files and no directory creation.
 - [ ] The sync cache contains paths and fingerprints only; no secrets or user content.

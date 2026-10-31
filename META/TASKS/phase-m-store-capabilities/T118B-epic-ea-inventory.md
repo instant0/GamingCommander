@@ -14,14 +14,21 @@ only until the modern encrypted inventory is verified.
 ## What Needs to Change
 
 ### 1. Epic
-- [ ] Read `C:\ProgramData\Epic\UnrealEngineLauncher\LauncherInstalled.dat` `InstallationList` as the primary inventory.
-- [ ] Merge ProgramData `*.item`, local `.mancpn`, and binary `.manifest` for identity when a `.item` is absent.
-- [ ] Wire the existing orphan discovery (currently no callers) into the Epic catalog scan.
-- [ ] Read `InstallSize`, `AppVersionString`, `InstallationGuid`, `CompleteManifestPath`.
-- [ ] Never write or register `.item`; detection only.
+- [ ] **Primary inventory is ProgramData `*.item`** (already read by `EpicItemCatalog`). Local `.item`/
+      `.mancpn` already supply the metadata; this task imports identity, not extra fields.
+- [ ] `LauncherInstalled.dat` (`InstallationList`) is a **legacy cross-check only**: verify it exists and its
+      shape on a real install before reading it, and never make the import depend on it.
+- [ ] When an `.item` is absent, use local `.mancpn` and the binary `.manifest` for identity (catalog ids,
+      install path, launch exe).
+- [ ] `EpicLibraryScanner` already marks Orphaned for entries it knows. Use `EpicOrphanDiscovery` only to find
+      Epic folders that are not in the database at all; do not duplicate the scanner's claim logic.
+- [ ] Read `InstallSize`, `AppVersionString`, `InstallationGuid`, `CompleteManifestPath` from the `.item` when
+      present. Do not require them.
+- [ ] Never write or register `.item`; detection only. `.item` regeneration is a separate, deferred subject.
 
 ### 2. EA
-- [ ] Parse `__Installer/installerdata.xml`: `contentID`, `gameVersion`, `gameTitle`, `runtime/launcher/filePath`, uninstall path.
+- [ ] Parse `__Installer/installerdata.xml` if confirmed on a real install: `contentID`, `gameVersion`,
+      `gameTitle`, `runtime/launcher/filePath`, uninstall path.
 - [ ] Read legacy Origin `%ProgramData%\Origin\LocalContent\*.mfst` and per-game registry keys.
 - [ ] Enumerate registry entries even when the folder is missing.
 - [ ] Persist the EA content ID in `StoreInfo`/identity.
@@ -35,13 +42,15 @@ only until the modern encrypted inventory is verified.
 
 ## Requirements
 
-- [ ] Epic: catalog + `LauncherInstalled.dat` merged and deduped; orphan rows surfaced.
+- [ ] Epic: `.item` catalog is the inventory; local `.mancpn`/`.manifest` fill identity gaps; orphan rows
+      surfaced without duplicating the scanner's claims.
 - [ ] EA: legacy installs imported; modern encrypted installs marked unsupported, not guessed.
 - [ ] No writes.
 
 ## Verification
 
-- [ ] Fixtures for Epic catalog/local-orphan/LauncherInstalled and EA legacy/registry.
+- [ ] Fixtures for Epic catalog, local `.mancpn` fallback, local orphan, and EA legacy/registry. A
+      `LauncherInstalled.dat` fixture only if that file is verified and used as a cross-check.
 - [ ] `dotnet build` / `dotnet test` green.
 - [ ] No regression to existing Epic catalog tests.
 

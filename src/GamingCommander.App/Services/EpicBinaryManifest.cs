@@ -14,10 +14,9 @@ internal static class EpicBinaryManifest
     public static bool TryRead(string manifestPath, out Header? header)
     {
         header = null;
-        if (!File.Exists(manifestPath))
-            return false;
         try
         {
+            // A missing manifest throws into the catch below; no probe is needed.
             byte[] raw = File.ReadAllBytes(manifestPath);
             if (raw.Length < 45)
                 return false;

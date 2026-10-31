@@ -20,10 +20,13 @@ it; do not decrypt or write.
 - [ ] Missing folder → `Missing`.
 
 ### 2. Battle.net
-- [ ] Verify whether `%ProgramData%\Battle.net\Agent\product.db` is SQLite and document its schema before coding.
-- [ ] Read it read-only (no SQLite dependency until verification); distinguish Agent `product.db` from game-root `.product.db`.
-- [ ] Read `.build.info` product code/version.
-- [ ] Missing folder → `Missing`.
+- [ ] Use game-root markers (`.build.info`, `.product.db`, `.patch.result`, `.battle.net/`) and the
+      documented Agent registry key. Verify the key before coding.
+- [ ] Do **not** read `%ProgramData%\Battle.net\Agent\product.db`: it is an unverified SQLite store, and
+      "read it without a SQLite dependency" is not possible. If it is ever needed, it becomes its own task
+      with an explicit dependency decision.
+- [ ] Read `.build.info` product code/version from the game folder.
+- [ ] Missing folder → `Missing`; absence of a marker is not evidence of removal.
 
 ### 3. Rockstar
 - [ ] Read `%LOCALAPPDATA%\Rockstar Games\Launcher\Settings.json` library folders + per-game paths (schema verification first).
@@ -39,7 +42,8 @@ it; do not decrypt or write.
 ## Requirements
 
 - [ ] Each reader is read-only and returns records for missing folders.
-- [ ] SQLite is only added if the schema is verified; otherwise no dependency is introduced.
+- [ ] No SQLite dependency is added; the Agent `product.db` is explicitly out of scope.
+- [ ] Absence of a registry entry or marker does not mark an existing game `Missing`.
 - [ ] No writes or decryption.
 
 ## Verification

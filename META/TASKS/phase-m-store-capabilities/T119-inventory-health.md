@@ -8,21 +8,29 @@
 
 ## Objective
 
-Compare each launcher's inventory with the disk, set `InstallState` (`Installed` / `Moved` /
-`Missing` / `Orphaned`) for every store, and surface actionable suggestions. Read-only.
+Compare each launcher's available inventory with the disk, set `InstallState` (`Installed` / `Moved` /
+`Missing` / `Orphaned`) for every store where that evidence exists, and surface actionable suggestions.
+Read-only.
 
 ## What Needs to Change
 
 ### 1. Health model
 - [ ] Move `InstallState` population out of `FolderScanner`'s hardcoded `Installed` into the import/scan path.
-- [ ] Define mismatch reasons: `StoreFolderMissing`, `StoreExeMissing`, `DiskOnly`, `StoreMoved`, `StoreUpdateAvailable`, `Duplicate`.
+- [ ] Define mismatch reasons: `StoreFolderMissing`, `StoreExeMissing`, `DiskOnly`, `StoreMoved`, `Duplicate`.
+      Do **not** add `StoreUpdateAvailable`: only Steam exposes a build id, and version comparison is not
+      health.
 - [ ] Store-reported state is shown separately from the disk-derived `InstallState`.
 - [ ] `StoreExeMissing` is a suggestion, not `Missing`.
-- [ ] A game that disappears from the launcher inventory is marked `Missing`, never deleted.
+- [ ] A game that disappears from a **trustworthy inventory** (Steam ACF set, Epic `.item` catalog) is
+      marked `Missing`, never deleted. For registry/marker-only stores, absence of a record is not evidence
+      of removal and must not change health.
 - [ ] Preserve the existing Steam/Epic health behavior.
 
 ### 2. Probes
-- [ ] For each store, compare the inventory path to the actual folder and exe.
+- [ ] For each store with evidence, compare the recorded path to the actual folder and exe.
+- [ ] Stores with no inventory (Xbox; GOG/EA/Ubisoft/Battle.net/Rockstar beyond best-effort registry) get
+      only the states their evidence supports — typically `Installed` or `DiskOnly`. They do not get a
+      fabricated `Missing`/`Moved`.
 - [ ] Do not claim healthy when only the launcher says so.
 - [ ] Startup sync (T121) consumes the same health result so a launch check and a manual scan agree.
 - [ ] No writes.
@@ -40,7 +48,8 @@ Compare each launcher's inventory with the disk, set `InstallState` (`Installed`
 
 ## Requirements
 
-- [ ] All stores can produce `Installed`/`Moved`/`Missing`/`Orphaned` where evidence exists.
+- [ ] All stores produce the states their evidence supports; no state is fabricated for a store with no
+      inventory.
 - [ ] Suggestions are informational only.
 - [ ] No writes to store files or game data.
 

@@ -20,8 +20,8 @@ the application folder, prove it parses, then copy. Produce `planning/133-repair
 ### 1. Evidence
 - [ ] `SteamAcfWriter.TryWrite`: callers, target path derivation, preflight, overwrite behaviour,
       `Directory.CreateDirectory`, failure modes.
-- [ ] `EpicItemWriter.TryWrite`: callers, target path, hollow-item replacement, `Directory.CreateDirectory`,
-      failure modes.
+- [ ] `EpicItemWriter.TryWrite`: callers, target path, the old hollow-item replacement (**removed by the
+      decision — a corrupt item is refused, not replaced**), `Directory.CreateDirectory`, failure modes.
 - [ ] Confirm the UI entry point in `MainWindow.PlatformRepair.cs` and the user-facing wording.
 - [ ] Confirm what ADR-005 requires for this class of write.
 

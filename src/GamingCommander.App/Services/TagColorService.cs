@@ -58,11 +58,9 @@ public sealed class TagColorService : ITagColorProvider
 
     private static TagColorConfig LoadConfig(string path)
     {
-        if (!File.Exists(path))
-            return CreateDefaultConfig();
-
         try
         {
+            // A missing file lands in the catch below, so no existence probe is needed.
             string json = File.ReadAllText(path);
             return JsonSerializer.Deserialize<TagColorConfig>(json) ?? CreateDefaultConfig();
         }

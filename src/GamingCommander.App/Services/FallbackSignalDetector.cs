@@ -62,15 +62,13 @@ internal static class FallbackSignalDetector
             }
 
             // UE Steamworks path: Engine/Binaries/ThirdParty/Steamworks/Steamv*/Win64/
+            // A missing folder throws into the catch below: the same "no signal" answer.
             string steamworksPath = Path.Combine(dir.FullName, "Engine", "Binaries", "ThirdParty", "Steamworks");
-            if (Directory.Exists(steamworksPath))
+            foreach (string steamworksVersionDir in Directory.GetDirectories(steamworksPath))
             {
-                foreach (string steamworksVersionDir in Directory.GetDirectories(steamworksPath))
-                {
-                    string win64 = Path.Combine(steamworksVersionDir, "Win64");
-                    if (Directory.Exists(win64) && File.Exists(Path.Combine(win64, "steam_emu.ini")))
-                        return true;
-                }
+                string win64 = Path.Combine(steamworksVersionDir, "Win64");
+                if (Directory.Exists(win64) && File.Exists(Path.Combine(win64, "steam_emu.ini")))
+                    return true;
             }
         }
         catch { }

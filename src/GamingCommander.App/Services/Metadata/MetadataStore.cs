@@ -11,13 +11,15 @@ namespace GamingCommander.App.Services.Metadata;
 /// </summary>
 public sealed class MetadataStore : IMetadataStore
 {
-    private readonly string _path;
+    private readonly JsonDocumentStore<SidecarFile> _store;
     private SidecarFile? _cache;
 
     /// <summary>Creates a store bound to a sidecar file path.</summary>
-    public MetadataStore(string sidecarPath)
+    /// <param name="sidecarPath">Full path of games_metadata.json.</param>
+    /// <param name="warningSink">Optional receiver for store read warnings.</param>
+    public MetadataStore(string sidecarPath, Action<string>? warningSink = null)
     {
-        _path = sidecarPath;
+        _store = new JsonDocumentStore<SidecarFile>(sidecarPath, warningSink);
     }
 
     /// <inheritdoc />
@@ -61,13 +63,9 @@ public sealed class MetadataStore : IMetadataStore
         if (_cache is not null)
             return _cache;
 
-        _cache = JsonFileHelper.ReadFromFile(
-            _path,
+        _cache = _store.Read(
             () => new SidecarFile(),
-            JsonFileHelper.DefaultOptions) ?? new SidecarFile();
-        // A sidecar from a newer build is discarded rather than misread.
-        if (!SchemaVersioning.IsReadable(_cache.Version))
-            _cache = new SidecarFile();
+            file => SchemaVersioning.IsReadable(file.Version)).Value ?? new SidecarFile();
         _cache.Entries ??= [];
         return _cache;
     }
@@ -75,7 +73,7 @@ public sealed class MetadataStore : IMetadataStore
     private void Save(SidecarFile file)
     {
         file.Version = SchemaVersioning.Current;
-        JsonFileHelper.WriteToFile(_path, file);
+        _store.Write(file);
         _cache = file;
     }
 

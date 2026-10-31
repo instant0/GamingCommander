@@ -19,23 +19,35 @@ the "populate the inventory like a normal file scanner" proposal.
 - [ ] `IStoreInventoryReader`: `GameSourceKind Kind`, `StoreManifestFingerprint? Fingerprint`, `IReadOnlyList<StoreInventoryEntry> Read()`.
 
 ### 2. Import service
+- [ ] `StoreInventoryImportService.Import(kind)` is gated by `IStorePolicyProvider.CanImport(kind)`: a store
+      the user did not enable is never read. No second enable flag.
 - [ ] `StoreInventoryImportService.Import(kind)`: read the manifest once → map to `GameEntry` → check only the folder/exe states the record needs (no enumeration, no recursion) → set `DetectionOrigin.StoreManifest` → persist through the shared JSON store (`planning/132`). If that store has not landed yet, the import does not ship: no direct `File.WriteAllText`, no `JsonFileHelper` fallback.
 - [ ] Imported `LaunchExe` must resolve to an existing file under the reported install root; otherwise store `null` and mark `ExeMissing`.
 - [ ] Do **not** call `FolderScanner` in this path. Enrichment is a separate opt-in step for new games only.
-- [ ] Set `Detection` confidence: authoritative store record → `Secure`/`Locked`; disk-only → `Candidate`.
+- [ ] Use `DetectionTierDeriver` for confidence; do not set `IdentificationTier` by hand. It already derives
+      Steam/Epic-global as `Locked`, Epic-local and GOG as `Secure`, and heuristic discoveries as
+      `Candidate`. A store record identifies the game; `Installed` still requires the folder on disk.
 - [ ] Keep import **idempotent**: re-running must not duplicate entries; match by `StoreKey`, then by normalized install path (`PathText`). A name-only match is allowed only inside the same store and only when exactly one existing entry has that name.
 - [ ] Expose the same import entry point to first-run (T117B) and startup sync (T121).
+- [ ] Build the `GameStoreIndex` in the import path (it is currently built only in tests) so duplicate checks are O(1), not a scan.
 - [ ] Never write to store files.
 
+**What can actually be imported today:** only Steam (ACF + `common`) and Epic (ProgramData `*.item`) have a
+usable launcher inventory. GOG/EA/Ubisoft/Battle.net/Rockstar are best-effort registry or marker
+detection with no complete inventory; Xbox has none. The import service must accept a reader that returns
+an empty or partial list without inventing entries, and must not infer "removed" from a store that has no
+inventory.
+
 ### 3. Identity
-- [ ] Add/confirm stable IDs per store (`StoreInfo`/`GameIdentity`): GOG, EA content ID, Ubisoft game ID, Battle.net product code, Xbox package family, Rockstar title ID.
+- [ ] Add/confirm stable IDs per store (`StoreInfo`/`GameIdentity`): GOG, EA content ID, Ubisoft game ID, Battle.net product code, Rockstar title ID. Xbox has no stable id in this version (no package reader).
 - [ ] Add contract/pin tests for any persisted ID.
 
 ### 4. Subtasks
 - [ ] T118A Steam + GOG.
 - [ ] T118B Epic + EA.
 - [ ] T118C Ubisoft + Battle.net + Rockstar.
-- [ ] Xbox package inventory is handled with the Xbox locator/reader in T118C.
+- [ ] Xbox has **no inventory reader** in this version: marker-only detection, no package API, no package
+      family id. Do not add an Xbox reader here or in T118C.
 
 ## Context
 

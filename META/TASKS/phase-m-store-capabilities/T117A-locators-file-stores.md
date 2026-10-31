@@ -19,8 +19,11 @@ inventory source we can read, with an explicit read-only safety rating.
 - [ ] `ReadOnlySafety.Safe`.
 
 ### 2. Epic
-- [ ] Probe `HKLM\SOFTWARE\WOW6432Node\Epic Games\EpicGamesLauncher\AppDataPath`, the default `%ProgramData%\Epic\EpicGamesLauncher\Data\Manifests`, and `LauncherInstalled.dat` presence.
-- [ ] `ReadOnlySafety.Safe` (identification only; no registration).
+- [ ] Primary source is the fixed `%ProgramData%\Epic\EpicGamesLauncher\Data\Manifests` path (already used by
+      `EpicManifestPaths`). Probing `HKLM\SOFTWARE\WOW6432Node\Epic Games\EpicGamesLauncher\AppDataPath` and
+      `LauncherInstalled.dat` is optional: verify the key exists on a real install before coding it, and
+      never make the manifest path depend on it.
+- [ ] `ReadOnlySafety.Safe` (identification only; no registration; `.item` regeneration is out of scope).
 
 ### 3. GOG
 - [ ] Probe `GOG.com\GalaxyClient\paths\client` / `common`, `GOG.com\DefaultPackPath`, and the default Galaxy path.

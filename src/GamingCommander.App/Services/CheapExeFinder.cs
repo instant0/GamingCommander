@@ -31,12 +31,11 @@ public static class CheapExeFinder
             string dir = string.IsNullOrEmpty(rel)
                 ? root
                 : Path.Combine(root, rel.Replace('/', Path.DirectorySeparatorChar));
-            if (!Directory.Exists(dir))
-                continue;
 
             string[] exes;
             try
             {
+                // A missing folder throws into the catch below; no probe is needed.
                 exes = Directory.GetFiles(dir, "*.exe");
             }
             catch

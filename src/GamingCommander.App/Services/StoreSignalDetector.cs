@@ -214,11 +214,10 @@ internal static class StoreSignalDetector
     internal static string? ExtractBlizzardProduct(DirectoryInfo dir)
     {
         string buildInfoPath = Path.Combine(dir.FullName, ".build.info");
-        if (!File.Exists(buildInfoPath))
-            return null;
 
         try
         {
+            // Absence is reported by the read and lands in the catch below.
             string[] lines = File.ReadAllLines(buildInfoPath);
             // Line 0 is headers, line 1+ is data
             if (lines.Length < 2)

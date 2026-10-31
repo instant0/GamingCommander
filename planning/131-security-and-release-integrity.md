@@ -203,7 +203,7 @@ The security items are not one review. They are separate decisions with separate
 | Connection map | How the pieces connect, read/write/network boundaries | `docs/architecture/CONNECTION_MAP.md` or a `CODE_MAP.md` section |
 | Persistence write durability | One JSON store, verified write with a rolling `.bak`, `OK`/`Missing`/`Corrupt`, app-folder-only `CreateDirectory` | `planning/132-persistence-write-integrity.md` |
 | Repair-write safety | Guard or remove; preflight, generate-validate-copy, journal, dry run | `planning/133-repair-write-safety.md` |
-| Epic online client | Keep as deferred opt-in metadata; define the gate | `planning/134-epic-online-metadata-disposition.md` |
+| Epic online client | Keep as a deferred **identity lookup** (not metadata, not `.item` regeneration); define the gate | `planning/134-epic-store-identity-disposition.md` |
 
 The core review links to the other three instead of restating them.
 
@@ -217,7 +217,7 @@ The core review links to the other three instead of restating them.
 | Contract docs | `docs/ONLINE-AND-DATA.md`, `GamingCommander.Readme.txt`, `docs/FAQ.md` |
 | Local state | `src/GamingCommander.App/Services/JsonFileHelper.cs`, its consumers, database services |
 | Repair writes | `src/GamingCommander.App/Services/SteamAcfWriter.cs`, `src/GamingCommander.App/Services/EpicItemWriter.cs`, `src/GamingCommander.App/MainWindow.PlatformRepair.cs` |
-| Epic online client | `src/GamingCommander.App/Services/EpicStoreSearch.cs` (kept, deferred, gated) |
+| Epic online client | `src/GamingCommander.App/Services/EpicStoreSearch.cs` (kept, deferred, gated: enrich/identify, pre-PCGW identity, conditional `.item` generation) |
 | Supply chain | `.github/dependabot.yml` (new), `Directory.Build.props`, `tests/Directory.Build.props`, `packages.lock.json` (new) |
 
 ---

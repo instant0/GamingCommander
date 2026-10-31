@@ -7,20 +7,18 @@ internal sealed class EpicItemCatalog
     {
         ManifestsDir = EpicManifestPaths.GetManifestsDir(manifestsDir);
         var all = new List<EpicManifestParser.EpicItemData>();
-        if (Directory.Exists(ManifestsDir))
+        try
         {
-            try
+            foreach (string file in Directory.GetFiles(ManifestsDir, "*.item"))
             {
-                foreach (string file in Directory.GetFiles(ManifestsDir, "*.item"))
-                {
-                    EpicManifestParser.EpicItemData? item = EpicManifestParser.ParseItemFile(file);
-                    if (item is not null)
-                        all.Add(item);
-                }
+                EpicManifestParser.EpicItemData? item = EpicManifestParser.ParseItemFile(file);
+                if (item is not null)
+                    all.Add(item);
             }
-            catch (IOException)
-            {
-            }
+        }
+        catch (Exception ex) when (ex is IOException or ArgumentException)
+        {
+            // A missing or unreadable manifests folder contributes no items.
         }
 
         All = all;
@@ -69,13 +67,14 @@ internal sealed class EpicItemCatalog
 
     public static bool LooksLikeManifestsDir(string path)
     {
-        if (!Directory.Exists(path))
+        if (string.IsNullOrWhiteSpace(path))
             return false;
+
         try
         {
             return Directory.EnumerateFiles(path, "*.item").Any();
         }
-        catch (IOException)
+        catch (Exception ex) when (ex is IOException or ArgumentException)
         {
             return false;
         }

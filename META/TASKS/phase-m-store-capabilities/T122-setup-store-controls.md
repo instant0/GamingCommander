@@ -15,14 +15,18 @@ launch check, and enrichment, and test/scan it on demand.
 
 - [ ] A "Stores" section (inside `LibrarySetupWindow` or a dedicated settings view) with one row per store:
   - detected status (from T117),
-  - `Index this store`,
+  - `Index this store` (only when an inventory reader exists),
   - `Check on every launch`,
   - `Enrich new games`,
-  - optional inventory path override,
+  - optional inventory path override (file-based inventories only: Steam library root, Epic manifests dir;
+    not for registry/package stores),
   - `Test detection`,
-  - `Scan now`.
-- [ ] All toggles default off; saving persists via `IStorePolicyProvider` (T120).
-- [ ] Stores not detected show "Not found" and still allow a manual inventory path.
+  - `Scan now` (only when an inventory reader exists).
+- [ ] All toggles default off; saving persists via `IStorePolicyProvider` (T120). The provider is wired in
+      T117B; do not create a second instance or a parallel settings path.
+- [ ] Stores not detected show "Not found". The manual inventory path is offered only for Steam (library
+      root) and Epic (manifests folder); the other stores have no directory-shaped inventory to override and
+      show "no inventory source".
 - [ ] A manual inventory path is validated as an existing directory before it is saved; relative and UNC paths are refused.
 - [ ] No full folder scan from the Setup screen unless `EnrichNewGames` is on.
 

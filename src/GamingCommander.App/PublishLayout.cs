@@ -44,7 +44,7 @@ internal static class PublishLayout
         foreach (string candidate in new[] { file, "lib" + file })
         {
             string path = Path.Combine(lib, candidate);
-            if (File.Exists(path) && NativeLibrary.TryLoad(path, out IntPtr handle))
+            if (NativeLibrary.TryLoad(path, out IntPtr handle))
                 return handle;
         }
 

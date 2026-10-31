@@ -169,8 +169,6 @@ internal static partial class ExecutableDiscovery
         foreach (string childDirName in ParentBoundChildNames)
         {
             string childPath = Path.Combine(root, childDirName);
-            if (!Directory.Exists(childPath))
-                continue;
 
             try
             {
@@ -466,10 +464,9 @@ internal static partial class ExecutableDiscovery
 
         foreach (string manifestsDir in egsPaths)
         {
-            if (!Directory.Exists(manifestsDir)) continue;
-
             try
             {
+                // A missing candidate throws into the catch below and is skipped.
                 // .item preferred (richest schema), then .mancpn, then .json (legacy)
                 foreach (string pattern in new[] { "*.item", "*.mancpn", "*.json" })
                 {

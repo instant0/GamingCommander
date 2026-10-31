@@ -21,9 +21,9 @@ public partial class App : Application
     {
         if (_logFilePath == null)
         {
-            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-            string dataDir = Path.Combine(baseDir, "data");
-            _logFilePath = Path.Combine(dataDir, "startup.log");
+            string logPath = Path.Combine(AppPaths.AppDataRoot, "startup.log");
+            AppPaths.EnsureAppDataPath(logPath);
+            _logFilePath = logPath;
         }
         return _logFilePath;
     }
@@ -71,16 +71,25 @@ public partial class App : Application
             {
                 string baseDir = AppDomain.CurrentDomain.BaseDirectory;
 
+                string? firstLoadWarning = null;
+
+                // Store warnings go to startup.log; the first one also wins the status line once.
+                void WarnStore(string message)
+                {
+                    Log($"  Store warning: {message}");
+                    firstLoadWarning ??= message;
+                }
+
                 Log("Creating GamesDatabaseService...");
-                var dbService = new GamesDatabaseService(AppDataPaths.GetGamesDbPath());
+                var dbService = new GamesDatabaseService(AppDataPaths.GetGamesDbPath(), WarnStore);
                 Log($"  GamesDbPath: {AppDataPaths.GetGamesDbPath()}");
 
                 Log("Creating JsonConfigService...");
-                var configService = new JsonConfigService(AppDataPaths.GetConfigPath());
+                var configService = new JsonConfigService(AppDataPaths.GetConfigPath(), WarnStore);
                 Log($"  ConfigPath: {AppDataPaths.GetConfigPath()}");
 
                 Log("Creating LibrariesDatabaseService...");
-                var librariesService = new LibrariesDatabaseService(AppDataPaths.GetLibrariesPath());
+                var librariesService = new LibrariesDatabaseService(AppDataPaths.GetLibrariesPath(), WarnStore);
                 Log($"  LibrariesPath: {AppDataPaths.GetLibrariesPath()}");
 
                 Log("Loading config...");
@@ -122,7 +131,7 @@ public partial class App : Application
                 Log("Creating ShellViewModel...");
                 string tagColorsPath = Path.Combine(AppContext.BaseDirectory, "data", "tag_colors.json");
                 var tagColorService = new TagColorService(tagColorsPath);
-                var metadataStore = new MetadataStore(AppDataPaths.GetMetadataDbPath());
+                var metadataStore = new MetadataStore(AppDataPaths.GetMetadataDbPath(), WarnStore);
                 var steamLookup = new SteamStoreLookup();
                 var pcgwLookup = new PcgwLookup();
                 var onlineGate = new MetadataOnlineGate(configService);
@@ -135,6 +144,8 @@ public partial class App : Application
                 var metadataService = new MetadataService(metadataStore, configService, steamLookup, pcgwLookup, onlineGate);
                 var shellVm = new ShellViewModel(libraryManager, configService, tagColorService, metadataStore);
                 shellVm.LookupStatusText = onlineGate.StatusLabel;
+                if (firstLoadWarning is not null)
+                    shellVm.StatusText = firstLoadWarning;
                 Log("  ShellViewModel created");
 
                 Log("Creating MainWindow...");
@@ -161,14 +172,16 @@ public partial class App : Application
 
                         if (librariesService.Libraries.Count == 0)
                         {
-                            shellVm.StatusText = "No libraries configured. Press F2 to add library folders.";
+                            shellVm.StatusText = firstLoadWarning
+                                ?? "No libraries configured. Press F2 to add library folders.";
                         }
                         else
                         {
                             shellVm.JumpToLibraryRoots();
                             int totalGames = librariesService.Libraries
                                 .Sum(l => dbService.GetGamesForLibrary(l.Name).Count);
-                            shellVm.StatusText = $"Welcome — {librariesService.Libraries.Count} librar{(librariesService.Libraries.Count != 1 ? "ies" : "y")}, {totalGames} game(s) loaded.";
+                            shellVm.StatusText = firstLoadWarning
+                                ?? $"Welcome — {librariesService.Libraries.Count} librar{(librariesService.Libraries.Count != 1 ? "ies" : "y")}, {totalGames} game(s) loaded.";
                         }
 
                         _ = mainWindow.SyncOnlineGateFromConfigAsync();
@@ -186,7 +199,8 @@ public partial class App : Application
                     mainWindow.Show();
                     int totalGames = librariesService.Libraries
                         .Sum(l => dbService.GetGamesForLibrary(l.Name).Count);
-                    shellVm.StatusText = $"Loaded {librariesService.Libraries.Count} librar{(librariesService.Libraries.Count != 1 ? "ies" : "y")}, {totalGames} game(s). Press F2 to manage.";
+                    shellVm.StatusText = firstLoadWarning
+                        ?? $"Loaded {librariesService.Libraries.Count} librar{(librariesService.Libraries.Count != 1 ? "ies" : "y")}, {totalGames} game(s). Press F2 to manage.";
                 }
             }
             catch (Exception ex)

@@ -30,8 +30,6 @@ internal static class EaInstallLogParser
         info = null;
 
         string logPath = Path.Combine(gameDir.FullName, "__Installer", "InstallLog.txt");
-        if (!File.Exists(logPath))
-            return false;
 
         string? gameName = null;
         string? displayName = null;

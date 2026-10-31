@@ -13,9 +13,12 @@ Build the per-store rows, bind them to the policy provider, and save changes.
 ## What Needs to Change
 
 - [ ] Add a Stores section to `LibrarySetupWindow` (or a settings tab) with one row per `LauncherKinds.All` entry.
-- [ ] Row content: name, detected status, three toggles, override path, action buttons.
+- [ ] Row content: name, detected status, three toggles, override path (file-based inventories only), action buttons.
 - [ ] View-model properties per store; load from `IStorePolicyProvider`; save on change/close.
-- [ ] Disable flags that require detection when the store is not found, except the manual path.
+- [ ] Disable `Index` and `Scan now` when the store has no inventory reader; disable `Check on every launch`
+      when it is not indexed. Keep `Test detection` available so the user can see the reason.
+- [ ] Do not offer an inventory-path override for registry/package stores (EA encrypted, Battle.net,
+      Xbox, Rockstar until verified).
 - [ ] Theme/immutable styling consistent with the existing setup window.
 
 ## Context

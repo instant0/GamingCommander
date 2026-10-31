@@ -11,13 +11,15 @@ namespace GamingCommander.App.Services;
 /// </summary>
 public sealed class GamesDatabaseService : IGamesDatabaseService
 {
-    private readonly string _dbPath;
+    private readonly JsonDocumentStore<GamesDatabaseDto> _store;
     private GamesDatabase? _cachedDb;
 
     /// <summary>Creates a new database service targeting the specified JSON file path.</summary>
-    public GamesDatabaseService(string dbPath)
+    /// <param name="dbPath">Full path of games.json.</param>
+    /// <param name="warningSink">Optional receiver for store read warnings.</param>
+    public GamesDatabaseService(string dbPath, Action<string>? warningSink = null)
     {
-        _dbPath = dbPath;
+        _store = new JsonDocumentStore<GamesDatabaseDto>(dbPath, warningSink);
     }
 
     /// <summary>Loads the games database from disk. Returns cached version if already loaded.</summary>
@@ -26,14 +28,10 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
         if (_cachedDb is not null)
             return _cachedDb;
 
-        GamesDatabaseDto? dto = JsonFileHelper.ReadFromFile<GamesDatabaseDto>(
-            _dbPath,
-            () => new GamesDatabaseDto { Games = [] });
-        if (dto is null || !SchemaVersioning.IsReadable(dto.Version))
-        {
-            _cachedDb = new GamesDatabase(Games: []);
-            return _cachedDb;
-        }
+        GamesDatabaseDto dto = _store.Read(
+            () => new GamesDatabaseDto { Games = [] },
+            d => SchemaVersioning.IsReadable(d.Version)).Value
+            ?? new GamesDatabaseDto { Games = [] };
 
         _cachedDb = new GamesDatabase(
             (dto.Games ?? []).Select(ToEntry).ToList());
@@ -43,13 +41,13 @@ public sealed class GamesDatabaseService : IGamesDatabaseService
     /// <summary>Serializes and persists the games database to disk. Updates the in-memory cache.</summary>
     public void Save(GamesDatabase db)
     {
-        _cachedDb = db;
         var dto = new GamesDatabaseDto
         {
             Version = SchemaVersioning.Current,
             Games = db.Games.Select(ToDto).ToList(),
         };
-        JsonFileHelper.WriteToFile(_dbPath, dto);
+        _store.Write(dto);
+        _cachedDb = db;
     }
 
     /// <summary>Returns all game entries linked to the specified library (anchor) name.</summary>

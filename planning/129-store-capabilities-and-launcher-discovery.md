@@ -5,6 +5,30 @@
 **Status:** PROPOSED — matrix published from four read-only audits; implementation split into Phase M.
 **Source:** code trace of every store scanner/parser, `docs/research/*`, `docs/detection/*`, and four read-only sub-agent audits.
 
+> **Corrections (2026-10-31) — read before using the store sections below.**
+> These supersede the earlier wording in this plan and in the Phase M tasks.
+>
+> - **Disk is the truth for installation.** A launcher record identifies a game; `Installed` requires the
+>   folder to exist. Launcher inventory is a hint, not a catalogue of record.
+> - **Only Steam and Epic have a usable inventory today.** Steam: ACF + `steamapps/common` (the VDF is a
+>   path locator; its `apps` blocks are not the installed set). Epic: ProgramData `*.item` is primary;
+>   `LauncherInstalled.dat` is at most a cross-check, never the primary source. The other stores are
+>   best-effort registry/marker detection; absence of a record is not removal.
+> - **No package API and no SQLite in this version.** Xbox stays marker-only (`default-metadata.json`) and
+>   reports `Unsupported` for inventory. Battle.net Agent `product.db` is unread; do not plan a reader
+>   without a separate dependency decision.
+> - **`.item` regeneration is a different, deferred subject.** Local `.item`/`.mancpn` manifests already
+>   supply the Epic metadata; PCGW and the Steam lookup complete it. The Epic store lookup is identity-only
+>   (title/namespace/catalog id), not a metadata or manifest source, and registration is the path that
+>   failed — not reading or lookup.
+> - **Confidence tiers come from `DetectionTierDeriver`.** Do not set `IdentificationTier` by hand; a store
+>   record does not by itself prove the install.
+> - **No name-only identity.** Match by store key, then normalized path; a name match is allowed only in the
+>   same store and only when unique.
+> - **Reads and writes follow the shared rules:** one read per file/enumeration, one state change per write,
+>   no `Directory.CreateDirectory` outside `data/`.
+
+
 ---
 
 ## 0. The question
@@ -43,19 +67,21 @@ Legend: ✅ shipped, ⚠️ partial/unverified, ❌ missing.
 | Inventory read by app | ✅ ACF/VDF + `common/` | ⚠️ ProgramData `.item` only | ❌ registry classifies only | ❌ | ❌ | ❌ | ❌ | ❌ |
 | Per-game metadata read | ⚠️ appid/name/installdir/state/size/build (some discarded) | ⚠️ display/install/exe/catalog ids | ⚠️ `.info` name/id/exe/args | ⚠️ InstallLog name/studio | ⚠️ readme title only | ⚠️ `.build.info` product code | ❌ | ❌ (RAGE engine only) |
 | Executable discovery | ⚠️ heuristic; launch via `steam://` | ⚠️ `.item` exe else scored heuristic | ⚠️ heuristic, `.info` fallback | ⚠️ heuristic | ⚠️ heuristic | ⚠️ heuristic | ⚠️ heuristic; no package exe | ⚠️ heuristic |
-| Health states | ✅ Installed/Moved/Orphaned/Missing | ⚠️ Installed/Missing/Orphaned (fuzzy) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Health states | ✅ Installed/Moved/Orphaned/Missing | ⚠️ Installed/Missing/Orphaned (path-exact) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | Startup incremental sync | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | Read-only safety | ✅ | ✅ identification only | ⚠️ registry/`.info` safe; Galaxy DB unverified | ⚠️ encrypted `IS`; legacy `.mfst` safe | ⚠️ registry safe; manifest encrypted | ⚠️ SQLite schema unverified | ⚠️ package API/ACL | ✅ `Settings.json`/registry |
 
 ### What is missing per store
 
 - **Steam:** HKCU/`WOW6432Node`/default-path locator fallbacks; VDF parsed as VDF (not line-split); ACF required fields and `StateFlags` interpreted; `LastUpdated` persisted; ACF map keyed by appid (not first-wins `installdir`); cross-library repair; file-level integrity.
-- **Epic:** launcher locator; `LauncherInstalled.dat` inventory; wire orphan discovery; read `InstallSize`/`AppVersionString`/`InstallationGuid`/`CompleteManifestPath`; honor a configurable manifests root; harden JSON parsing; optional `com.epicgames.launcher://` launch.
+- **Epic:** optional launcher locator (ProgramData is the primary path); `LauncherInstalled.dat` only as a verified cross-check, never primary; wire orphan discovery without duplicating the scanner's claims; read `InstallSize`/`AppVersionString`/`InstallationGuid`/`CompleteManifestPath` from the `.item` when present; honor a configurable manifests root; harden JSON parsing; optional `com.epicgames.launcher://` launch.
 - **GOG:** launcher locator; enumerate `GOG.com\Games` as inventory (not just classification); read full registry metadata; merge all `.info` files; prefer `.info` exe; health states; verify Galaxy SQLite.
 - **EA:** launcher locator; `installerdata.xml` parser (content id/title/launcher path/version); legacy Origin `.mfst`; enumerate registry inventory; EA content ID; verify a complete modern install.
 - **Ubisoft:** launcher locator; enumerate `Installs\{gameId}` as inventory; store the game ID; parse `uplay_install.state`; persist publisher; health states.
 - **Battle.net:** launcher locator; read Agent `product.db` read-only (schema verification first); distinguish Agent DB from game-root `.product.db`; metadata beyond product code.
-- **Xbox:** package locator (`Get-AppxPackage`/Windows package API); read `default-metadata.json` and `appxmanifest.xml`; package identity/exe; `shell:appsFolder` launch; health based on package presence.
+- **Xbox (out of scope in v1):** package locator via `Get-AppxPackage`/WinRT is **not** implemented and not
+  planned as a dependency. Detection stays marker-based (`default-metadata.json`) plus the folder scan;
+  report inventory `Unsupported`. A future package reader needs its own decision (API, ACL, non-Windows).
 - **Rockstar:** launcher-key locator (currently skipped); read `Settings.json`; title ID from `title.rgl`; registry inventory; health states.
 
 ## 3. Proposal (reviewed and revised)
@@ -149,7 +175,7 @@ No `EnumerateFiles`, no title/engine detection, no PE reads in this path.
 | installed | exists | exists | `Installed` |
 | installed | exists | missing | `Installed` + `ExeMissing` (suggestion, not `Missing`) |
 | installed | missing | — | `Missing` |
-| update required | exists | exists | `Installed` + `UpdateAvailable` |
+| update required (Steam only, `StateFlags`) | exists | exists | `Installed`; do not surface a version state as health |
 | not listed | exists | exists | `Orphaned` / `DiskOnly` (file scanner) |
 | path differs from the record | exists elsewhere | exists | `Moved` |
 
@@ -160,7 +186,8 @@ Never infer "not installed" from a missing exe alone.
 - Read-only. Never write, repair, or decrypt a store file.
 - Store inventory is evidence, not truth. Disk existence wins for `Installed`.
 - One `GameEntry` model and one enrichment pipeline; no second game list.
-- Confidence tiers: authoritative store record → `Secure`/`Locked`; disk-only → `Candidate`.
+- Confidence tiers come from `DetectionTierDeriver`: a store record identifies the game (`Secure`/`Locked`),
+  disk-only discoveries are `Candidate`, and no tier by itself proves the install exists.
 - Every store's inventory source must be documented and verified before code.
 - First-run discovery never blocks startup; it is a skippable offer.
 - Every store feature defaults **off**; the user opts in per store.
@@ -196,5 +223,5 @@ Never infer "not installed" from a missing exe alone.
 - A no-change launch reads one manifest per enabled store (fingerprint-skipped when unchanged) and
   performs only existence checks — no recursive directory walk.
 - The store diff is O(manifest size) via `StoreKey`, not O(all games).
-- `ExeMissing` / `UpdateAvailable` are surfaced separately from `Missing`.
+- `ExeMissing` is surfaced separately from `Missing`; there is no `UpdateAvailable` health state.
 - No regression to the existing Steam/Epic scanners or the detection matrix.

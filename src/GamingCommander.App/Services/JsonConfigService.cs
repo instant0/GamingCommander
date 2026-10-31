@@ -10,30 +10,32 @@ namespace GamingCommander.App.Services;
 /// </summary>
 public sealed class JsonConfigService : IConfigService
 {
-    private readonly string _configPath;
+    private readonly JsonDocumentStore<ConfigDto> _store;
 
     /// <summary>Creates a new config service targeting the specified JSON file path.</summary>
-    public JsonConfigService(string configPath)
+    /// <param name="configPath">Full path of settings.json.</param>
+    /// <param name="warningSink">Optional receiver for store read warnings.</param>
+    public JsonConfigService(string configPath, Action<string>? warningSink = null)
     {
-        _configPath = configPath;
+        _store = new JsonDocumentStore<ConfigDto>(configPath, warningSink);
     }
 
     /// <summary>Loads application configuration from disk. Returns defaults if file missing.</summary>
     public AppConfig Load()
     {
-        bool fileExists = File.Exists(_configPath);
-        ConfigDto? loaded = JsonFileHelper.ReadFromFile<ConfigDto>(
-            _configPath,
-            () => new ConfigDto());
-        if (loaded is null || !SchemaVersioning.IsReadable(loaded.Version))
+        StoreReadResult<ConfigDto> result = _store.Read(
+            () => new ConfigDto(),
+            dto => SchemaVersioning.IsReadable(dto.Version));
+        if (result.Status == StoreReadStatus.Unreadable)
         {
             return new AppConfig(HiddenFolders: [], IsFirstRun: true);
         }
 
+        ConfigDto loaded = result.Value ?? new ConfigDto();
         IReadOnlyList<string> hiddenFolders = loaded.HiddenFolders ?? [];
         return new AppConfig(
             HiddenFolders: hiddenFolders,
-            IsFirstRun: !fileExists,
+            IsFirstRun: result.Status == StoreReadStatus.Missing,
             LastSeenVersion: loaded.LastSeenVersion,
             EnableOnlineMetadata: loaded.EnableOnlineMetadata,
             ScanDepth: loaded.ScanDepth > 0 ? loaded.ScanDepth : 3,
@@ -54,7 +56,7 @@ public sealed class JsonConfigService : IConfigService
             StorePolicies = MapPolicies(config.StorePolicies),
         };
 
-        JsonFileHelper.WriteToFile(_configPath, dto);
+        _store.Write(dto);
     }
 
     private static StorePolicySettings MapPolicies(StorePolicySettingsDto? dto)
