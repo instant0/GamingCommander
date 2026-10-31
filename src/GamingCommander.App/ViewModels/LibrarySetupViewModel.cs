@@ -4,6 +4,7 @@ using Avalonia.Platform.Storage;
 using GamingCommander.App.Services;
 using GamingCommander.Core;
 using GamingCommander.Core.Models;
+using GamingCommander.Core.Services;
 
 namespace GamingCommander.App.ViewModels;
 
@@ -27,13 +28,40 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
         ILibraryManager libraryManager,
         Window window,
         SteamInstallPathLocator? steamLocator = null,
-        bool isFirstRun = false)
+        IStorePolicyProvider? storePolicies = null,
+        LauncherDiscoveryService? launcherDiscovery = null,
+        bool isFirstRun = false,
+        LauncherDiscoveryContext? discoveryContext = null)
     {
         _configService = configService;
         _dbService = dbService;
         _libraryManager = libraryManager;
         _window = window;
         _steamLocator = steamLocator ?? new SteamInstallPathLocator(new NullRegistryReader());
+
+        if (storePolicies is not null && launcherDiscovery is not null)
+        {
+            LauncherPolicy = new LauncherPolicyViewModel(
+                launcherDiscovery, storePolicies, context: discoveryContext, configService: configService);
+            LauncherPolicy.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(LauncherPolicyViewModel.Setting))
+                {
+                    // FileOnly hides launcher/store controls and the registry-backed add
+                    // buttons, but leaves games, rows, and policies untouched.
+                    OnPropertyChanged(nameof(ShowLauncherSections));
+                    OnPropertyChanged(nameof(ShowSelectedLauncherChecklist));
+                }
+
+                if (e.PropertyName is nameof(LauncherPolicyViewModel.Setting) or nameof(LauncherPolicyViewModel.Policy))
+                {
+                    // The add buttons follow the allowed launchers, so checking Epic in the
+                    // Selected checklist reveals the Epic add button without re-reading config.
+                    OnPropertyChanged(nameof(CanAddSteamLibraries));
+                    OnPropertyChanged(nameof(CanAddEpicCatalog));
+                }
+            };
+        }
 
         // Load metadata toggle from config
         AppConfig config = _configService.Load();
@@ -60,6 +88,48 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
 
     /// <summary>Library (anchor) entries displayed in the setup dialog.</summary>
     public ObservableCollection<LibraryEntry> Entries { get; } = [];
+
+    /// <summary>Launcher preview/policy rows; null when the setup was constructed without services.</summary>
+    public LauncherPolicyViewModel? LauncherPolicy { get; }
+
+    public bool HasLauncherPolicy => LauncherPolicy is not null;
+
+    /// <summary>The discovery-setting card; shown whenever the launcher services are wired.</summary>
+    public bool ShowLauncherSetting => LauncherPolicy is not null;
+
+    /// <summary>Discovery preview/store controls; hidden in FileOnly and before a choice.</summary>
+    public bool ShowLauncherSections => LauncherPolicy?.ShowsLauncherSections == true;
+
+    /// <summary>The Selected checklist; visible only for the Selected setting.</summary>
+    public bool ShowSelectedLauncherChecklist => LauncherPolicy?.IsSelectedSetting == true;
+
+    /// <summary>True when the current setting allows probing this launcher kind.</summary>
+    private bool AllowsLauncherDiscovery(GameSourceKind kind) =>
+        LauncherPolicy is null || LauncherPolicy.Policy.AllowsDiscovery(kind);
+
+    private bool AllowsEpicCatalog => LauncherPolicy is null || LauncherPolicy.Policy.AllowsEpicCatalog;
+
+    /// <summary>Runs launcher discovery once (skipped by the policy in FileOnly), then every anchor.</summary>
+    public async Task FullRescanAsync()
+    {
+        ScanStatus = string.Empty;
+        if (LauncherPolicy is not null)
+            await LauncherPolicy.DetectAsync();
+
+        foreach (LibraryEntry entry in Entries.ToList())
+            await RescanAsync(entry);
+
+        ScanStatus = "Full rescan complete.";
+    }
+
+    /// <summary>Runs launcher discovery once and fills the preview rows.</summary>
+    public async Task DetectLaunchersAsync()
+    {
+        if (LauncherPolicy is null)
+            return;
+
+        await LauncherPolicy.DetectAsync();
+    }
 
     /// <summary>Title text shown in the dialog header.</summary>
     public string TitleText
@@ -112,6 +182,9 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
     {
         get
         {
+            if (!AllowsEpicCatalog)
+                return false;
+
             string dir = EpicManifestPaths.DefaultManifestsDir;
             if (!EpicItemCatalog.LooksLikeManifestsDir(dir))
                 return false;
@@ -151,6 +224,9 @@ public sealed class LibrarySetupViewModel : GamingCommander.UI.ViewModels.Reacti
     {
         get
         {
+            // Checked before the locator so FileOnly never reads Steam's registry key.
+            if (!AllowsLauncherDiscovery(GameSourceKind.Steam))
+                return false;
             if (!_steamLocator.IsSteamAvailable)
                 return false;
             return !Entries.Any(e =>

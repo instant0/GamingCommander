@@ -25,6 +25,9 @@ public partial class MainWindow : Window
     private MetadataLookupQueue? _metadataQueue;
     private MetadataOnlineGate? _onlineGate;
     private HttpClient? _probeHttp;
+    private readonly IStorePolicyProvider? _storePolicies;
+    private readonly LauncherDiscoveryService? _launcherDiscovery;
+    private readonly LauncherDiscoveryContext? _launcherDiscoveryContext;
 
     /// <summary>Primary application window. Manages dual-pane navigation, keyboard shortcuts, and game launching.</summary>
     public MainWindow(
@@ -34,7 +37,10 @@ public partial class MainWindow : Window
         ILibraryManager libraryManager,
         IConfigService configService,
         IMetadataService? metadataService = null,
-        MetadataOnlineGate? onlineGate = null)
+        MetadataOnlineGate? onlineGate = null,
+        IStorePolicyProvider? storePolicies = null,
+        LauncherDiscoveryService? launcherDiscovery = null,
+        LauncherDiscoveryContext? launcherDiscoveryContext = null)
     {
         try
         {
@@ -55,6 +61,9 @@ public partial class MainWindow : Window
         _configService = configService;
         _metadataService = metadataService;
         _onlineGate = onlineGate;
+        _storePolicies = storePolicies;
+        _launcherDiscovery = launcherDiscovery;
+        _launcherDiscoveryContext = launcherDiscoveryContext;
 
         if (_metadataService is not null)
         {

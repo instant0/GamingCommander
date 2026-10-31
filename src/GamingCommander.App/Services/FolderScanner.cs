@@ -11,7 +11,10 @@ public sealed class FolderScanner
     private readonly IReadOnlyList<string> _launcherPatterns;
     private readonly IReadOnlyList<BlacklistTierEntry> _tieredNoiseExePatterns;
     private readonly IReadOnlyList<string> _peMetadataBlacklist;
-    private readonly RegistryFallbackDetector? _registryFallback;
+    private readonly IRegistryReader? _registryReader;
+    private readonly Func<bool>? _allowRegistryFallback;
+    private readonly object _registryGate = new();
+    private RegistryFallbackDetector? _registryFallback;
     private readonly int _scanDepth;
 
     /// <summary>
@@ -66,13 +69,16 @@ public sealed class FolderScanner
     /// <summary>
     /// Creates a scanner with blacklist data and optional registry reader for fallback detection.
     /// When a registry reader is provided, Pass 1c classifies games via registry per-game keys
-    /// when no filesystem signal is found (EA, Ubisoft, GOG, Rockstar).
+    /// when no filesystem signal is found (EA, Ubisoft, GOG, Rockstar). The optional
+    /// <paramref name="allowRegistryFallback"/> gate is evaluated per scan; when it returns false
+    /// the reader is never consulted, so FileOnly performs no registry reads.
     /// </summary>
     public FolderScanner(
         IEnumerable<string> hiddenFolderNames,
         BlacklistData blacklist,
         IRegistryReader? registryReader,
-        int scanDepth = 3)
+        int scanDepth = 3,
+        Func<bool>? allowRegistryFallback = null)
         : this(
             hiddenFolderNames,
             blacklist.ExeNamePatterns.Count > 0 ? blacklist.ExeNamePatterns : DefaultNoiseExePatterns,
@@ -81,7 +87,8 @@ public sealed class FolderScanner
             blacklist.TieredExePatterns,
             blacklist.PeMetadataPatterns,
             registryReader,
-            scanDepth)
+            scanDepth,
+            allowRegistryFallback)
     {
     }
 
@@ -93,7 +100,8 @@ public sealed class FolderScanner
         IReadOnlyList<BlacklistTierEntry> tieredNoiseExePatterns,
         IReadOnlyList<string> peMetadataBlacklist,
         IRegistryReader? registryReader,
-        int scanDepth = 3)
+        int scanDepth = 3,
+        Func<bool>? allowRegistryFallback = null)
     {
         _hiddenFolderNames = new HashSet<string>(hiddenFolderNames, StringComparer.OrdinalIgnoreCase);
         _noiseExePatterns = noiseExePatterns;
@@ -101,9 +109,8 @@ public sealed class FolderScanner
         _launcherPatterns = launcherPatterns;
         _tieredNoiseExePatterns = tieredNoiseExePatterns;
         _peMetadataBlacklist = peMetadataBlacklist;
-        _registryFallback = registryReader is not null
-            ? new RegistryFallbackDetector(registryReader)
-            : null;
+        _registryReader = registryReader;
+        _allowRegistryFallback = allowRegistryFallback;
         _scanDepth = Math.Clamp(scanDepth, 1, 5);
     }
 
@@ -121,6 +128,8 @@ public sealed class FolderScanner
             return [];
 
         var entries = new List<GameEntry>();
+        // Resolved once per scan so the gate is read once and FileOnly never builds the detector.
+        RegistryFallbackDetector? registryFallback = GetRegistryFallback();
 
         foreach (DirectoryInfo subDir in FileSystemHelper.GetDirectoriesSafe(rootPath))
         {
@@ -164,9 +173,9 @@ public sealed class FolderScanner
             }
 
             // Pass 1c: Registry fallback (EA, Ubisoft, GOG, Rockstar per-game keys)
-            if (_registryFallback is not null)
+            if (registryFallback is not null)
             {
-                GameSourceKind registryType = _registryFallback.DetectType(subDir);
+                GameSourceKind registryType = registryFallback.DetectType(subDir);
                 if (registryType != GameSourceKind.Unknown)
                 {
                     AddGameEntry(entries, subDir, rootPath, registryType, defaultType);
@@ -228,6 +237,28 @@ public sealed class FolderScanner
     // ════════════════════════════════════════════════════════════════
     //  Pass 2 — Deep Fallback Detection (Medium/Low Confidence)
     // ════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Returns the registry fallback detector only when a reader exists and the current policy
+    /// allows registry reads. Creation is deferred because the detector enumerates four registry
+    /// key groups in its constructor; FileOnly must not pay for or perform those reads.
+    /// </summary>
+    private RegistryFallbackDetector? GetRegistryFallback()
+    {
+        if (_registryReader is null)
+            return null;
+
+        if (_allowRegistryFallback is not null && !_allowRegistryFallback())
+            return null;
+
+        if (_registryFallback is not null)
+            return _registryFallback;
+
+        lock (_registryGate)
+        {
+            return _registryFallback ??= new RegistryFallbackDetector(_registryReader);
+        }
+    }
 
     private GameSourceKind DetectFallbackType(DirectoryInfo subDir)
     {

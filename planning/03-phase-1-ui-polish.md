@@ -142,7 +142,7 @@ Press `T` on a game entry inside a library root to open **Game Setup**:
 - `executablePath`: Primary `.exe` found in the folder (overridable via Game Setup)
 - `launcherPath`: Secondary `.exe` if a launcher was detected (overridable)
 - `cmdlineArgs`: User-defined launch arguments (set via Game Setup)
-- `manifestPath`: Path to the store manifest file. For Epic: `C:\ProgramData\Epic\EpicGamesLauncher\Data\Manifests\*.item`. For Steam: the `.acf` file in `steamapps/`. For GOG: `goggame-*.info`. This field stores the **canonical manifest path** — not just a copy inside the game folder. The game-folder manifest may overlap but is not the source of truth. **Required for SyncMove** — see Phase 2.1 plan for how this + the game tag drives migration logic.
+- `manifestPath`: Path to the store manifest file. For Epic: `C:\ProgramData\Epic\EpicGamesLauncher\Data\Manifests\*.item`. For Steam: the `.acf` file in `steamapps/`. For GOG: `goggame-*.info`. This field stores the **canonical manifest path** — not just a copy inside the game folder. The game-folder manifest may overlap but is not the source of truth. **Required for registration repair** — see the Phase 2.1 plan for how this and the store tag drive the repair path.
 - `lastScanned`: When the folder was last parsed
 - `lastModified`: Folder's `LastWriteTime` at last scan
 - `extra`: Extensible key/value map for future metadata (developer, publisher, genre, PCGW link, etc. — populated in Phase 2.2)

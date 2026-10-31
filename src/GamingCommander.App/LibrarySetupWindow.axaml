@@ -4,21 +4,66 @@
         x:Class="GamingCommander.App.LibrarySetupWindow"
         x:DataType="vm:LibrarySetupViewModel"
         Title="Library Root Setup"
-        Width="720"
-        Height="520"
+        Width="760"
+        Height="760"
         MinWidth="560"
-        MinHeight="360"
+        MinHeight="520"
         CanResize="True"
         WindowStartupLocation="CenterScreen">
-  <Grid RowDefinitions="Auto,*,Auto" Margin="20">
-    <StackPanel Grid.Row="0" Spacing="4" Margin="0,0,0,16">
+  <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" Margin="20">
+    <StackPanel Grid.Row="0" Spacing="4" Margin="0,0,0,12">
       <TextBlock Text="{Binding TitleText}" FontWeight="Bold" FontSize="{DynamicResource FontSizeAppTitle}" Foreground="{DynamicResource TextAccent}" />
       <TextBlock Text="{Binding SubtitleText}" TextWrapping="Wrap" Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeBody}" />
       <TextBlock Text="{Binding TipText}" TextWrapping="Wrap" Foreground="{DynamicResource TextSuccess}" FontSize="{DynamicResource FontSizeLabel}"
                  IsVisible="{Binding TipText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
     </StackPanel>
 
-    <Border Grid.Row="1" BorderBrush="{DynamicResource AccentBorder}" BorderThickness="1" Background="{DynamicResource PaneBg}" Padding="12">
+    <Border Grid.Row="1" BorderBrush="{DynamicResource AccentBorder}" BorderThickness="1" Background="{DynamicResource PaneBg}" Padding="12"
+            IsVisible="{Binding ShowLauncherSetting}" Margin="0,0,0,12">
+      <StackPanel Spacing="6">
+        <TextBlock Text="Launcher discovery" FontWeight="Bold" Foreground="{DynamicResource TextAccent}" />
+        <TextBlock Text="Choose how GamingCommander may find installed launchers. This is not the display mode; it only decides what may be read."
+                   Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}" TextWrapping="Wrap" />
+        <ItemsControl ItemsSource="{Binding LauncherPolicy.SettingChoices}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:LauncherDiscoveryOption">
+              <StackPanel Margin="0,3">
+                <RadioButton Content="{Binding Title}" IsChecked="{Binding IsChecked, Mode=TwoWay}"
+                             FontSize="{DynamicResource FontSizeLabel}" />
+                <TextBlock Text="{Binding Effect}" Margin="24,0,0,0" TextWrapping="Wrap"
+                           Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeSmall}" />
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <StackPanel Spacing="2" Margin="0,6,0,0" IsVisible="{Binding ShowSelectedLauncherChecklist}">
+          <TextBlock Text="Launchers to detect" Foreground="{DynamicResource TextPrimary}"
+                     FontSize="{DynamicResource FontSizeLabel}" FontWeight="Bold" />
+          <ItemsControl ItemsSource="{Binding LauncherPolicy.SelectionOptions}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:LauncherSelectionOption">
+                <CheckBox Content="{Binding DisplayName}" IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                          FontSize="{DynamicResource FontSizeLabel}" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <ItemsControl ItemsSource="{Binding LauncherPolicy.InformationalLaunchers}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:LauncherInfo">
+                <TextBlock Text="{Binding Summary}" Foreground="{DynamicResource TextMuted}"
+                           FontSize="{DynamicResource FontSizeSmall}" TextWrapping="Wrap" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+
+        <TextBlock Text="Discovery runs only on first run, Detect launchers, a setting change, or Full rescan. It is never continuous and never runs at launch. Nothing is enabled automatically; changing the setting never deletes games."
+                   Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeSmall}" TextWrapping="Wrap" />
+      </StackPanel>
+    </Border>
+
+    <Border Grid.Row="2" BorderBrush="{DynamicResource AccentBorder}" BorderThickness="1" Background="{DynamicResource PaneBg}" Padding="12">
       <Grid RowDefinitions="Auto,*">
         <TextBlock x:Name="ScanStatusText" Grid.Row="0" Foreground="{DynamicResource TextSuccess}" FontSize="{DynamicResource FontSizeLabel}"
                    Margin="0,0,0,4" Text="" />
@@ -28,7 +73,47 @@
       </Grid>
     </Border>
 
-    <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,16,0,0">
+    <Border Grid.Row="3" BorderBrush="{DynamicResource AccentBorder}" BorderThickness="1" Background="{DynamicResource PaneBg}" Padding="12"
+            IsVisible="{Binding ShowLauncherSections}" Margin="0,12,0,0">
+      <StackPanel Spacing="8">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Text="Launchers" FontWeight="Bold" Foreground="{DynamicResource TextAccent}" VerticalAlignment="Center" />
+          <Button x:Name="DetectLaunchersButton" Grid.Column="1" Content="Detect launchers"
+                  Background="{DynamicResource ButtonBgAction}" Foreground="{DynamicResource TextAccent}" Padding="12,6" />
+        </Grid>
+        <TextBlock Text="{Binding LauncherPolicy.StatusText}" Foreground="{DynamicResource TextMuted}"
+                   FontSize="{DynamicResource FontSizeLabel}" TextWrapping="Wrap" />
+        <ScrollViewer MaxHeight="160" VerticalScrollBarVisibility="Auto">
+          <ItemsControl ItemsSource="{Binding LauncherPolicy.Rows}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:LauncherPolicyRow">
+                <Border BorderBrush="{DynamicResource EntryBorder}" BorderThickness="0,0,0,1" Padding="0,6">
+                  <StackPanel Spacing="4">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Text="{Binding DisplayName}" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" />
+                      <TextBlock Grid.Column="1" Text="{Binding StatusText}" Foreground="{DynamicResource TextMuted}"
+                                 FontSize="{DynamicResource FontSizeLabel}" />
+                    </Grid>
+                    <TextBlock Text="{Binding Detail}" Foreground="{DynamicResource TextMuted}"
+                               FontSize="{DynamicResource FontSizeSmall}" TextWrapping="Wrap" />
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                      <CheckBox Content="Index this store" IsChecked="{Binding IndexEnabled, Mode=TwoWay}"
+                                IsEnabled="{Binding CanIndex}" FontSize="{DynamicResource FontSizeLabel}" />
+                      <CheckBox Content="Check on launch" IsChecked="{Binding CheckOnLaunch, Mode=TwoWay}"
+                                IsEnabled="{Binding CanCheckOnLaunch}" FontSize="{DynamicResource FontSizeLabel}" />
+                      <CheckBox Content="Enrich new games" IsChecked="{Binding EnrichNewGames, Mode=TwoWay}"
+                                IsEnabled="{Binding CanEnrich}" FontSize="{DynamicResource FontSizeLabel}" />
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </StackPanel>
+    </Border>
+
+    <Grid Grid.Row="4" ColumnDefinitions="*,Auto" Margin="0,16,0,0">
       <CheckBox Grid.Column="0" IsChecked="{Binding EnableOnlineMetadata}" VerticalAlignment="Center"
                 Foreground="{DynamicResource TextMuted}" FontSize="{DynamicResource FontSizeLabel}">
         <TextBlock TextWrapping="Wrap">
@@ -36,6 +121,8 @@
         </TextBlock>
       </CheckBox>
       <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12">
+        <Button x:Name="FullRescanButton" Content="Full rescan" Background="{DynamicResource ButtonBgSecondary}" Foreground="{DynamicResource TextAccent}"
+                Padding="12,8" />
         <Button x:Name="AddSteamButton" Content="+ Steam" Background="{DynamicResource ButtonBgAction}" Foreground="{DynamicResource TextAccent}"
                 Padding="12,8"
                 IsVisible="{Binding CanAddSteamLibraries}" />

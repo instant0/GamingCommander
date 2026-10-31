@@ -88,4 +88,63 @@ public sealed class LibraryManagerRoutingTests
         Assert.Equal("PlainGame", plain.FolderName);
         Assert.Equal(plainGame, plain.FolderPath);
     }
+
+    [Fact]
+    public void SelectScannerAndScan_FileOnly_SkipsEpicCatalogAndFallsThroughToFolderScanner()
+    {
+        using var temp = new TempDirectory("gc_routing_");
+        var libraries = new LibrariesDatabaseService(temp.Combine("libraries.json"));
+        var database = new GamesDatabaseService(temp.Combine("games.json"));
+        var context = new LauncherDiscoveryContext(LauncherDiscoverySetting.FileOnly);
+        var manager = new LibraryManager(
+            libraries, database, new FolderScanner(), new SteamLibraryScanner([]), context);
+
+        string epicRoot = temp.CreateDirectory("EpicManifests");
+        temp.CreateFile(
+            System.IO.Path.Combine("EpicManifests", "fileonly.item"),
+            """
+            {"DisplayName":"Epic FileOnly Game","InstallLocation":"/tmp/gc-fileonly-missing",
+             "LaunchExecutable":"Game.exe","CatalogNamespace":"ns","CatalogItemId":"cat-fileonly",
+             "AppName":"app-fileonly","bIsApplication":true,"AppCategories":["games","applications"]}
+            """);
+
+        Assert.Empty(manager.SelectScannerAndScan(epicRoot, GameSourceKind.Epic));
+
+        // The same call after an explicit setting change uses the Epic catalog: the gate is read
+        // per scan, not baked into the scanner.
+        context.Update(LauncherDiscoverySetting.Automatic);
+        GameEntry epic = Assert.Single(manager.SelectScannerAndScan(epicRoot, GameSourceKind.Epic));
+        Assert.Equal(GameSourceKind.Epic, epic.GameSource);
+        Assert.Equal("cat-fileonly", epic.Store.EpicCatalogItemId);
+    }
+
+    [Fact]
+    public void SelectScannerAndScan_FileOnly_StillUsesFileBasedSteamScanner()
+    {
+        using var temp = new TempDirectory("gc_routing_");
+        var libraries = new LibrariesDatabaseService(temp.Combine("libraries.json"));
+        var database = new GamesDatabaseService(temp.Combine("games.json"));
+        var context = new LauncherDiscoveryContext(LauncherDiscoverySetting.FileOnly);
+        var manager = new LibraryManager(
+            libraries, database, new FolderScanner(), new SteamLibraryScanner([]), context);
+
+        string steamRoot = temp.CreateDirectory("SteamLib");
+        temp.CreateDirectory("SteamLib", "steamapps", "common", "SteamFileOnlyGame");
+        temp.CreateFile(
+            System.IO.Path.Combine("SteamLib", "steamapps", "appmanifest_5150.acf"),
+            """
+            "AppState" {
+                "appid"       "5150"
+                "name"        "Steam FileOnly Game"
+                "installdir"  "SteamFileOnlyGame"
+                "StateFlags"  "4"
+            }
+            """);
+
+        GameEntry steam = Assert.Single(
+            manager.SelectScannerAndScan(steamRoot, GameSourceKind.Standalone));
+
+        Assert.Equal(GameSourceKind.Steam, steam.GameSource);
+        Assert.Equal("5150", steam.Store.SteamAppId);
+    }
 }

@@ -15,19 +15,17 @@ GamingCommander.sln
 ├── src/
 │   ├── GamingCommander.Core/        Interface definitions + domain models + shared helpers
 │   ├── GamingCommander.Detection/   Game discovery abstractions + design-time stub
-│   ├── GamingCommander.Migration/   Migration planning abstractions + design-time stub
 │   ├── GamingCommander.UI/          ViewModels (Norton Commander shell)
 │   └── GamingCommander.App/         Avalonia app entry, windows, services, DI wiring
 └── tests/
     ├── GamingCommander.Core.Tests/
     ├── GamingCommander.Detection.Tests/
-    ├── GamingCommander.Migration.Tests/
     └── GamingCommander.App.Tests/
 ```
 
-**Dependency flow (declared):** Core ← Detection ← UI ← App; Migration sits alongside Detection.
+**Dependency flow (declared):** Core ← Detection ← UI ← App.
 
-**Dependency flow (actual):** Scanning, launch, and persistence live in `GamingCommander.App`. `GamingCommander.Detection` is a deprecated 3-line stub. `GamingCommander.Migration` is a dry-run stub (`IMigrationPlanner` + `DesignTimeMigrationPlanner`). `Detection.Tests` has no tests.
+**Dependency flow (actual):** Scanning, launch, and persistence live in `GamingCommander.App`. `GamingCommander.Detection` is a deprecated 3-line stub. `Detection.Tests` has no tests.
 
 ---
 
@@ -58,7 +56,6 @@ GamingCommander.sln
 | `GameLaunchResolver` | static | GameEntry → process target + args. |
 | `MetadataSource` | enum | `Unknown, Steam, Pcgw, EpicLocal` |
 | `FileSystemEntryKind` | enum | `Directory=0, File=1, ParentDirectory=2` |
-| `MigrationMode` | enum | `MoveOnly=0, MoveAndLink=1 (deprecated), ManifestRepairOnly=2` |
 | `TagType` | enum | `User=0, Store=1, Engine=2` |
 | `GameRecord` | record (implements IGame) | Id, Title, Source, InstallPath, LaunchTarget, ExecutablePath, LastModified, SupportsPointerInteraction, SupportsKeyboardOnlyFlow |
 | `GameEntry` | record | Composed of `Identity` (IdentityInfo), `Location` (LocationInfo), `Launch` (LaunchInfo) + `Detection`, `Store`, `Acf`, `Epic`, `Install`, `Tracking`, `UserState`, `Relations`, `Tags`, `UserOverrides`, `GameEngine`, `LastScanned`, `LastModified`. Flat names (`Id`, `DisplayName`, `ExecutablePath`, …) are read-only accessors — Plan 127 A1. Status/ACF facts live in `Acf` (`SteamAcfInfo`) and `Install` (`InstallInfo`); no `Extra` bag exists after Plan 127 A2 |
@@ -74,7 +71,9 @@ GamingCommander.sln
 | `InstallState` | enum | Unknown=0, Installed=1, Owned=2, Moved=3, Missing=4, Orphaned=5, Updating=6 — Plan 127 B8 |
 | `StoreReportedState` | enum | Unknown=0, Installed=1, UpdateRequired=2, Incomplete=3 — store evidence, separate from disk `InstallState` (Plan 129 §3.4) |
 | `LauncherKinds` | static class | `All` (Steam, Epic, Gog, EaApp, UbisoftConnect, BattleNet, Xbox, Rockstar), `IsLauncher(GameSourceKind)` — no duplicate launcher enum (Plan 129) |
+| `LauncherDiscoverySetting` | enum | `Unset=0, Automatic=1, Selected=2, FileOnly=3` — the Setup choice for launcher reads (not the display mode) |
 | `StorePolicy` | record | Kind (`GameSourceKind`), IndexEnabled, CheckOnLaunch, EnrichNewGames, SkipUnchangedManifests (default true), InventoryPathOverride |
+| `StoreInventoryEntry` / `SteamInventoryMetadata` / `GogInventoryMetadata` / `EpicInventoryMetadata` / `RockstarInventoryMetadata` | records | Store-native inventory row: Kind, StoreId, Name, InstallPath, LaunchExe, StoreReportedState; disk facts `FolderExists`/`ExeExists`; typed metadata (ACF path/state flags, GOG build/install date/launch args, Epic catalog ids/guid/version/size/manifest paths, Rockstar title id/rgl path/registry key). Orphan/unknown-ID rows carry an empty StoreId |
 | `StorePolicySettings` | record | Stores (`IReadOnlyList<StorePolicy>`) |
 | `TrackingInfo` | record | FirstSeen, LastPlayed, LaunchCount, PlayTimeSeconds, LastSessionSeconds — Plan 127 B7 |
 | `UserStateInfo` | record | Favourite, Hidden, Pinned, Archived, Rating, Notes, Completion — Plan 127 B9 |
@@ -89,8 +88,7 @@ GamingCommander.sln
 | `IdentityKey` | record | Kind, Value — natural key for move/rename reconciliation (Plan 127 A5) |
 | `Library` | record | Name (anchor key), Type (`GameSourceKind`), Folders (IReadOnlyList\<string\>) — Plan 124 |
 | `GamesDatabase` | record | Games (flat List\<GameEntry\>); each links to a `Library` by name — Plan 124 |
-| `AppConfig` | record | HiddenFolders, IsFirstRun, LastSeenVersion, EnableOnlineMetadata, ScanDepth, StorePolicies (`StorePolicySettings?`) |
-| `MigrationPlanSummary` | record | GameId, SourcePath, TargetPath, Mode, RequiresManifestBackup, RequiresLinkCreation (deprecated), IsDryRunOnly |
+| `AppConfig` | record | HiddenFolders, IsFirstRun, LastSeenVersion, EnableOnlineMetadata, ScanDepth, StorePolicies (`StorePolicySettings?`), `LauncherDiscovery` (`LauncherDiscoverySetting`, default Unset), `SelectedLaunchers` (`IReadOnlyList<GameSourceKind>`, default empty) |
 | `FileSystemEntry` | record | Name, FullPath, Kind, LastModified, Size |
 | `GameSourceParser` | static class | `InferFromPath(string)`, `ParseFromString(string)`, `AvailableTypes` — shared by all ViewModels |
 
@@ -107,7 +105,11 @@ GamingCommander.sln
 | `GameStoreIndex` | `Core/Services/GameStoreIndex.cs` | Plan 129 §3.3: read-only in-memory index (`ByStoreKey`, normalized `ByPath`, `ByStore`, duplicate keys, missing manifest keys); no I/O |
 | `PathText` | `Core/Services/PathText.cs` | Plan 130: the single path rule — `TrimTrailingSeparators` (real paths), `NormalizeForCompare`, `Equals`, `IsUnder`, `Leaf`. Opaque Windows strings, no I/O, no case rewriting of stored values |
 | `InstallIdentity` | `Core/Services/InstallIdentity.cs` | Identity seams: `PathKey` (full path is the only folder identity) and `WeakFolderKey` (store-scoped folder name for the unique relocation hint only) |
+| `LauncherDiscoveryService` / `ILauncherLocator` | Core `Services/LauncherDiscoveryService.cs`, `ILauncherLocator.cs` | Read-only launcher probes; one row per `LauncherKinds.All`, missing/throwing locator is `Unsupported`; `Supports(kind)` reports registered locators; `DiscoverForPolicy(policy)` probes only allowed kinds (none in FileOnly/Unset) |
+| `LauncherDiscoveryPolicy` | Core `Services/LauncherDiscoveryPolicy.cs` | Pure setting matrix: `AllowsDiscovery(kind)`, `AllowsRegistryFallback`, `AllowsEpicCatalog`, `AllowsStorePolicies`; no I/O, no cache |
+| `SteamLauncherLocator` / `EpicLauncherLocator` / GOG / Ubisoft | `Services/LauncherLocators.cs` | Steam: valid library first (configured roots; `steamapps` + vdf/common/ACF), registry fallback only when none; Epic: ProgramData manifests with at least one `.item`; GOG: Galaxy path, `NeedsVerification`; Ubisoft: `Installs` registry list, `NeedsVerification`. Registered in `App.LauncherDiscovery` |
 | `IStorePolicyProvider` | Core `Services/IStorePolicyProvider.cs` | Per-store policy reads/writes, `EnabledStores`, `CheckOnLaunchStores`, `CanImport`, `CanSync` |
+| `IStoreInventoryReader` / `StoreManifestFingerprint` | Core `Services/IStoreInventoryReader.cs` | Read-only store inventory contract: `Kind`, last-read `Fingerprint`, one `Read()` returning `StoreInventoryEntry` rows; no writes and no recursive scan |
 | `PeProductYear` | `PeProductYear.cs` | Year hint from PE FileVersion / LastWriteTime |
 
 ---
@@ -150,7 +152,8 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 
 | Service | File | Purpose |
 |---------|------|---------|
-| `LibraryManager` | `LibraryManager.cs` | Routes scanning to appropriate scanner, manages roots, delegates to IGamesDatabaseService |
+| `LibraryManager` | `LibraryManager.cs` | Routes scanning to appropriate scanner, manages roots, delegates to IGamesDatabaseService; takes `LauncherDiscoveryContext` and skips the Epic ProgramData catalog when the policy forbids it (FileOnly falls through to `FolderScanner`) |
+| `LauncherDiscoveryContext` | `Services/LauncherDiscoveryContext.cs` | The one runtime launcher discovery setting + selected launchers; built from config at startup, updated by Setup, exposes a policy snapshot per scan. No startup probe |
 | `MetadataStore` | `Metadata/MetadataStore.cs` | Plan 119 sidecar `data/games_metadata.json` |
 | `MetadataService` | `Metadata/MetadataService.cs` | PCGW then Steam Store; `EnableOnlineMetadata`; 60-day cache; identity guard; never writes `games.json` |
 | `SteamStoreLookup` | `Metadata/SteamStoreLookup.cs` | Raw `appdetails` GET (injectable HttpClient) |
@@ -170,7 +173,7 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 | `MetadataDetailsFormatter` | Core | Right-pane path/arg/video strings |
 | `CommonMetadataParser` | `Metadata/CommonMetadataParser.cs` | Source facts → `GameMetadataRecord` |
 | `EngineDetector` | `EngineDetector.cs` | Local engine probe (Unreal / Unity / RAGE / Frostbite) — Plan 102 Phase 2 |
-| `FolderScanner` | `FolderScanner.cs` | Generic folder scanner: detection chain, exe noise filtering, container detection, nested Steam exclusion (`IsNestedSteamTree`). Entry construction delegated to `StoreMetadataEnricher` / `TitleEnricher` (Plan 125 Ph 2) — `AddGameEntry` is a thin assembler |
+| `FolderScanner` | `FolderScanner.cs` | Generic folder scanner: detection chain, exe noise filtering, container detection, nested Steam exclusion (`IsNestedSteamTree`). Entry construction delegated to `StoreMetadataEnricher` / `TitleEnricher` (Plan 125 Ph 2) — `AddGameEntry` is a thin assembler. Optional `allowRegistryFallback` gate; Pass 1c builds the detector lazily, so a false gate performs zero registry reads |
 | `ContainerScanner` | `ContainerScanner.cs` | Container/publisher folder scan: bounded depth-2 recursion, org detection, `IsNonGameFolder` 3-layer suppression. Children classified once per call via `SignalSummary` (Plan 125 Ph 2) |
 | `StoreMetadataEnricher` | `StoreMetadataEnricher.cs` | Plan 125 Ph 2: GOG→EA→Epic→BattleNet enrichment blocks extracted from `FolderScanner.AddGameEntry`; operates on `GameEntryBuildContext`; read-only |
 | `DetectionTierDeriver` | `DetectionTierDeriver.cs` | Plan 127 A3: derives `DetectionInfo` (tier + signals + manifest kind) from a scanner's collected signals |
@@ -184,11 +187,16 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 | `SteamAcfWriter` / `EpicItemWriter` / `RepairWriteGuard` | same folder | Repair writes: Steam creates an absent ACF, Epic modifies an existing `.item` (never creates/replaces); shared preflight, staging, copy, length check, backup/restore, journal |
 | `EpicStoreSearch` | `EpicStoreSearch.cs` | Deferred **identity lookup** (title/namespace/catalog id), no callers in v1. Two uses: identify a game with missing/incomplete local records; resolve the title before PCGW/Steam. Not a metadata source and not an `.item` generator. |
 | `SteamAcfParser` | `SteamAcfParser.cs` | Parses Steam ACF files and libraryfolders.vdf; AcfInfo record |
+| `SteamInventoryReader` | `SteamInventoryReader.cs` | ACFs across configured roots + VDF-discovered libraries, keyed by AppID; ACF-present/absent and orphan `common` folders; `StateFlags` 4/6; `apps` blocks ignored |
+| `GogInventoryReader` | `GogInventoryReader.cs` | `GOG.com\Games` registry inventory plus merged `goggame-*.info`; registry ID kept without `.info`; `.info` exe preferred when present; missing folders still returned |
+| `EpicInventoryReader` | `EpicInventoryReader.cs` | ProgramData `*.item` catalog (playable base games) with optional guid/version/size/manifest fields; local `.mancpn` + binary `.manifest` fallback for unclaimed folders; missing folders retained; duplicate installs collapsed |
+| `RockstarInventoryReader` | `RockstarInventoryReader.cs` | Per-game `Rockstar Games` registry keys (Launcher skipped) plus safe `title.rgl` title ID; missing folders retained; no `Settings.json`, no exe guessing |
 | `GamesDatabaseService` | `GamesDatabaseService.cs` | JSON-file CRUD for the flat game list (`games.json`) via private DTOs, in-memory cache, anchor-keyed access (Plan 124) |
 | `LibrariesDatabaseService` | `LibrariesDatabaseService.cs` | Reads/writes `libraries.json` (named `Library` anchors) implementing `ILibrariesService` (Plan 124) |
 | `CollectionsDatabaseService` | `CollectionsDatabaseService.cs` | Reads/writes `collections.json` implementing `ICollectionsService` (Plan 127 B12) |
-| `JsonConfigService` | `JsonConfigService.cs` | JSON-file persistence for AppConfig, including per-store `StorePolicies` (enum names as strings) |
-| `StorePolicyProvider` | `StorePolicyProvider.cs` | `IStorePolicyProvider` over `IConfigService`: per-store opt-in, normalization, `CanImport`/`CanSync` (thread-safe) |
+| `JsonConfigService` | `JsonConfigService.cs` | JSON-file persistence for AppConfig, including per-store `StorePolicies` and the launcher discovery setting/selection (enum names as strings; existing files without the field default to Automatic) |
+| `LauncherPolicyViewModel` / `LauncherPolicyRow` / `LauncherDiscoveryOption` / `LauncherSelectionOption` | `ViewModels/LauncherPolicy*.cs`, `LauncherDiscoveryOptions.cs` | Launcher discovery setting + selected checklist + preview/policy rows; one probe per explicit Detect, no I/O on construction; setting/selection persist immediately through `IConfigService` and update `LauncherDiscoveryContext`; FileOnly disables rows without clearing policies; Index requires an inventory reader |
+| `StorePolicyProvider` | `StorePolicyProvider.cs` | Now constructed in `App`; single provider shared by first-run and F2 setup |
 | `BlacklistLoader` | `BlacklistLoader.cs` | Loads noise patterns from `data/blacklist.json`; missing/corrupt file falls back to embedded resource and restores disk copy (Bug 16) |
 | `DetectionNoise` | `DetectionNoise.cs` | Small detection noise sets (`NonGameExe`, `LnkSkip`, `SteamCommonNoise`) shared by `FolderScanner`, `ContainerScanner`, `ExecutableDiscovery`, `LnkParser`, and `SteamLibraryScanner`; separate from the tiered `data/blacklist.json`, which drives exe scoring |
 | `FileSystemHelper` | `FileSystemHelper.cs` | Shared filesystem utilities: GetDirectoriesSafe, GetFilesSafe, GetLastWriteTimeSafe, NormalizeDisplayName, NoiseSubDirNames |
@@ -197,7 +205,7 @@ Game entries use `Kind = File` → not browsable. Library roots use `Kind = Dire
 | `PickPcgwPageWindow` | `PickPcgwPageWindow.cs` | F3: choose among several PCGW titles |
 | `FilterWindow` | `FilterWindow.cs` | F8 / S: tag, store, wildcard |
 | `TagColorService` | `TagColorService.cs` | Reads tag_colors.json, maps tag→color by type (User/Store/Engine), implements ITagColorProvider |
-| `LibrarySetupViewModel` | `.App/ViewModels/LibrarySetupViewModel.cs` | Library root setup dialog logic (F2 + first-run) |
+| `LibrarySetupViewModel` | `.App/ViewModels/LibrarySetupViewModel.cs` | Library root setup dialog logic (F2 + first-run); launcher discovery card/checklist visibility, Full rescan action |
 
 ### FolderScanner Key Logic
 
@@ -318,14 +326,13 @@ testdata/mock/
 
 ## Test Coverage
 
-**Current baseline:** 607 pass / 0 fail. `META/SESSION/CURRENT.md` is the source for the live count; this table is a pointer, not a running test log.
+**Current baseline:** 587 pass / 0 fail. `META/SESSION/CURRENT.md` is the source for the live count; this table is a pointer, not a running test log.
 
 | Project | Tests |
 |---------|-------|
-| `Core.Tests` | 173 |
-| `Migration.Tests` | 1 |
-| `App.Tests` | 433 |
-| **Total** | **607** |
+| `Core.Tests` | 157 |
+| `App.Tests` | 430 |
+| **Total** | **587** |
 
 ---
 

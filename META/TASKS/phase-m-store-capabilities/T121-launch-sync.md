@@ -6,6 +6,10 @@
 **Status:** pending
 **Prerequisites:** Task T121 depends on Task T118, Task T120, Task T123, and Task T130
 
+> **Test policy (2026-10-31):** new tests follow `planning/136-test-suite-reduction.md` — use
+> `TestSupport/TempDirectory` and `TestGame`, one test per behavior/failure, no app-version back-compat
+> tests. Integration fixtures go under `Fixtures/`, not per-file temp trees.
+
 ## Objective
 
 On every launch, for stores the user allowed, quickly read only the launcher inventory, diff it

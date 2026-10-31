@@ -101,8 +101,15 @@ are not required.
 First run
 ---------
 
-On first launch a setup dialog opens. Add the folders that contain
-your games:
+On first launch a setup dialog opens. Choose how launchers may be
+discovered:
+
+  Automatic  Detect every installed launcher when you ask.
+  Selected   Detect only the launchers you check.
+  FileOnly   Read no launcher registry or ProgramData; scan only the
+             folders you add. File signals still classify stores.
+
+Then add the folders that contain your games:
 
   - Steam: pick the LIBRARY ROOT, i.e. the folder that contains
     steamapps\ (e.g. D:\SteamLibrary) — not ...\steamapps\common.
@@ -114,6 +121,11 @@ found is rejected. A root cannot sit inside another configured root.
 After closing the dialog you see your roots; Enter drills in and
 launches games. Press F1 any time for the key reference.
 
+Launcher discovery is never continuous: it runs only on first run,
+"Detect launchers", a setting change, or Full rescan. It never runs at
+startup or when launching a game, and detecting a launcher does not
+enable it. Change the setting any time in F2; it never deletes games.
+
 
 Rescanning and removed games
 ----------------------------
@@ -121,7 +133,10 @@ Rescanning and removed games
 Scans are manual — GamingCommander does not watch folders in the
 background. Press F5 to rescan the current folder (or all roots from
 the root list); press F5 again to cancel. Games installed later appear
-after the next rescan.
+after the next rescan. F5 never probes launchers.
+
+F2 also has a Full rescan button: it follows the launcher discovery
+setting (skipped in FileOnly), then rescans all configured folders.
 
 Uninstalling a game does NOT remove its catalogue entry automatically
 (a drive may just be temporarily unavailable). Steam games change
@@ -171,6 +186,9 @@ ACCESS 3: Read Epic Games manifest files
             manifest files provide the real game names.
   Scope:    Reads .egstore/ folders inside game directories you add,
             and C:\ProgramData\Epic\EpicGamesLauncher\Data\Manifests\.
+  Note:     In the FileOnly launcher discovery setting the ProgramData
+            manifests folder is not read; only .egstore/.mancpn files
+            inside the folders you add are used.
   Examples: Reading "Fortnite\.egsstore\manifests\*.item" to find the
             display name "Fortnite" instead of the folder name.
 
@@ -225,7 +243,9 @@ ACCESS 7: Read Windows registry (game install paths)
   Examples: Reading "HKLM\...\GOG.com\Games\12345\path" to find
             "GOG Games\Witcher 3\" as an installed game.
   Note:     GamingCommander only READS these keys. It does not create,
-            modify, or delete any registry entries.
+            modify, or delete any registry entries. In the FileOnly
+            launcher discovery setting these keys are never read at
+            all; only the game folders you add are scanned.
 
 
 ACCESS 8: Read shortcut files (.lnk)

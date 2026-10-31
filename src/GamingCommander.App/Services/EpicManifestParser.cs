@@ -28,7 +28,11 @@ internal static class EpicManifestParser
         bool IsIncompleteInstall,
         bool IsApplication = true,
         IReadOnlyList<string>? AppCategories = null,
-        string ItemFilePath = "");
+        string ItemFilePath = "",
+        long? InstallSize = null,
+        string? AppVersionString = null,
+        string? InstallationGuid = null,
+        string? CompleteManifestPath = null);
 
     /// <summary>
     /// Result of parsing an Epic .mancpn file — contains catalog identifiers only.
@@ -70,6 +74,11 @@ internal static class EpicManifestParser
             string catalogNamespace = root.TryGetProperty(EpicItemSchema.CatalogNamespace, out var cn) ? cn.GetString() ?? "" : "";
             string catalogItemId = root.TryGetProperty(EpicItemSchema.CatalogItemId, out var ci) ? ci.GetString() ?? "" : "";
             string appName = root.TryGetProperty(EpicItemSchema.AppName, out var an) ? an.GetString() ?? "" : "";
+            long? installSize = root.TryGetProperty(EpicItemSchema.InstallSize, out var size)
+                && size.TryGetInt64(out long parsedSize) ? parsedSize : null;
+            string? appVersion = StringOrNull(root, EpicItemSchema.AppVersionString);
+            string? installationGuid = StringOrNull(root, EpicItemSchema.InstallationGuid);
+            string? completeManifestPath = StringOrNull(root, EpicItemSchema.CompleteManifestPath);
             bool isApplication = !root.TryGetProperty(EpicItemSchema.BIsApplication, out var app) || app.ValueKind != JsonValueKind.False;
             var categories = new List<string>();
             if (root.TryGetProperty(EpicItemSchema.AppCategories, out var cats) && cats.ValueKind == JsonValueKind.Array)
@@ -92,7 +101,11 @@ internal static class EpicManifestParser
                 IsIncompleteInstall: isIncomplete,
                 IsApplication: isApplication,
                 AppCategories: categories,
-                ItemFilePath: filePath);
+                ItemFilePath: filePath,
+                InstallSize: installSize,
+                AppVersionString: appVersion,
+                InstallationGuid: installationGuid,
+                CompleteManifestPath: completeManifestPath);
         }
         catch (JsonException)
         {
@@ -214,6 +227,14 @@ internal static class EpicManifestParser
 
         return null;
     }
+
+    /// <summary>Reads an optional non-empty string member; a missing or blank value is null.</summary>
+    private static string? StringOrNull(JsonElement root, string name) =>
+        root.TryGetProperty(name, out JsonElement value)
+            && value.ValueKind == JsonValueKind.String
+            && !string.IsNullOrWhiteSpace(value.GetString())
+            ? value.GetString()
+            : null;
 
     /// <summary>
     /// Resolves a relative LaunchExecutable path to an absolute path.

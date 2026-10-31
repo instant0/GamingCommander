@@ -1,13 +1,14 @@
 # Current Project State
 
-**Updated:** 2026-10-29
+**Updated:** 2026-10-31
 
 ## State
 - Dual-pane shell over typed JSON persistence (`libraries.json`, `games.json`, sidecar metadata, `collections.json`); schema versioning and identity reconciliation shipped.
 - Standalone + Steam scan/launch shipped; folder/registry detection covers GOG, Epic, EA, Ubisoft, Battle.net, Xbox, Rockstar.
 - Detection blueprint is the reference (`docs/detection/09-blueprint.md`); Steam vs SteamEmu classification is implemented (Steam-library location wins, ACF optional).
-- Store launcher discovery + read-only inventory import is the next product track (`planning/129`); manifest-first/stat-only checks, per-store opt-in, launch-time sync, enrichment, and Setup controls.
-- Epic `.item` re-creation is a dead end: registration is server/account-driven, so detection stays read-only. SyncMove migration is deferred.
+- Store launcher discovery + read-only inventory import is the next product track (`planning/129`); Steam/GOG/Epic/Rockstar inventory readers exist; the Ubisoft reader and import service remain; then health, repair, launch-time sync, enrichment, and Setup controls.
+- Launcher discovery is an explicit Setup choice (Automatic / Selected / FileOnly). Discovery runs only on first run, Detect, a setting change, or Full rescan; there is no startup or per-launch probe. FileOnly performs no registry or ProgramData launcher reads, while folder scans still classify file signals.
+- Epic `.item` re-creation is a dead end: registration is server/account-driven, so detection stays read-only. Store registration repair is specified as an executable task; the app never moves game data, never deletes registration files, and has no symlink/move mode.
 - Local-only app; online extras remain opt-in PCGW + Steam Store. No full store clients; nothing has shipped, so persisted schemas carry no back-compat burden.
 
 ## Shared path rule (2026-10-29)
@@ -35,14 +36,14 @@ Corrected beliefs across the pending task set:
 - **Wiring gaps are task work, not assumptions:** the policy provider is wired in the launcher-discovery first-run step; `GameStoreIndex` is built by import/sync; no name-only identity matching (same store + unique only).
 
 ## Active queue
-See `META/SESSION/NEXT.md` for the canonical execution order. Task index: `META/TASKS/README.md`. Pending tasks are T134, T117 (A/B), T118 (A/B/C), T119 (A/B), T121 (A/B/C), T122 (A/B), T125, T127, T128, plus the P2 UI track (T72→T73). Done on 2026-10-31: T130, T129, T132, T126, T133, T135; T124D closed and merged into T126. The connection map is at `META/CONNECTION_MAP.md`; the I/O audit result is `planning/135-io-call-audit.md`.
+See `META/SESSION/NEXT.md` for the canonical execution order. Task index: `META/TASKS/README.md`. Pending tasks are T118 (C2), T119 (A/B), T121 (A/B/C), T122 (A/B), T125, T127, T128, plus the P2 UI track (T72→T73). Done on 2026-10-31: T130, T129, T132, T126, T133, T135, T134, T117, T117A1, T117A2, T117A3, T117B1, T117B2, T118A, T118B, T118C, T136, T137; T124D closed and merged into T126. Cancelled by T136: T118B2, T118C3 (EA/Battle.net readers); the Ubisoft locator was reinstated for the setup preview. The connection map is at `META/CONNECTION_MAP.md`; the I/O audit result is `planning/135-io-call-audit.md`; the test reduction result is `planning/136-test-suite-reduction.md`; the unknown-store decisions are `planning/137-unknown-store-data-sources.md`; the launcher discovery setup choice is `planning/138-launcher-discovery-setup.md`.
 
 ## Blockers / deferred
 - Steam-vs-SteamEmu is implemented; the `Extensions{}` / emulator model still needs a user decision.
-- SyncMove manifest repair is deferred until detection is settled.
+- Registration repair is pending for Steam and Epic; GOG/EA/Ubisoft/Battle.net/Xbox writes are out of scope. Stray old ACFs are reported for manual removal, never deleted by the app.
 - EA format caveat is blocked on a complete EA install; .NET 8→9 upgrade is deferred indefinitely.
 
 ## Verification baseline
 - Build: 0 errors / 0 warnings.
-- Tests: 773 passing (Core 232, Migration 1, App 540).
+- Tests: 587 passing (Core 157, App 430).
 - Detection matrix: 22/22.

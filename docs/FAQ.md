@@ -2,7 +2,7 @@
 
 **Nature:** User questions and answers. Grounded in shipped behavior (0.4.x).
 **Audience:** End users. The essentials (install, first run, rescan, uninstall) are mirrored in `GamingCommander.Readme.txt`, which ships with the exe; this file carries the full detail.
-**Updated:** 2026-08-23
+**Updated:** 2026-10-31
 
 If code and this file disagree, fix the code or this file — do not leave both.
 Related: [`ONLINE-AND-DATA.md`](ONLINE-AND-DATA.md) (network/file contract), [`../GamingCommander.Readme.txt`](../GamingCommander.Readme.txt) (access guide).
@@ -31,16 +31,34 @@ Any folder your user account can **write to** — GamingCommander keeps all of i
 
 On first launch (and after an upgrade — see *Data migration*) a setup dialog opens:
 
-1. Click **Add folder** and pick a folder that contains games.
+1. Choose the **launcher discovery** setting:
+   - **Automatic** — detect every installed launcher (Steam, Epic, GOG, Ubisoft, …) when you press Detect or run a full rescan.
+   - **Selected** — detect only the launchers you check.
+   - **FileOnly** — read no launcher registry or ProgramData; scan only the folders you add. File signals inside game folders still classify stores.
+2. Click **Add folder** and pick a folder that contains games.
    - For Steam, pick the **library root** — the folder that *contains* `steamapps\`, e.g. `D:\SteamLibrary`, not `D:\SteamLibrary\steamapps\common`.
    - For everything else, pick the parent folder whose subfolders are the games (e.g. `D:\GOG Games`).
-2. Each root gets a platform default (auto-guessed from the path; you can change it per game later with F4).
-3. The folder is scanned immediately (background thread; the dialog shows progress). A root with **0 games found is rejected** and not added.
-4. Nesting is checked: a root may not sit inside another configured root (either direction). You'll get a clear message if it does.
-5. Close the dialog. The main window lists your roots; Enter drills in, Enter on a game launches it.
+3. Each root gets a platform default (auto-guessed from the path; you can change it per game later with F4).
+4. The folder is scanned immediately (background thread; the dialog shows progress). A root with **0 games found is rejected** and not added.
+5. Nesting is checked: a root may not sit inside another configured root (either direction). You'll get a clear message if it does.
+6. Close the dialog. The main window lists your roots; Enter drills in, Enter on a game launches it.
 
 **What happens if I select a very large directory?**
 Scanning reads only one level of subfolders looking for per-store signal files, then does a bounded executable search inside candidate folders (see *Scanning behavior*). Cost grows with the number of top-level folders, not total disk size. Pointing it at `C:\` or `C:\Program Files` will take noticeably longer and mostly finds nothing useful — prefer dedicated game folders. The scan runs off the UI thread; press F5 again to cancel.
+
+## Launcher discovery
+
+The launcher discovery setting is the Setup choice, not the display mode (Library/Flat/Stores/Engines). It decides what launcher locations may be read:
+
+| Setting | What it reads | When |
+|---|---|---|
+| **Automatic** | Every registered launcher locator (Steam, Epic, GOG, Ubisoft, …); detection-only stores show as Unsupported | on Detect, a setting change, or full rescan |
+| **Selected** | Only the launchers you check; a selected launcher that is missing shows Not found/Unsupported | on Detect, a setting change, or full rescan |
+| **FileOnly** | Nothing outside the game folders you add; no registry or ProgramData launcher reads. File signals (`.acf`, `.item`, `__Installer`, `uplay_*`, `.build.info`, `title.rgl`, `default-metadata.json`, GOG files) still classify games | folder scans only |
+
+Discovery is **one-shot per explicit action** — first run, **Detect launchers**, changing the setting, or **Full rescan** in F2. There is no startup probe, no per-launch probe, no watcher, and no background scan. Nothing is enabled automatically: detecting a launcher does not turn on indexing.
+
+You can change the setting any time in **F2**. Changing it never deletes games, tags, overrides, or store policy rows; **Automatic → FileOnly** makes the policy controls non-actionable, and returning to Automatic/Selected enables no store by itself. Full rescan runs the allowed discovery once, then rescans the configured library folders; **F5 remains a game-folder scan** and never probes launchers.
 
 ## Scanning behavior
 
@@ -64,8 +82,8 @@ There are no official benchmark numbers. Qualitatively: a normal root (tens of f
 
 Rescans are **manual**. There is no filesystem watcher and no automatic background scan.
 
-- **F5** rescans the current root — or all roots when you're at the root level. Press F5 again to cancel.
-- **F2** has a per-root Rescan button.
+- **F5** rescans the current root — or all roots when you're at the root level. Press F5 again to cancel. It never probes launchers.
+- **F2** has a per-root Rescan button and a **Full rescan** button: full rescan follows the launcher discovery setting (skipped in FileOnly), then rescans every configured anchor.
 - Adding a root scans it once.
 - Startup does **not** rescan; it loads `games.json` from last time.
 
@@ -109,7 +127,7 @@ Filesystem access problems during scanning are swallowed silently: a denied fold
 - **Network shares / mapped drives:** work as ordinary paths while reachable. UNC paths (`\\server\share\…`) can be roots, and wiki config/save links pointing at UNC are displayed but never clickable.
 - **External / removable drives:** fine while mounted. An unavailable drive is skipped on rescan; its catalogue entries are retained until you remove them.
 - **Junctions/symlinks:** followed like normal directories during scanning.
-- **Nonstandard launcher locations:** detection is based on files *inside* the game folder, not on install location, so it is location-independent; EA/Ubisoft/GOG/Rockstar additionally have HKLM registry fallback for signal-less installs.
+- **Nonstandard launcher locations:** detection is based on files *inside* the game folder, not on install location, so it is location-independent; in Automatic/Selected, EA/Ubisoft/GOG/Rockstar additionally have HKLM registry fallback for signal-less installs. FileOnly never reads those keys and relies on file signals only.
 
 ## Launching behavior
 
@@ -147,7 +165,7 @@ Also available in-app under **F1**.
 | Enter | Launch game / drill into folder (double-click works too) |
 | Esc / Backspace | Go up one level (also clears the active filter) |
 | F1 | Help — this list |
-| F2 | Library Setup — add/remove/rescan roots, Enable online metadata |
+| F2 | Library Setup — add/remove/rescan roots, launcher discovery, Enable online metadata |
 | F3 | Fetch online extras (Steam AppID → one PCGW page; otherwise pick if several match) |
 | F4 | Configure game — name, type, choose exe, argument checkboxes, delete entry |
 | F5 | Rescan current root or all roots (press again to cancel) |
@@ -181,7 +199,7 @@ Things the scanner **intentionally** does not do:
 - No cross-root deduplication; same game under two roots lists twice.
 - Nested Steam libraries are skipped by the general scanner and must be added as their own Steam root.
 - Store **clients** are not integrated: no downloads, updates, cloud, or friend lists — detection and launching only. Full GOG/Epic/EA/Ubisoft client APIs are out of scope.
-- Two **user-started** repairs exist: create a missing Steam ACF and update an existing Epic `.item` after a move. Automatic/cross-library SyncMove repair (Phase 2.1) is planned, not shipped; "Moved" Steam games are otherwise reported, not fixed.
+- Two **user-started** repairs exist: create a missing Steam ACF and update an existing Epic `.item` after a move. Automatic/cross-library registration repair (Phase 2.1) is planned, not shipped; "Moved" Steam games are otherwise reported, not fixed.
 - Xbox titles have the thinnest metadata (signal-file detection only).
 - Games that consist solely of blacklisted-pattern exes (or no exe at all) are not detected; heavily renamed/modded setups may need F4 correction.
 - x64 Windows only; no installer, no auto-update.

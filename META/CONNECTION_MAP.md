@@ -1,6 +1,6 @@
 # Connection Map — how GamingCommander is wired
 
-**Status:** Living reference (2026-10-30). Update when a pipeline or a store path changes.
+**Status:** Living reference (2026-10-31). Update when a pipeline or a store path changes.
 **Audience:** Builder / agent adding a store, a reader, a writer, a metadata provider, or a UI action.
 **Companions:** `CODE_MAP.md` (types and files), `ARCHITECTURE.md` (decisions),
 `docs/detection/10-store-capabilities.md` (per-store capability matrix),
@@ -34,12 +34,13 @@ No container. `App.OnFrameworkInitializationCompleted` constructs everything by 
 | Service | Lifetime | Notes |
 |---|---|---|
 | `GamesDatabaseService` | app | `data/games.json`; caches `GamesDatabase` in memory |
-| `JsonConfigService` | app | `data/settings.json` |
+| `JsonConfigService` | app | `data/settings.json`; loads the launcher discovery setting + selected launchers once |
+| `LauncherDiscoveryContext` | app | the one runtime launcher discovery setting; built from config at startup, updated by Setup, read by scanners as a policy snapshot |
 | `LibrariesDatabaseService` | app | `data/libraries.json` |
 | `BlacklistLoader` | per run | `data/blacklist.json`, embedded fallback |
-| `FolderScanner` | app | hidden folders + blacklist + `IRegistryReader` + scan depth |
+| `FolderScanner` | app | hidden folders + blacklist + optional `IRegistryReader` + scan depth + `allowRegistryFallback` gate (never constructs the detector when the gate is false) |
 | `SteamLibraryScanner` | app | built from the Steam libraries in `libraries.json` |
-| `LibraryManager` | app | owns the scanners; the only scan entry point |
+| `LibraryManager` | app | owns the scanners; the only scan entry point; takes the discovery context for the Epic ProgramData gate |
 | `TagColorService`, `MetadataStore` | app | `data/tag_colors.json`, `data/games_metadata.json` |
 | `SteamStoreLookup`, `PcgwLookup`, `MetadataOnlineGate`, `MetadataService` | app | online metadata path |
 | `ShellViewModel` | app | the only ViewModel the window talks to |
@@ -50,9 +51,9 @@ composition. `SteamInstallPathLocator` is constructed in the Setup path (`MainWi
 `LibrarySetupWindow`/`LibrarySetupViewModel`), not at app start: it answers "is Steam installed, and where
 are its libraries" when the user adds Steam. The scanner does not use it.
 
-**Unwired (gap):** `StorePolicyProvider` implements `IStorePolicyProvider` but is constructed nowhere.
-`StorePolicies` is persisted in `settings.json` and read by tests only. Until it is wired, no store gate is
-enforced at import/scan time.
+**Wired since the first-run preview:** `StorePolicyProvider` is constructed in `App` and shared by
+first-run/F2 Setup; there is no import/sync consumer yet (T118/T121). Setup disables the policy controls
+when the launcher discovery setting is FileOnly, but keeps the persisted rows.
 
 **Unwired (gap):** `GameStoreIndex` is built in tests only. It is the intended O(1) key/path lookup for
 import and sync, not a live index.
@@ -74,7 +75,7 @@ UI / MainWindow
 |---|---|---|---|---|
 | `data/games.json` | `GamesDatabaseService` | `GamesDatabaseDto` | three-state store | `.bak` → write → verify |
 | `data/libraries.json` | `LibrariesDatabaseService` | `LibrariesDto` | same | same |
-| `data/settings.json` | `JsonConfigService` | `ConfigDto` | same; first-run flag and last version | same |
+| `data/settings.json` | `JsonConfigService` | `ConfigDto` | same; first-run flag, last version, launcher discovery setting + selected launchers | same |
 | `data/games_metadata.json` | `MetadataStore` | sidecar records | same | same |
 | `data/collections.json` | `CollectionsDatabaseService` | `CollectionsDto` | same | same; service unwired (gap) |
 | `data/blacklist.json` | `BlacklistLoader` | — | direct read + embedded fallback | restore only when missing |
@@ -94,16 +95,26 @@ Treat it as cheap but not free — do not call it per row.
 ## 3. Scan pipeline (shipped)
 
 ```
-F5 / first run
-  → MainWindow.RefreshCurrentRootAsync
+F5 / add library (game-folder scan only)
+Full rescan (Setup action): one policy-allowed launcher discovery, then folders
+  → MainWindow.RefreshCurrentRootAsync | Setup FullRescanAsync
   → LibraryManager.RescanLibrary | SelectScannerAndScan
-      ├─ LooksLikeSteamLibrary(root) or type == Steam  → SteamLibraryScanner
-      ├─ type == Epic or EpicItemCatalog.LooksLikeManifestsDir(root) → EpicLibraryScanner
-      └─ otherwise → FolderScanner
+      ├─ launcher discovery setting gate (no startup probe, no F5 probe):
+      │    Automatic/Selected → discovery only on Detect / setting change / full rescan
+      │    FileOnly/Unset → no locator, no registry fallback, no Epic ProgramData
+      ├─ LooksLikeSteamLibrary(root) or type == Steam  → SteamLibraryScanner   (file-based, always)
+      ├─ type == Epic or EpicItemCatalog.LooksLikeManifestsDir(root)
+      │    and LauncherDiscoveryPolicy.AllowsEpicCatalog → EpicLibraryScanner
+      └─ otherwise → FolderScanner (pass 1c registry fallback only when the policy allows)
   → IReadOnlyList<GameEntry>
   → IGamesDatabaseService.SetGamesForLibrary / UpdateGameEntry
   → ShellViewModel.Reload → projection to ShellPaneItemViewModel
 ```
+
+The launcher discovery setting is the Setup choice (Automatic / Selected / FileOnly). It only gates
+launcher location reads; it never changes file-signal classification, display mode, or policy rows.
+`FolderScanner` and `LibraryManager` hold the shared `LauncherDiscoveryContext` and read a policy
+snapshot per scan, so changing the setting takes effect on the next scan with no re-construction.
 
 `LibraryManager` stamps `GameEntry.Identity.Library` with the anchor name; a scanner may re-anchor the
 source kind (for example an Epic game found under a Standalone root).
@@ -129,7 +140,8 @@ claims them.
 1. **Pass 1 — store signals** at the folder level: `StoreSignalDetector.DetectType` (Steam location first,
    then GOG → EA → Ubisoft (emulator, then standard) → Epic → Blizzard → Xbox → Rockstar → SteamEmu).
 2. **Pass 1c — registry fallback** when no signal matched: `RegistryFallbackDetector` (exact install path,
-   then directory-name match) for GOG, EA, Ubisoft, Rockstar.
+   then directory-name match) for GOG, EA, Ubisoft, Rockstar. Runs only when
+   `LauncherDiscoveryPolicy.AllowsRegistryFallback`; the detector is not even constructed otherwise.
 3. **Pass 1.5 — exact folder-name match** (terminating rule) against known anchors.
 4. **Pass 1.6 — parent-bound child promotion** for known child folders of a parent game.
 5. **Pass 2 — standalone / fallback**: `FallbackSignalDetector`, `ExecutableDiscovery`, `CheapExeFinder`,
@@ -156,7 +168,7 @@ health).
 
 | Stage | Today | Planned |
 |---|---|---|
-| Locator | `SteamInstallPathLocator` shipped but Setup-only; Epic fixed ProgramData path shipped; others — | `ILauncherLocator` per store (`planning/129`) |
+| Locator | `LauncherDiscoveryService` + `ILauncherLocator`, gated by the launcher discovery setting (FileOnly probes none; Selected probes only checked kinds); Steam validates a **library** first (configured roots, no registry read) and falls back to HKLM/HKCU only when none; Epic ProgramData items; GOG Galaxy path; Ubisoft `Installs` registry list (`NeedsVerification`) | Rockstar locator; EA/Battle.net detection-only |
 | Inventory read | Steam ACF/VDF, Epic `.item` (inside the scanners) | `IStoreInventoryReader` returning `StoreInventoryEntry` + `StoreManifestFingerprint` |
 | Import | folded into scan: `LibraryManager.SelectScannerAndScan` → `SetGamesForLibrary` | `StoreInventoryImportService.Import(kind)` through the shared store |
 | Policy gate | `IStorePolicyProvider` **unwired** (gap) | `CanImport` / `CanSync` enforced before any read or write |
@@ -402,7 +414,7 @@ currently unwired.
 
 | Gap | Consequence | Where it belongs |
 |---|---|---|
-| `StorePolicyProvider` unwired | store enable/disable is persisted but not enforced | launcher discovery / import |
+| `StorePolicyProvider` has no import/sync consumer yet | store enable/disable is persisted and used by Setup, but no import/sync path enforces it | launcher discovery / import |
 | `GameStoreIndex` built only in tests | no live O(1) key/path index for import or sync | inventory import |
 | `EpicOrphanDiscovery` has no callers | orphan detection is done inside `EpicLibraryScanner` only | Epic scanner |
 | `CollectionsDatabaseService` has no caller | collections are persisted only in tests | collections feature |

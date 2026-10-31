@@ -56,7 +56,8 @@ public partial class MainWindow
             : new NullRegistryReader();
 
         var window = new LibrarySetupWindow(
-            _configService, _dbService, _libraryManager, new SteamInstallPathLocator(registryReader));
+            _configService, _dbService, _libraryManager, new SteamInstallPathLocator(registryReader),
+            _storePolicies, _launcherDiscovery, discoveryContext: _launcherDiscoveryContext);
         await window.ShowDialog(this);
 
         _viewModel?.Reload();

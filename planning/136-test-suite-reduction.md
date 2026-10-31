@@ -1,6 +1,6 @@
 # 136 — Test Suite Reduction: Scope and Plan
 
-**Status:** investigation complete; execution pending.
+**Status:** **APPLIED** (2026-10-31): 773 → 499 executed cases, 420 methods.
 **Baseline:** 657 test methods, **773 executed cases** (Core 232, App 540, Migration 1).
 **Companions:** the reduction task document under `META/TASKS/phase-g-code-quality-and-tests/`,
 `META/CONNECTION_MAP.md`, `META/COMPLETED/backward-compatibility-removed.md`.
@@ -298,13 +298,38 @@ Each batch: change → `dotnet build` → `dotnet test` → record count. No pro
    — one ordering test kept because the exe-stem-before-folder rule would otherwise have no coverage,
    `IdentityReconciliationTests` 8→7; `GameEntryIdTests` stays at 4). Suite green at **659 cases**
    (Core 201, App 457, Migration 1).
-5. **Persistence and services.** `GamesDatabaseServiceTests`, `JsonConfigServiceTests`,
+5. [x] **Persistence and services.** `GamesDatabaseServiceTests`, `JsonConfigServiceTests`,
    `JsonDocumentStoreTests`, `CollectionsDatabaseServiceTests`, `MetadataStoreTests`,
    `StorePolicyPersistenceTests`, `StorePolicyProviderTests`, `AppPathsTests`, writer/guard suites.
-6. **Metadata and helpers.** `GogInfoParserTests`, `EaInstallLogParserTests`, `SteamStore*`, `Pcgw*`,
+   **Done:** 15 files reduced by 39 methods / 47 executed cases:
+   `GamesDatabaseServiceTests` 21→10, `JsonConfigServiceTests` 6→3, `JsonDocumentStoreTests` 10→8,
+   `CollectionsDatabaseServiceTests` 3→2, `MetadataStoreTests` 7→4, `MetadataServiceTests` 9→8,
+   `StorePolicyPersistenceTests` 7→5, `StorePolicyProviderTests` 9→8, `AppPathsTests` 4→3,
+   `SteamAcfWriterTests` 11→7, `EpicItemWriterTests` 10→6, `SteamStoreLookupTests` 4→3,
+   `SteamStoreParserTests` 7→6, `PcgwSectionParserTests` 13→10, `PcgwTitleFilterTests` 7→6.
+   `MetadataLookupQueueTests` (3), `MetadataOnlineGateTests` (6), `PcgwInfoboxParserTests` (10) and
+   `RepairWriteGuardTests` (11) are unchanged. The intermittent journal test was fixed without touching
+   production code: the three journal-writing suites share one non-parallel collection and the journal
+   line is read through a shared handle with a short retry (the line is still identified by its unique
+   marker and parsed as JSON).
+6. [x] **Metadata and helpers.** `GogInfoParserTests`, `EaInstallLogParserTests`, `SteamStore*`, `Pcgw*`,
    `TitleTextTests`, `TagNormalizerTests`, `VdfParserTests`, `MetadataDetailsFormatterTests`,
-   `ShellViewModelSearchTests`, `WindowsExplorerTests`.
-7. **Final pass.** Behavior map, count, remove dead test-only seams, update `CURRENT.md`.
+   `ShellViewModelSearchTests`, `WindowsExplorerTests`. **Done:** 10 files reduced by 33 methods / 45 cases
+   (`GogInfoParserTests` 10→7, `EaInstallLogParserTests` 8→5, `TitleTextTests` 25→18,
+   `TagNormalizerTests` 21→14, `VdfParserTests` 20→12, `WindowsExplorerTests` 6→5 with `MetadataTextTests`
+   4 unchanged, `GameStoreIndexTests` 6→5, `EditionTokensTests` 2→1, `MetadataDetailsFormatterTests` 7→5;
+   `ShellViewModelSearchTests` 8→8 with only the non-contract `LeftPaneTitle` string asserts dropped).
+   Suite green at **566 cases** (Core 155, App 410, Migration 1), 420 methods.
+7. [x] **Final pass.** Behavior map, count, remove dead test-only seams. **Done:** theory-row trim
+   (never safety or external-format rows) removed **67 cases**: `StoreSignalDetectorTests` −9,
+   `ExecutableScoringTests` −9, `FolderScannerContainerTests` −6, `FallbackSignalTests` −6,
+   `SteamLibraryMembershipTests` −6, `RegistryFallbackDetectorTests` −4, `PathTextTests` −4,
+   `ExecutableDiscoveryTests` −3, `FileSystemHelperTests` −3, `BlacklistLoaderTests` −2,
+   `DetectionTierDeriverTests` −2, `SteamLibraryScannerTests` −2, `TagNormalizerTests` −2,
+   `GameSourceParserTests` −2, `TitleTextTests` −5, `LnkParserTests` −1, `EpicManifestParserTests` −1.
+   Final suite: **499 cases** (Core 142, App 356, Migration 1), 420 methods, 0 skipped.
+   Behavior map filled below in §12. `TempDirectory`, `TestGame` and `MockRegistryReader` remain in use;
+   no dead test-only helper was left behind.
 
 If a deletion exposes a real product bug, stop and fix/record it; do not delete the failing test.
 
@@ -312,15 +337,16 @@ If a deletion exposes a real product bug, stop and fix/record it; do not delete 
 
 ## 10. Acceptance
 
-- [ ] Executed cases **400–500** (hard ceiling 500; expected ~450).
-- [ ] Every deleted method has a recorded reason in this plan or the task audit.
-- [ ] No safety test removed: write refusals, staging/verify, backup/restore, path containment, unsafe
+- [x] Executed cases **400–500** (hard ceiling 500; expected ~450). Final: **499**.
+- [x] Every deleted method has a recorded reason in this plan or the task audit.
+- [x] No safety test removed: write refusals, staging/verify, backup/restore, path containment, unsafe
       explorer inputs, registry/write guards.
-- [ ] No external-format pin removed: ACF/VDF, `.item`/`.mancpn`, GOG `.info`, EA log, Steam/PCGW fixtures.
-- [ ] Every row in the connection map’s per-store failure table maps to a test or a recorded gap.
-- [ ] No `[Skip]`; no disabled test; no test-only helper left unused.
-- [ ] `dotnet build` 0 errors; full suite green.
-- [ ] `CURRENT.md` records the new totals and the behavior-map result.
+- [x] No external-format pin removed: ACF/VDF, `.item`/`.mancpn`, GOG `.info`, EA log, Steam/PCGW fixtures.
+- [x] Every row in the connection map’s per-store failure table maps to a test or a recorded gap (§12).
+- [x] No `[Skip]`; no disabled test; no test-only helper left unused.
+- [x] `dotnet build` 0 errors; full suite green.
+- [ ] `CURRENT.md` records the new totals and the behavior-map result. (Deferred to the integrating
+      session: the reduction pass was told not to edit `CURRENT.md`.)
 
 ## 11. Stop rules
 
@@ -332,3 +358,179 @@ If a deletion exposes a real product bug, stop and fix/record it; do not delete 
   rest with the wiring task.
 - If the target cannot be met without touching safety or external-format coverage, stop at the higher count
   and report.
+
+## 12. Final behavior map (batches 5–7)
+
+### 12.1 Per-file methods (before → after) and executed cases after
+
+| File | Methods | Cases after | Note |
+|---|---:|---:|---|
+| `GamesDatabaseServiceTests` | 21 → 10 | 10 | full DTO round-trip; store corruption recovery left to the store |
+| `JsonConfigServiceTests` | 6 → 3 | 3 | defaults + scan depth merged; backup recovery owned by the store |
+| `JsonDocumentStoreTests` | 10 → 8 | 8 | three read states, one `.bak`, verify failure, corrupt backup; outside-root harness case deleted |
+| `CollectionsDatabaseServiceTests` | 3 → 2 | 2 | smart-collection assertion merged into the round-trip |
+| `MetadataStoreTests` | 7 → 4 | 4 | missing/unknown merged; details round-trip absorbs field round-trip |
+| `MetadataServiceTests` | 9 → 8 | 8 | details preservation merged into the merge test |
+| `MetadataLookupQueueTests` | 3 → 3 | 3 | unchanged |
+| `MetadataOnlineGateTests` | 6 → 6 | 6 | unchanged (egress safety) |
+| `StorePolicyPersistenceTests` | 7 → 5 | 5 | enum-spelling and missing-file duplicates dropped |
+| `StorePolicyProviderTests` | 9 → 8 | 10 | stored-row re-filter dropped (config load owns it); non-launcher theories 3→2 rows |
+| `AppPathsTests` | 4 → 3 | 3 | root/path assertions merged; both containment tests kept |
+| `RepairWriteGuardTests` | 11 → 11 | 12 | every safety branch kept; journal test made isolation-safe |
+| `SteamAcfWriterTests` | 11 → 7 | 7 | guard-owned preconditions dropped; format/create-only/no-temp/preview/read-only kept |
+| `EpicItemWriterTests` | 10 → 6 | 6 | guard-owned preconditions dropped; unknown members, launch, wrong dir, guid, preview, read-only kept |
+| `SteamStoreLookupTests` | 4 → 3 | 3 | fetch-then-parse duplicate dropped (parser owns mapping) |
+| `SteamStoreParserTests` | 7 → 6 | 6 | failed-facts mapping merged into the unsuccessful-facts test |
+| `PcgwInfoboxParserTests` | 10 → 10 | 10 | unchanged (external format pins) |
+| `PcgwSectionParserTests` | 13 → 10 | 10 | token rows and combined-fixture fixbox asserts merged |
+| `PcgwTitleFilterTests` | 7 → 6 | 9 | year-hint outcomes merged into one theory; noise/keep rows trimmed |
+| `GogInfoParserTests` | 10 → 7 | 8 | relative/absolute path pair merged; no-exe/no-primary and empty/malformed merged |
+| `EaInstallLogParserTests` | 8 → 5 | 5 | wrong-location duplicate dropped (standard log has a foreign path); name-only variants merged |
+| `TitleTextTests` | 25 → 18 | 23 | duplicate edition/acronym rows and duplicate helpers removed |
+| `TagNormalizerTests` | 21 → 14 | 24 | whitespace/equivalence rows merged; dedupe/parse/metadata/merge kept |
+| `VdfParserTests` | 20 → 12 | 12 | single-pair/tabs/nesting repetitions dropped; ACF/VDF shapes, escapes, malformed, extraction kept |
+| `WindowsExplorerTests` | 6 → 5 | 12 | quoted-args duplicate merged; all 8 unsafe rejects kept (`MetadataTextTests` 4 unchanged) |
+| `GameStoreIndexTests` | 6 → 5 | 5 | `NormalizePath` delegate dropped (owned by `PathTextTests`) |
+| `EditionTokensTests` | 2 → 1 | 1 | both token sets pinned in one test |
+| `MetadataDetailsFormatterTests` | 7 → 5 | 5 | token-expansion duplicates dropped (owned by `PcgwSectionParserTests`) |
+| `ShellViewModelSearchTests` | 8 → 8 | 8 | only non-contract title-string asserts removed |
+| `LaunchArgumentComposerTests` | 5 → 5 | 5 | unchanged |
+| `InstallStateMapTests` | 1 → 1 | 6 | dropped only the empty-string row that duplicates the null default (**deviation** from 7→4: each remaining row is a distinct store-status literal) |
+| `GameSourceParserTests` | 2 → 2 | 4 | label rows trimmed |
+| `GameFilterMatcherTests` | 4 → 4 | 4 | unchanged |
+| `GameLaunchResolverTests` | 3 → 3 | 3 | includes the empty-target gap test |
+| `PathTextTests` | 5 → 5 | 15 | `IsUnder` rows 8→5 per §6; null/whitespace rows absorbed earlier |
+| Contract pins (`SteamAcfFields`, `EpicItemSchema`, `TitleSourceValues`) | 1 each | 1 each | verified, one value pin each |
+| `StoreSignalDetectorTests` | 20 | 33 | marker rows trimmed to one per predicate family |
+| `ExecutableScoringTests` | 12 | 16 | backup/org penalties collapsed to three variants |
+| `FolderScannerContainerTests` | 13 | 15 | UE/platform/non-game/blizzard rows trimmed |
+| `FallbackSignalTests` | 10 | 10 | duplicate deep-dir/noise rows trimmed |
+| `RegistryFallbackDetectorTests` | 6 | 10 | moved-name and path-formatting rows trimmed; per-store shapes kept |
+| `ExecutableDiscoveryTests` | 10 | 11 | platform probes 4→1 |
+| `LnkParserTests` | 12 | 12 | bare-name row dropped (path row remains) |
+| `BlacklistLoaderTests` | 9 | 10 | tier-key rows 4→2 |
+| `DetectionTierDeriverTests` | 9 | 10 | other-store rows 4→2 |
+| `SteamLibraryMembershipTests` | 3 | 8 | rows 14→8 per §6 (root itself, descendant, similar segment, empty, root hit/miss) |
+| `SteamLibraryScannerTests` | 14 | 15 | two duplicate row pairs trimmed |
+| `EpicManifestParserTests` | 16 | 16 | path-formatting row 2→1 |
+| `FileSystemHelperTests` | 1 | 2 | display-token rows 5→2 |
+
+### 12.2 Connection-map §8 failure points → owning test
+
+| Store | Failure point | Owning test |
+|---|---|---|
+| Steam | root unreadable | `ScannerFilterTests` / `SteamLibraryScannerTests.Scan_WithoutLibraryPath_ReturnsEmpty` |
+| Steam | vdf missing → configured roots only | `SteamBootstrapTests` (missing-VDF gap test) |
+| Steam | ACF malformed | `SteamLibraryScannerTests` (malformed ACF case) |
+| Steam | folder absent / moved / orphaned | `SteamLibraryScannerTests` health tests, `SteamLibraryMembershipTests` |
+| Steam | repair: `steamapps` missing, no `libraryfolders.vdf`, target exists | `RepairWriteGuardTests.Preflight_MissingDirectory_RefusedAndNotCreated`, `Preflight_Steam_RequiresMarkerAndAbsentTarget`; `SteamAcfWriterTests.TryWrite_CreatesFileOnce` |
+| Steam | launch: no appid → exe fallback, no exe → status only | `GameLaunchResolverTests.SteamUri_AlwaysSteam_IgnoresExtras`, `EmptyTarget_NoExeAndNoUri_ReturnsEmptyTargetAndArguments` |
+| Epic | manifests dir missing | `EpicLibraryScannerTests` + `RepairWriteGuardTests.Preflight_Epic_RequiresExistingParsableItem` |
+| Epic | item unparseable | `EpicManifestParserTests`, `RepairWriteGuardTests.Preflight_Epic_RequiresExistingParsableItem` |
+| Epic | install path absent | `EpicLibraryScannerTests` (orphan case) |
+| Epic | repair: different install id | `EpicItemWriterTests.TryWrite_DifferentInstallationGuid_Refused` |
+| Epic | repair: wrong manifests dir | `EpicItemWriterTests.TryWrite_NotTheScanManifestsDir_Refused` |
+| Epic | repair: unknown members preserved | `EpicItemWriterTests.TryWrite_MovedGame_UpdatesOwnedMembersAndPreservesTheRest` |
+| GOG | `.info` malformed / no exe / no primary | `GogInfoParserTests.TryParse_NoUsableInfo_ReturnsFalse`, `TryParse_ExeFallback_NoTasksThenNoPrimary` |
+| GOG | signal absent | `StoreSignalDetectorTests.DetectType_EmptyDir_ReturnsUnknown`, `FallbackSignalTests` |
+| EA | no `__Installer` / registry missing or stale | `StoreSignalDetectorTests.DetectType_EaMarkers_ReturnsEaApp`, `RegistryFallbackDetectorTests.Detect_NoMatch_ReturnsUnknown` |
+| EA | install log stale path / no config lines | `EaInstallLogParserTests.TryParse_StandardLog_ExtractsAllFields`, `TryParse_NoLogOrNoConfigLines_ReturnsFalse` |
+| Ubisoft | signal absent / registry missing | `StoreSignalDetectorTests` Ubisoft markers, `RegistryFallbackDetectorTests` |
+| Ubisoft | emulator INI absent/present | `StoreSignalDetectorTests.DetectType_UbisoftEmulatorWithoutIni_ReturnsUnknown`, `…WithIni_ReturnsUbisoftConnect` |
+| Battle.net | marker absent / product codename | `StoreSignalDetectorTests.DetectType_BlizzardMarkers_ReturnsBattleNet`, `ExtractBlizzardProduct_*` |
+| Xbox | marker absent | `StoreSignalDetectorTests.DetectType_XboxMetadata_ReturnsXbox` |
+| Rockstar | launcher key skipped / game key missing | `RegistryFallbackDetectorTests.Detect_RockstarGame_SkipsLauncherSubkey`, `Detect_NoMatch_ReturnsUnknown` |
+| Standalone | no plausible exe | `ExecutableDiscoveryTests`, `FallbackSignalTests.DetectFallback_NoSignal_ReturnsUnknown` |
+| Standalone | all candidates are noise | `FallbackSignalTests.DetectFallback_RootExeAllNoise_ReturnsUnknown`, `ExecutableScoringTests.ScoreExecutable_BackupVariant_Penalized` |
+| Standalone | deep tree beyond scan depth | `ExecutableDiscoveryTests.FindExecutablesDeep_DepthBoundary`, `FolderScannerContainerTests.Scan_ContainerRecursion_BoundedAtDepth2` |
+| All | manifest points outside root | `FolderScannerContainerTests` (parent-bound child), `SteamLibraryMembershipTests.IsUnderSteamLibrary_NotUnderCommon_ReturnsFalse` |
+| All | duplicate folder in two anchors | `GamesDatabaseServiceTests.SetGamesForLibrary_EntriesAreScopedToLibrary`, `IdentityReconciliationTests` |
+| Persistence | corrupt store / backup recovery | `JsonDocumentStoreTests.Read_CorruptWithBackup_RecoversBackupAndPreservesDamagedBytes`, `…CorruptWithoutBackup…`, `…CorruptWithCorruptBackup…` |
+| Persistence | write verification failure | `JsonDocumentStoreTests.Write_WhenVerificationFails_RestoresBackupAndThrows` |
+| Writes | staging + length verify + undo | `RepairWriteGuardTests.Stage_*`, `CopyAndVerify_*` |
+| Writes | external directory never created | `AppPathsTests.EnsureAppDataPath_OutsideRoot_ThrowsAndCreatesNothing`, `RepairWriteGuardTests.Preflight_MissingDirectory_RefusedAndNotCreated` |
+| Metadata | egress gate states | `MetadataOnlineGateTests` (6) |
+| Metadata | queue dedupe/gate order | `MetadataLookupQueueTests` (3) |
+| Metadata | stale/fresh cache, merge, source filter | `MetadataServiceTests` |
+
+Recorded gaps (unchanged): E7 query ordering in `MainWindow.Metadata` (needs a UI seam);
+`PcgwTitleFilter.FormatChoice`; `GameSourceParser.InferFromPath`; `VdfParser` null path; GOG/EA/Ubisoft/
+Battle.net/Xbox/Rockstar health states (hardcoded `Installed`); store policy wiring (unwired contract only).
+
+### 12.4 Removed methods (batches 5–7) and why
+
+Categories: **dup** = same behavior owned elsewhere; **merge** = assertion moved into the surviving test;
+**row** = theory row deleted (same branch, data-only difference); **impl** = non-contract detail.
+
+| File | Removed methods | Category |
+|---|---|---|
+| `GamesDatabaseServiceTests` | `Load_WithValidFile…`, `SaveLoad_TrackingInstallUserState…`, `SaveLoad_ProfilesRelationsTags…`, `SaveLoad_DetectionAndStore…`, `SaveLoad_StoreIdentityProvenance…`, `Save_CreatesFile_OnDisk`, `Save_ThenLoad_PreservesAllFields` | merge into `SaveLoad_FullDto_RoundTrip` |
+| | `RetagGame_PreservesEntryId` | merge into `RetagGame_ChangesSourceTypeAndKeepsEntryId` |
+| | `GetGamesForLibrary_UnknownLibrary_ReturnsEmpty` | merge into scoped-replace test |
+| | `Save_WithCorruptFile_OverwritesCorrupt`, `Load_WithCorruptFileAndBackup…`, `EpicCatalogRescan…` | dup (store / identity owner) |
+| | `SetGamesForLibrary_EquivalentPaths…` second row | row |
+| `JsonConfigServiceTests` | `Load_WithMissingFile_DefaultsScanDepthTo3`, `Save_ScanDepth_RoundTrips` | merge |
+| | `Load_WithCorruptFileAndBackup…` | dup (store) |
+| `JsonDocumentStoreTests` | `Read_TruncatedFileWithBackup…` | row/branch dup of corrupt-with-backup |
+| | `Write_ToExistingParentOutsideAppRoot_Succeeds` | impl (harness) |
+| `CollectionsDatabaseServiceTests` | `SmartCollection_IsSmart` | merge |
+| `MetadataStoreTests` | `Get_UnknownId_ReturnsNull`, `Upsert_ThenGet_RoundTripsMergedFields`, `HasDisplayableExtras_EmptyRecord_IsFalse` | merge |
+| `MetadataServiceTests` | `Merge_KeepsDetailsWhenSteamHasNone` | merge |
+| `StorePolicyPersistenceTests` | `Load_MissingFile_ReturnsEmptyPolicies` | dup |
+| | `Save_WritesKindAsEnumName` | impl |
+| `StorePolicyProviderTests` | `Get_IgnoresNonLauncherRowsInStoredSettings` | dup (config load filters) |
+| | non-launcher rows (`Unknown`) | row |
+| `AppPathsTests` | `AppDataPaths_ReturnPathsUnderAppDataRoot` | merge |
+| `RepairWriteGuardTests` | — (journal read made isolation-safe) | — |
+| `SteamAcfWriterTests` | `TryWrite_MissingSteamapps…`, `TryWrite_MissingLibraryFolders…`, `TryWrite_RelativeOrUnc…` | dup (guard preflights) |
+| | `IsAppId_RejectsJunk` | merge |
+| `EpicItemWriterTests` | `TryWrite_AbsentTarget…`, `TryWrite_MissingManifestsDir…`, `TryWrite_CorruptTarget…`, `TryWrite_MissingRequiredMember…` | dup (guard preflights) |
+| `SteamStoreLookupTests` | `FetchRaw_ThenParse_ProducesRecord` | dup (parser) |
+| `SteamStoreParserTests` | `CommonParser_UnsuccessfulFacts_ReturnsNull` | merge |
+| `PcgwSectionParserTests` | `ParseGameDataPaths_UserProfileDocuments`, `ResolveWindows_UplayUidSavePath`, `ParseFixboxes_DirectExeAndBypassArgs` | merge |
+| `PcgwTitleFilterTests` | `PickBest_YearHint2008_KeepsOriginal` | merge (one year-hint theory) |
+| | noise/keep rows (7) | row |
+| `GogInfoParserTests` | relative/absolute path pair, empty/malformed pair, no-exe/no-primary pair | merge |
+| `EaInstallLogParserTests` | `TryParse_NoConfigLines_ReturnsFalse` | merge |
+| | name-only pair | merge |
+| | `TryParse_WrongInstallLocation_StillExtractsMetadata` | dup (standard log already logs a foreign path) |
+| `TitleTextTests` | `StripEdition_Reloaded`, `LookupName_EpicUsesItemDisplayName`, `AcronymMatchesTitle_Eve…`, `AcronymMatchesTitle_Toee…` | dup (same branch/rule) |
+| | `IsGenericLabel_System`, `SharesNameToken_RejectsSystemForElex` | merge |
+| | acronym false-positive pair | merge |
+| | `StripEdition_StripsEachTailToken` rows 10→1, other row trims (5) | row |
+| `TagNormalizerTests` | `AreEquivalent_NormalizesWhitespace`, `AddDistinct_AddsNewTag`, `AddDistinct_NormalizesAddedTag`, `ParseFromCommaSeparated_SingleTag` | merge |
+| | empty/whitespace pairs (2) | merge |
+| | `ToCommaSeparated_EmptyList` + `_SingleTag` | merge into `_Shapes` |
+| | whitespace/equivalence/empty rows (5) | row |
+| `VdfParserTests` | `Parse_SingleKeyValue`, `Parse_MultipleNestedBlocks`, `Parse_WhitespaceOnly`, `Parse_QuotedValuesWithSpaces`, `Parse_TabsAndSpacesBoth`, `Parse_QuoteInMiddleOfValue`, `ExtractFields_MissingKey`, `ExtractFields_MalformedInput` | merge/row (shapes kept) |
+| `WindowsExplorerTests` | `Build_QuotesPathsWithSpaces` | merge |
+| `GameStoreIndexTests` | `NormalizePath_UnifiesSeparatorsAndTrailingSeparators` | dup (PathText) |
+| `EditionTokensTests` | one pin method | merge |
+| `MetadataDetailsFormatterTests` | `WindowsSaves_ResolvesUplayAndUid`, `WindowsSaves_UserProfileDocumentsToken` | dup (`PcgwSectionParserTests`) |
+| `ShellViewModelSearchTests` | — (only `LeftPaneTitle` asserts dropped) | impl |
+| `GameSourceParserTests` | two label rows | row |
+| `InstallStateMapTests` | empty-string row | row (null covers the default arm) |
+| `PathTextTests` | `NormalizeForCompare` 3 rows, `IsUnder` 3 rows, `Leaf` 1 row | row (boundaries kept) |
+| `StoreSignalDetectorTests` | marker rows: GOG 4→2, Ubisoft 8→4, SteamEmu 3→2, readme publisher/title pair + line-2 pair | row |
+| `ExecutableScoringTests` | backup 9→3, folder-name 3→2, exact-token 2→1, shipping 2→1 | row |
+| `FolderScannerContainerTests` | UE 5→3, non-game 3→1, platform 2→1, Blizzard 2→1 | row |
+| `FallbackSignalTests` | deep-dir rows 3→1, UbiStats 2→1, UE platform 2→1, no-signal 2→1, deep-signal 2→1 | row |
+| `RegistryFallbackDetectorTests` | moved-name 4→2, no-match 2→1, path-formatting 2→1 | row (per-store shapes kept) |
+| `ExecutableDiscoveryTests` | platform probes 4→1 | row |
+| `LnkParserTests` | bare-name row | row |
+| `BlacklistLoaderTests` | tier-key rows 4→2 | row |
+| `DetectionTierDeriverTests` | other-store rows 4→2 | row |
+| `SteamLibraryMembershipTests` | rows 14→8 | row |
+| `SteamLibraryScannerTests` | known-subfolder 2→1, internal folder 2→1 | row |
+| `EpicManifestParserTests` | path-formatting row 2→1 | row |
+| `FileSystemHelperTests` | display-token rows 5→2 | row |
+
+No safety test, write refusal, staging/verify, path-containment, unsafe-explorer, registry-shape or
+external-format pin was deleted or weakened.
+
+### 12.5 Do not add
+
+New tests must name the behavior or failure they protect: no test per method, no constructor smoke, no
+duplicate of an external-format pin, no second owner for a behavior listed in §3.
+
+

@@ -20,18 +20,21 @@ public sealed class LibraryManager : ILibraryManager
     private readonly IGamesDatabaseService _databaseService;
     private readonly FolderScanner _scanner;
     private readonly SteamLibraryScanner? _steamScanner;
+    private readonly LauncherDiscoveryContext? _launcherDiscovery;
     private readonly EpicLibraryScanner _epicScanner = new();
 
     public LibraryManager(
         ILibrariesService librariesService,
         IGamesDatabaseService databaseService,
         FolderScanner scanner,
-        SteamLibraryScanner? steamScanner = null)
+        SteamLibraryScanner? steamScanner = null,
+        LauncherDiscoveryContext? launcherDiscovery = null)
     {
         _librariesService = librariesService;
         _databaseService = databaseService;
         _scanner = scanner;
         _steamScanner = steamScanner;
+        _launcherDiscovery = launcherDiscovery;
     }
 
     /// <summary>All configured libraries (anchors), read live from persistence.</summary>
@@ -100,7 +103,11 @@ public sealed class LibraryManager : ILibraryManager
         if (_steamScanner != null && (LooksLikeSteamLibrary(folderPath) || configuredType == GameSourceKind.Steam))
             return _steamScanner.Scan(folderPath);
 
-        if (configuredType == GameSourceKind.Epic || EpicItemCatalog.LooksLikeManifestsDir(folderPath))
+        // FileOnly never reads Epic's ProgramData inventory; the folder scanner still sees
+        // local .egstore/.mancpn signals inside a game folder.
+        bool epicCatalogAllowed = _launcherDiscovery?.Policy.AllowsEpicCatalog ?? true;
+        if (epicCatalogAllowed
+            && (configuredType == GameSourceKind.Epic || EpicItemCatalog.LooksLikeManifestsDir(folderPath)))
         {
             // Known Epic games from other libraries, keyed by their recorded physical
             // folder (never the anchor name — anchors can be display-only catalogs).

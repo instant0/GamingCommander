@@ -21,20 +21,20 @@
 | # | Task | Tier | Priority | Status |
 |---|------|------|----------|--------|
 | T78 | [Epic .item AppName precedence + EOSH copy](T78-epic-item-appname-and-eosh-copy.md) | 3 | P3 | **Deferred — manifest re-creation is a dead end (2026-10-14)** |
-| T80 | [SyncMove Phase 2.1 — registration repair](T80-syncmove-phase-2-1.md) | 3 | P3 | **Deferred — do NOT start until detection is working** |
+| T80 | [Registration repair after file moves](T80-syncmove-phase-2-1.md) | 3 | P1 | Pending |
 
 ---
 
 ## Execution Order
 
 ```
-[T78 DEFERRED] · [T80 DEFERRED]
+[T78 DEFERRED] · [T80 PENDING]
 ```
 
-**Directives (2026-10-14):**
+**Directives (2026-10-31):**
 1. **Detection is the priority.** Focus on detection using **existing manifest files** (read-only).
 2. **Epic `.item` re-creation is deferred** — it could not be made to register a game (Plan 126). Do not implement writer/registration work.
-3. **SyncMove is deferred** until detection is working.
+3. **Registration repair** is now specified: copy/update the store record, never move or delete game data, and report any stray old ACF for manual removal. The durable design is `planning/04-phase-2-syncmove.md`; the safety decision is ADR-005.
 
 ## Notes
 

@@ -3,7 +3,7 @@
 **Tier:** 2 — Code Quality
 **Phase:** G — Code Quality and Tests
 **Risk:** Low (tests only)
-**Status:** in progress — batches 1–4 done (2026-10-31)
+**Status:** completed (2026-10-31) — batches 1–7 done; 499 cases / 420 methods
 **Prerequisites:** Task T135 (done: version/back-compat tests removed)
 
 ## Investigation result
@@ -90,30 +90,31 @@ These numbers are a starting point, not a verdict.
 
 `planning/136-test-suite-reduction.md`:
 
-- [ ] Before/after counts per file and total.
-- [ ] Every removed test with a reason (duplicate / same branch / implementation detail / obsolete /
+- [x] Before/after counts per file and total.
+- [x] Every removed test with a reason (duplicate / same branch / implementation detail / obsolete /
       back-compat).
-- [ ] A behavior → test map: every row in the connection map’s decision tree has at least one test.
-- [ ] A short “do not add” note: new tests must name the behavior/failure they protect; no test per method,
+- [x] A behavior → test map: every row in the connection map’s decision tree has at least one test.
+- [x] A short “do not add” note: new tests must name the behavior/failure they protect; no test per method,
       no test per constructor, no duplicate of an external-format pin.
-- [ ] No task IDs in the plan.
+- [x] No task IDs in the plan.
 
 ## Requirements
 
-- [ ] No production code change. If a test needs a seam, record it; do not add a seam in this task.
-- [ ] Every deleted test has a recorded reason.
-- [ ] No safety/failure test is removed.
-- [ ] No disabled/skipped tests are left behind.
-- [ ] Suite is green; the count is materially lower.
-- [ ] The behavior → test map covers the connection map’s per-store failure points.
+- [x] No production code change. If a test needs a seam, record it; do not add a seam in this task.
+- [x] Every deleted test has a recorded reason.
+- [x] No safety/failure test is removed.
+- [x] No disabled/skipped tests are left behind.
+- [x] Suite is green; the count is materially lower.
+- [x] The behavior → test map covers the connection map’s per-store failure points.
 
 ## Verification
 
-- [ ] `dotnet build` 0 errors; `dotnet test` green.
-- [ ] `grep -rn "Skip =" tests` shows no new skips.
-- [ ] `planning/136-test-suite-reduction.md` exists and lists every deletion.
-- [ ] The new total is recorded in `META/SESSION/CURRENT.md`.
-- [ ] No test asserts a private method, call order, or non-contract string.
+- [x] `dotnet build` 0 errors; `dotnet test` green.
+- [x] `grep -rn "Skip =" tests` shows no new skips.
+- [x] `planning/136-test-suite-reduction.md` exists and lists every deletion.
+- [ ] The new total is recorded in `META/SESSION/CURRENT.md`. (Left to the integrating session; this pass
+      was told not to edit `CURRENT.md`.)
+- [x] No test asserts a private method, call order, or non-contract string.
 
 ## Stop rules
 
@@ -125,7 +126,23 @@ These numbers are a starting point, not a verdict.
 
 ## Completion Notes
 
-- **Completed:**
-- **What was done:**
-- **Verification:**
+- **Completed:** 2026-10-31 (batches 1–7).
+- **What was done:** reduced the suite from 773 cases (baseline) / 659 at batches 5-start to **499 cases**
+  (Core 142, App 356, Migration 1) and **420 methods**. Batches 5–6: persistence/services/metadata/helper
+  files reduced per plan §4–§5. Batch 7: theory-row trim per §6 (67 cases), connection-map behavior map
+  (§12 of the plan), and a flakiness fix for the repair-journal test. No production code touched.
+- **Verification:** `dotnet build GamingCommander.sln` 0 warnings / 0 errors; `dotnet test` green
+  (499 passed, 0 failed, 0 skipped), run three times. No `[Skip]`/disabled tests. `TempDirectory`,
+  `TestGame` and `MockRegistryReader` remain in use.
 - **Issues encountered:**
+  - Journal test: `repair-journal.jsonl` is one shared append-only file under `data/`; concurrent appends
+    could swallow a line. Fixed test-side by putting `RepairWriteGuardTests`, `SteamAcfWriterTests` and
+    `EpicItemWriterTests` in one non-parallel collection and reading through a shared handle with a short
+    retry; the line is still found by its unique marker and parsed as JSON. No production seam added.
+  - Deviations: `InstallStateMapTests` keeps 6 rows (each remaining row is a distinct store-status
+    literal; only the empty-string row was dropped instead of trimming to 4); `GamesDatabaseServiceTests`
+    keeps one equivalent-path row instead of two (same branch); `SteamLibraryScannerTests` keeps both
+    "missing path" / "no common folder" rows (two distinct empty-result branches).
+  - A first attempt at swapping a platform-subdir theory row to `WinGDK` failed: `WinGDK` sibling folders
+    are treated as games. Not introduced as coverage; recorded here rather than changing production code.
+

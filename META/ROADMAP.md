@@ -2,13 +2,13 @@
 
 **Nature:** Reference. Updated by Planner after milestones.  
 **Audience:** All agents. Read when determining what to work on next.  
-**Updated:** 2026-10-25 — Plan 127 A/B (typed persistence) recorded shipped; current track set to O9 title canonicalization → SteamEmu decision; SyncMove deferred.
+**Updated:** 2026-10-25 — Plan 127 A/B (typed persistence) recorded shipped; current track set to O9 title canonicalization → SteamEmu decision; registration repair deferred.
 
 ---
 
 ## Project Vision
 
-GamingCommander is a C# Windows-native game management and launcher application with a Norton Commander-inspired dual-pane UI. It discovers installed games, collects technical metadata, launches games safely, and supports migration between locations across multiple game platforms.
+GamingCommander is a C# Windows-native game management and launcher application with a Norton Commander-inspired dual-pane UI. It discovers installed games, collects technical metadata, launches games safely, and repairs store registration so games keep launching after the user relocates them.
 
 ---
 
@@ -21,14 +21,14 @@ GamingCommander is a C# Windows-native game management and launcher application 
 | Phase 1.1: UI Polish & UX | ✅ COMPLETE | First-run wizard, virtual FS, F2/T key workflows, details panel |
 | Phase 1.1a: Stabilization | ✅ COMPLETE | Navigation/mouse fixes, mock data, scanner tests, Python tools |
 | Phase 1.2: Research & Data Collection | ✅ COMPLETE | Format research for Steam ACF, Epic, standalone; Python validation |
-| **Phase 2: Steam & Standalone Games** | **✅ BASELINE COMPLETE** | Scan + launch shipped. SyncMove (2.1) deferred |
-| Phase 2.1: SyncMove Migration | ⏸ DEFERRED | Manifest repair after user-relocated files (Steam first); blocked until detection is working |
+| **Phase 2: Steam & Standalone Games** | **✅ BASELINE COMPLETE** | Scan + launch shipped. Registration repair (2.1) deferred |
+| Phase 2.1: Registration repair | ⏸ DEFERRED | Repair store registration after user-relocated files (Steam first); blocked until detection is working |
 | Phase 2.2: Game Metadata Lookup | ✅ SHIPPED (narrowed) | Sidecar extras via PCGW + Steam Store. No SteamDB / IGDB / Cargo. |
 | Phase 3: Multi-Launcher Support | 🔵 DETECTION SHIPPED / CLIENTS FUTURE | Folder/registry detection for GOG, Epic, EA, Ubisoft, Battle.net, Rockstar exists. Full store APIs / repair do not. |
 | Phase 3.5: Category Browsing & Search | 🔮 FUTURE | F8 category view, S key quick search, cross-root aggregation |
 | Phase 4: Advanced Features & Polish | 🔮 FUTURE | PCGamingWiki integration, metadata sync, UX polish |
 
-**Post-MVP product track (current):** 117 + 119 + 120 + F8 filter shipped. Plan **121** Epic catalog (F2 + orphans) shipped. Plans **124** (anchor library/game DB), **125** (stabilization refactor), and **127 A/B** (typed persistence v2) shipped. Plan **126** EOSH investigation closed. **Current track: store capabilities (consolidation → launcher discovery → inventory import → launch sync → setup controls → health), with parallel release-integrity, persistence, and repair-write hardening reviews.** SyncMove (Phase 2.1) is deferred until detection is working. Plan 127 C (`Extensions{}` / emulator/ROM model) is deferred. Plan 101 mode switcher remains future.
+**Post-MVP product track (current):** 117 + 119 + 120 + F8 filter shipped. Plan **121** Epic catalog (F2 + orphans) shipped. Plans **124** (anchor library/game DB), **125** (stabilization refactor), and **127 A/B** (typed persistence v2) shipped. Plan **126** EOSH investigation closed. **Current track: store capabilities (consolidation → launcher discovery → inventory import → launch sync → setup controls → health), with parallel release-integrity, persistence, and repair-write hardening reviews.** Registration repair (Phase 2.1) is deferred until detection is working. Plan 127 C (`Extensions{}` / emulator/ROM model) is deferred. Plan 101 mode switcher remains future.
 
 ---
 
@@ -39,13 +39,13 @@ GamingCommander is a C# Windows-native game management and launcher application 
 **Tasks:**
 - [x] Steam Integration — `libraryfolders.vdf`, `appmanifest_*.acf`, ACF cross-ref, Installed/Moved/Orphaned/Missing; Steam-internal `common/` folders skipped (Bug 10)
 - [x] Stand-alone Detection — signal scan for GOG, EA, Ubisoft, Epic, Blizzard, Xbox, Rockstar, Steam Emu; deep exe discovery + scoring; container detection; nested Steam trees excluded from FolderScanner (Bug 13b)
-- [ ] Migration (Steam) — manifest repair for user-relocated games → **Phase 2.1**
+- [ ] Registration repair (Steam) — ACF repair for user-relocated games → **Phase 2.1**
 - [x] Launcher Logic — `steam://rungameid/{appid}` for Steam, direct `.exe` for others
 
 **Acceptance:**
 - ✅ Steam games appear in the UI (Installed/Moved/Orphaned/Missing)
 - ✅ Stand-alone games detected via signal-based folder scan
-- [ ] Steam games can be migrated safely (Phase 2.1 SyncMove)
+- [ ] Steam games can be re-registered safely (Phase 2.1)
 - ✅ Epic local `.item` / `.mancpn` enrichment (Plan 109 — not Phase 3)
 
 ---
@@ -54,7 +54,7 @@ GamingCommander is a C# Windows-native game management and launcher application 
 
 | Shipped | Not shipped |
 |---------|-------------|
-| Dual-pane VFS over `data/games.json` | SyncMove manifest repair |
+| Dual-pane VFS over `data/games.json` | Registration repair (Steam ACF, Epic `.item`) |
 | Typed persistence: composed `GameEntry`, typed detection/store/install/tracking/user-state/relations records, schema versioning, identity reconciliation (Plan 127 A/B) | Plan 127 C (`Extensions{}` / emulator/ROM model) |
 | Launch-profile model, relations model, collections service (`collections.json`), and typed tags (Plan 127 B) | Profile picker / collections UI; `Relations.Kind` scanner wiring |
 | F2 / first-run `LibrarySetupWindow` | SteamDB / IGDB / Cargo / Epic GraphQL |

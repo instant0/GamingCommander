@@ -19,7 +19,7 @@ Per-phase order and status live in each phase's `STATUS.md`. If a phase tracker 
 |---|---|---|
 | `phase-g-code-quality-and-tests/` | `STATUS.md` | test/quality follow-ups |
 | `phase-i-post-mvp/` | `STATUS.md` | view modes and flat view (P2) |
-| `phase-j-followups/` | `STATUS.md` | deferred Epic/SyncMove work |
+| `phase-j-followups/` | `STATUS.md` | Epic follow-ups; registration repair |
 | `phase-k-audit-followups/` | `STATUS.md` | audit follow-ups |
 | `phase-l-detection-followups/` | `STATUS.md` | detection follow-ups |
 | `phase-m-store-capabilities/` | `STATUS.md` | store discovery, import, sync, health, file/registry call discipline |
@@ -30,7 +30,7 @@ Per-phase order and status live in each phase's `STATUS.md`. If a phase tracker 
 
 ## Conventions
 
-- **IDs** are global and monotonic. Next free ID: **T136**.
+- **IDs** are global and monotonic. Next free ID: **T139**.
 - A task document is one unit of work with an objective, scope, requirements, verification, and completion
   notes. It may name a plan; plans do not name task IDs.
 - **Statuses:** `pending` → `ready` (spec complete) → `completed`, or `deferred` / `cancelled`.

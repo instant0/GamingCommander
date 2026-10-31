@@ -6,6 +6,7 @@ using GamingCommander.App.Services;
 using GamingCommander.App.ViewModels;
 using GamingCommander.Core;
 using GamingCommander.Core.Models;
+using GamingCommander.Core.Services;
 
 namespace GamingCommander.App;
 
@@ -19,15 +20,36 @@ public partial class LibrarySetupWindow : Window
         IGamesDatabaseService dbService,
         ILibraryManager libraryManager,
         SteamInstallPathLocator? steamLocator = null,
-        bool isFirstRun = false)
+        IStorePolicyProvider? storePolicies = null,
+        LauncherDiscoveryService? launcherDiscovery = null,
+        bool isFirstRun = false,
+        LauncherDiscoveryContext? discoveryContext = null)
     {
         InitializeComponent();
 
-        _vm = new LibrarySetupViewModel(configService, dbService, libraryManager, this, steamLocator, isFirstRun);
+        _vm = new LibrarySetupViewModel(
+            configService, dbService, libraryManager, this, steamLocator,
+            storePolicies, launcherDiscovery, isFirstRun, discoveryContext);
         DataContext = _vm;
+
+        // Changing the setting is one explicit discovery action (the policy skips it in
+        // FileOnly/Unset). It is never continuous and never enables a store.
+        if (_vm.LauncherPolicy is { } launcherPolicy)
+            launcherPolicy.SettingChosen += () => _ = _vm.DetectLaunchersAsync();
 
         var addBtn = this.FindControl<Button>("AddRootButton")!;
         var statusText = this.FindControl<TextBlock>("ScanStatusText")!;
+
+        var detectLaunchers = this.FindControl<Button>("DetectLaunchersButton");
+        if (detectLaunchers is not null)
+        {
+            detectLaunchers.Click += async (_, _) =>
+            {
+                detectLaunchers.IsEnabled = false;
+                await _vm.DetectLaunchersAsync();
+                detectLaunchers.IsEnabled = true;
+            };
+        }
 
         var epicBtn = this.FindControl<Button>("AddEpicButton");
         if (epicBtn is not null)
@@ -48,8 +70,8 @@ public partial class LibrarySetupWindow : Window
         var steamBtn = this.FindControl<Button>("AddSteamButton");
         if (steamBtn is not null)
         {
-            // Q4: hidden when Steam is not installed (no registry InstallPath / empty vdf).
-            steamBtn.IsVisible = _vm.CanAddSteamLibraries;
+            // Visibility follows the discovery setting through the XAML binding; the button
+            // stays hidden when Steam is unavailable or the setting does not allow the read.
             steamBtn.Click += async (_, _) =>
             {
                 steamBtn.IsEnabled = false;
@@ -59,8 +81,21 @@ public partial class LibrarySetupWindow : Window
                     ? "Steam catalog added."
                     : _vm.ScanStatus;
                 RenderRoots();
-                steamBtn.IsVisible = _vm.CanAddSteamLibraries;
                 steamBtn.IsEnabled = true;
+            };
+        }
+
+        var fullRescan = this.FindControl<Button>("FullRescanButton");
+        if (fullRescan is not null)
+        {
+            fullRescan.Click += async (_, _) =>
+            {
+                fullRescan.IsEnabled = false;
+                statusText.Text = "Full rescan: launchers (per setting), then library folders...";
+                await _vm.FullRescanAsync();
+                statusText.Text = _vm.ScanStatus;
+                RenderRoots();
+                fullRescan.IsEnabled = true;
             };
         }
 

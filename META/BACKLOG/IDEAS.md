@@ -85,7 +85,7 @@
 
 ## Nice-to-have / lowest priority (2026-08-10)
 
-> Not on the post-MVP execute list. Capture only — do not schedule ahead of Plan 117, SyncMove, Plan 102, or open TECH_DEBT bugs.
+> Not on the post-MVP execute list. Capture only — do not schedule ahead of Plan 117, registration repair, Plan 102, or open TECH_DEBT bugs.
 
 ### Launcher-vs-game signal discrimination (name collisions)
 

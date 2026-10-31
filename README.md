@@ -11,7 +11,7 @@ The visual goal is inspired by classic commander-style tools, but the UI should 
 
 ## Current State
 
-**MVP is complete.** Phase 2 baseline (scan + launch) is complete. Remaining Phase 2 work is SyncMove (manifest repair). Live status: [`META/SESSION/CURRENT.md`](./META/SESSION/CURRENT.md).
+**MVP is complete.** Phase 2 baseline (scan + launch) is complete. Remaining Phase 2 work is store registration repair. Live status: [`META/SESSION/CURRENT.md`](./META/SESSION/CURRENT.md).
 
 Current status:
 
@@ -33,7 +33,7 @@ However, Windows-specific tasks will still require a Windows machine, especially
 - native UI verification,
 - Windows registry integration,
 - launcher detection against real client installs,
-- symlink/junction and manifest migration validation,
+- registration repair validation,
 - packaging and installer testing.
 
 Dev notes (archived Phase 0): [`META/COMPLETED/archived-docs/development-environment.md`](./META/COMPLETED/archived-docs/development-environment.md).
@@ -44,7 +44,6 @@ Dev notes (archived Phase 0): [`META/COMPLETED/archived-docs/development-environ
 src/
   GamingCommander.Core/        Interface definitions + domain models + shared helpers
   GamingCommander.Detection/   Game discovery abstractions + design-time stub
-  GamingCommander.Migration/   Migration planning abstractions + design-time stub
   GamingCommander.UI/          ViewModels (Norton Commander shell)
   GamingCommander.App/         Avalonia app entry, windows, services, DI wiring
 tests/

@@ -34,7 +34,6 @@
     <ProjectReference Include="..\GamingCommander.Core\GamingCommander.Core.csproj" />
     <ProjectReference Include="..\GamingCommander.UI\GamingCommander.UI.csproj" />
     <ProjectReference Include="..\GamingCommander.Detection\GamingCommander.Detection.csproj" />
-    <ProjectReference Include="..\GamingCommander.Migration\GamingCommander.Migration.csproj" />
   </ItemGroup>
 
   <!-- Host files stay at publish root. Everything else managed/native goes to lib/. -->

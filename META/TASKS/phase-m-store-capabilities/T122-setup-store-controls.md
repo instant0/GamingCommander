@@ -4,7 +4,10 @@
 **Phase:** M — Store Capabilities
 **Risk:** Medium
 **Status:** pending
-**Prerequisites:** Task T122 depends on Task T117 and Task T120
+**Prerequisites:** Task T122 depends on Task T117B2 and Task T120
+
+> **Test policy (2026-10-31):** new tests follow `planning/136-test-suite-reduction.md` — use
+> `TestSupport` helpers, one test per behavior/failure, no app-version back-compat tests.
 
 ## Objective
 
@@ -23,7 +26,7 @@ launch check, and enrichment, and test/scan it on demand.
   - `Test detection`,
   - `Scan now` (only when an inventory reader exists).
 - [ ] All toggles default off; saving persists via `IStorePolicyProvider` (T120). The provider is wired in
-      T117B; do not create a second instance or a parallel settings path.
+      T117B2; do not create a second instance or a parallel settings path.
 - [ ] Stores not detected show "Not found". The manual inventory path is offered only for Steam (library
       root) and Epic (manifests folder); the other stores have no directory-shaped inventory to override and
       show "no inventory source".
@@ -33,7 +36,7 @@ launch check, and enrichment, and test/scan it on demand.
 ## Context
 
 - Existing setup: `LibrarySetupWindow`, `LibrarySetupViewModel`, `MainWindow.LibrarySetup`.
-- First-run opt-in (T117B) and this screen use the same policy model.
+- First-run opt-in (T117B2) and this screen use the same policy model.
 - No writes to store files.
 - Repair and store-file writes are out of scope for this screen. If a repair action is surfaced later, it must use the guarded repair contract; do not add a direct writer here.
 

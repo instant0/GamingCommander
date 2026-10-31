@@ -38,4 +38,16 @@ public static class EpicItemSchema
 
     /// <summary>Array of category strings (e.g. "games", "applications").</summary>
     public const string AppCategories = "AppCategories";
+
+    /// <summary>Installed size in bytes when Epic reports it.</summary>
+    public const string InstallSize = "InstallSize";
+
+    /// <summary>Epic build/version string when present.</summary>
+    public const string AppVersionString = "AppVersionString";
+
+    /// <summary>Installation GUID, matching the `.egstore` binary manifest name.</summary>
+    public const string InstallationGuid = "InstallationGuid";
+
+    /// <summary>Path to Epic's complete binary manifest when present.</summary>
+    public const string CompleteManifestPath = "CompleteManifestPath";
 }

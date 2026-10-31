@@ -74,6 +74,50 @@ public sealed class JsonConfigServiceTests : IDisposable
     }
 
     // ════════════════════════════════════════════════════════════════
+    //  Launcher discovery setting
+    // ════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void Load_WithMissingFile_LauncherDiscoveryIsUnset()
+    {
+        AppConfig config = CreateService("nonexistent_settings.json").Load();
+
+        Assert.Equal(LauncherDiscoverySetting.Unset, config.LauncherDiscovery);
+        Assert.Empty(config.SelectedLaunchers);
+    }
+
+    [Fact]
+    public void Load_ExistingFileWithoutField_DefaultsToAutomatic()
+    {
+        File.WriteAllText(
+            Path.Combine(_tempDir, "settings.json"),
+            """{ "HiddenFolders": [], "IsFirstRun": false }""");
+
+        AppConfig config = CreateService().Load();
+
+        Assert.Equal(LauncherDiscoverySetting.Automatic, config.LauncherDiscovery);
+        Assert.Empty(config.SelectedLaunchers);
+    }
+
+    [Fact]
+    public void Save_RoundTripsLauncherDiscoveryAndSelection()
+    {
+        var svc = CreateService();
+        AppConfig config = svc.Load() with
+        {
+            IsFirstRun = false,
+            LauncherDiscovery = LauncherDiscoverySetting.Selected,
+            SelectedLaunchers = [GameSourceKind.Steam, GameSourceKind.Gog],
+        };
+
+        svc.Save(config);
+        AppConfig reloaded = svc.Load();
+
+        Assert.Equal(LauncherDiscoverySetting.Selected, reloaded.LauncherDiscovery);
+        Assert.Equal([GameSourceKind.Steam, GameSourceKind.Gog], reloaded.SelectedLaunchers);
+    }
+
+    // ════════════════════════════════════════════════════════════════
     //  Recovery (backup recovery itself is owned by JsonDocumentStoreTests)
     // ════════════════════════════════════════════════════════════════
 

@@ -23,7 +23,9 @@ This folder contains implementation plans following the FILE NAMING CONTRACT (`n
 | **`132-persistence-write-integrity.md`** | One JSON store, four-state read result, `.bak`/`.corrupt` recovery, app-root-only directory creation | **PROPOSED** (2026-10-29) — contract settled; implementation is the safe-local-state-writes work |
 | **`133-repair-write-safety.md`** | Steam creates a missing ACF (create-only), Epic modifies an existing `.item` (refuses to create); staged generate → copy → length check, backup for replace | **DECIDED** (2026-10-29) — implementation is the guarded-repair-writes work |
 | **`135-io-call-audit.md`** | Inventory of redundant registry and filesystem calls, split by read/write, with the removals made | **APPLIED** (2026-10-31) — 23 redundant probes removed; audit result recorded |
-| **`136-test-suite-reduction.md`** | Test inventory, deletion/merge decisions, and the behavior-to-test map | **COMPLETE** (2026-10-31, investigation) — execution of the deletion batches pending |
+| **`136-test-suite-reduction.md`** | Test inventory, deletion/merge decisions, behavior map, and the applied result | **APPLIED** (2026-10-31) — 773 → 499 cases, 420 methods |
+| **`137-unknown-store-data-sources.md`** | Per-store decision for EA, Ubisoft, Battle.net, Arc, and Rockstar verification: existing signal, candidate source, safety, decision | **APPLIED** (2026-10-31) — EA/Battle.net detection-only, Ubisoft registry reader, Arc unsupported, Rockstar locator+registry |
+| **`138-launcher-discovery-setup.md`** | Automatic/Selected/FileOnly launcher discovery settings, one-shot discovery, setup change, FileOnly scan gating, tests | **PROPOSED** (2026-10-31) — implementation task `T137` |
 | **`129-store-capabilities-and-launcher-discovery.md`** | Store capability matrix + launcher-driven inventory import proposal | **PROPOSED** (2026-10-25) — matrix published; implementation split into Phase M |
 | **`128-doc-and-task-audit.md`** | Documentation/task-backlog audit: corrections + small-task backlog | **COMPLETE** (2026-10-25) — hygiene wave + O9 done; SteamEmu decided |
 | **`126-epic-manifest-review-pass.md`** + `126-facts-*.md` | Epic orphan `.item` registration review + EOSH gate reverse-engineering (DISCOVERY) | **INVESTIGATION CLOSED** (2026-09-10) — no file-based registration path; EOSH reporting is server/account-driven (`.egi` plant falsified). Product follow-ups (EpicItemWriter `.mancpn` AppName; `epic_item_format.md` correction) **DEFERRED**. Optional RE tail remains in `126-facts-eosh-re.md`. |
@@ -31,13 +33,13 @@ This folder contains implementation plans following the FILE NAMING CONTRACT (`n
 | **`127-persistence-v2.md`** | Typed game records + detection provenance (tier/signals), identity, file ownership, tracking/customization; A/B/C proposals | **IN PROGRESS** (2026-10-14) — A1–A6 + B7–B13 done (composed `GameEntry`; bag retired; tier/provenance; schema versioning; identity reconciliation; sidecar ownership; tracking/install/user-state; launch profiles; relations; collections; typed tags); C deferred |
 | **`125-stabilization-refactor.md`** | Code architecture refactor: split oversized files, dedup composition/projection, settle GameEntryId contract | **COMPLETE** (2026-09-09) — all phases + final stage; 564 tests green; Phase 3 dropped (N/A). Predecessor: `124` COMPLETE |
 | `122-type-to-search.md` | Silent type-to-search: 3+ chars filters all roots by name + tags (frees S/T keys) | **COMPLETE** (2026-08-23) |
-| **`04-phase-2-syncmove.md`** | SyncMove — repair store registration after user moves files | PLANNED (Phase 2.1) |
+| **`04-phase-2-syncmove.md`** | Registration repair — repair store registration after the user moves files (no move/symlink/delete) | PLANNED (Phase 2.1) |
 | `102-tags-metadata-display.md` | Tags + local engine | Phases 1+2+4 ✅; Phase 3 → **119/120 COMPLETE** |
 | `103-detect-py-port-status.md` | C# vs detect.py parity gaps | **SUPERSEDED / REFERENCE** — use `docs/detection/07-csharp-parity.md` and `docs/detection/09-blueprint.md`; retained as historical parity audit |
 | `104-detect-py-module-split.md` | Split detect.py into modules | PLANNED (P3) |
 | `101-top-level-modes-and-filter.md` | Mode switcher + flatten + category folders | PLANNED. **F8/S filter shipped** (tags/stores/wildcard; not this plan’s full UI) |
 | `04-phase-2-metadata-lookup.md` | Historical Phase 2.2 (Cargo/SteamDB/IGDB) | **SUPERSEDED** by `119-metadata-sidecar.md` + `120-pcgw-identity-and-details.md` |
-| `04-phase-2.md` | Steam & standalone baseline | **Baseline COMPLETE**; leftover = SyncMove |
+| `04-phase-2.md` | Steam & standalone baseline | **Baseline COMPLETE**; leftover = registration repair |
 | `97-multi-theme-system.md` | Runtime theme switching | PLANNED |
 | `111-logging-toggle-readme-metadata.md` | Logging toggle / readme metadata | **PARTIAL** (2026-10-25) — Task 1 open; Tasks 2–3 shipped |
 | `110-user-tags-source-tagging.md` | User tags + override protection | **PARTIAL** — Phases 1–5 shipped; future phases remain |
@@ -110,7 +112,7 @@ This folder contains implementation plans following the FILE NAMING CONTRACT (`n
 | :--- | :--- |
 | `META/TASKS/COMPLETED/phase-h-mvp/STATUS.md` | MVP — complete (archived) |
 | `META/TASKS/phase-i-post-mvp/STATUS.md` | Post-MVP mode/filter tasks |
-| `META/TASKS/phase-j-followups/STATUS.md` | Deferred follow-ups; detection tier complete; SyncMove deferred |
+| `META/TASKS/phase-j-followups/STATUS.md` | Epic follow-ups; detection tier complete; registration repair pending |
 | `META/TASKS/phase-k-audit-followups/STATUS.md` | Docs/state hygiene — complete |
 | `META/TASKS/phase-l-detection-followups/STATUS.md` | Steam vs SteamEmu complete; later detector work |
 | `META/TASKS/phase-m-store-capabilities/STATUS.md` | Store matrix, launcher discovery, inventory import, health |

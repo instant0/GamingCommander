@@ -8,7 +8,7 @@
 | # | Task | Tier | Priority | Status |
 |---|------|------|----------|--------|
 | T135 | [Remove app-version backward compatibility](T135-remove-app-version-backcompat.md) | 2 | P2 | Done |
-| T134 | [Test suite reduction — one test per behavior](T134-test-suite-reduction.md) | 2 | P2 | Ready |
+| T134 | [Test suite reduction — one test per behavior](T134-test-suite-reduction.md) | 2 | P2 | Done |
 
 ## Execution Order
 

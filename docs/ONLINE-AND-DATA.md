@@ -70,7 +70,7 @@ written into game installs.
 
 | File | What | Why | When |
 |------|------|-----|------|
-| `settings.json` | Library roots, hidden folders, `EnableOnlineMetadata`, first-run / version | Remember setup | F2 close, first run |
+| `settings.json` | Library roots, hidden folders, launcher discovery setting + selected launchers, `EnableOnlineMetadata`, first-run / version | Remember setup | F2 close, first run, launcher setting/selection change |
 | `libraries.json` | Library anchors and their root folders | Remember roots | F2 / first run |
 | `games.json` | Offline VFS: name, source, exe, Steam URI or args, **ExtraLaunchArguments**, tags, user overrides | Launch and list | Scan / F4 save |
 | `games_metadata.json` | Sidecar extras only (developer, engine, wiki URL, paths, cmdline catalog, video, scores) | Pane + F4 catalog | After a successful lookup |
@@ -113,6 +113,20 @@ target folder is a refusal, not a creation.
 ## 3. Local files / registry we READ
 
 Only folders you add in F2, plus the well-known store keys already listed in `GamingCommander.Readme.txt` (Steam ACF, GOG `.info`, Epic `.item`, EA logs, Ubisoft, Battle.net, Rockstar, Xbox signals, selected HKLM install-path keys). All **read-only**.
+
+### 3.1 Launcher discovery setting
+
+Setup asks one question; the answer gates launcher reads:
+
+| Setting | Launcher locators | Registry fallback in folder scan | Epic ProgramData catalog |
+|---|---|---|---|
+| Automatic | every registered locator, on an explicit action | yes | yes |
+| Selected | only the launchers you checked, on an explicit action | yes | only if Epic is checked |
+| FileOnly | none | **no** | **no** |
+
+Discovery runs only on first run, **Detect launchers**, a setting change, or **Full rescan**. There is no startup probe, no per-launch probe, no watcher, and no background scan. The setting lives in `settings.json`; there is no second settings file.
+
+**FileOnly** means no registry and no `%ProgramData%` launcher reads: only the folders you add are scanned, and file signals still classify stores (Steam ACF/VDF, Epic `.egstore`/`.mancpn`, EA `__Installer`, Ubisoft `uplay_*`, Battle.net `.battle.net`/`.build.info`, Xbox `default-metadata.json`, Rockstar `title.rgl`, GOG files). Existing store-imported entries are kept, not deleted; they simply stop being refreshed by a launcher. Changed in F2 at any time.
 
 Shipped read: `data/blacklist.json` and `data/tag_colors.json` (blacklist also embedded).  
 Repo `testdata/` is tests/fixtures only — not copied to publish.

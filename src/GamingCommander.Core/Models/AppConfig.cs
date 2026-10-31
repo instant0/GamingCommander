@@ -22,4 +22,17 @@ public sealed record AppConfig(
     /// </summary>
     int ScanDepth = 3,
     /// <summary>Per-store indexing policy. Null means every store is disabled.</summary>
-    StorePolicySettings? StorePolicies = null);
+    StorePolicySettings? StorePolicies = null)
+{
+    /// <summary>
+    /// The Setup choice for launcher discovery. <see cref="LauncherDiscoverySetting.Unset"/>
+    /// means the user has not chosen yet, so nothing is probed.
+    /// </summary>
+    public LauncherDiscoverySetting LauncherDiscovery { get; init; } = LauncherDiscoverySetting.Unset;
+
+    /// <summary>
+    /// Launchers the user selected for discovery. Separate from <see cref="StorePolicies"/>:
+    /// this says what to look for, policy says what to do with a discovered store.
+    /// </summary>
+    public IReadOnlyList<GameSourceKind> SelectedLaunchers { get; init; } = [];
+}

@@ -5,7 +5,6 @@ using GamingCommander.App.Services;
 using GamingCommander.App.Services.Metadata;
 using GamingCommander.Core.Models;
 using GamingCommander.Core.Services;
-using GamingCommander.Migration;
 using GamingCommander.UI.ViewModels;
 
 namespace GamingCommander.App;
@@ -16,6 +15,12 @@ public partial class App : Application
         !string.Equals(Environment.GetEnvironmentVariable("GC_STARTUP_LOGGING"), "0", StringComparison.OrdinalIgnoreCase);
 
     private static string? _logFilePath;
+
+    /// <summary>Read-only launcher discovery registered at composition; the setup preview consumes it.</summary>
+    internal static LauncherDiscoveryService? LauncherDiscovery { get; private set; }
+
+    /// <summary>Per-store policy provider; one instance for the app.</summary>
+    internal static IStorePolicyProvider? StorePolicies { get; private set; }
 
     private static string GetLogPath()
     {
@@ -88,6 +93,10 @@ public partial class App : Application
                 var configService = new JsonConfigService(AppDataPaths.GetConfigPath(), WarnStore);
                 Log($"  ConfigPath: {AppDataPaths.GetConfigPath()}");
 
+                Log("Creating StorePolicyProvider...");
+                var storePolicies = new StorePolicyProvider(configService);
+                StorePolicies = storePolicies;
+
                 Log("Creating LibrariesDatabaseService...");
                 var librariesService = new LibrariesDatabaseService(AppDataPaths.GetLibrariesPath(), WarnStore);
                 Log($"  LibrariesPath: {AppDataPaths.GetLibrariesPath()}");
@@ -95,6 +104,10 @@ public partial class App : Application
                 Log("Loading config...");
                 AppConfig config = configService.Load();
                 Log($"  Config loaded: IsFirstRun={config.IsFirstRun}, Libraries={librariesService.Libraries.Count}");
+
+                // One runtime holder for the launcher discovery setting; setup updates it in place
+                // and scanners read a policy snapshot. Nothing is probed while composing.
+                var launcherDiscoveryContext = LauncherDiscoveryContext.FromConfig(config);
 
                 Log("Loading blacklist...");
                 var blacklist = new BlacklistLoader(baseDir).Load();
@@ -104,7 +117,23 @@ public partial class App : Application
                 IRegistryReader registryReader = OperatingSystem.IsWindows()
                     ? new WindowsRegistryReader()
                     : null!;
-                var scanner = new FolderScanner(config.HiddenFolders, blacklist, registryReader, config.ScanDepth);
+                var scanner = new FolderScanner(config.HiddenFolders, blacklist, registryReader, config.ScanDepth,
+                    () => launcherDiscoveryContext.Policy.AllowsRegistryFallback);
+
+                Log("Registering launcher locators...");
+                var launcherDiscovery = new LauncherDiscoveryService(
+                [
+                    new SteamLauncherLocator(
+                        () => librariesService.Libraries.SelectMany(l => l.Folders),
+                        registryReader ?? new NullRegistryReader()),
+                    new EpicLauncherLocator(),
+                    new GogLauncherLocator(registryReader ?? new NullRegistryReader()),
+                    new UbisoftLauncherLocator(registryReader ?? new NullRegistryReader()),
+                    new RockstarLauncherLocator(registryReader ?? new NullRegistryReader()),
+                    new XboxLauncherLocator(),
+                ]);
+                LauncherDiscovery = launcherDiscovery;
+                Log($"  Launcher locators registered; discovery setting: {config.LauncherDiscovery}");
 
                 Log("Creating SteamLibraryScanner...");
                 var steamPaths = librariesService.Libraries
@@ -114,10 +143,7 @@ public partial class App : Application
                 Log($"  Steam paths: {string.Join(", ", steamPaths)}");
 
                 Log("Creating LibraryManager...");
-                var libraryManager = new LibraryManager(librariesService, dbService, scanner, steamScanner);
-
-                Log("Creating DesignTimeMigrationPlanner...");
-                var migrationPlanner = new DesignTimeMigrationPlanner();
+                var libraryManager = new LibraryManager(librariesService, dbService, scanner, steamScanner, launcherDiscoveryContext);
 
                 string currentVersion = typeof(App).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
                 bool isNewerVersion = config.LastSeenVersion is not null
@@ -150,7 +176,8 @@ public partial class App : Application
 
                 Log("Creating MainWindow...");
                 var mainWindow = new MainWindow(
-                    shellVm, dbService, librariesService, libraryManager, configService, metadataService, onlineGate);
+                    shellVm, dbService, librariesService, libraryManager, configService, metadataService, onlineGate,
+                    storePolicies, launcherDiscovery, launcherDiscoveryContext);
                 Log("  MainWindow created");
 
                 desktop.MainWindow = mainWindow;
@@ -159,7 +186,10 @@ public partial class App : Application
                 if (needsWizard)
                 {
                     Log("Opening LibrarySetupWindow (auto-open)...");
-                    var setupWindow = new LibrarySetupWindow(configService, dbService, libraryManager, isFirstRun: true);
+                    var setupWindow = new LibrarySetupWindow(
+                        configService, dbService, libraryManager,
+                        storePolicies: storePolicies, launcherDiscovery: launcherDiscovery,
+                        isFirstRun: true, discoveryContext: launcherDiscoveryContext);
                     mainWindow.Show();
                     setupWindow.ShowDialog(mainWindow);
                     Log("  LibrarySetupWindow opened");

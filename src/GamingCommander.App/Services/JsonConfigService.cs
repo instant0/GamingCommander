@@ -33,7 +33,13 @@ public sealed class JsonConfigService : IConfigService
             LastSeenVersion: loaded.LastSeenVersion,
             EnableOnlineMetadata: loaded.EnableOnlineMetadata,
             ScanDepth: loaded.ScanDepth > 0 ? loaded.ScanDepth : 3,
-            StorePolicies: MapPolicies(loaded.StorePolicies));
+            StorePolicies: MapPolicies(loaded.StorePolicies))
+        {
+            LauncherDiscovery = MapLauncherDiscovery(
+                loaded.LauncherDiscovery,
+                fileMissing: result.Status == StoreReadStatus.Missing),
+            SelectedLaunchers = MapSelectedLaunchers(loaded.SelectedLaunchers),
+        };
     }
 
     /// <summary>Serializes and persists the application configuration to disk.</summary>
@@ -47,9 +53,47 @@ public sealed class JsonConfigService : IConfigService
             EnableOnlineMetadata = config.EnableOnlineMetadata,
             ScanDepth = config.ScanDepth,
             StorePolicies = MapPolicies(config.StorePolicies),
+            LauncherDiscovery = config.LauncherDiscovery.ToString(),
+            SelectedLaunchers = LauncherKinds.All
+                .Where(config.SelectedLaunchers.Contains)
+                .Select(kind => kind.ToString())
+                .ToList(),
         };
 
         _store.Write(dto);
+    }
+
+    /// <summary>
+    /// Missing file: the user has not chosen yet, so nothing may be probed. An existing file
+    /// without the field predates this setting and keeps the legacy "discover everything".
+    /// </summary>
+    private static LauncherDiscoverySetting MapLauncherDiscovery(string? name, bool fileMissing)
+    {
+        if (!string.IsNullOrWhiteSpace(name)
+            && Enum.TryParse(name, ignoreCase: true, out LauncherDiscoverySetting parsed)
+            && Enum.IsDefined(parsed))
+        {
+            return parsed;
+        }
+
+        return fileMissing
+            ? LauncherDiscoverySetting.Unset
+            : LauncherDiscoverySetting.Automatic;
+    }
+
+    private static IReadOnlyList<GameSourceKind> MapSelectedLaunchers(List<string>? names)
+    {
+        if (names is null || names.Count == 0)
+            return [];
+
+        var selected = new HashSet<GameSourceKind>();
+        foreach (string? name in names)
+        {
+            if (TryParseLauncher(name, out GameSourceKind kind))
+                selected.Add(kind);
+        }
+
+        return LauncherKinds.All.Where(selected.Contains).ToList();
     }
 
     private static StorePolicySettings MapPolicies(StorePolicySettingsDto? dto)
@@ -121,6 +165,8 @@ public sealed class JsonConfigService : IConfigService
         public bool EnableOnlineMetadata { get; set; }
         public int ScanDepth { get; set; } = 3;
         public StorePolicySettingsDto? StorePolicies { get; set; }
+        public string? LauncherDiscovery { get; set; }
+        public List<string>? SelectedLaunchers { get; set; }
     }
 
     private sealed class StorePolicySettingsDto

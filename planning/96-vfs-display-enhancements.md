@@ -30,7 +30,7 @@ The Steam status UI (Installed/Moved/Orphaned) is currently shown only in the ri
 | `HexToBrushConverter` for runtime hex → brush | ✅ Done | `HexToBrushConverter.cs` |
 | Left-pane list coloring | ❌ Missing | — |
 | ACF-expects-but-missing detection | ❌ Missing | — |
-| Cross-library mismatch repair action | ❌ Depends on SyncMove | — |
+| Cross-library mismatch repair action | ❌ Depends on registration repair | — |
 
 ### What's Missing
 
@@ -88,7 +88,7 @@ For "Missing" entries, populate:
 - `AcfLibraryPath` — where the ACF lives
 - `AcfFilePath` — full path to the ACF
 - `AcfName` — game name from ACF (since there's no folder to read)
-- `ManifestPath` — set to ACF path (enables future SyncMove repair)
+- `ManifestPath` — set to ACF path (enables future registration repair)
 
 The `ExecutablePath` will be empty (no files exist), `FolderName` = `installdir` from ACF.
 
@@ -263,7 +263,7 @@ MainWindow.axaml
 
 ## Constraints
 
-- **No file movement.** This plan only adds detection and display. Actual repair (ACF relocation) belongs to SyncMove (Plan 04-phase-2-syncmove.md).
+- **No file movement.** This plan only adds detection and display. Registration repair (no move/delete) belongs to `04-phase-2-syncmove.md`.
 - **No new external dependencies.** Uses existing `HexToBrushConverter` and `DynamicResource` system.
 - **Backward compatible.** New Extra fields are optional; existing code ignores unknown keys.
 
@@ -280,8 +280,8 @@ Phase is complete when:
 
 ---
 
-## Out of Scope (Deferred to SyncMove)
+## Out of Scope (Deferred to registration repair)
 
-- ACF repair / move action (F6 SyncMove dialog)
+- ACF repair action (F6 repair dialog), with no move or delete
 - Epic .item cross-library detection (Epic doesn't have multi-library in the same way)
 - GOG, EA, Ubisoft mismatch detection (not yet implemented scanners)

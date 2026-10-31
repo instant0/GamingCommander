@@ -61,7 +61,7 @@ Deliver the functional Norton Commander-style dual-pane interface with a details
 | `F2` | Library Root Setup (add/remove/rescan roots) | Game Setup (edit selected game) |
 | `F4` | — | Look up game metadata (Phase 2.2) |
 | `F5` | — | Launch selected game (Phase 2+) |
-| `F6` | — | SyncMove selected game (Phase 2.1) |
+| `F6` | — | Registration repair for selected game (Phase 2.1) |
 | `F9` | — (already at root level) | Jump to library-root drive listing |
 | `Enter` | Drill into library root | Show game details |
 | `Backspace` | — | Go back to library-root listing |
@@ -69,7 +69,7 @@ Deliver the functional Norton Commander-style dual-pane interface with a details
 | `T` | — | Retag selected game (Phase 1.1) |
 
 > **Virtual file system**: Normal navigation reads from `data/games.json`. The real filesystem is only touched during Setup/Rescan.
-> **No copy, ren/mov, mkdir, or delete.** These are not general-purpose file management features. The only move operation is **SyncMove** (Phase 2.1) — a manifest-aware sync move for Steam/Epic/etc. games.
+> **No copy, ren/mov, mkdir, or delete.** These are not general-purpose file management features. Registration repair (Phase 2.1) writes only the store record for Steam/Epic; it never moves game data and never deletes launcher files.
 > **Two-level model:** root default type + per-game override. Override takes precedence.
 
 ---

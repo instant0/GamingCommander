@@ -6,6 +6,10 @@
 **Status:** pending
 **Prerequisites:** Task T119 depends on Task T118
 
+> **Test policy (2026-10-31):** new tests follow `planning/136-test-suite-reduction.md` — use
+> `TestSupport/TempDirectory` and `TestGame`, one test per behavior/failure, no app-version back-compat
+> tests.
+
 ## Objective
 
 Compare each launcher's available inventory with the disk, set `InstallState` (`Installed` / `Moved` /

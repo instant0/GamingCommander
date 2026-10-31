@@ -1,65 +1,19 @@
-# Task T117A: Locators for Steam, Epic, GOG, EA, Ubisoft
+# Task T117A: Locators — File-Backed Stores (split)
 
-**Tier:** 3 — Logic/Behavior
-**Phase:** M — Store Capabilities
-**Risk:** Medium
-**Status:** pending
-**Prerequisites:** Task T117A depends on Task T117
+**Status:** split (2026-10-31) — do not execute this document.
+**Split into:**
+- [T117A1 — Steam and Epic (known)](T117A1-locators-steam-epic.md) — **done**
+- [T117A2 — GOG (known file signals; Galaxy path)](T117A2-locator-gog.md)
+- [T117A3 — Ubisoft registry inventory](T117A3-locator-ubisoft.md) — the preview needs this source; EA stays detection-only
 
-## Objective
+## Why this split
 
-Implement the file-backed launcher locators. Each returns the launcher install path and the
-inventory source we can read, with an explicit read-only safety rating.
+Steam is resolved from **files** (`steamapps`, ACF, vdf) and Epic from the **known ProgramData manifests**
+directory. Those are understood and shipped. GOG's per-game registry/`.info` signals are already used for
+classification and its Galaxy path is documented.
 
-## What Needs to Change
+EA and Ubisoft are the unknowns: the existing file/registry signals classify folders, but a launcher data
+source (install record/inventory) is not confirmed. They go through the data-source research task first.
 
-### 1. Steam
-- [ ] Probe `HKLM\SOFTWARE\Valve\Steam\InstallPath`, `HKCU\Software\Valve\Steam\SteamPath`, the `WOW6432Node` variant, and the default path.
-- [ ] Confirm the library source: `steamapps\libraryfolders.vdf` + `steamapps\common`.
-- [ ] `ReadOnlySafety.Safe`.
-
-### 2. Epic
-- [ ] Primary source is the fixed `%ProgramData%\Epic\EpicGamesLauncher\Data\Manifests` path (already used by
-      `EpicManifestPaths`). Probing `HKLM\SOFTWARE\WOW6432Node\Epic Games\EpicGamesLauncher\AppDataPath` and
-      `LauncherInstalled.dat` is optional: verify the key exists on a real install before coding it, and
-      never make the manifest path depend on it.
-- [ ] `ReadOnlySafety.Safe` (identification only; no registration; `.item` regeneration is out of scope).
-
-### 3. GOG
-- [ ] Probe `GOG.com\GalaxyClient\paths\client` / `common`, `GOG.com\DefaultPackPath`, and the default Galaxy path.
-- [ ] Mark the Galaxy SQLite DB as `NeedsVerification`; the per-game registry + `.info` are `Safe`.
-
-### 4. EA
-- [ ] Probe `Electronic Arts\EA Desktop\InstallLocation` / `LauncherAppPath`, `EA Core\ClientPath`, and the legacy EA Games path.
-- [ ] Mark the encrypted `IS` inventory as `Unsupported`; legacy `installerdata.xml`/`.mfst` as `NeedsVerification`.
-
-### 5. Ubisoft
-- [ ] Probe `Ubisoft\Launcher\InstallDir` and `Ubisoft\Launcher\Installs\{gameId}\InstallDir`.
-- [ ] Registry is `Safe`; `uplay_install.manifest` is `NeedsVerification`.
-
-## Context
-
-- Evidence and paths: `docs/research/launcher_discovery.md`, `planning/129` §2.
-- Use the repository's registry abstraction (`IRegistryReader`) so tests can use mock `.reg` data.
-- Registry values and documented defaults are the only path sources. Never take an inventory root from
-  `data/games.json` or from an unvalidated override.
-
-## Requirements
-
-- [ ] Every locator validates that a plausible inventory source exists before reporting `Found`.
-- [ ] Missing keys/values return `Not found` with a reason, not an exception.
-- [ ] Reject relative paths, UNC paths, and roots outside the launcher's documented locations.
-- [ ] No writes, no directory creation, and no network access.
-
-## Verification
-
-- [ ] Unit tests with mock registry keys and temp folders for each store.
-- [ ] `dotnet build` / `dotnet test` green.
-- [ ] No regression to `SteamInstallPathLocator`.
-
-## Completion Notes
-
-- **Completed:**
-- **What was done:**
-- **Verification:**
-- **Issues encountered:**
+Do not merge them back into one checklist. `T136` decides whether a source is implementable; the locator
+task then follows that decision or leaves the store `Unsupported`.

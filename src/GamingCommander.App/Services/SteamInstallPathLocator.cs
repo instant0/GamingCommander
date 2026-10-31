@@ -22,8 +22,14 @@ public sealed class NullRegistryReader : IRegistryReader
 /// </summary>
 public sealed class SteamInstallPathLocator
 {
-    private const string ValveSteamKey = @"HKEY_LOCAL_MACHINE\SOFTWARE\Valve\Steam";
     private const string InstallPathValue = "InstallPath";
+
+    private static readonly (string Key, string Value)[] InstallSources =
+    [
+        (@"HKEY_LOCAL_MACHINE\SOFTWARE\Valve\Steam", InstallPathValue),
+        (@"HKEY_CURRENT_USER\Software\Valve\Steam", "SteamPath"),
+    ];
+
     private readonly IRegistryReader _registry;
 
     public SteamInstallPathLocator(IRegistryReader registry)
@@ -34,8 +40,14 @@ public sealed class SteamInstallPathLocator
     /// <summary>The Steam install path from the registry, or null when Steam is not installed.</summary>
     public string? FindInstallPath()
     {
-        string? raw = _registry.ReadStringValue(ValveSteamKey, InstallPathValue);
-        return string.IsNullOrWhiteSpace(raw) ? null : PathText.TrimTrailingSeparators(raw);
+        foreach ((string key, string value) in InstallSources)
+        {
+            string? raw = _registry.ReadStringValue(key, value);
+            if (!string.IsNullOrWhiteSpace(raw))
+                return PathText.TrimTrailingSeparators(raw);
+        }
+
+        return null;
     }
 
     /// <summary>

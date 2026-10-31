@@ -6,6 +6,10 @@
 **Status:** pending
 **Prerequisites:** Task T118 depends on Task T117, Task T120, Task T123, and Task T130 (it persists through the shared store)
 
+> **Test policy (2026-10-31):** new tests follow `planning/136-test-suite-reduction.md` — use
+> `TestSupport/TempDirectory` and `TestGame`, one test per behavior/failure, no app-version back-compat
+> tests. Sub-reader tests extend the owning suite; do not create a duplicate fixture per store.
+
 ## Objective
 
 Read each launcher's own installed-game inventory (read-only), map it into normal `GameEntry`
@@ -28,26 +32,30 @@ the "populate the inventory like a normal file scanner" proposal.
       Steam/Epic-global as `Locked`, Epic-local and GOG as `Secure`, and heuristic discoveries as
       `Candidate`. A store record identifies the game; `Installed` still requires the folder on disk.
 - [ ] Keep import **idempotent**: re-running must not duplicate entries; match by `StoreKey`, then by normalized install path (`PathText`). A name-only match is allowed only inside the same store and only when exactly one existing entry has that name.
-- [ ] Expose the same import entry point to first-run (T117B) and startup sync (T121).
+- [ ] Expose the same import entry point to first-run (T117B2) and startup sync (T121).
 - [ ] Build the `GameStoreIndex` in the import path (it is currently built only in tests) so duplicate checks are O(1), not a scan.
 - [ ] Never write to store files.
 
 **What can actually be imported today:** only Steam (ACF + `common`) and Epic (ProgramData `*.item`) have a
-usable launcher inventory. GOG/EA/Ubisoft/Battle.net/Rockstar are best-effort registry or marker
-detection with no complete inventory; Xbox has none. The import service must accept a reader that returns
-an empty or partial list without inventing entries, and must not infer "removed" from a store that has no
-inventory.
+usable launcher inventory. GOG and Rockstar have registry-based inventory; Ubisoft has a registry list
+(`Installs\{gameId}\InstallDir`) marked `NeedsVerification`; EA and Battle.net are detection-only; Xbox has
+none. The import service must accept a reader that returns an empty or partial list without inventing
+entries, and must not infer "removed" from a store that has no inventory.
 
 ### 3. Identity
-- [ ] Add/confirm stable IDs per store (`StoreInfo`/`GameIdentity`): GOG, EA content ID, Ubisoft game ID, Battle.net product code, Rockstar title ID. Xbox has no stable id in this version (no package reader).
+- [ ] Add/confirm stable IDs per store (`StoreInfo`/`GameIdentity`): GOG, Rockstar title ID. EA content ID, Ubisoft game ID, and Battle.net product code only if T136 confirms their sources. Xbox has no stable id in this version.
 - [ ] Add contract/pin tests for any persisted ID.
 
 ### 4. Subtasks
 - [ ] T118A Steam + GOG.
-- [ ] T118B Epic + EA.
-- [ ] T118C Ubisoft + Battle.net + Rockstar.
+- [ ] T118B Epic.
+- [ ] T118B2 EA (blocked by T136; detection-only unless a source is confirmed).
+- [ ] T118C Rockstar (registry + `title.rgl`; no `Settings.json` yet).
+- [ ] T118C2 Ubisoft (blocked by T136).
+- [ ] T118C3 Battle.net (blocked by T136; no SQLite reader by default).
 - [ ] Xbox has **no inventory reader** in this version: marker-only detection, no package API, no package
-      family id. Do not add an Xbox reader here or in T118C.
+      family id.
+- [ ] Arc: no reader until T136 decides whether it is a distinct store.
 
 ## Context
 

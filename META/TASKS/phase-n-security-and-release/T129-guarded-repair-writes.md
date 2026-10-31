@@ -93,7 +93,7 @@ Epic already wrote. Neither creates a directory outside the application data roo
 - `App/Services/EpicItemWriter.cs:65` creates the ProgramData manifests folder, `:74-78` replaces a
   corrupt item (via `IsHollowItem`), and `:143-148` rewrites the whole schema.
 - `MainWindow.PlatformRepair.cs` is the only UI entry point for both.
-- `META/ADR/005-migration-safety.md` requires a preview and a backup for replaced files.
+- `META/ADR/005-registration-repair-safety.md` requires a preview and a backup for replaced files.
 - `data/staging/`, `data/backups/`, and `AppPaths.EnsureAppDataPath` come from `planning/132`.
 
 ## Requirements

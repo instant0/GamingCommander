@@ -11,8 +11,8 @@ Thanks for contributing to GamingCommander.
 ## Development Expectations
 
 - Keep launcher integrations isolated.
-- Treat migration code as safety-critical.
-- Add tests for parsers, registry readers, and migration flows when applicable.
+- Treat registration-repair code as safety-critical.
+- Add tests for parsers, registry readers, and registration-repair flows when applicable.
 - Avoid committing secrets, local machine paths, or generated launcher caches.
 
 ## Pull Requests

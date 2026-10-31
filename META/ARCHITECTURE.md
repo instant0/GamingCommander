@@ -12,7 +12,7 @@ GamingCommander separates:
 - domain logic
 - launcher integrations
 - detection
-- migration
+- registration repair
 - persistence
 
 The core application must not depend on specific launcher implementations.
@@ -27,7 +27,7 @@ The core application must not depend on specific launcher implementations.
 | ADR-002 | Virtual File System Model | 2025-02-10 | Accepted |
 | ADR-003 | Two-Level Game Classification | 2025-03-01 | Accepted |
 | ADR-004 | Read-Only Detection | 2025-01-20 | Accepted |
-| ADR-005 | Migration Safety | 2025-01-20 | Accepted |
+| ADR-005 | Registration Repair Safety | 2025-01-20 | Accepted |
 | ADR-006 | Norton Commander UI Direction | 2025-01-15 | Accepted |
 | ADR-007 | Game Metadata Normalization | 2025-02-10 | Accepted |
 | ADR-008 | Isolated Launcher Integrations | 2025-01-15 | Accepted |
@@ -69,17 +69,15 @@ GamingCommander.sln
 ├── src/
 │   ├── GamingCommander.Core/        Interface definitions + domain models
 │   ├── GamingCommander.Detection/   Game discovery abstractions + stub
-│   ├── GamingCommander.Migration/   Migration planning abstractions + stub
 │   ├── GamingCommander.UI/          ViewModels (Norton Commander shell)
 │   └── GamingCommander.App/         Avalonia app entry, windows, services, DI wiring
 └── tests/
     ├── GamingCommander.Core.Tests/
     ├── GamingCommander.Detection.Tests/
-    ├── GamingCommander.Migration.Tests/
     └── GamingCommander.App.Tests/
 ```
 
-**Dependency flow:** Core ← Detection ← UI ← App. Migration sits alongside Detection.
+**Dependency flow:** Core ← Detection ← UI ← App.
 
 ### Executable Detection Pipeline
 
@@ -109,7 +107,7 @@ EnableOnlineMetadata + Online chip
 
 SteamDB, Cargo, Epic GraphQL, IGDB are **not** in the product. Contract: `docs/ONLINE-AND-DATA.md`.
 
-### Future Migration Repair Pipeline
+### Registration Repair Pipeline
 
 The app does NOT move game files. The user moves files with OS tools. The app only
 repairs launcher registration after a relocation is detected.
@@ -129,7 +127,7 @@ Recorded here for quick reference. Full context in ADR files.
 | Launcher Integration | Launcher logic isolated behind interfaces | Support multiple stores without modifying core |
 | Game Metadata | Normalized domain objects (not launcher-specific) | Steam/GOG/Epic expose different data formats |
 | Detection | Read-only | Scanning must not modify user data |
-| Migration | Treated as safety-critical | Validate, preserve recovery info, avoid destructive actions |
+| Registration repair | Treated as safety-critical | Validate, preserve recovery info, avoid destructive actions |
 | UI Direction | Norton Commander-inspired, modern resizable Windows app | Adaptive layout, keyboard-friendly, clear navigation |
 
 ---
@@ -139,7 +137,7 @@ Recorded here for quick reference. Full context in ADR files.
 Appended after post-MVP alignment. Does not replace ADRs above.
 
 - **Scanning lives in App**, not the Detection project. `LibraryManager` selects `SteamLibraryScanner` vs `FolderScanner`. `GamingCommander.Detection` is a deprecated stub kept so project references still compile.
-- **Migration is not implemented.** `IMigrationPlanner` / `DesignTimeMigrationPlanner` produce dry-run summaries only. Real repair is Plan SyncMove (`planning/04-phase-2-syncmove.md`).
+- **Registration repair is not fully implemented.** The two guarded writers (Steam ACF create, Epic `.item` modify) exist; automatic mismatch detection and cross-library ACF copy plus stray-ACF advisory are planned (`planning/04-phase-2-syncmove.md`).
 - **Multi-store detection ≠ multi-store clients.** Folder signals + registry fallback classify GOG/Epic/EA/Ubisoft/Battle.net/Rockstar. There is no GOG Galaxy / Epic / EA / Ubisoft API or repair path yet.
 - **Epic local manifests shipped** (Plan 109). Online extras: PCGW + Steam Store only (`docs/ONLINE-AND-DATA.md`).
 - **Rescan is F5**, async and cancellable. Enter launches. Esc/Backspace goes up. No F9.
@@ -175,7 +173,7 @@ Appended after Plans 124/125 shipped. Does not replace ADRs above.
 - **Anchor-based persistence (Plan 124):** `libraries.json` holds named `Library` anchors (`Name`, `Type`, `Folders[]`); `games.json` is a **flat** `games[]` list where each `GameEntry` links to an anchor by `Library` name and carries its own physical `FolderPath`. `GameRoot`/`LibraryRoot` are gone; `AppConfig` no longer holds roots. **Correction to the Navigation Flow above: there is no F9** — the top level is reached via Esc/Backspace, and roots/games are read from `libraries.json` + `games.json`.
 - **Test baseline:** Plan 125 recorded 564 tests green (App 398 + Core 165 + Migration 1).
 - **Epic orphan `.item` write is display-only:** Plan 126 proved the EOSH reported set is server/account-driven; a written `.item`/`.egi` cannot register an app EOSH does not report. Do not advertise registration for unreported Epic installs.
-- **Open product work:** Plan 123 Phase 4 C# detection port; SyncMove Phase 2.1 manifest repair.
+- **Open product work:** Plan 123 Phase 4 C# detection port; registration repair (Phase 2.1).
 
 ---
 
